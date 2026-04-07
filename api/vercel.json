@@ -6,16 +6,6 @@
       "use": "@vercel/next"
     }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/pages/$1"
-    }
-  ],
   "env": {
     "DATABASE_URL": "@database_url",
     "STRIPE_SECRET_KEY": "@stripe_secret_key",
