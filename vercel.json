@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
   "env": {
     "DATABASE_URL": "@database_url",
     "STRIPE_SECRET_KEY": "@stripe_secret_key",
