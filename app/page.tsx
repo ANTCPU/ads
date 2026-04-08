@@ -89,7 +89,7 @@ export default function Page() {
           lineHeight: '1.7',
         }}>
           The central hub for automated marketing systems.
-          Launch 1 ad for <strong style={{ color: '#fff' }}>$9.99/month</strong> — 
+          Launch 1 ad for <strong style={{ color: '#fff' }}>$9.99/month</strong> —
           earn attention, climb the ladder, scale your reach.
         </p>
 
@@ -159,20 +159,16 @@ export default function Page() {
       </section>
 
       {/* LADDER */}
-      <section style={{
-        maxWidth: '860px',
-        margin: '0 auto',
-        padding: '0 2rem 5rem',
-      }}>
+      <section style={{ maxWidth: '860px', margin: '0 auto', padding: '0 2rem 5rem' }}>
         <h2 style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '2.5rem', textAlign: 'center' }}>
           The Promotion Ladder
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           {[
-            { level: 'Entry',    pts: 'Start here',  desc: 'Standard rotation across the network',           color: '#333', glow: '#333' },
-            { level: 'Rising',   pts: '100 pts',     desc: 'Higher priority + increased impressions',         color: '#0070f3', glow: '#0070f330' },
-            { level: 'Featured', pts: '300 pts',     desc: 'Featured placement + cross-channel distribution', color: '#7928ca', glow: '#7928ca30' },
-            { level: 'Top Tier', pts: '750 pts',     desc: 'Full network + creator channel integrations',     color: '#ff0080', glow: '#ff008030' },
+            { level: 'Entry',    pts: 'Start here', desc: 'Standard rotation across the network',            color: '#333', glow: '#33333330' },
+            { level: 'Rising',   pts: '100 pts',    desc: 'Higher priority + increased impressions',          color: '#0070f3', glow: '#0070f330' },
+            { level: 'Featured', pts: '300 pts',    desc: 'Featured placement + cross-channel distribution',  color: '#7928ca', glow: '#7928ca30' },
+            { level: 'Top Tier', pts: '750 pts',    desc: 'Full network + creator channel integrations',      color: '#ff0080', glow: '#ff008030' },
           ].map(({ level, pts, desc, color, glow }) => (
             <div key={level} style={{
               background: '#0a0a0a',
@@ -222,7 +218,7 @@ export default function Page() {
           <p style={{ color: '#555', marginBottom: '2.5rem', fontSize: '1rem' }}>
             1 ad. $9.99/month. No contracts. Cancel anytime.
           </p>
-          <a href="mailto:antcpu@gmail.com style={{
+          <a href="mailto:antcpu@gmail.com" style={{
             display: 'inline-block',
             background: 'linear-gradient(135deg, #0070f3, #7928ca)',
             color: '#fff',
