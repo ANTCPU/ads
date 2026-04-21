@@ -174,42 +174,24 @@ function OnboardingTracker({ name, brand }: { name: string; brand: string }) {
 
 // ── Main Page ──────────────────────────────────────────────────
 export default function Page() {
-  // TODO: SUPABASE AUTH — replace savedUser logic with:
+  // TODO: SUPABASE AUTH — replace this block with:
   // const [session, setSession] = useState<Session | null>(null);
   // useEffect(() => { supabase.auth.getSession().then(({ data }) => setSession(data.session)); }, []);
-  const [savedUser, setSavedUser] = useState<{ name: string; email: string; brand: string } | null>(null);
-  const [hydrated, setHydrated] = useState(false);
+  const stored = typeof window !== 'undefined' ? localStorage.getItem('arena_user') : null;
+  const savedUser = stored ? JSON.parse(stored) : null;
+
   const [step, setStep] = useState(0);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(!!savedUser);
   const [loading, setLoading] = useState(false);
+  const [loggedOut, setLoggedOut] = useState(false);
   const [form, setForm] = useState({
-    name: '', email: '', brand_name: '', website_url: '',
+    name: savedUser?.name || '',
+    email: savedUser?.email || '',
+    brand_name: savedUser?.brand || '',
+    website_url: '',
     ad_category: '', has_used_ad_service: false, previous_ad_service: '',
     promo_code: '', message: '',
   });
-
-  React.useEffect(() => {
-    // TODO: SUPABASE AUTH — replace with supabase.auth.getSession()
-    const stored = localStorage.getItem('arena_user');
-    if (stored) {
-      const user = JSON.parse(stored);
-      setSavedUser(user);
-      setForm(f => ({ ...f, name: user.name, email: user.email, brand_name: user.brand }));
-      setSubmitted(true);
-    }
-    setHydrated(true);
-  }, []);
-
-  const handleLogout = () => {
-    // TODO: SUPABASE AUTH — replace with supabase.auth.signOut()
-    localStorage.removeItem('arena_user');
-    setSavedUser(null);
-    setSubmitted(false);
-    setStep(0);
-    setForm({ name: '', email: '', brand_name: '', website_url: '', ad_category: '', has_used_ad_service: false, previous_ad_service: '', promo_code: '', message: '' });
-  };
-
-  if (!hydrated) return null;
 
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
 
@@ -242,14 +224,27 @@ export default function Page() {
 
 
   // ── Submitted: show onboarding tracker ──
-    if (submitted) {
-      return (
-        <div style={s.page}>
-          <HamburgerNav userName={form.email} onLogout={handleLogout} />
-          <OnboardingTracker name={form.name} brand={form.brand_name} />
-        </div>
-      );
-    }
+  
+  if (submitted && !loggedOut) {
+    return (
+      <div style={s.page}>
+            <HamburgerNav userName={form.email} onLogout={() => {
+              // TODO: SUPABASE AUTH — replace with: supabase.auth.signOut()
+              localStorage.removeItem('arena_user');
+              setLoggedOut(true);
+            }} />
+
+      </div>
+    );
+  }
+
+  // ── Logged out: back to marketing page ──
+  if (loggedOut) {
+    setSubmitted(false);
+    setLoggedOut(false);
+    setStep(0);
+    setForm({ name: '', email: '', brand_name: '', website_url: '', ad_category: '', has_used_ad_service: false, previous_ad_service: '', promo_code: '', message: '' });
+  }
 
   return (
     <div style={s.page}>
