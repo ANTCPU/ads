@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { MAPOFPI_KB } from './clients/mapofpi/kb';
 import { createClient } from '@supabase/supabase-js';
 import { useSession } from '../lib/useSession';
 
@@ -364,48 +365,52 @@ export default function Page() {
         ))}
       </div>
 
-      {/* ── MAP OF PI PARTNER SECTION ── */}
-      <div style={s.mapSection}>
-        <div style={s.mapBadge}>🗺️ Featured Partner</div>
-        <div style={s.mapGrid}>
-          <div style={s.mapLeft}>
-            <img
-              src="https://static.wixstatic.com/media/de4f1f_433bdb1882914f1b959b5053bedc2dbb~mv2.png"
-              alt="Map of Pi world map"
-              style={s.mapImg}
-            />
+      {/* ── FEATURED PARTNER — MAP OF PI ── */}
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 2rem 4rem' }}>
+        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', padding: '2rem', position: 'relative' as const, overflow: 'hidden' as const }}>
+          {/* top accent line */}
+          <div style={{ position: 'absolute' as const, top: 0, left: 0, right: 0, height: '3px', background: 'linear-gradient(90deg, #7928ca, #0070f3)' }} />
+          {/* badge row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' as const }}>
+            <span style={{ fontSize: '0.7rem', fontFamily: 'monospace', letterSpacing: '0.1em', color: '#555', textTransform: 'uppercase' as const }}>🗺️ Featured Partner</span>
+            <span style={{ fontSize: '0.7rem', background: '#7928ca15', border: '1px solid #7928ca40', borderRadius: '999px', padding: '0.2rem 0.75rem', color: '#b388ff' }}>🏆 {MAPOFPI_KB.awards[0]}</span>
+            <span style={{ fontSize: '0.7rem', background: '#0070f315', border: '1px solid #0070f340', borderRadius: '999px', padding: '0.2rem 0.75rem', color: '#0070f3' }}>v{MAPOFPI_KB.version}</span>
           </div>
-          <div style={s.mapRight}>
-            <div style={s.mapLabel}>🏆 2024 Pi Commerce Hackathon Winner</div>
-            <h2 style={s.mapTitle}>Map of Pi</h2>
-            <p style={s.mapDesc}>
-              The world's most used crypto global marketplace. Find trusted Pi merchants, buy and sell everyday goods, and connect with 2.1M+ pioneers worldwide — all inside the Pi Browser.
-            </p>
-            <div style={s.mapStats}>
-              {[
-                { val: '2.1M+', lbl: 'Registered Users' },
-                { val: '148K',  lbl: 'Sellers' },
-                { val: '173K',  lbl: 'Transactions' },
-              ].map(({ val, lbl }) => (
-                <div key={lbl} style={s.mapStat}>
-                  <div style={s.mapStatVal}>{val}</div>
-                  <div style={s.mapStatLbl}>{lbl}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const, marginTop: '1.5rem' }}>
-              <a href="https://mapofpi.com" target="_blank" rel="noreferrer" style={s.mapBtn}>
-                Visit mapofpi.com →
-              </a>
-              <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" style={s.mapBtnSecond}>
-                ▶ YouTube Channel
-              </a>
-            </div>
+          {/* name + tagline */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.3rem' }}>{MAPOFPI_KB.name}</div>
+            <div style={{ color: '#666', fontSize: '0.9rem', maxWidth: '560px' }}>{MAPOFPI_KB.messaging.core}</div>
           </div>
-        </div>
-        <div style={s.mapComingSoon}>
-          <span style={s.mapComingSoonLabel}>📹 Coming Soon</span>
-          <span style={s.mapComingSoonText}>Map of Pi Video Ad Creator — build and launch your own Pi commerce ad in minutes</span>
+          {/* stats row */}
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' as const, marginBottom: '1.5rem', padding: '1rem', background: '#0a0a0a', borderRadius: '10px', border: '1px solid #1a1a1a' }}>
+            {[
+              { val: MAPOFPI_KB.stats.users,        lbl: 'Registered Users' },
+              { val: MAPOFPI_KB.stats.sellers,       lbl: 'Sellers' },
+              { val: MAPOFPI_KB.stats.transactions,  lbl: 'Transactions' },
+              { val: MAPOFPI_KB.stats.piPrice,       lbl: 'Pi Price' },
+            ].map(({ val, lbl }) => (
+              <div key={lbl} style={{ textAlign: 'center' as const, flex: 1, minWidth: '80px' }}>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0070f3' }}>{val}</div>
+                <div style={{ fontSize: '0.65rem', color: '#555', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginTop: '0.2rem' }}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+          {/* affiliation note */}
+          <div style={{ fontSize: '0.8rem', color: '#555', marginBottom: '1.25rem', padding: '0.75rem 1rem', background: '#7928ca08', border: '1px solid #7928ca20', borderRadius: '8px' }}>
+            🤝 {MAPOFPI_KB.antcpuAffiliation.offer} — {MAPOFPI_KB.antcpuAffiliation.goal}
+          </div>
+          {/* cta buttons */}
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const }}>
+            <a href={MAPOFPI_KB.url} target="_blank" rel="noreferrer" style={{ background: '#0070f3', color: '#fff', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '0.9rem' }}>
+              Visit {MAPOFPI_KB.name} →
+            </a>
+            <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" style={{ background: 'transparent', color: '#666', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: 500, textDecoration: 'none', fontSize: '0.9rem', border: '1px solid #333' }}>
+              ▶ YouTube
+            </a>
+            <span style={{ display: 'flex', alignItems: 'center', fontSize: '0.75rem', color: '#444', fontFamily: 'monospace' }}>
+              📹 Video Ad Creator — coming soon
+            </span>
+          </div>
         </div>
       </div>
 
