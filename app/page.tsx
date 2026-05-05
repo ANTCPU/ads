@@ -354,6 +354,54 @@ export default function Page() {
         ))}
       </div>
 
+      {/* ── MAP OF PI PARTNER SECTION ── */}
+      <div style={s.mapSection}>
+        <div style={s.mapBadge}>🗺️ Featured Partner</div>
+        <div style={s.mapGrid}>
+          <div style={s.mapLeft}>
+            <img
+              src="https://static.wixstatic.com/media/de4f1f_433bdb1882914f1b959b5053bedc2dbb~mv2.png"
+              alt="Map of Pi world map"
+              style={s.mapImg}
+            />
+          </div>
+          <div style={s.mapRight}>
+            <div style={s.mapLabel}>🏆 2024 Pi Commerce Hackathon Winner</div>
+            <h2 style={s.mapTitle}>Map of Pi</h2>
+            <p style={s.mapDesc}>
+              The world's most used crypto global marketplace. Find trusted Pi merchants, buy and sell everyday goods, and connect with 2.1M+ pioneers worldwide — all inside the Pi Browser.
+            </p>
+            <div style={s.mapStats}>
+              {[
+                { val: '2.1M+', lbl: 'Registered Users' },
+                { val: '148K',  lbl: 'Sellers' },
+                { val: '173K',  lbl: 'Transactions' },
+              ].map(({ val, lbl }) => (
+                <div key={lbl} style={s.mapStat}>
+                  <div style={s.mapStatVal}>{val}</div>
+                  <div style={s.mapStatLbl}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const, marginTop: '1.5rem' }}>
+              <a href="https://mapofpi.com" target="_blank" rel="noreferrer" style={s.mapBtn}>
+                Visit mapofpi.com →
+              </a>
+              <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" style={s.mapBtnSecond}>
+                ▶ YouTube Channel
+              </a>
+            </div>
+          </div>
+        </div>
+        <div style={s.mapComingSoon}>
+          <span style={s.mapComingSoonLabel}>📹 Coming Soon</span>
+          <span style={s.mapComingSoonText}>Map of Pi Video Ad Creator — build and launch your own Pi commerce ad in minutes</span>
+        </div>
+      </div>
+
+      {/* ── MAP OF PI VIDEOS SECTION ── */}
+      <MapOfPiVideos />
+
       <div style={s.section}>
         <h2 style={s.h2}>How It Works</h2>
         <div style={s.grid}>
