@@ -33,3 +33,5 @@ pnpm-debug.log*
 
 # Optional: TypeScript build output
 *.tsbuildinfo
+.vercel
+.env*.local

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { useSession } from '../lib/useSession';
 
 // ── TRIAL CONFIG ─────────────────────────────────────────────
 const TEAM_CODE  = 'MAPOFPI';
@@ -108,15 +109,21 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 // ── Hamburger Nav ─────────────────────────────────────────────
-function HamburgerNav({ userName, trialStatus, onLogout }: {
+function HamburgerNav({ userName, trialStatus, badgeText, onLogout }: {
   userName: string;
   trialStatus: 'team' | 'trial' | 'pending';
+  badgeText?: string;
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <nav style={s.nav}>
       <span style={s.logo}>⚡ ANTCPU ADS</span>
+      {badgeText && (
+        <span style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: '#00ff88', background: '#00ff8811', border: '1px solid #00ff8833', borderRadius: '999px', padding: '2px 10px' }}>
+          {badgeText}
+        </span>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         {trialStatus === 'team' && (
           <span style={s.teamBadge}>🔵 Team · {TEAM_DAYS}-day trial</span>
@@ -243,6 +250,7 @@ function OnboardingTracker({ name, brand, trialStatus }: {
 
 // ── Main Page ─────────────────────────────────────────────────
 export default function Page() {
+  const { badgeText, punchIn, punchOut } = useSession('ads');
   const [hydrated,     setHydrated]     = useState(false);
   const [step,         setStep]         = useState(0);
   const [submitted,    setSubmitted]    = useState(false);
@@ -271,7 +279,8 @@ export default function Page() {
     setHydrated(true);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (form.email) await punchOut(form.email);
     localStorage.removeItem('arena_user');
     setSubmitted(false);
     setStep(0);
@@ -305,6 +314,7 @@ export default function Page() {
     localStorage.setItem('arena_user', JSON.stringify({
       name: form.name, email: form.email, brand: form.brand_name, trialStatus: status,
     }));
+    await punchIn(form.email);
     setLoading(false);
     setSubmitted(true);
   };
@@ -312,7 +322,7 @@ export default function Page() {
   if (submitted) {
     return (
       <div style={s.page}>
-        <HamburgerNav userName={form.email} trialStatus={trialStatus} onLogout={handleLogout} />
+        <HamburgerNav userName={form.email} trialStatus={trialStatus} badgeText={badgeText} onLogout={handleLogout} />
         <OnboardingTracker name={form.name} brand={form.brand_name} trialStatus={trialStatus} />
       </div>
     );
@@ -399,8 +409,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* ── MAP OF PI VIDEOS SECTION ── */}
-      <MapOfPiVideos />
+      {/* ── MAP OF PI VIDEOS SECTION — TODO: build MapOfPiVideos component ── */}
 
       <div style={s.section}>
         <h2 style={s.h2}>How It Works</h2>
@@ -549,6 +558,35 @@ export default function Page() {
             </div>
           )}
 
+        </div>
+      </div>
+
+      {/* ── SIGN IN SECTION ── */}
+      <div id="signin" style={{ maxWidth: '480px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', padding: '2rem' }}>
+          <div style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.4rem' }}>Already in the Arena?</div>
+          <div style={{ color: '#666', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Enter your email to pick up where you left off.</div>
+          <input
+            type="email"
+            placeholder="your@email.com"
+            style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1rem' }}
+            id="signinEmail"
+          />
+          <button
+            style={{ width: '100%', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.75rem', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}
+            onClick={async () => {
+              const el = document.getElementById('signinEmail') as HTMLInputElement;
+              const email = el?.value?.trim();
+              if (!email) return;
+              const user = { name: email, email, brand: '' };
+              localStorage.setItem('arena_user', JSON.stringify(user));
+              setForm(f => ({ ...f, name: user.name, email: user.email, brand_name: user.brand }));
+              setSubmitted(true);
+              await punchIn(user.email);
+            }}
+          >
+            Sign In →
+          </button>
         </div>
       </div>
 
