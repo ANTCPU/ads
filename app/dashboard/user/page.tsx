@@ -122,6 +122,7 @@ export default function UserDashboard() {
   const [arenaAds, setArenaAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [hydrated, setHydrated] = useState(false);
+  const [sharedId, setSharedId] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -180,6 +181,15 @@ export default function UserDashboard() {
       cta: 'Apply for Cloud',
     },
   ];
+
+  function shareAd(ad: Ad & { id: string; brand: string; title: string; url: string; email: string }) {
+    const profileUrl = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email || 'antcpu@gmail.com')}`;
+    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.url}\n\nSee their full profile → ${profileUrl}`;
+    navigator.clipboard.writeText(text).then(() => {
+      setSharedId(ad.id);
+      setTimeout(() => setSharedId(null), 2500);
+    });
+  }
 
   return (
     <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
@@ -246,8 +256,15 @@ export default function UserDashboard() {
                     </div>
                   </div>
                   <div style={{ color: '#666', fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '0.6rem' }}>{ad.description}</div>
-                  <a href={ad.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: tier.color, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
-                  <a href={`/profile/${encodeURIComponent(ad.email)}`} style={{ position: 'absolute', bottom: '0.75rem', right: '1rem', fontSize: '0.6rem', color: '#333', textDecoration: 'none', letterSpacing: '0.06em' }} title={`View ${ad.brand} profile`}>by {ad.brand} →</a>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem' }}>
+                    <a href={ad.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: tier.color, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <a href={`/profile/${encodeURIComponent(ad.email)}`} style={{ fontSize: '0.6rem', color: '#333', textDecoration: 'none', letterSpacing: '0.06em' }}>by {ad.brand} →</a>
+                      <button onClick={() => shareAd(ad)} style={{ background: sharedId === ad.id ? '#3fb95022' : '#1a1a1a', border: sharedId === ad.id ? '1px solid #3fb95044' : '1px solid #222', color: sharedId === ad.id ? '#3fb950' : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
+                        {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -295,8 +312,15 @@ export default function UserDashboard() {
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.4rem' }}>{ad.title}</div>
                   <div style={{ color: '#666', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.6rem' }}>{ad.description}</div>
-                  <a href={ad.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: tier.color, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
-                  <a href={`/profile/${encodeURIComponent(ad.email)}`} style={{ position: 'absolute', bottom: '0.75rem', right: '1rem', fontSize: '0.6rem', color: '#333', textDecoration: 'none', letterSpacing: '0.06em' }} title={`View ${ad.brand} profile`}>by {ad.brand} →</a>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem' }}>
+                    <a href={ad.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: tier.color, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <a href={`/profile/${encodeURIComponent(ad.email)}`} style={{ fontSize: '0.6rem', color: '#333', textDecoration: 'none', letterSpacing: '0.06em' }}>by {ad.brand} →</a>
+                      <button onClick={() => shareAd(ad)} style={{ background: sharedId === ad.id ? '#3fb95022' : '#1a1a1a', border: sharedId === ad.id ? '1px solid #3fb95044' : '1px solid #222', color: sharedId === ad.id ? '#3fb950' : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
+                        {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
