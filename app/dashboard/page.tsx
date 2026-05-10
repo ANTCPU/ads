@@ -41,7 +41,13 @@ export default function DashboardHome() {
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
-    if (stored) { try { setCurrentUser(JSON.parse(stored)); } catch {} }
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
+        setCurrentUser(u);
+      } catch { router.push('/dashboard/user'); }
+    }
     fetchAds();
   }, []);
 

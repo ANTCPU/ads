@@ -53,7 +53,7 @@ export default function CreateAdPage() {
     console.log('[CREATE-AD] result:', { data, error });
     alert(error ? '❌ Error: ' + error.message : '✅ Ad submitted!');
     setLoading(false);
-    router.push('/dashboard');
+    router.push('/dashboard/user');
   };
 
   return (

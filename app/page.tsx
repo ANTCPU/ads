@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { MAPOFPI_KB } from './clients/mapofpi/kb';
 import { createClient } from '@supabase/supabase-js';
-import { useSession } from '../lib/useSession';
+
 
 // ── TRIAL CONFIG ─────────────────────────────────────────────
 const TEAM_CODE  = 'MAPOFPI';
@@ -110,21 +110,15 @@ const s: Record<string, React.CSSProperties> = {
 };
 
 // ── Hamburger Nav ─────────────────────────────────────────────
-function HamburgerNav({ userName, trialStatus, badgeText, onLogout }: {
+function HamburgerNav({ userName, trialStatus, onLogout }: {
   userName: string;
   trialStatus: 'team' | 'trial' | 'pending';
-  badgeText?: string;
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <nav style={s.nav}>
       <span style={s.logo}>⚡ ANTCPU ADS</span>
-      {badgeText && (
-        <span style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: '#00ff88', background: '#00ff8811', border: '1px solid #00ff8833', borderRadius: '999px', padding: '2px 10px' }}>
-          {badgeText}
-        </span>
-      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         {trialStatus === 'team' && (
           <span style={s.teamBadge}>🔵 Team · {TEAM_DAYS}-day trial</span>
@@ -154,107 +148,11 @@ function HamburgerNav({ userName, trialStatus, badgeText, onLogout }: {
   );
 }
 
-// ── Onboarding Tracker ────────────────────────────────────────
-function OnboardingTracker({ name, brand, trialStatus }: {
-  name: string;
-  brand: string;
-  trialStatus: 'team' | 'trial' | 'pending';
-}) {
-  const isActive = trialStatus === 'team' || trialStatus === 'trial';
-  const expiry   = getTrialExpiry(trialStatus);
-  const days     = getTrialDays(trialStatus);
-
-  const steps = [
-    {
-      icon: '✅',
-      label: "You're in the Arena",
-      desc: `Signed up as ${name} · ${brand}`,
-      status: 'done',
-      unlocked: true,
-    },
-    {
-      icon: '👤',
-      label: 'Complete Your Profile',
-      desc: 'Add your logo, bio, and contact details',
-      status: 'next',
-      unlocked: true,
-    },
-    {
-      icon: '📢',
-      label: 'Create Your First Ad',
-      desc: isActive
-        ? 'Your trial is active — build your first ad now'
-        : "Coming soon — we'll notify you when ready",
-      status: isActive ? 'next' : 'locked',
-      unlocked: isActive,
-    },
-  ];
-
-  const badgeStyle = (status: string): React.CSSProperties => ({
-    ...s.trackBadge,
-    background: status === 'done'
-      ? '#0070f320'
-      : status === 'next'
-      ? trialStatus === 'team' ? '#7928ca' : '#0070f3'
-      : '#1a1a1a',
-    color: status === 'done' ? '#0070f3' : status === 'next' ? '#fff' : '#444',
-  });
-
-  const rowStyle = (unlocked: boolean): React.CSSProperties => ({
-    ...s.trackRow,
-    opacity: unlocked ? 1 : 0.4,
-    borderColor: unlocked ? '#1a1a1a' : '#111',
-  });
-
-  const bc = trialStatus === 'team'
-    ? { bg: '#7928ca20', border: '#7928ca40', color: '#b388ff' }
-    : { bg: '#0070f320', border: '#0070f340', color: '#0070f3' };
-
-  return (
-    <div style={s.onboard}>
-      <div style={s.onboardH}>Welcome to the Arena ⚡</div>
-      {isActive && (
-        <div style={{ ...s.onboardBadge, background: bc.bg, border: `1px solid ${bc.border}`, color: bc.color }}>
-          {trialStatus === 'team'
-            ? `🔵 Team Member · ${days}-day trial · expires ${expiry}`
-            : `🟢 Free Trial · ${days} days · expires ${expiry}`}
-        </div>
-      )}
-      <div style={s.onboardSub}>Complete these steps to launch your first ad.</div>
-      <div style={s.track}>
-        {steps.map((step, i) => (
-          <div key={i} style={rowStyle(step.unlocked)}>
-            <div style={s.trackIcon}>{step.icon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={s.trackLabel}>{step.label}</div>
-              <div style={s.trackDesc}>{step.desc}</div>
-            </div>
-            {step.status === 'done' ? (
-              <div style={badgeStyle(step.status)}>Complete</div>
-            ) : step.status === 'next' ? (
-              <a
-                href={i === 1 ? '/profile' : '/create-ad'}
-                style={{ ...badgeStyle(step.status), textDecoration: 'none', cursor: 'pointer' }}
-              >Start →</a>
-            ) : (
-              <div style={badgeStyle(step.status)}>🔒 Locked</div>
-            )}
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: '2rem', color: '#333', fontSize: '0.8rem', textAlign: 'center' }}>
-        Questions? <a href="mailto:antcpu@gmail.com" style={{ color: '#0070f3' }}>antcpu@gmail.com</a>
-      </div>
-    </div>
-  );
-}
-
-// ── Main Page ─────────────────────────────────────────────────
 export default function Page() {
-  const { badgeText, punchIn, punchOut } = useSession('ads');
+  
   const [hydrated,     setHydrated]     = useState(false);
   const [step,         setStep]         = useState(0);
-  const [submitted,    setSubmitted]    = useState(false);
+  
   const [loading,      setLoading]      = useState(false);
   const [trialStatus,  setTrialStatus]  = useState<'team' | 'trial' | 'pending'>('trial');
   const [form, setForm] = useState({
@@ -274,16 +172,16 @@ export default function Page() {
         const user = JSON.parse(stored);
         setForm(f => ({ ...f, name: user.name, email: user.email, brand_name: user.brand }));
         setTrialStatus(user.trialStatus || 'trial');
-        setSubmitted(true);
+        window.location.href = '/dashboard/user';
       } catch {}
     }
     setHydrated(true);
   }, []);
 
   const handleLogout = async () => {
-    if (form.email) await punchOut(form.email);
+    
     localStorage.removeItem('arena_user');
-    setSubmitted(false);
+    
     setStep(0);
     setTrialStatus('trial');
     setForm({ name: '', email: '', brand_name: '', website_url: '', ad_category: '', has_used_ad_service: false, previous_ad_service: '', promo_code: '', message: '' });
@@ -315,19 +213,10 @@ export default function Page() {
     localStorage.setItem('arena_user', JSON.stringify({
       name: form.name, email: form.email, brand: form.brand_name, trialStatus: status,
     }));
-    await punchIn(form.email);
+    
     setLoading(false);
-    setSubmitted(true);
+    window.location.href = '/dashboard/user';
   };
-
-  if (submitted) {
-    return (
-      <div style={s.page}>
-        <HamburgerNav userName={form.email} trialStatus={trialStatus} badgeText={badgeText} onLogout={handleLogout} />
-        <OnboardingTracker name={form.name} brand={form.brand_name} trialStatus={trialStatus} />
-      </div>
-    );
-  }
 
   return (
     <div style={s.page}>
@@ -583,11 +472,17 @@ export default function Page() {
               const el = document.getElementById('signinEmail') as HTMLInputElement;
               const email = el?.value?.trim();
               if (!email) return;
-              const user = { name: email, email, brand: '' };
+              const { data: profile } = await supabase.from('ad_profiles').select('*').eq('email', email).single();
+              const { data: signup } = await supabase.from('ad_signups').select('*').eq('email', email).single();
+              if (!signup) { alert('No account found for ' + email + '. Please sign up first.'); return; }
+              const user = {
+                name: profile?.name || email,
+                email,
+                brand: profile?.brand || signup?.brand_name || '',
+                trialStatus: signup?.status || 'trial',
+              };
               localStorage.setItem('arena_user', JSON.stringify(user));
-              setForm(f => ({ ...f, name: user.name, email: user.email, brand_name: user.brand }));
-              setSubmitted(true);
-              await punchIn(user.email);
+              window.location.href = '/dashboard/user';
             }}
           >
             Sign In →
