@@ -442,3 +442,59 @@ Backburner — needs real logo assets first.
 
 ### This applies to all ANTCPU projects
 - antcpu-launcher, ads, antcpu.com all need unified logo/favicon system
+
+---
+
+## 🪙 ANTCOIN × ADS INTEGRATION PLAN
+
+### Click Tracking (build next)
+- Table: `ad_clicks` — columns: ad_id, email, clicked_at, source
+- Add `click_count` integer to `ads` table
+- Every ad card click → insert to ad_clicks + increment count
+
+### Reward Triggers (trial users)
+| Clicks | Reward |
+|--------|--------|
+| 10 | 5 testcoin + 24hr pin |
+| 25 | 15 testcoin + Rising upgrade offer |
+| 50 | 50 testcoin + 48hr feature slot |
+| 100 | 100 testcoin + Genesis node notification |
+
+### Ledger Entry Format
+`ad_reward · [email] · [ad_id] · [amount] testcoin`
+
+### Pi Payments (backburner)
+- Accept Pi for Rising / Featured / Top Tier membership
+- Wire when Pi mainnet payments open
+- Map of Pi partnership = natural first integration
+
+### Arena Original Design
+- First demo version used for Map of Pi Facebook post
+- Buried in early sessions — revisit before next week with fresh eyes
+- Do NOT overwrite current build — restore as reference only
+
+### Genesis Connection
+- Amanda Photography = Node 7 in antchain
+- Top ad performers feed node health display
+- 100 clicks from an ad = Genesis node notification trigger
+
+
+---
+
+## TODO — Profile Page Social Links
+
+### Supabase Migration Needed
+Run in SQL editor before profile social links go live:
+alter table ad_profiles add column if not exists facebook text;
+alter table ad_profiles add column if not exists antcoin_wallet text;
+
+### Profile Page Updates (after migration)
+- Add Facebook link — external, opens new tab
+- Add antcoin wallet — truncated address, copy on click, antcoin badge
+- Wire both fields into /profile/[id] display
+- Wire both fields into /create-ad or profile edit form
+
+### antcoin wallet notes
+- Pi payments route through antcoin wallet
+- Display format: first 6 + ... + last 4 chars
+- Copy to clipboard on click

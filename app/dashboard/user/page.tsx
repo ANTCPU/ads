@@ -18,12 +18,57 @@ const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }
 type Ad = {
   id: string; brand: string; title: string; url: string;
   description: string; category: string; status: string;
-  tier: string; pinned: boolean; created_at: string; email: string;
+  tier: string; pinned: boolean; created_at: string; email: string; logo?: string;
 };
 
 type User = {
   name: string; email: string; brand: string; trialStatus: string;
 };
+
+
+// ── Sample Placeholder Ads ───────────────────────────────────
+const SAMPLE_ADS = [
+  {
+    id: 'sample-1',
+    brand: 'Map of Pi',
+    title: 'Discover Pi Commerce Near You 🗺️',
+    description: 'Find local sellers, leave reviews, and spend Pi in the real world. 2.1M+ users and growing.',
+    url: 'https://mapofpi.com',
+    tier: 'featured',
+    pinned: true,
+    category: 'Pi Commerce',
+    status: 'active',
+    email: 'mapofpi@antcpu.com',
+    created_at: '',
+  },
+  {
+    id: 'sample-2',
+    brand: 'Amanda Photography',
+    logo: 'https://antcpu.com/drive/stock/logo/amandaphotographylogo.png',
+    title: 'Stories Through a Lens 📸',
+    description: `A mother and grandmother capturing life's most beautiful moments. Family portraits, events, and memories.`,
+    url: 'https://antcpu.com/manda',
+    tier: 'entry',
+    pinned: false,
+    category: 'Photography',
+    status: 'active',
+    email: 'mishoemanda@gmail.com',
+    created_at: '',
+  },
+  {
+    id: 'sample-3',
+    brand: 'Your Brand Here',
+    title: 'This Could Be Your Ad ✨',
+    description: 'Join the Arena. Launch your first ad in minutes. Free trial — no credit card required.',
+    url: 'https://antcpu-ads.vercel.app',
+    tier: 'entry',
+    pinned: false,
+    category: 'Promotion',
+    status: 'active',
+    email: '',
+    created_at: '',
+  },
+];
 
 // ── Onboarding Tracker ──────────────────────────────────────
 function OnboardingTracker({ user, hasProfile, hasAd }: {
@@ -202,6 +247,7 @@ export default function UserDashboard() {
                   </div>
                   <div style={{ color: '#666', fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '0.6rem' }}>{ad.description}</div>
                   <a href={ad.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: tier.color, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
+                  <a href={`/profile/${encodeURIComponent(ad.email)}`} style={{ position: 'absolute', bottom: '0.75rem', right: '1rem', fontSize: '0.6rem', color: '#333', textDecoration: 'none', letterSpacing: '0.06em' }} title={`View ${ad.brand} profile`}>by {ad.brand} →</a>
                 </div>
               );
             })}
@@ -217,23 +263,40 @@ export default function UserDashboard() {
           <div style={{ color: '#333', fontSize: '0.85rem', padding: '1rem 0' }}>Loading arena...</div>
         ) : (
           <div style={{ marginBottom: '2.5rem' }}>
-            {arenaAds.map(ad => {
+            {[...SAMPLE_ADS.filter(s => !arenaAds.find(a => a.email === s.email)), ...arenaAds].map(ad => {
               const tier = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
               const isOwn = ad.email === user.email;
               return (
-                <div key={ad.id} style={{ background: '#111', border: `1px solid ${ad.pinned ? '#f0883e33' : isOwn ? `${tier.color}33` : '#1a1a1a'}`, borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '0.75rem', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: tier.color, borderRadius: '14px 14px 0 0' }} />
+                <div key={ad.id} style={{
+                  background: ad.tier === 'featured' ? '#130a0f' : ad.tier === 'toptier' ? '#0d0a06' : '#111',
+                  border: ad.pinned ? '1px solid #D4AF3755' : ad.tier === 'featured' ? '1px solid #ff008044' : ad.tier === 'toptier' ? '1px solid #f0883e44' : isOwn ? `1px solid ${tier.color}33` : '1px solid #1a1a1a',
+                  borderRadius: '14px',
+                  padding: '1.25rem 1.5rem',
+                  marginBottom: '0.75rem',
+                  position: 'relative',
+                  boxShadow: ad.tier === 'featured' ? '0 0 24px #ff008018' : ad.tier === 'toptier' ? '0 0 24px #f0883e18' : 'none',
+                  borderLeft: ad.pinned ? '3px solid #D4AF37' : ad.tier === 'featured' ? '3px solid #ff0080' : ad.tier === 'toptier' ? '3px solid #f0883e' : '1px solid transparent',
+                }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: ad.tier === 'featured' ? 'linear-gradient(90deg, #ff0080, #7928ca)' : ad.tier === 'toptier' ? 'linear-gradient(90deg, #f0883e, #ff0080)' : tier.color, borderRadius: '14px 14px 0 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{ad.brand}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {ad.logo && <img src={ad.logo} alt={ad.brand} style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />}
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{ad.brand}</div>
+                      </div>
                       {ad.pinned && <span style={{ fontSize: '0.6rem', color: '#f0883e', background: '#f0883e15', border: '1px solid #f0883e30', borderRadius: '999px', padding: '0.1rem 0.5rem' }}>📌 PINNED</span>}
                       {isOwn && <span style={{ fontSize: '0.6rem', color: tier.color, background: `${tier.color}15`, border: `1px solid ${tier.color}30`, borderRadius: '999px', padding: '0.1rem 0.5rem' }}>YOUR AD</span>}
+                      {ad.id === 'sample-1' && <span style={{ fontSize: '0.6rem', color: '#D4AF37', background: '#D4AF3715', border: '1px solid #D4AF3730', borderRadius: '999px', padding: '0.1rem 0.5rem' }}>👑 #1</span>}
                     </div>
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: tier.color, background: `${tier.color}15`, border: `1px solid ${tier.color}30`, borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{tier.label.toUpperCase()}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {ad.category && <span style={{ fontSize: '0.6rem', color: '#444', background: '#1a1a1a', borderRadius: '999px', padding: '0.1rem 0.5rem' }}>{ad.category}</span>}
+                      <span style={{ fontSize: '0.65rem', fontWeight: 700, color: tier.color, background: `${tier.color}15`, border: `1px solid ${tier.color}30`, borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{tier.label.toUpperCase()}</span>
+                    </div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.4rem' }}>{ad.title}</div>
                   <div style={{ color: '#666', fontSize: '0.82rem', lineHeight: 1.5, marginBottom: '0.6rem' }}>{ad.description}</div>
                   <a href={ad.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: tier.color, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
+                  <a href={`/profile/${encodeURIComponent(ad.email)}`} style={{ position: 'absolute', bottom: '0.75rem', right: '1rem', fontSize: '0.6rem', color: '#333', textDecoration: 'none', letterSpacing: '0.06em' }} title={`View ${ad.brand} profile`}>by {ad.brand} →</a>
                 </div>
               );
             })}
