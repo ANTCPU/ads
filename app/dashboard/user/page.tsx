@@ -183,8 +183,18 @@ export default function UserDashboard() {
   ];
 
   function shareAd(ad: Ad & { id: string; brand: string; title: string; url: string; email: string }) {
-    const profileUrl = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email || 'antcpu@gmail.com')}`;
-    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.url}\n\nSee their full profile → ${profileUrl}`;
+    const categoryTags: Record<string, string> = {
+      'Pi Commerce': '#mapofpi #pinetwork #picommerce #crypto',
+      'Brand Awareness': '#branding #marketing #growthhacking #buildinpublic',
+      'Product Launch': '#productlaunch #startup #newproduct #buildinpublic',
+      'Photography': '#photography #portraits #memories #photographer',
+      'Content Promotion': '#contentmarketing #creator #socialmedia #marketing',
+      'Service Offering': '#smallbusiness #services #entrepreneur #marketing',
+      'Event': '#event #community #networking #live',
+      'Other': '#marketing #ads #business #antcpu',
+    };
+    const tags = categoryTags[ad.category] || '#marketing #ads #business #antcpu';
+    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n${tags} #antcpuads`;
     navigator.clipboard.writeText(text).then(() => {
       setSharedId(ad.id);
       setTimeout(() => setSharedId(null), 2500);
