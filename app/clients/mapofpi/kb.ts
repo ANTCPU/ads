@@ -6,6 +6,12 @@
 // ============================================================
 
 export const MAPOFPI_KB = {
+  brand: {
+    primaryColor: '#2E7D32',
+    accentColor: '#D4AF37',
+    logoUrl: 'https://avatars.githubusercontent.com/u/166511995?s=200&v=4',
+    imagePrompt: 'Dark background with glowing green map pin icon, gold Pi symbol inside the pin, subtle gold grid lines forming a world map, deep black background, cinematic lighting, no text, no words, square format, premium brand aesthetic.',
+  },
   name: "Map of Pi",
   url: "https://mapofpi.com",
   tagline: "More than just a map — it's the future of Pi eCommerce",
