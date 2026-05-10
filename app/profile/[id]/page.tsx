@@ -36,6 +36,7 @@ export default function ProfilePage() {
   const id = decodeURIComponent(params.id as string);
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileCopied, setProfileCopied] = useState(false);
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOwn, setIsOwn] = useState(false);
@@ -52,6 +53,16 @@ export default function ProfilePage() {
     }
     fetchProfile();
   }, [id]);
+
+  function shareProfile() {
+    if (!profile) return;
+    const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
+    const text = `Check out ${profile.brand} on ANTCPU ADS ⚡\n\n${profile.bio || ''}\n\n→ ${url}\n\n#antcpuads #marketing #ads`;
+    navigator.clipboard.writeText(text).then(() => {
+      setProfileCopied(true);
+      setTimeout(() => setProfileCopied(false), 2500);
+    });
+  }
 
   async function fetchProfile() {
     setLoading(true);
@@ -134,7 +145,12 @@ export default function ProfilePage() {
 
           {/* Brand identity below preview */}
           <div style={{ marginTop: '1.25rem', background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px', padding: '1.25rem' }}>
-            <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.25rem' }}>{profile.brand || profile.name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{profile.brand || profile.name}</div>
+              <button onClick={shareProfile} style={{ background: profileCopied ? '#3fb95022' : '#1a1a1a', border: profileCopied ? '1px solid #3fb95044' : '1px solid #222', color: profileCopied ? '#3fb950' : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
+                {profileCopied ? '✓ Copied' : '↗ Share'}
+              </button>
+            </div>
             <div style={{ color: '#555', fontSize: '0.78rem', marginBottom: '0.75rem' }}>{profile.name}</div>
             <div style={{ fontSize: '0.65rem', fontWeight: 700, color: topTier.color, background: `${topTier.color}15`, border: `1px solid ${topTier.color}30`, borderRadius: '999px', padding: '0.25rem 0.75rem', display: 'inline-block' }}>{topTier.label.toUpperCase()} · {ads.length} AD{ads.length !== 1 ? 'S' : ''}</div>
           </div>

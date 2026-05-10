@@ -383,6 +383,21 @@ export default function UserDashboard() {
           ⚡ ANTCPU ADS · <a href="mailto:antcpu@gmail.com" style={{ color: '#2a2a2a' }}>antcpu@gmail.com</a>
         </div>
 
+
+      {/* Sticky Join CTA — non-signed-in visitors */}
+      {!user && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#111', borderTop: '1px solid #1a1a1a', padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100, flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>⚡ Join the Arena — Free</div>
+            <div style={{ fontSize: '0.75rem', color: '#555' }}>3-day trial · no credit card · go live in minutes</div>
+          </div>
+          <a href="https://antcpu-ads.vercel.app/#start" style={{ background: '#0070f3', color: '#fff', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+            Start Free Trial →
+          </a>
+        </div>
+      )}
+    </div>
+
       </div>
     </div>
   );
