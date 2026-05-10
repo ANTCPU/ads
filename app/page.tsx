@@ -154,6 +154,7 @@ export default function Page() {
   const [step,         setStep]         = useState(0);
   
   const [loading,      setLoading]      = useState(false);
+  const [showShare,    setShowShare]    = useState(false);
   const [trialStatus,  setTrialStatus]  = useState<'team' | 'trial' | 'pending'>('trial');
   const [form, setForm] = useState({
     name: '', email: '', brand_name: '', website_url: '',
@@ -213,10 +214,35 @@ export default function Page() {
     localStorage.setItem('arena_user', JSON.stringify({
       name: form.name, email: form.email, brand: form.brand_name, trialStatus: status,
     }));
-    
     setLoading(false);
-    window.location.href = '/dashboard/user';
+    setShowShare(true);
   };
+
+  if (showShare) {
+    const shareText = `I just joined ANTCPU ADS — the automated marketing network powered by AI antbots.\n\nFree 3-day trial. No credit card. Go live in minutes.\n\n→ https://antcpu-ads.vercel.app\n\n#antcpu #ads #marketing #buildinpublic`;
+    return (
+      <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚡</div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>You're in the Arena.</h1>
+          <p style={{ color: '#555', fontSize: '0.95rem', marginBottom: '2rem' }}>Welcome, {form.name.split(' ')[0]}. Your ad network is ready.</p>
+          <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px', padding: '1.5rem', marginBottom: '1.5rem', textAlign: 'left' }}>
+            <div style={{ fontSize: '0.65rem', color: '#555', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Share the Arena</div>
+            <div style={{ fontSize: '0.85rem', color: '#888', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>{shareText}</div>
+            <button onClick={() => navigator.clipboard.writeText(shareText).then(() => alert('✅ Copied — ready to post'))}
+              style={{ width: '100%', background: '#0070f322', border: '1px solid #0070f344', color: '#0070f3', borderRadius: '8px', padding: '0.6rem', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', marginBottom: '0.5rem' }}>
+              📋 Copy Post Text
+            </button>
+          </div>
+          <button onClick={() => { window.location.href = '/dashboard/user'; }}
+            style={{ width: '100%', background: '#0070f3', border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem', fontSize: '1rem', fontWeight: 700, cursor: 'pointer' }}>
+            Enter the Arena →
+          </button>
+          <p style={{ color: '#333', fontSize: '0.75rem', marginTop: '1rem' }}>or skip and go straight in</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.page}>
@@ -299,6 +325,12 @@ export default function Page() {
             <span style={{ display: 'flex', alignItems: 'center', fontSize: '0.75rem', color: '#444', fontFamily: 'monospace' }}>
               📹 Video Ad Creator — coming soon
             </span>
+            <button onClick={() => {
+              const text = `Map of Pi is the world's most used crypto global marketplace on your smartphone.\n\n✓ 2.1M+ registered users\n✓ 148,000 sellers\n✓ 173,000+ completed transactions\n\nFree to use. International. No bank account required.\n\nSearch, Buy & Sell on Map of Pi today → mapofpi.com\n\n#mapofpi #pinetwork #picommerce`;
+              navigator.clipboard.writeText(text).then(() => alert('✅ Map of Pi post copied — ready to share'));
+            }} style={{ background: '#2E7D3222', border: '1px solid #D4AF3744', color: '#D4AF37', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+              ↗ Share Map of Pi
+            </button>
           </div>
         </div>
       </div>
@@ -360,10 +392,6 @@ export default function Page() {
               <input style={s.input} placeholder="Antony Ciccone" value={form.name} onChange={e => set('name', e.target.value)} />
               <label style={s.label}>Email Address</label>
               <input style={s.input} type="email" placeholder="you@yourbrand.com" value={form.email} onChange={e => set('email', e.target.value)} />
-              <label style={s.label}>Business / Brand Name</label>
-              <input style={s.input} placeholder="Your Brand" value={form.brand_name} onChange={e => set('brand_name', e.target.value)} />
-              <label style={s.label}>Website URL</label>
-              <input style={s.input} placeholder="https://yourbrand.com" value={form.website_url} onChange={e => set('website_url', e.target.value)} />
               <button style={s.stepBtn} onClick={() => setStep(1)} disabled={!form.name || !form.email}>Next →</button>
             </div>
           )}
