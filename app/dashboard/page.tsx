@@ -225,7 +225,7 @@ export default function DashboardHome() {
           </div>
         </div>
 
-        <div style={{ marginTop: '3rem', fontSize: '0.7rem', color: '#2a2a2a', textAlign: 'center' }}>antcpu.com · ads agent v1</div>
+        <div style={{ marginTop: '3rem', fontSize: '0.7rem', color: '#2a2a2a', textAlign: 'center' }}>antcpu.com · ANTCPU ADS v0.5 · demo build</div>
       </div>
     </div>
   );
