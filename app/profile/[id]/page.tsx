@@ -223,7 +223,7 @@ export default function ProfilePage() {
                 { tier: 'Entry',    desc: 'Text ad · standard rotation',           color: '#0070f3', active: true },
                 { tier: 'Rising',   desc: 'Custom image · Photography API',         color: '#7928ca', active: false },
                 { tier: 'Featured', desc: 'Video ad · ANTCPU AI',                   color: '#ff0080', active: false },
-                { tier: 'Top Tier', desc: 'antcpu.com/cloud · full campaign',       color: '#f0883e', active: false },
+                { tier: 'Top Tier', desc: '🔒 Payment required · full campaign',    color: '#f0883e', active: false },
               ].map(t => (
                 <div key={t.tier} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0', borderBottom: '1px solid #1a1a1a', opacity: t.active ? 1 : 0.4 }}>
                   <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.color, flexShrink: 0 }} />
@@ -237,20 +237,48 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Connect — placeholder */}
+          {/* Connect */}
           {activeTab === 'Connect' && (
             <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px', padding: '1.5rem' }}>
-              <div style={{ fontSize: '0.65rem', color: '#333', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '1rem' }}>Connect</div>
-              {profile.facebook
-                ? <a href={profile.facebook} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#4267B2', textDecoration: 'none', fontWeight: 600, display: 'block', marginBottom: '0.75rem' }}>📘 Facebook →</a>
-                : <div style={{ color: '#333', fontSize: '0.82rem', marginBottom: '0.75rem' }}>📘 Facebook — not linked</div>
-              }
-              {profile.antcoin_wallet
-                ? <div style={{ fontSize: '0.82rem', color: '#D4AF37', fontWeight: 600 }}>⚡ {profile.antcoin_wallet.slice(0,6)}...{profile.antcoin_wallet.slice(-4)}</div>
-                : <div style={{ color: '#333', fontSize: '0.82rem' }}>⚡ antcoin wallet — not linked</div>
-              }
+              <div style={{ fontSize: '0.65rem', color: '#333', letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '1.25rem' }}>Connect</div>
+
+              {/* Social links */}
+              {[
+                { key: 'facebook',  icon: '📘', label: 'Facebook', color: '#4267B2' },
+                { key: 'twitter',   icon: '🐦', label: 'X / Twitter', color: '#1DA1F2' },
+                { key: 'tiktok',    icon: '🎵', label: 'TikTok', color: '#ff0050' },
+                { key: 'youtube',   icon: '▶️', label: 'YouTube', color: '#FF0000' },
+                { key: 'website',   icon: '🌐', label: 'Website', color: '#0070f3' },
+              ].map(({ key, icon, label, color }) => (
+                (profile as any)[key]
+                  ? <a key={key} href={(profile as any)[key]} target="_blank" rel="noreferrer"
+                      style={{ fontSize: '0.85rem', color, textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                      {icon} {label} →
+                    </a>
+                  : <div key={key} style={{ color: '#2a2a2a', fontSize: '0.82rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {icon} {label} — not linked
+                    </div>
+              ))}
+
+              {/* Antcoin wallet */}
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #1a1a1a' }}>
+                {profile.antcoin_wallet
+                  ? <div
+                      onClick={() => navigator.clipboard.writeText(profile.antcoin_wallet)}
+                      style={{ fontSize: '0.82rem', color: '#D4AF37', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                      title="Click to copy">
+                      ⚡ {profile.antcoin_wallet.slice(0,6)}...{profile.antcoin_wallet.slice(-4)} <span style={{ fontSize: '0.65rem', color: '#555' }}>copy</span>
+                    </div>
+                  : <div style={{ color: '#2a2a2a', fontSize: '0.82rem' }}>⚡ antcoin wallet — not linked</div>
+                }
+              </div>
+
+              {/* Discord */}
               <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #1a1a1a' }}>
-                <a href="https://discord.gg/antcpu" target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', color: '#5865F2', textDecoration: 'none', fontWeight: 600 }}>💬 Join the Discord →</a>
+                <a href="https://discord.gg/antcpu" target="_blank" rel="noreferrer"
+                  style={{ fontSize: '0.82rem', color: '#5865F2', textDecoration: 'none', fontWeight: 600 }}>
+                  💬 Join the Discord →
+                </a>
               </div>
             </div>
           )}

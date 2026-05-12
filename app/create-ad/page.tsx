@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ArenaNav from '../components/ArenaNav';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -22,6 +23,7 @@ export default function CreateAdPage() {
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState({ name: '', email: '', brand: '', trialStatus: 'trial' });
   const [form, setForm] = useState(SEED_AD);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -48,22 +50,29 @@ export default function CreateAdPage() {
       trial_status: user.trialStatus,
       tier: 'entry',
     };
-    console.log('[CREATE-AD] submitting:', payload);
-    const { data, error } = await supabase.from('ads').insert([payload]);
-    console.log('[CREATE-AD] result:', { data, error });
-    alert(error ? '❌ Error: ' + error.message : '✅ Ad submitted!');
+    const { error } = await supabase.from('ads').insert([payload]);
     setLoading(false);
-    router.push('/dashboard/user');
+    if (error) {
+      setSubmitError(error.message);
+    } else {
+      const stored = localStorage.getItem('arena_user');
+      const u = stored ? JSON.parse(stored) : null;
+      router.push(u?.email === 'antcpu@gmail.com' ? '/dashboard' : '/dashboard/user');
+    }
   };
 
   return (
     <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a' }}>
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', borderBottom: '1px solid #1a1a1a', flexWrap: 'wrap' as const, gap: '0.5rem' }}>
         <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '0.05em' }}>⚡ ANTCPU ADS</span>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.85rem' }}>⚡ Dashboard</button>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.85rem' }}>← Arena</button>
+        </div>
         <button onClick={() => router.push('/profile')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.85rem' }}>← Back to Profile</button>
       </nav>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '3rem 2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '2rem' }}>
 
         {/* LEFT — Form */}
         <div>
@@ -105,6 +114,11 @@ export default function CreateAdPage() {
               {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
 
+            {submitError && (
+              <div style={{ color: '#ff4444', fontSize: '0.8rem', marginBottom: '0.75rem', padding: '0.6rem 0.9rem', background: '#ff444410', border: '1px solid #ff444430', borderRadius: '8px' }}>
+                ❌ {submitError}
+              </div>
+            )}
             <button onClick={handleSubmit} disabled={loading || !form.title || !form.url || !form.description || !form.category}
               style={{ width: '100%', background: btnColor, color: '#fff', border: 'none', borderRadius: '8px', padding: '0.85rem', fontWeight: 600, fontSize: '1rem', cursor: loading ? 'default' : 'pointer', opacity: (!form.title || !form.url || !form.description || !form.category) ? 0.5 : 1 }}>
               {loading ? 'Submitting...' : 'Submit Ad & Enter Dashboard →'}
@@ -113,7 +127,7 @@ export default function CreateAdPage() {
         </div>
 
         {/* RIGHT — Live Preview */}
-        <div style={{ position: 'sticky', top: '2rem', alignSelf: 'start' }}>
+        <div style={{ alignSelf: 'start' }}>
           <div style={{ fontSize: '0.7rem', color: '#333', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '1rem' }}>Live Preview</div>
           <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', overflow: 'hidden' }}>
             {/* Tier bar */}
@@ -160,7 +174,7 @@ export default function CreateAdPage() {
               { tier: 'Entry', desc: 'Text ad · standard rotation', color: '#0070f3', active: true },
               { tier: 'Rising', desc: 'Custom image · more reach', color: '#7928ca', active: false },
               { tier: 'Featured', desc: 'Video ad · top placement', color: '#ff0080', active: false },
-              { tier: 'Top Tier', desc: 'antcpu.com/cloud · full campaign', color: '#f0883e', active: false },
+              { tier: 'Top Tier', desc: '🔒 Payment required · full campaign', color: '#f0883e', active: false },
             ].map(t => (
               <div key={t.tier} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid #1a1a1a', opacity: t.active ? 1 : 0.4 }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.color, flexShrink: 0 }} />

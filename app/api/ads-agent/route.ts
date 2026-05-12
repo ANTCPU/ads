@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const TOWER_BEACON = 'http://localhost:3000/api/beacon';
+const TOWER_BEACON = 'https://antcpu.com/api/beacon';
 
 async function logToTower(botName: string, channel: string, status: string, tokens: number) {
   try {

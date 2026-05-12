@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ArenaNav from '../../components/ArenaNav';
 import ANTBOT_POD, { Antbot, AntbotStatus } from '../../antbots/index';
 import { MAPOFPI_KB, ADS_SYSTEM_PROMPT } from '../../clients/mapofpi/kb';
 
@@ -182,7 +183,7 @@ export default function Dashboard() {
     <div style={s.page}>
       <nav style={s.nav}>
         <div>
-          <div style={s.navLogo} onClick={() => router.push("/dashboard")} onMouseEnter={e => (e.currentTarget.style.cursor="pointer")} onMouseLeave={e => (e.currentTarget.style.cursor="default")}>⚡ ANTCPU ADS</div>
+          <ArenaNav role="admin" userName="Antony Ciccone" userEmail="antcpu@gmail.com" userBrand="ANTCPU" trialStatus="team" />
           <div style={s.navSub}>AGENT DASHBOARD</div>
         </div>
         <div style={s.client}>

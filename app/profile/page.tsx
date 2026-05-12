@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ArenaNav from '../components/ArenaNav';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -13,7 +14,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [user, setUser] = useState({ name: '', email: '', brand: '', trialStatus: 'trial' });
-  const [form, setForm] = useState({ bio: '', contact: '', website: '' });
+  const [form, setForm] = useState({ bio: '', contact: '', website: '', facebook: '', twitter: '', tiktok: '', youtube: '', antcoin_wallet: '' });
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -22,7 +23,28 @@ export default function ProfilePage() {
     }
     const profile = localStorage.getItem('arena_profile');
     if (profile) {
-      try { setForm(JSON.parse(profile)); } catch {}
+      try {
+        const p = JSON.parse(profile);
+        setForm(f => ({ ...f, ...p }));
+      } catch {}
+    }
+    // Also pull from Supabase if email available
+    const stored2 = localStorage.getItem('arena_user');
+    if (stored2) {
+      try {
+        const u2 = JSON.parse(stored2);
+        if (u2.email) {
+          import('@supabase/supabase-js').then(({ createClient }) => {
+            const sb = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            sb.from('ad_profiles').select('*').eq('email', u2.email).maybeSingle().then(({ data }) => {
+              if (data) setForm({ bio: data.bio || '', contact: data.contact || '', website: data.website || '', facebook: data.facebook || '', twitter: data.twitter || '', tiktok: data.tiktok || '', youtube: data.youtube || '', antcoin_wallet: data.antcoin_wallet || '' });
+            });
+          });
+        }
+      } catch {}
     }
   }, []);
 
@@ -37,11 +59,13 @@ export default function ProfilePage() {
       bio: form.bio,
       contact: form.contact,
       website: form.website,
+      facebook: form.facebook,
+      twitter: form.twitter,
+      tiktok: form.tiktok,
+      youtube: form.youtube,
+      antcoin_wallet: form.antcoin_wallet,
     };
-    console.log('[PROFILE] submitting:', payload);
     const { data, error } = await supabase.from('ad_profiles').upsert([payload], { onConflict: 'email' });
-    console.log('[PROFILE] result:', { data, error });
-    alert(error ? '❌ Error: ' + error.message : '✅ Profile saved to Supabase!');
     localStorage.setItem('arena_profile', JSON.stringify(form));
     setLoading(false);
     setSaved(true);
@@ -53,10 +77,13 @@ export default function ProfilePage() {
 
   return (
     <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a' }}>
-        <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '0.05em' }}>⚡ ANTCPU ADS</span>
-        <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.85rem' }}>← Back to Arena</button>
-      </nav>
+      <ArenaNav
+        role={user.trialStatus === 'team' ? 'team' : 'user'}
+        userName={user.name}
+        userEmail={user.email}
+        userBrand={user.brand}
+        trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+      />
       <div style={{ maxWidth: '520px', margin: '0 auto', padding: '3rem 2rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
           {[0,1,2].map(i => (
@@ -78,6 +105,21 @@ export default function ProfilePage() {
           <input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://yourbrand.com" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box', marginBottom: '1.2rem' }} />
           <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contact (email or social)</label>
           <input value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="contact@yourbrand.com or @handle" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box', marginBottom: '1.5rem' }} />
+          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Facebook URL</label>
+          <input value={form.facebook} onChange={e => set('facebook', e.target.value)} placeholder="https://facebook.com/yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+
+          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>X / Twitter URL</label>
+          <input value={form.twitter} onChange={e => set('twitter', e.target.value)} placeholder="https://x.com/yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+
+          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>TikTok URL</label>
+          <input value={form.tiktok} onChange={e => set('tiktok', e.target.value)} placeholder="https://tiktok.com/@yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+
+          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>YouTube URL</label>
+          <input value={form.youtube} onChange={e => set('youtube', e.target.value)} placeholder="https://youtube.com/@yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+
+          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Antcoin Wallet Address</label>
+          <input value={form.antcoin_wallet} onChange={e => set('antcoin_wallet', e.target.value)} placeholder="e.g. 0xABCD...1234" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.5rem' }} />
+
           <button onClick={handleSave} disabled={loading || saved || !form.bio} style={{ width: '100%', background: saved ? '#1a1a1a' : btnColor, color: saved ? '#0070f3' : '#fff', border: 'none', borderRadius: '8px', padding: '0.85rem', fontWeight: 600, fontSize: '1rem', cursor: loading || saved ? 'default' : 'pointer' }}>
             {saved ? '✓ Saved — heading to your ad...' : loading ? 'Saving...' : 'Save & Continue →'}
           </button>

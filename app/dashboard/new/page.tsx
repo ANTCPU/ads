@@ -1,7 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const s: Record<string, React.CSSProperties> = {
   page:    { background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh', padding: '2rem 1.5rem', maxWidth: '600px', margin: '0 auto' },
@@ -20,14 +26,66 @@ const s: Record<string, React.CSSProperties> = {
 export default function NewClient() {
   const router = useRouter();
   const [form, setForm] = useState({ name: '', url: '', handle: '', brief: '' });
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('arena_user');
+    if (!stored) { router.push('/'); return; }
+    try {
+      const u = JSON.parse(stored);
+      if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); }
+    } catch { router.push('/'); }
+  }, []);
 
   function update(k: string, v: string) { setForm(f => ({ ...f, [k]: v })); }
 
-  function submit() {
-    if (!form.name.trim()) return;
-    // TODO: save to clients registry + generate KB via ADS agent
-    alert(`Client "${form.name}" queued. KB generation coming next build.`);
-    router.push('/dashboard');
+  async function submit() {
+    if (!form.name.trim() || saving) return;
+    setSaving(true);
+
+    // Generate promo code from name — e.g. "Map of Pi" → "MAPOFPI"
+    const code = form.name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    const email = `${code.toLowerCase()}@antcpu.com`;
+
+    const payload = {
+      name:       form.name,
+      email,
+      brand_name: form.name,
+      website_url: form.url ? (form.url.startsWith('http') ? form.url : `https://${form.url}`) : '',
+      message:    form.brief,
+      status:     'team',
+      promo_code: code,
+      trial_days: 90,
+    };
+
+    const { error } = await supabase.from('ad_signups').upsert([payload], { onConflict: 'email' });
+
+    if (error) {
+      console.error('New client error:', error);
+      alert('❌ Save failed — check console');
+      setSaving(false);
+      return;
+    }
+
+    // Fire Discord notification
+    try {
+      await fetch('/api/discord-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `⚡ **New Client Added**
+**${form.name}** · ${form.url}
+Handle: ${form.handle}
+Promo: \`${code}\`
+Brief: ${form.brief || '—'}`,
+        }),
+      });
+    } catch {}
+
+    setDone(true);
+    setSaving(false);
+    setTimeout(() => router.push('/dashboard'), 1800);
   }
 
   return (
@@ -51,8 +109,10 @@ export default function NewClient() {
       <div style={s.label}>Client Brief</div>
       <textarea style={s.textarea} placeholder="What does this client do? Who are they targeting? Any key stats or angles?" value={form.brief} onChange={e => update('brief', e.target.value)} />
 
-      <button style={s.btn} onClick={submit}>+ Create Client</button>
-      <div style={s.note}>KB generation + antbot setup will run automatically on next build</div>
+      <button style={{ ...s.btn, background: done ? '#1a1a1a' : saving ? '#333' : '#f0883e', cursor: saving || done ? 'default' : 'pointer' }} onClick={submit} disabled={saving || done}>
+        {done ? '✓ Client saved — returning to dashboard...' : saving ? 'Saving...' : '+ Create Client'}
+      </button>
+      <div style={s.note}>Saved to Supabase · promo code auto-generated · Discord notified</div>
     </div>
   );
 }

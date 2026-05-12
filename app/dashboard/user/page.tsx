@@ -1,6 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ArenaNav from '../../components/ArenaNav';
+import { clearSessionCookie } from '../../lib/session';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -44,7 +46,7 @@ const SAMPLE_ADS = [
   {
     id: 'sample-2',
     brand: 'Amanda Photography',
-    logo: 'https://antcpu.com/drive/stock/logo/amandaphotographylogo.png',
+    logo: undefined,
     title: 'Stories Through a Lens 📸',
     description: `A mother and grandmother capturing life's most beautiful moments. Family portraits, events, and memories.`,
     url: 'https://antcpu.com/manda',
@@ -115,34 +117,114 @@ function OnboardingTracker({ user, hasProfile, hasAd }: {
   );
 }
 
+
+// ── Aria Status Banner ──────────────────────────────────────
+function AriaBanner({ status }: { status: string }) {
+  if (status === 'active') return (
+    <div style={{ background: '#00ffcc08', border: '1px solid #00ffcc25', borderRadius: '12px', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ fontSize: '1.4rem' }}>🦋</div>
+      <div>
+        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#00ffcc', marginBottom: '0.15rem' }}>Aria approved your ad — you're live in the Arena!</div>
+        <div style={{ fontSize: '0.72rem', color: '#555' }}>Your ad is now in rotation. Share it and earn promotion points.</div>
+      </div>
+    </div>
+  );
+  if (status === 'pending_review') return (
+    <div style={{ background: '#f0883e08', border: '1px solid #f0883e25', borderRadius: '12px', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ fontSize: '1.4rem' }}>🦋</div>
+      <div>
+        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f0883e', marginBottom: '0.15rem' }}>Aria is reviewing your ad...</div>
+        <div style={{ fontSize: '0.72rem', color: '#555' }}>Usually takes less than 24 hours. You'll be live in the Arena soon.</div>
+      </div>
+    </div>
+  );
+  if (status === 'rejected') return (
+    <div style={{ background: '#ff000008', border: '1px solid #ff000025', borderRadius: '12px', padding: '0.85rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ fontSize: '1.4rem' }}>🦋</div>
+      <div>
+        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ff4444', marginBottom: '0.15rem' }}>Aria flagged your ad for review.</div>
+        <div style={{ fontSize: '0.72rem', color: '#555' }}>Please contact antcpu@gmail.com to resolve.</div>
+      </div>
+    </div>
+  );
+  return null;
+}
+
+// ── Agent Teaser Row ────────────────────────────────────────
+function AgentTeasers({ tier }: { tier: string }) {
+  const agents = [
+    { name: 'Aria',   icon: '🦋', task: 'Ad review',        unlocked: true  },
+    { name: 'Herald', icon: '📣', task: 'Announcements',     unlocked: tier !== 'entry' },
+    { name: 'Scout',  icon: '🔍', task: 'Analytics',         unlocked: false },
+    { name: 'Forge',  icon: '⚙️', task: 'Ad builder',        unlocked: false },
+    { name: 'Ledger', icon: '💰', task: 'Billing',           unlocked: false },
+    { name: 'Vault',  icon: '🔒', task: 'Protection',        unlocked: false },
+  ];
+  return (
+    <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.25rem' }}>
+      <div style={{ fontSize: '0.65rem', color: '#333', letterSpacing: '0.12em', textTransform: 'uppercase' as const, marginBottom: '1rem' }}>Your Agent Team</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: '0.6rem' }}>
+        {agents.map(a => (
+          <div key={a.name} style={{ background: '#0a0a0a', border: `1px solid ${a.unlocked ? '#00ffcc25' : '#1a1a1a'}`, borderRadius: '10px', padding: '0.75rem', opacity: a.unlocked ? 1 : 0.4 }}>
+            <div style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>{a.icon}</div>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: a.unlocked ? '#fff' : '#444', marginBottom: '0.1rem' }}>{a.name}</div>
+            <div style={{ fontSize: '0.65rem', color: '#555' }}>{a.task}</div>
+            {!a.unlocked && <div style={{ fontSize: '0.6rem', color: '#333', marginTop: '0.3rem' }}>🔒 paid tier required</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function UserDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [myAds, setMyAds] = useState<Ad[]>([]);
   const [arenaAds, setArenaAds] = useState<Ad[]>([]);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralCopied, setReferralCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hydrated, setHydrated] = useState(false);
   const [sharedId, setSharedId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Doorbell — track visitor
+    fetch('/api/doorbell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: '/dashboard/user', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }),
+    }).catch(() => {});
+
     const stored = localStorage.getItem('arena_user');
     if (!stored) { router.push('/'); return; }
     try {
       const u = JSON.parse(stored);
       setUser(u);
       fetchData(u.email);
+      // Load referral code
+      supabase.from('ad_signups').select('promo_code').eq('email', u.email.trim().toLowerCase()).maybeSingle().then(({ data }) => {
+        if (data?.promo_code) setReferralCode(data.promo_code);
+        else setReferralCode(u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || '');
+      });
     } catch { router.push('/'); }
     setHydrated(true);
   }, []);
 
   async function fetchData(email: string) {
     setLoading(true);
-    const [{ data: mine }, { data: arena }] = await Promise.all([
+    const [{ data: mine }, { data: arena }, { data: signups }] = await Promise.all([
       supabase.from('ads').select('*').eq('email', email).order('created_at', { ascending: false }),
       supabase.from('ads').select('*').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('ad_signups').select('email, promo_code'),
     ]);
-    setMyAds(mine || []);
-    setArenaAds(arena || []);
+    // Build email → promo_code map
+    const promoMap: Record<string, string> = {};
+    (signups || []).forEach((s: any) => { if (s.promo_code) promoMap[s.email] = s.promo_code.toLowerCase(); });
+    // Attach promo_code to each ad
+    const enrich = (ads: any[]) => ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
+    setMyAds(enrich(mine || []));
+    setArenaAds(enrich(arena || []));
     setLoading(false);
   }
 
@@ -160,7 +242,7 @@ export default function UserDashboard() {
       title: 'Custom Image Ads',
       desc: 'Upload or generate a custom image for your ad. Powered by Photography API.',
       price: '$29/mo',
-      cta: 'Upgrade to Rising',
+      cta: '🔒 Unlock with plan',
     },
     {
       tier: 'Featured',
@@ -169,7 +251,7 @@ export default function UserDashboard() {
       title: 'Video Ads + AI Agent',
       desc: 'Full ADS agent chat, 10 antbots, video ad creation powered by ANTCPU AI.',
       price: '$79/mo',
-      cta: 'Upgrade to Featured',
+      cta: '🔒 Unlock with plan',
     },
     {
       tier: 'Top Tier',
@@ -181,6 +263,21 @@ export default function UserDashboard() {
       cta: 'Apply for Cloud',
     },
   ];
+
+  async function trackClick(ad: Ad) {
+    if (ad.id.startsWith('sample-')) return; // skip sample ads
+    try {
+      await Promise.all([
+        supabase.from('ad_clicks').insert([{
+          ad_id:  ad.id,
+          email:  user.email,
+          source: 'arena_feed',
+        }]),
+        supabase.from('ads').update({ click_count: (ad as any).click_count ? (ad as any).click_count + 1 : 1 })
+          .eq('id', ad.id),
+      ]);
+    } catch (e) { console.warn('trackClick error:', e); }
+  }
 
   function shareAd(ad: Ad & { id: string; brand: string; title: string; url: string; email: string }) {
     const categoryTags: Record<string, string> = {
@@ -204,23 +301,13 @@ export default function UserDashboard() {
   return (
     <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
 
-      {/* Nav */}
-      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a' }}>
-        <span style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '0.05em' }}>⚡ ANTCPU ADS</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span style={{ fontSize: '0.72rem', background: isTeam ? '#7928ca15' : '#0070f315', border: `1px solid ${isTeam ? '#7928ca40' : '#0070f340'}`, color: isTeam ? '#b388ff' : '#0070f3', borderRadius: '999px', padding: '0.25rem 0.85rem' }}>
-            {isTeam ? '🔵 Team' : '🟢 Trial'} · Entry
-          </span>
-          <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)}
-            style={{ background: 'none', border: '1px solid #222', color: '#888', borderRadius: '8px', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.82rem' }}>
-            👤 Profile
-          </button>
-          <button onClick={() => router.push('/create-ad')}
-            style={{ background: accentColor, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
-            + New Ad
-          </button>
-        </div>
-      </nav>
+      <ArenaNav
+        role={user.email === 'antcpu@gmail.com' ? 'admin' : user.trialStatus === 'team' ? 'team' : 'user'}
+        userName={user.name}
+        userEmail={user.email}
+        userBrand={user.brand}
+        trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+      />
 
       <div style={{ maxWidth: '780px', margin: '0 auto', padding: '2.5rem 2rem' }}>
 
@@ -235,6 +322,29 @@ export default function UserDashboard() {
         </div>
 
         {/* My Ads */}
+        {/* Referral Card */}
+        {referralCode && (
+          <div style={{ background: '#111', border: '1px solid #D4AF3730', borderRadius: '14px', padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '0.65rem', color: '#D4AF37', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>⚡ YOUR REFERRAL CODE</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' as const }}>
+              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#D4AF37', letterSpacing: '0.08em' }}>{referralCode}</div>
+              <button
+                onClick={() => {
+                  const link = `https://antcpu-ads.vercel.app/login?ref=${referralCode}`;
+                  navigator.clipboard.writeText(link);
+                  setReferralCopied(true);
+                  setTimeout(() => setReferralCopied(false), 2000);
+                }}
+                style={{ background: referralCopied ? '#D4AF3720' : '#1a1a1a', border: `1px solid ${referralCopied ? '#D4AF3760' : '#222'}`, color: referralCopied ? '#D4AF37' : '#555', borderRadius: '8px', padding: '0.3rem 0.85rem', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}>
+                {referralCopied ? '✓ Copied' : '↗ Copy Link'}
+              </button>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: '#444', marginTop: '0.5rem' }}>
+              Share your link · earn 10pts per trial signup · 50pts when they go paid
+            </div>
+          </div>
+        )}
+
         <div style={{ fontSize: '0.7rem', color: '#333', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '1rem' }}>
           Your Ads — {myAds.length} active
         </div>
@@ -258,11 +368,13 @@ export default function UserDashboard() {
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: tier.color, borderRadius: '14px 14px 0 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
                     <div style={{ fontWeight: 800, fontSize: '1rem', flex: 1, paddingRight: '1rem' }}>{ad.title}</div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' as const }}>
                       <span style={{ fontSize: '0.65rem', fontWeight: 700, color: tier.color, background: `${tier.color}15`, border: `1px solid ${tier.color}30`, borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{tier.label.toUpperCase()}</span>
                       <span style={{ fontSize: '0.65rem', fontWeight: 700, color: ad.status === 'active' ? '#3fb950' : '#d29922' }}>
                         {ad.status === 'active' ? '🟢 LIVE' : '🟡 REVIEW'}
                       </span>
+                      {(ad as any).points > 0 && <span style={{ fontSize: '0.65rem', color: '#D4AF37', fontWeight: 700 }}>⚡ {(ad as any).points}pts</span>}
+                      {(ad as any).click_count > 0 && <span style={{ fontSize: '0.65rem', color: '#555' }}>👆 {(ad as any).click_count}</span>}
                     </div>
                   </div>
                   <div style={{ color: '#666', fontSize: '0.83rem', lineHeight: 1.6, marginBottom: '0.6rem' }}>{ad.description}</div>
@@ -273,6 +385,12 @@ export default function UserDashboard() {
                       <button onClick={() => shareAd(ad)} style={{ background: sharedId === ad.id ? '#3fb95022' : '#1a1a1a', border: sharedId === ad.id ? '1px solid #3fb95044' : '1px solid #222', color: sharedId === ad.id ? '#3fb950' : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
                         {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
                       </button>
+                      {(ad as any).promo_code && (
+                        <button onClick={() => router.push(`/arena/${(ad as any).promo_code.toLowerCase()}`)}
+                          style={{ background: `${tier.color}15`, border: `1px solid ${tier.color}30`, color: tier.color, borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
+                          🏠 Arena →
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -318,6 +436,8 @@ export default function UserDashboard() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       {ad.category && <span style={{ fontSize: '0.6rem', color: '#444', background: '#1a1a1a', borderRadius: '999px', padding: '0.1rem 0.5rem' }}>{ad.category}</span>}
                       <span style={{ fontSize: '0.65rem', fontWeight: 700, color: tier.color, background: `${tier.color}15`, border: `1px solid ${tier.color}30`, borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{tier.label.toUpperCase()}</span>
+                      {(ad as any).points > 0 && <span style={{ fontSize: '0.65rem', color: '#D4AF37', fontWeight: 700 }}>⚡ {(ad as any).points}pts</span>}
+                      {(ad as any).click_count > 0 && <span style={{ fontSize: '0.65rem', color: '#555' }}>👆 {(ad as any).click_count}</span>}
                     </div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.4rem' }}>{ad.title}</div>
@@ -382,21 +502,6 @@ export default function UserDashboard() {
         <div style={{ textAlign: 'center', color: '#2a2a2a', fontSize: '0.75rem' }}>
           ⚡ ANTCPU ADS · <a href="mailto:antcpu@gmail.com" style={{ color: '#2a2a2a' }}>antcpu@gmail.com</a>
         </div>
-
-
-      {/* Sticky Join CTA — non-signed-in visitors */}
-      {!user && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#111', borderTop: '1px solid #1a1a1a', padding: '1rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 100, flexWrap: 'wrap', gap: '0.75rem' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>⚡ Join the Arena — Free</div>
-            <div style={{ fontSize: '0.75rem', color: '#555' }}>3-day trial · no credit card · go live in minutes</div>
-          </div>
-          <a href="https://antcpu-ads.vercel.app/#start" style={{ background: '#0070f3', color: '#fff', padding: '0.65rem 1.5rem', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
-            Start Free Trial →
-          </a>
-        </div>
-      )}
-    </div>
 
       </div>
     </div>

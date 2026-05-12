@@ -51,6 +51,16 @@ const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }
   toptier:  { color: '#f0883e', label: 'Top Tier', icon: '☁️' },
 };
 
+
+const NOTIF_TEMPLATES = [
+  { icon: '📢', agent: 'Aria',   agentColor: '#f0883e', label: 'No Ad Yet',       title: 'Your ad slot is waiting ⚡',            message: "Aria here 🦋 — You joined the Arena but your ad slot is empty. It takes 2 minutes to go live. Head to Create Ad and I will review it personally." },
+  { icon: '🦋', agent: 'Aria',   agentColor: '#f0883e', label: 'Aria Review',      title: 'Aria has feedback on your ad 🦋',        message: "Hey, Aria here. I reviewed your ad and have some suggestions to improve your placement and reach. Log in to your dashboard to see my notes." },
+  { icon: '📣', agent: 'Herald', agentColor: '#0070f3', label: 'Refer a Friend',   title: 'Earn points by referring friends 🏆',    message: "Herald here 📣 — Your referral link is live. Share it and earn 10pts per trial signup plus 50pts when they go paid. Every referral climbs your ladder." },
+  { icon: '🔍', agent: 'Scout',  agentColor: '#00ffcc', label: 'Stats Ready',      title: 'Scout has your weekly stats 🔍',         message: "Scout reporting in. Your ad impressions and click data are ready. Log in to your dashboard to review your performance this week." },
+  { icon: '⚙️', agent: 'Forge',  agentColor: '#7928ca', label: 'Upgrade Available',title: 'Forge unlocked a new tier for you ⚡',   message: "Forge here ⚙️ — You are eligible to upgrade to Rising tier. Custom image ads, higher placement, more reach. Ready when you are." },
+  { icon: '⚡', agent: 'Herald', agentColor: '#0070f3', label: 'Welcome Back',     title: 'Welcome back to the Arena ⚡',           message: "Herald here 📣 — Your campaign is live and running. Share your ad link, earn promotion points, and keep climbing the ladder." },
+];
+
 const STATUS_COLOR: Record<string, string> = {
   active: '#3fb950', pending_review: '#d29922', idle: '#444',
 };
@@ -67,6 +77,14 @@ export default function DashboardHome() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [loadingAds, setLoadingAds] = useState(true);
   const [currentUser, setCurrentUser] = useState<{ email: string; brand: string } | null>(null);
+  const [totalUsers,  setTotalUsers]  = useState(0);
+  const [notifEmail, setNotifEmail]   = useState('');
+  const [notifTitle, setNotifTitle]   = useState('');
+  const [notifMsg,   setNotifMsg]     = useState('');
+  const [notifSent,  setNotifSent]    = useState(false);
+  const [notifErr,   setNotifErr]     = useState('');
+  const [sending,    setSending]      = useState(false);
+  const [allEmails,  setAllEmails]    = useState<string[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -78,6 +96,10 @@ export default function DashboardHome() {
       } catch { router.push('/dashboard/user'); }
     }
     fetchAds();
+    supabase.from('ad_signups').select('email', { count: 'exact', head: true })
+      .then(({ count }) => setTotalUsers(count || 0));
+    supabase.from('ad_signups').select('email').order('created_at', { ascending: false })
+      .then(({ data }) => setAllEmails((data || []).map((r: any) => r.email)));
   }, []);
 
   async function fetchAds() {
@@ -89,6 +111,20 @@ export default function DashboardHome() {
       .order('created_at', { ascending: false });
     setAds(data || []);
     setLoadingAds(false);
+  }
+
+
+  async function sendNotification() {
+    if (!notifEmail || !notifTitle) return;
+    setSending(true); setNotifErr(''); setNotifSent(false);
+    const targets = notifEmail === 'ALL' ? allEmails : [notifEmail.trim().toLowerCase()];
+    const rows = targets.map(email => ({ email, type: 'admin', title: notifTitle, message: notifMsg, read: false }));
+    const { error } = await supabase.from('notifications').insert(rows);
+    setSending(false);
+    if (error) { setNotifErr(error.message); return; }
+    setNotifSent(true);
+    setNotifEmail(''); setNotifTitle(''); setNotifMsg('');
+    setTimeout(() => setNotifSent(false), 3000);
   }
 
   return (
