@@ -104,7 +104,6 @@ export default function Dashboard() {
   const msgsEnd = useRef<HTMLDivElement>(null);
 
   // Load persisted outputs
-  const router = useRouter();
 
   // Auth guard — admin or mapofpi team only
   useEffect(() => {

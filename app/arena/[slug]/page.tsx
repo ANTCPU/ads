@@ -13,7 +13,7 @@ const supabase = createClient(
 // ── Brand configs keyed by promo_code slug ─────────────────
 const BRAND_CONFIG: Record<string, {
   name: string; tagline: string; primary: string; accent: string;
-  bg: string; url: string; youtube?: string; logo?: string;
+  bg: string; url: string; youtube?: string; logo?: string; hero?: string;
   stats?: { label: string; value: string }[];
 }> = {
   mapofpi: {
@@ -21,10 +21,11 @@ const BRAND_CONFIG: Record<string, {
     tagline: 'The future of Pi eCommerce 🗺️',
     primary: '#2D6A4F',
     accent:  '#D4AF37',
-    bg:      '#050f08',
+    bg:      '#f0faf4',
     url:     'https://mapofpi.com',
     youtube: 'https://youtube.com/@mapofpi',
-    logo:    'https://antcpu.com/drive/stock/logo/amandaphotographylogo.png',
+    logo:    '/brands/mapofpi/map-of-pi-logo.png',
+    hero:    '/brands/mapofpi/Mapofpiv2.jpg',
     stats: [
       { label: 'Registered Users', value: '2.1M+' },
       { label: 'Sellers',          value: '148K'  },
