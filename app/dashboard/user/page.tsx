@@ -100,6 +100,7 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true);
   const [hydrated, setHydrated] = useState(false);
   const [sharedId, setSharedId] = useState<string | null>(null);
+  const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
     fetch('/api/doorbell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/dashboard/user', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }) }).catch(() => {});
@@ -109,6 +110,9 @@ export default function UserDashboard() {
       const u = JSON.parse(stored);
       setUser(u);
       fetchData(u.email);
+      supabase.from('ad_profiles').select('bio').eq('email', u.email.trim().toLowerCase()).maybeSingle().then(({ data }) => {
+        if (data?.bio) setHasProfile(true);
+      });
       supabase.from('ad_signups').select('promo_code').eq('email', u.email.trim().toLowerCase()).maybeSingle().then(({ data }) => {
         if (data?.promo_code) setReferralCode(data.promo_code);
         else setReferralCode(u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || '');
@@ -207,7 +211,7 @@ ${tags} #antcpuads`;
         </Card>
 
         {/* ONBOARDING */}
-        <OnboardingTracker user={user} hasProfile={false} hasAd={myAds.length > 0} />
+        <OnboardingTracker user={user} hasProfile={hasProfile} hasAd={myAds.length > 0} />
 
         {/* REFERRAL */}
         {referralCode && (
