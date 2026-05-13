@@ -118,7 +118,7 @@ export default function BrandArena() {
 
   if (!brand) {
     return (
-      <div style={{ background: '#0a0a0a', color: '#fff', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}>
+      <div style={{ background: '#f5f5f5', color: '#0a0a0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔍</div>
           <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Brand Arena not found</div>
@@ -130,7 +130,7 @@ export default function BrandArena() {
   }
 
   return (
-    <div style={{ background: brand.bg, color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
+    <div style={{ background: brand.bg, color: '#0a0a0a', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
       <ArenaNav
         role={user.email === 'antcpu@gmail.com' ? 'admin' : user.trialStatus === 'team' ? 'team' : 'user'}
         userName={user.name}
@@ -140,11 +140,12 @@ export default function BrandArena() {
       />
 
       {/* Brand Hero */}
-      <div style={{ borderBottom: `1px solid ${brand.primary}30`, background: `${brand.primary}08`, padding: '2.5rem 1.5rem 2rem' }}>
+      <div style={{ borderBottom: `1px solid ${brand.primary}30`, background: `${brand.primary}12`, padding: '2.5rem 1.5rem 2rem' }}>
         <div style={{ maxWidth: '680px', margin: '0 auto' }}>
-          <button onClick={() => router.push('/dashboard/user')} style={{ fontSize: '0.75rem', color: '#444', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1.5rem', padding: 0 }}>← Back to The Arena</button>
+          <button onClick={() => router.push('/')} style={{ fontSize: '0.75rem', color: '#444', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1.5rem', padding: 0 }}>← Back to The Arena</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            {brand.logo && <img src={brand.logo} alt={brand.name} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${brand.primary}` }} />}
+            {brand.logo && <img src={brand.logo} alt={brand.name} style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${brand.primary}` }} />}
+            {(brand as any).hero && <img src={(brand as any).hero} alt={brand.name + ' hero'} style={{ width: '100%', maxWidth: '600px', borderRadius: '14px', margin: '1rem auto 0', display: 'block', objectFit: 'cover', maxHeight: '220px', border: `1px solid ${brand.primary}30` }} />}
             <div>
               <div style={{ fontWeight: 800, fontSize: '1.5rem', color: brand.primary }}>{brand.name}</div>
               <div style={{ fontSize: '0.82rem', color: brand.accent }}>{brand.tagline}</div>
@@ -188,7 +189,7 @@ export default function BrandArena() {
         {loading ? (
           <div style={{ color: '#333', fontSize: '0.85rem' }}>Loading...</div>
         ) : ads.length === 0 ? (
-          <div style={{ background: '#111', border: `1px dashed ${brand.primary}44`, borderRadius: '14px', padding: '2rem', textAlign: 'center' }}>
+          <div style={{ background: '#fff', border: `1px dashed ${brand.primary}44`, borderRadius: '14px', padding: '2rem', textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📢</div>
             <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>No active ads yet</div>
             <div style={{ color: '#555', fontSize: '0.85rem' }}>Check back soon — {brand.name} is building their campaign.</div>
@@ -198,7 +199,7 @@ export default function BrandArena() {
             const tier = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
             return (
               <div key={ad.id} style={{
-                background: '#111',
+                background: '#fff',
                 border: `1px solid ${brand.primary}33`,
                 borderLeft: `3px solid ${brand.primary}`,
                 borderRadius: '14px',
@@ -220,7 +221,7 @@ export default function BrandArena() {
                   <a href={ad.url} target="_blank" rel="noreferrer"
                     style={{ fontSize: '0.78rem', color: brand.primary, textDecoration: 'none', fontWeight: 600 }}>{ad.url} →</a>
                   <button onClick={() => shareAd(ad)}
-                    style={{ background: sharedId === ad.id ? `${brand.primary}20` : '#1a1a1a', border: `1px solid ${sharedId === ad.id ? brand.primary + '60' : '#222'}`, color: sharedId === ad.id ? brand.primary : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
+                    style={{ background: sharedId === ad.id ? `${brand.primary}20` : '#f5f5f5', border: `1px solid ${sharedId === ad.id ? brand.primary + '60' : '#e5e5e5'}`, color: sharedId === ad.id ? brand.primary : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>
                     {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
                   </button>
                 </div>
