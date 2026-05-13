@@ -62,10 +62,13 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
   }
   if (role === 'team') {
     menuItems.push(
-      { label: 'Team Dashboard', icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
-      { label: 'Arena Feed',     icon: '📡', action: () => router.push('/dashboard/user') },
-      { label: 'Create Ad',      icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',        icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'My Dashboard',  icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'Create Ad',     icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Profile',       icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'Map of Pi',     icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
+      { label: 'Photography',   icon: '📸', action: () => router.push('/dashboard/photography') },
+      { label: 'ANTCPU',        icon: '⚡', action: () => router.push('/dashboard/antcpu') },
+      { label: 'About',         icon: 'ℹ️',  action: () => router.push('/about') },
     );
   }
   if (role === 'user') {
@@ -73,6 +76,7 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
       { label: 'My Dashboard', icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'About',        icon: 'ℹ️',  action: () => router.push('/about') },
     );
   }
 
