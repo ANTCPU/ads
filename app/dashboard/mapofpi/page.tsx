@@ -104,6 +104,19 @@ export default function Dashboard() {
   const msgsEnd = useRef<HTMLDivElement>(null);
 
   // Load persisted outputs
+  const router = useRouter();
+
+  // Auth guard — admin or mapofpi team only
+  useEffect(() => {
+    const stored = localStorage.getItem('arena_user');
+    if (!stored) { router.push('/'); return; }
+    try {
+      const u = JSON.parse(stored);
+      const allowed = ['antcpu@gmail.com', 'melshoshani@gmail.com'];
+      if (!allowed.includes(u.email)) { router.push('/dashboard/user'); return; }
+    } catch { router.push('/'); return; }
+  }, []);
+
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {

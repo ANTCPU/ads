@@ -23,10 +23,12 @@ type ArenaNavProps = {
 export default function ArenaNav({ role, userName = '', userEmail = '', userBrand = '', trialStatus = 'trial', onLogout, onDrawerOpen }: ArenaNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [isPrevAdmin, setIsPrevAdmin] = React.useState(false);
   const [notifications, setNotifications] = React.useState<{ id: string; type: string; title: string; message: string; created_at: string }[]>([]);
   const [unread, setUnread] = React.useState(0);
 
   React.useEffect(() => {
+    setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
     if (!userEmail) return;
     supabase.from('notifications').select('id, type, title, message, created_at').eq('email', userEmail.trim().toLowerCase()).eq('read', false).order('created_at', { ascending: false }).then(({ data }) => {
       setNotifications(data || []);
@@ -136,6 +138,17 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
 
               {/* Divider + logout */}
               <div style={{ borderTop: '1px solid #f0f0f0', margin: '0.3rem 0' }} />
+              {isPrevAdmin && (
+                <button onClick={() => {
+                  setOpen(false);
+                  localStorage.removeItem('arena_prev_admin');
+                  localStorage.setItem('arena_user', JSON.stringify({ name: 'Antony Ciccone', email: 'antcpu@gmail.com', brand: 'ANTCPU', trialStatus: 'team' }));
+                  document.cookie = 'arena_session=antcpu%40gmail.com; path=/; max-age=86400';
+                  router.push('/dashboard/user');
+                }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#f0883e', background: '#fff7ed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left', fontWeight: 700, marginBottom: '0.25rem' }}>
+                  <span>↩</span> Return to Admin
+                </button>
+              )}
               <button onClick={() => { setOpen(false); handleLogout(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#dc2626', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' }}>
                 <span>←</span> Log Out
               </button>
