@@ -2,6 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../components/ArenaNav';
+import Card from '../components/Card';
+import SectionHeader from '../components/SectionHeader';
+import Pill from '../components/Pill';
+import { clearSessionCookie } from '../lib/session';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -9,125 +13,157 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const SOCIALS = [
+  { key: 'website',       label: 'Website',   placeholder: 'https://yoursite.com' },
+  { key: 'twitter',       label: 'Twitter/X', placeholder: 'https://twitter.com/yourhandle' },
+  { key: 'instagram',     label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
+  { key: 'facebook',      label: 'Facebook',  placeholder: 'https://facebook.com/yourpage' },
+  { key: 'tiktok',        label: 'TikTok',    placeholder: 'https://tiktok.com/@yourhandle' },
+  { key: 'youtube',       label: 'YouTube',   placeholder: 'https://youtube.com/@yourchannel' },
+  { key: 'linkedin',      label: 'LinkedIn',  placeholder: 'https://linkedin.com/in/yourprofile' },
+  { key: 'discord',       label: 'Discord',   placeholder: 'https://discord.gg/yourserver' },
+  { key: 'telegram',      label: 'Telegram',  placeholder: 'https://t.me/yourhandle' },
+  { key: 'antcoin_wallet',label: 'Antcoin Wallet', placeholder: 'your@wallet.com' },
+];
+
 export default function ProfilePage() {
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [form, setForm] = useState<any>({ bio: '', contact: '', website: '', facebook: '', twitter: '', tiktok: '', youtube: '', instagram: '', linkedin: '', discord: '', telegram: '', antcoin_wallet: '' });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [user, setUser] = useState({ name: '', email: '', brand: '', trialStatus: 'trial' });
-  const [form, setForm] = useState({ bio: '', contact: '', website: '', facebook: '', twitter: '', tiktok: '', youtube: '', instagram: '', linkedin: '', discord: '', telegram: '', antcoin_wallet: '' });
+  const [editing, setEditing] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
-    if (stored) {
-      try { setUser(JSON.parse(stored)); } catch {}
-    }
-    const profile = localStorage.getItem('arena_profile');
-    if (profile) {
-      try {
-        const p = JSON.parse(profile);
-        setForm(f => ({ ...f, ...p }));
-      } catch {}
-    }
-    // Also pull from Supabase if email available
-    const stored2 = localStorage.getItem('arena_user');
-    if (stored2) {
-      try {
-        const u2 = JSON.parse(stored2);
-        if (u2.email) {
-          import('@supabase/supabase-js').then(({ createClient }) => {
-            const sb = createClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-            );
-            sb.from('ad_profiles').select('*').eq('email', u2.email).maybeSingle().then(({ data }) => {
-              if (data) setForm({ bio: data.bio || '', contact: data.contact || '', website: data.website || '', facebook: data.facebook || '', twitter: data.twitter || '', tiktok: data.tiktok || '', youtube: data.youtube || '', instagram: data.instagram || '', linkedin: data.linkedin || '', discord: data.discord || '', telegram: data.telegram || '', antcoin_wallet: data.antcoin_wallet || '' });
-            });
+    if (!stored) { router.push('/'); return; }
+    try {
+      const u = JSON.parse(stored);
+      setUser(u);
+      supabase.from('ad_profiles').select('*').eq('email', u.email.trim().toLowerCase()).maybeSingle().then(({ data }) => {
+        if (data) {
+          setForm({
+            bio: data.bio || '',
+            contact: data.contact || '',
+            website: data.website || '',
+            facebook: data.facebook || '',
+            twitter: data.twitter || '',
+            tiktok: data.tiktok || '',
+            youtube: data.youtube || '',
+            instagram: data.instagram || '',
+            linkedin: data.linkedin || '',
+            discord: data.discord || '',
+            telegram: data.telegram || '',
+            antcoin_wallet: data.antcoin_wallet || '',
           });
+          if (data.bio) setHasProfile(true);
+        } else {
+          setEditing(true);
         }
-      } catch {}
-    }
+      });
+    } catch { router.push('/'); return; }
+    setHydrated(true);
   }, []);
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }));
 
-  const handleSave = async () => {
+  async function handleSave() {
     setLoading(true);
-    const payload = {
-      email: user.email,
-      name: user.name,
-      brand: user.brand,
-      bio: form.bio,
-      contact: form.contact,
-      website: form.website,
-      facebook: form.facebook,
-      twitter: form.twitter,
-      tiktok: form.tiktok,
-      youtube: form.youtube,
-      instagram: form.instagram,
-      linkedin: form.linkedin,
-      discord: form.discord,
-      telegram: form.telegram,
-      antcoin_wallet: form.antcoin_wallet,
-    };
-    const { data, error } = await supabase.from('ad_profiles').upsert([payload], { onConflict: 'email' });
+    const payload = { email: user.email, name: user.name, brand: user.brand, bio: form.bio, contact: form.contact, website: form.website, facebook: form.facebook, twitter: form.twitter, tiktok: form.tiktok, youtube: form.youtube, instagram: form.instagram, linkedin: form.linkedin, discord: form.discord, telegram: form.telegram, antcoin_wallet: form.antcoin_wallet };
+    await supabase.from('ad_profiles').upsert([payload], { onConflict: 'email' });
     localStorage.setItem('arena_profile', JSON.stringify(form));
     setLoading(false);
     setSaved(true);
-    setTimeout(() => router.push('/create-ad'), 1500);
-  };
+    setHasProfile(true);
+    setEditing(false);
+    setTimeout(() => setSaved(false), 2000);
+  }
 
+  if (!hydrated || !user) return null;
+
+  const isAdmin = user.email === 'antcpu@gmail.com';
   const isTeam = user.trialStatus === 'team';
-  const btnColor = isTeam ? '#7928ca' : '#0070f3';
+  const accentColor = isAdmin ? '#f0883e' : '#0070f3';
+  const inp: React.CSSProperties = { width: '100%', background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.88rem', color: '#0a0a0a', outline: 'none', boxSizing: 'border-box', marginBottom: '0.75rem' };
 
   return (
-    <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
+    <div style={{ background: '#f5f5f5', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       <ArenaNav
-        role={user.trialStatus === 'team' ? 'team' : 'user'}
+        role={isAdmin ? 'admin' : isTeam ? 'team' : 'user'}
         userName={user.name}
         userEmail={user.email}
         userBrand={user.brand}
-        trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+        trialStatus={user.trialStatus}
+        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
-      <div style={{ maxWidth: '520px', margin: '0 auto', padding: '3rem 2rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem' }}>
-          {[0,1,2].map(i => (
-            <div key={i} style={{ flex: 1, height: '3px', borderRadius: '2px', background: i === 0 ? btnColor : i === 1 ? `${btnColor}80` : '#222' }} />
-          ))}
+
+      <div style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1.25rem' }}>
+
+        <div style={{ marginBottom: '1.75rem' }}>
+          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0a0a0a' }}>👤 Profile</div>
+          <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.3rem' }}>{user.name} · {user.brand}</div>
         </div>
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', padding: '2.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>👤</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '0.4rem' }}>Complete Your Profile</h1>
-          <p style={{ color: '#555', fontSize: '0.88rem', marginBottom: '2rem' }}>Step 2 of 3 — Help the network know who you are.</p>
-          {user.name && (
-            <div style={{ background: isTeam ? '#7928ca10' : '#0070f310', border: `1px solid ${isTeam ? '#7928ca30' : '#0070f330'}`, borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.5rem', fontSize: '0.82rem', color: isTeam ? '#b388ff' : '#0070f3' }}>
-              {isTeam ? '🔵' : '🟢'} Signed in as <strong>{user.name}</strong> · {user.brand}
+
+        {/* VIEW MODE */}
+        {hasProfile && !editing && (
+          <>
+            <Card>
+              <SectionHeader title="About" />
+              <div style={{ fontSize: '0.9rem', color: '#333', lineHeight: 1.7, marginBottom: '1rem' }}>{form.bio || '—'}</div>
+              <div style={{ fontSize: '0.82rem', color: '#888' }}>Contact: {form.contact || '—'}</div>
+            </Card>
+
+            <Card>
+              <SectionHeader title="🔗 Social Links" />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {SOCIALS.map(s => form[s.key] ? (
+                  <div key={s.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '8px' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#555', minWidth: '110px' }}>{s.label}</span>
+                    <a href={form[s.key]} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: accentColor, textDecoration: 'none', fontWeight: 600 }}>{form[s.key]}</a>
+                  </div>
+                ) : null)}
+              </div>
+            </Card>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <Pill label="✏️ Edit Profile" onClick={() => setEditing(true)} color={accentColor} />
+              <Pill label="← Dashboard" onClick={() => router.push('/dashboard/user')} color="#555" outline />
             </div>
-          )}
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Bio / What you promote</label>
-          <textarea value={form.bio} onChange={e => set('bio', e.target.value)} placeholder="e.g. We help Pi Network sellers reach more buyers..." style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box', marginBottom: '1.2rem', minHeight: '90px', resize: 'vertical' }} />
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Website</label>
-          <input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://yourbrand.com" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box', marginBottom: '1.2rem' }} />
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Contact (email or social)</label>
-          <input value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="contact@yourbrand.com or @handle" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box', marginBottom: '1.5rem' }} />
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Facebook URL</label>
-          <input value={form.facebook} onChange={e => set('facebook', e.target.value)} placeholder="https://facebook.com/yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+          </>
+        )}
 
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>X / Twitter URL</label>
-          <input value={form.twitter} onChange={e => set('twitter', e.target.value)} placeholder="https://x.com/yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+        {/* EDIT MODE */}
+        {(!hasProfile || editing) && (
+          <Card>
+            <SectionHeader title={hasProfile ? '✏️ Edit Profile' : '👤 Complete Your Profile'} sub={hasProfile ? '' : 'Step 2 of 3 — Help the network know who you are'} />
 
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>TikTok URL</label>
-          <input value={form.tiktok} onChange={e => set('tiktok', e.target.value)} placeholder="https://tiktok.com/@yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '0.3rem' }}>Bio / What you promote</label>
+            <textarea style={{ ...inp, minHeight: '90px', resize: 'vertical' }} value={form.bio} onChange={e => set('bio', e.target.value)} placeholder="Tell the Arena what you do..." />
 
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>YouTube URL</label>
-          <input value={form.youtube} onChange={e => set('youtube', e.target.value)} placeholder="https://youtube.com/@yourbrand" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.2rem' }} />
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '0.3rem' }}>Contact</label>
+            <input style={inp} value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="email or phone" />
 
-          <label style={{ display: 'block', fontSize: '0.78rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Antcoin Wallet Address</label>
-          <input value={form.antcoin_wallet} onChange={e => set('antcoin_wallet', e.target.value)} placeholder="e.g. 0xABCD...1234" style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box' as const, marginBottom: '1.5rem' }} />
+            <SectionHeader title="🔗 Social Links" sub="Add your handles — these show on your profile" />
+            {SOCIALS.map(s => (
+              <div key={s.key}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#555', display: 'block', marginBottom: '0.3rem' }}>{s.label}</label>
+                <input style={inp} value={form[s.key]} onChange={e => set(s.key, e.target.value)} placeholder={s.placeholder} />
+              </div>
+            ))}
 
-          <button onClick={handleSave} disabled={loading || saved || !form.bio} style={{ width: '100%', background: saved ? '#1a1a1a' : btnColor, color: saved ? '#0070f3' : '#fff', border: 'none', borderRadius: '8px', padding: '0.85rem', fontWeight: 600, fontSize: '1rem', cursor: loading || saved ? 'default' : 'pointer' }}>
-            {saved ? '✓ Saved — heading to your ad...' : loading ? 'Saving...' : 'Save & Continue →'}
-          </button>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <Pill label={saved ? '✅ Saved!' : loading ? 'Saving...' : 'Save Profile'} onClick={handleSave} color={saved ? '#22c55e' : accentColor} />
+              {hasProfile && <Pill label="Cancel" onClick={() => setEditing(false)} color="#555" outline />}
+            </div>
+          </Card>
+        )}
+
+        <div style={{ textAlign: 'center', padding: '2rem 0', color: '#aaa', fontSize: '0.78rem' }}>
+          ⚡ ANTCPU ADS · <a href="mailto:antcpu@gmail.com" style={{ color: '#aaa' }}>antcpu@gmail.com</a>
         </div>
+
       </div>
     </div>
   );

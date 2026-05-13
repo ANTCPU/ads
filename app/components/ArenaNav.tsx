@@ -52,6 +52,7 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
       { label: 'Agents',        icon: '🤖', action: () => router.push('/dashboard/agents') },
       { label: 'Map of Pi',     icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
       { label: 'Photography',   icon: '📸', action: () => router.push('/dashboard/photography') },
+      { label: 'ANTCPU',         icon: '⚡', action: () => router.push('/dashboard/antcpu') },
       { label: 'Create Ad',     icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Profile',       icon: '👤', action: () => router.push('/profile') },
     );
