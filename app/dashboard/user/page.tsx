@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
-import AdminBar from '../../components/AdminBar';
 import Card from '../../components/Card';
 import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
@@ -188,9 +187,6 @@ ${tags} #antcpuads`;
       />
 
       <div style={{ maxWidth: '780px', margin: '0 auto', padding: '2rem 1.25rem' }}>
-
-        {/* ADMIN BAR */}
-        {isAdmin && <AdminBar />}
 
         {/* WELCOME */}
         <Card>
