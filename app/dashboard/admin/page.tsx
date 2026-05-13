@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [form, setForm] = useState({ title: '', url: '', description: '', category: 'Brand Awareness', tier: 'entry', email: 'antcpu@gmail.com', brand: 'ANTCPU' });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [clicks, setClicks] = useState<any[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -48,13 +49,15 @@ export default function AdminDashboard() {
   }, []);
 
   async function loadData() {
-    const [{ count: userCount }, { count: adCount }, { data: recentSignups }] = await Promise.all([
+    const [{ count: userCount }, { count: adCount }, { data: recentSignups }, { data: recentClicks }] = await Promise.all([
       supabase.from('ad_signups').select('*', { count: 'exact', head: true }),
       supabase.from('ads').select('*', { count: 'exact', head: true }),
       supabase.from('ad_signups').select('name, email, brand_name, status, created_at').order('created_at', { ascending: false }).limit(10),
+      supabase.from('ad_clicks').select('ad_id, email, source, created_at').order('created_at', { ascending: false }).limit(15),
     ]);
     setStats({ users: userCount || 0, ads: adCount || 0, team: 3 });
     setSignups(recentSignups || []);
+    setClicks(recentClicks || []);
   }
 
   async function handleSubmitAd() {
@@ -200,6 +203,25 @@ export default function AdminDashboard() {
                   <span style={{ background: s.status === 'team' ? '#f0fdf4' : '#fefce8', color: s.status === 'team' ? '#16a34a' : '#ca8a04', border: `1px solid ${s.status === 'team' ? '#bbf7d0' : '#fde68a'}`, borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.68rem', fontWeight: 700 }}>
                     {s.status === 'team' ? '✅ Team' : '🟡 Trial'}
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <SectionHeader title="👆 Recent Ad Clicks" sub="Last 15 click events" />
+          {clicks.length === 0 ? (
+            <div style={{ color: '#888', fontSize: '0.85rem' }}>No clicks recorded yet — clicks will appear here as users interact with ads.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {clicks.map((c, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1rem', background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '10px', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0a0a0a' }}>Ad: {c.ad_id?.slice(0, 8)}...</div>
+                    <div style={{ fontSize: '0.72rem', color: '#888' }}>{c.email} · {c.source}</div>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#888' }}>{c.created_at ? new Date(c.created_at).toLocaleString() : '—'}</span>
                 </div>
               ))}
             </div>
