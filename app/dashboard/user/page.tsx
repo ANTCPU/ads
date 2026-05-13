@@ -286,7 +286,7 @@ ${tags} #antcpuads`;
                     <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: '0.75rem' }}>{ad.description}</div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <Pill label="Visit →" onClick={() => window.open(ad.url, '_blank')} color={tier.color} />
-                      <Pill label={sharedId === ad.id ? '✓ Copied' : '↗ Share'} onClick={(e: any) => { e.stopPropagation(); shareAd(ad); }} color={sharedId === ad.id ? '#22c55e' : '#555'} outline />
+                      <Pill label={sharedId === ad.id ? '✓ Copied' : '↗ Share'} onClick={() => { shareAd(ad); }} color={sharedId === ad.id ? '#22c55e' : '#555'} outline />
                     </div>
                   </div>
                 );
