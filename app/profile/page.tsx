@@ -14,7 +14,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [user, setUser] = useState({ name: '', email: '', brand: '', trialStatus: 'trial' });
-  const [form, setForm] = useState({ bio: '', contact: '', website: '', facebook: '', twitter: '', tiktok: '', youtube: '', antcoin_wallet: '' });
+  const [form, setForm] = useState({ bio: '', contact: '', website: '', facebook: '', twitter: '', tiktok: '', youtube: '', instagram: '', linkedin: '', discord: '', telegram: '', antcoin_wallet: '' });
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -40,7 +40,7 @@ export default function ProfilePage() {
               process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
             sb.from('ad_profiles').select('*').eq('email', u2.email).maybeSingle().then(({ data }) => {
-              if (data) setForm({ bio: data.bio || '', contact: data.contact || '', website: data.website || '', facebook: data.facebook || '', twitter: data.twitter || '', tiktok: data.tiktok || '', youtube: data.youtube || '', antcoin_wallet: data.antcoin_wallet || '' });
+              if (data) setForm({ bio: data.bio || '', contact: data.contact || '', website: data.website || '', facebook: data.facebook || '', twitter: data.twitter || '', tiktok: data.tiktok || '', youtube: data.youtube || '', instagram: data.instagram || '', linkedin: data.linkedin || '', discord: data.discord || '', telegram: data.telegram || '', antcoin_wallet: data.antcoin_wallet || '' });
             });
           });
         }
@@ -63,6 +63,10 @@ export default function ProfilePage() {
       twitter: form.twitter,
       tiktok: form.tiktok,
       youtube: form.youtube,
+      instagram: form.instagram,
+      linkedin: form.linkedin,
+      discord: form.discord,
+      telegram: form.telegram,
       antcoin_wallet: form.antcoin_wallet,
     };
     const { data, error } = await supabase.from('ad_profiles').upsert([payload], { onConflict: 'email' });

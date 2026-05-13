@@ -76,11 +76,15 @@ export default function ArenaNav({
 
   if (role === 'admin') {
     menuItems.push(
-      { label: 'Admin Dashboard', icon: '⚡', action: () => router.push('/dashboard') },
+      { label: 'My Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'Ad Builder',      icon: '🏗',  action: () => router.push('/dashboard/admin') },
+      { label: 'Users',           icon: '👥', action: () => router.push('/dashboard/users') },
+      { label: 'Leaderboard',     icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Agents',          icon: '🤖', action: () => router.push('/dashboard/agents') },
-      { label: 'The Arena',       icon: '📡', action: () => router.push('/dashboard/user') },
+      { label: 'Map of Pi',       icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
+      { label: 'Photography',     icon: '📸', action: () => router.push('/dashboard/photography') },
       { label: 'Create Ad',       icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'New Client',      icon: '+',  action: () => router.push('/dashboard/new') },
+      { label: 'Profile',         icon: '👤', action: () => router.push('/profile') },
     );
   }
 
@@ -159,14 +163,14 @@ export default function ArenaNav({
           {open && (
             <div style={{
               position: 'absolute' as const, top: 'calc(100% + 0.5rem)', right: 0,
-              background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px',
+              background: '#fff', border: '1px solid #e5e5e5', borderRadius: '14px',
               padding: '0.5rem', minWidth: '210px', zIndex: 100,
               boxShadow: '0 8px 32px #00000080',
             }}>
               {/* User info */}
               <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #1a1a1a', marginBottom: '0.3rem' }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>{userName || userBrand}</div>
-                <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '0.1rem' }}>{userEmail}</div>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0a0a0a' }}>{userName || userBrand}</div>
+                <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.1rem' }}>{userEmail}</div>
               </div>
 
               {/* Menu items */}
@@ -176,7 +180,7 @@ export default function ArenaNav({
                   onClick={() => { setOpen(false); item.action(); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '0.6rem',
-                    width: '100%', padding: '0.7rem 1rem', color: item.color || '#fff',
+                    width: '100%', padding: '0.7rem 1rem', color: item.color || '#0a0a0a',
                     background: 'none', border: 'none', borderRadius: '8px',
                     cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' as const,
                   }}
@@ -200,7 +204,7 @@ export default function ArenaNav({
               )}
 
               {/* Divider + logout */}
-              <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
+              <div style={{ borderTop: '1px solid #e5e5e5', margin: '0.3rem 0' }} />
               {/* Switch to Admin — shows for antcpu email in non-admin role */}
               {userEmail === 'antcpu@gmail.com' && role !== 'admin' && (
                 <button
@@ -250,7 +254,7 @@ export default function ArenaNav({
                 onClick={() => { setOpen(false); handleLogout(); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.6rem',
-                  width: '100%', padding: '0.7rem 1rem', color: '#ff4444',
+                  width: '100%', padding: '0.7rem 1rem', color: '#dc2626',
                   background: 'none', border: 'none', borderRadius: '8px',
                   cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' as const,
                 }}
