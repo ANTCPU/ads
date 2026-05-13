@@ -55,6 +55,7 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
       { label: 'Map of Pi',     icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
       { label: 'Photography',   icon: '📸', action: () => router.push('/dashboard/photography') },
       { label: 'ANTCPU',         icon: '⚡', action: () => router.push('/dashboard/antcpu') },
+      { label: 'About',          icon: 'ℹ️',  action: () => router.push('/about') },
       { label: 'Create Ad',     icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Profile',       icon: '👤', action: () => router.push('/profile') },
     );
@@ -115,13 +116,33 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
                 <div style={{ fontSize: '0.68rem', color: '#f0883e', marginTop: '0.2rem', fontWeight: 600 }}>{trialStatus === 'team' ? '🔵 Team — Unlimited' : '🟢 Trial'}</div>
               </div>
 
-              {/* Menu items */}
-              {menuItems.map(item => (
-                <button key={item.label} onClick={() => { setOpen(false); item.action(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#0a0a0a', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' }}>
-                  <span style={{ fontSize: '1rem', minWidth: '1.2rem' }}>{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
+              {/* Menu items — grouped */}
+              {(() => {
+                const teamLabels = ['Map of Pi', 'Photography', 'ANTCPU'];
+                const teamItems = menuItems.filter(i => teamLabels.includes(i.label));
+                const otherItems = menuItems.filter(i => !teamLabels.includes(i.label));
+                return (
+                  <>
+                    {otherItems.map(item => (
+                      <button key={item.label} onClick={() => { setOpen(false); item.action(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#0a0a0a', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' }}>
+                        <span style={{ fontSize: '1rem', minWidth: '1.2rem' }}>{item.icon}</span>
+                        {item.label}
+                      </button>
+                    ))}
+                    {teamItems.length > 0 && (
+                      <>
+                        <div style={{ fontSize: '0.6rem', color: '#aaa', letterSpacing: '0.1em', padding: '0.5rem 1rem 0.25rem', borderTop: '1px solid #f0f0f0', marginTop: '0.25rem' }}>TEAMS</div>
+                        {teamItems.map(item => (
+                          <button key={item.label} onClick={() => { setOpen(false); item.action(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.55rem 1rem 0.55rem 1.5rem', color: '#555', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', textAlign: 'left' }}>
+                            <span style={{ fontSize: '0.95rem', minWidth: '1.2rem' }}>{item.icon}</span>
+                            {item.label}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Notifications */}
               {notifications.length > 0 && (
