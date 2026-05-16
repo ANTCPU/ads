@@ -190,3 +190,42 @@
 - Deploy sparingly — batch changes, test locally first.
 - Current workflow state is source of truth — always verify before modifying.
 - Nothing goes live without admin approval.
+
+---
+
+## 🌍 I18N — 8 LANGUAGE LAUNCH (2026-05-16)
+
+| Locale | URL | Status |
+|--------|-----|--------|
+| English | antcpu-ads.vercel.app | ✅ live |
+| Arabic | antcpu-ads.vercel.app/ar | ✅ live · RTL |
+| Chinese | antcpu-ads.vercel.app/zh | ✅ live |
+| Spanish | antcpu-ads.vercel.app/es | ✅ live |
+| Hindi | antcpu-ads.vercel.app/hi | ✅ live |
+| Portuguese | antcpu-ads.vercel.app/pt | ✅ live |
+| French | antcpu-ads.vercel.app/fr | ✅ live |
+| Italian | antcpu-ads.vercel.app/it | ✅ live |
+
+- Translation files: `app/lib/i18n/[locale].ts`
+- Switcher: `app/components/LanguageSwitcher.tsx`
+- Arabic uses `ar.ts` with `rtl: 'true'` flag — engine sets `dir="rtl"`
+- All 8 locales registered in `app/lib/i18n/index.ts`
+
+---
+
+## 📧 PARTNER OUTREACH LOG
+
+| Date | To | Subject | Status |
+|------|----|---------|--------|
+| 2026-05-09 | melshoshani@gmail.com | Welcome to the Arena, Mohamed ⚡ | ✅ sent |
+| 2026-05-16 | melshoshani@gmail.com | الساحة الآن بالعربية — ANTCPU ADS is now in Arabic ⚡ | ✅ sent · ID: c6b948a3 |
+
+---
+
+## 🎓 EDU STATUS (2026-05-16)
+
+- antcpu.com/edu — v1.0.1 · LIVE
+- 26 classes across 3 departments: CPU (10) · Art (9) · Music (7)
+- antcpu.com/edu/teach — teacher application form LIVE
+- antcpu.com/edu/classroom — NOT YET BUILT
+- All classes launching June 2026 · Live sessions starting July 2026
