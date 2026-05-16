@@ -36,3 +36,4 @@ pnpm-debug.log*
 .vercel
 .env*.local
 CREDENTIALS.md
+ROADMAP.md
