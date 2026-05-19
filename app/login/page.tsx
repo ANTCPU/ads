@@ -233,7 +233,7 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
       alert('Invalid PIN. Access denied.');
       return;
     }
-    window.location.href = redirect || '/dashboard/user';
+    window.location.href = redirect || '/dashboard/antcpu';
     return;
   }
 
