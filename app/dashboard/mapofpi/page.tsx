@@ -8,7 +8,9 @@ import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 
 const TEAM = [
-  { name: 'Mohamed El Shoshani', email: 'melshoshani@gmail.com', role: 'Founder, Map of Pi', icon: '🗺️' },
+  { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com',    role: 'Founder',          icon: '🗺️' },
+  { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',     role: 'Project Manager',  icon: '📋' },
+  { name: 'Andri Nael',         email: 'andri.postkast@gmail.com', role: 'Team',             icon: '🗺️' },
 ];
 
 const POSTS = [
@@ -30,7 +32,7 @@ export default function MapOfPiDashboard() {
     if (!stored) { router.push('/'); return; }
     try {
       const u = JSON.parse(stored);
-      const allowed = ['antcpu@gmail.com', 'melshoshani@gmail.com'];
+      const allowed = ['antcpu@gmail.com', 'melshoshani@gmail.com', 'andri.postkast@gmail.com', 'joosdup.pj@gmail.com'];
       if (!allowed.includes(u.email)) { router.push('/dashboard/user'); return; }
       setUser(u);
     } catch { router.push('/'); return; }
