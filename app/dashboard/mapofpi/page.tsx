@@ -8,9 +8,9 @@ import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 
 const TEAM = [
-  { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com',    role: 'Founder',          icon: '🗺️' },
-  { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',     role: 'Project Manager',  icon: '📋' },
-  { name: 'Andri Nael',         email: 'andri.postkast@gmail.com', role: 'Team',             icon: '🗺️' },
+  { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',     role: 'Founder & Project Manager', icon: '🗺️' },
+  { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com',    role: 'Marketing',                 icon: '📣' },
+  { name: 'Andri Nael',         email: 'andri.postkast@gmail.com', role: 'Marketing',                 icon: '📣' },
 ];
 
 const POSTS = [
