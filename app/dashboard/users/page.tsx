@@ -62,7 +62,7 @@ export default function UsersPage() {
     localStorage.setItem('arena_prev_admin', 'true');
     localStorage.setItem('arena_user', JSON.stringify({ name: u.name || u.email, email: u.email, brand: u.brand_name || '', trialStatus: u.status || 'trial' }));
     document.cookie = `arena_session=${encodeURIComponent(u.email)}; path=/; max-age=86400`;
-    router.push('/dashboard/user');
+    router.push('/dashboard');
   }
 
   const filtered = users.filter(u => {
@@ -104,7 +104,7 @@ export default function UsersPage() {
         <Card>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <Pill label="⚡ Admin Hub"    onClick={() => router.push('/dashboard/admin')} color="#f0883e" />
-            <Pill label="🏟 Dashboard"   onClick={() => router.push('/dashboard/user')}  color="#0a0a0a" outline />
+            <Pill label="🏟 Dashboard"   onClick={() => router.push('/dashboard')}  color="#0a0a0a" outline />
             <Pill label="🏆 Leaderboard" onClick={() => router.push('/dashboard/leaderboard')} color="#0a0a0a" outline />
           </div>
         </Card>

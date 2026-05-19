@@ -90,23 +90,16 @@ export default function BrandArena() {
 
   async function fetchAds() {
     setLoading(true);
-    // Match by promo_code → get email → get ads
-    const { data: signup } = await supabase
-      .from('ad_signups')
-      .select('email')
-      .eq('promo_code', slug.toUpperCase())
-      .maybeSingle();
-
-    if (signup?.email) {
-      const { data } = await supabase
-        .from('ads')
-        .select('*')
-        .eq('email', signup.email)
-        .eq('status', 'active')
-        .order('pinned', { ascending: false })
-        .order('points', { ascending: false });
-      setAds(data || []);
-    }
+    // Match by brand name directly — reliable across all users
+    const brandName = brand.name;
+    const { data } = await supabase
+      .from('ads')
+      .select('*')
+      .ilike('brand', brandName)
+      .eq('status', 'active')
+      .order('pinned', { ascending: false })
+      .order('points', { ascending: false });
+    setAds(data || []);
     setLoading(false);
   }
 

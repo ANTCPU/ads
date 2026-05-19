@@ -38,6 +38,22 @@ export default function CreateAdPage() {
 
   const handleSubmit = async () => {
     setLoading(true);
+    // Check if user already has a pending or active ad
+    const { data: existing } = await supabase
+      .from('ads')
+      .select('id, status')
+      .eq('email', user.email)
+      .in('status', ['pending_review', 'active'])
+      .limit(1);
+    if (existing && existing.length > 0) {
+      setSubmitError(
+        existing[0].status === 'pending_review'
+          ? '🦋 Your ad is already pending review — Aria will get to it soon.'
+          : '✅ You already have an active ad in the Arena.'
+      );
+      setLoading(false);
+      return;
+    }
     const payload = {
       email: user.email,
       name: user.name,

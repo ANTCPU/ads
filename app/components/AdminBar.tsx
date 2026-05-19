@@ -7,6 +7,7 @@ export default function AdminBar() {
   const router = useRouter();
 
   const links = [
+    { label: '⚡ Brand',          path: '/dashboard/antcpu' },
     { label: '🏗 Ad Builder',    path: '/dashboard/admin' },
     { label: '👥 Users',         path: '/dashboard/users' },
     { label: '🏆 Leaderboard',   path: '/dashboard/leaderboard' },
