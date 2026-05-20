@@ -13,6 +13,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
+
 const SOCIALS = [
   { key: 'website',       label: 'Website',   placeholder: 'https://yoursite.com' },
   { key: 'twitter',       label: 'Twitter/X', placeholder: 'https://twitter.com/yourhandle' },
@@ -74,6 +76,14 @@ export default function ProfilePage() {
     const payload = { email: user.email, name: user.name, brand: user.brand, bio: form.bio, contact: form.contact, website: form.website, facebook: form.facebook, twitter: form.twitter, tiktok: form.tiktok, youtube: form.youtube, instagram: form.instagram, linkedin: form.linkedin, discord: form.discord, telegram: form.telegram, antcoin_wallet: form.antcoin_wallet };
     await supabase.from('ad_profiles').upsert([payload], { onConflict: 'email' });
     localStorage.setItem('arena_profile', JSON.stringify(form));
+    // Discord notification
+    fetch(DISCORD_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `👤 **Profile Saved**\n**Name:** ${user.name}\n**Brand:** ${user.brand}\n**Email:** ${user.email}${form.bio ? `\n**Bio:** ${form.bio.slice(0, 80)}` : ''}${form.website ? `\n**Website:** ${form.website}` : ''}`,
+      }),
+    }).catch(() => {});
     setLoading(false);
     setSaved(true);
     setHasProfile(true);

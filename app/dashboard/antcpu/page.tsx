@@ -15,6 +15,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
+
 type PendingAd = {
   id: string;
   brand: string;
@@ -101,6 +103,23 @@ export default function AntcpuDashboard() {
   async function approveAd(id: string) {
     setActionId(id);
     await supabase.from('ads').update({ status: 'active' }).eq('id', id);
+    // Wire Scout score API
+    await fetch('/api/scout/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_id: id }),
+    }).catch(() => {});
+    // Find ad details for Discord
+    const ad = pendingAds.find(a => a.id === id);
+    if (ad) {
+      fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `✅ **Ad Approved**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Tier:** ${ad.tier}`,
+        }),
+      }).catch(() => {});
+    }
     await loadPending();
     setActionId(null);
   }
@@ -108,6 +127,18 @@ export default function AntcpuDashboard() {
   async function rejectAd(id: string) {
     setActionId(id);
     await supabase.from('ads').update({ status: 'rejected' }).eq('id', id);
+    // Discord notification with Aria verdict
+    const ad = pendingAds.find(a => a.id === id);
+    if (ad) {
+      const verdict = ariaVerdict(ad);
+      fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `❌ **Ad Rejected**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Aria:** ${verdict.note}`,
+        }),
+      }).catch(() => {});
+    }
     await loadPending();
     setActionId(null);
   }

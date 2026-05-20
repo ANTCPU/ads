@@ -68,7 +68,7 @@ async function notifyDiscord(name: string, email: string, brand: string, status:
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      content: `${emoji} **New Arena Signup**\n**Name:** ${name}\n**Email:** ${email}\n**Brand:** ${brand}\n**Status:** ${label}${days ? `\n**Expires:** ${getTrialExpiry(status)}` : ''}`,
+      content: `${emoji} **⚡ New Arena Signup**\n**Name:** ${name}\n**Email:** ${email}\n**Brand:** ${brand}\n**Status:** ${label}${days ? `\n**Expires:** ${getTrialExpiry(status)}` : ''}`,
     }),
   });
 }
@@ -243,6 +243,17 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
     if (pin !== '1234') {
       alert('Invalid PIN.');
       return;
+    }
+    // Ensure tester gets team-level nav and badge
+    const stored = localStorage.getItem('arena_user');
+    if (stored) {
+      try {
+        const u = JSON.parse(stored);
+        u.trialStatus = 'team';
+        u.name = u.name || 'Tester';
+        u.brand = u.brand || 'Test Brand';
+        localStorage.setItem('arena_user', JSON.stringify(u));
+      } catch {}
     }
     window.location.href = redirect || '/dashboard/user';
     return;

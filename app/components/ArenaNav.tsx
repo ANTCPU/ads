@@ -20,20 +20,48 @@ type ArenaNavProps = {
   onDrawerOpen?: () => void;
 };
 
-export default function ArenaNav({ role, userName = '', userEmail = '', userBrand = '', trialStatus = 'trial', onLogout, onDrawerOpen }: ArenaNavProps) {
+const MAPOFPI_TEAM = [
+  'antcpu@gmail.com',
+  'melshoshani@gmail.com',
+  'andri.postkast@gmail.com',
+  'joosdup.pj@gmail.com',
+];
+
+const PHOTOGRAPHY_TEAM = [
+  'antcpu@gmail.com',
+  'mishoemanda@gmail.com',
+];
+
+export default function ArenaNav({
+  role,
+  userName = '',
+  userEmail = '',
+  userBrand = '',
+  trialStatus = 'trial',
+  onLogout,
+  onDrawerOpen,
+}: ArenaNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPrevAdmin, setIsPrevAdmin] = React.useState(false);
-  const [notifications, setNotifications] = React.useState<{ id: string; type: string; title: string; message: string; created_at: string }[]>([]);
+  const [notifications, setNotifications] = React.useState<
+    { id: string; type: string; title: string; message: string; created_at: string }[]
+  >([]);
   const [unread, setUnread] = React.useState(0);
 
   React.useEffect(() => {
     setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
     if (!userEmail) return;
-    supabase.from('notifications').select('id, type, title, message, created_at').eq('email', userEmail.trim().toLowerCase()).eq('read', false).order('created_at', { ascending: false }).then(({ data }) => {
-      setNotifications(data || []);
-      setUnread((data || []).length);
-    });
+    supabase
+      .from('notifications')
+      .select('id, type, title, message, created_at')
+      .eq('email', userEmail.trim().toLowerCase())
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setNotifications(data || []);
+        setUnread((data || []).length);
+      });
   }, [userEmail]);
 
   function handleLogout() {
@@ -43,138 +71,177 @@ export default function ArenaNav({ role, userName = '', userEmail = '', userBran
     router.push('/');
   }
 
-  const menuItems: { label: string; icon: string; action: () => void }[] = [];
+  const menuItems: { label: string; icon: string; color?: string; action: () => void }[] = [];
 
   if (role === 'admin') {
     menuItems.push(
-      { label: 'My Dashboard',  icon: '⚡', action: () => router.push('/dashboard/user') },
-      { label: 'Ad Builder',    icon: '🏗',  action: () => router.push('/dashboard/admin') },
-      { label: 'Users',         icon: '👥', action: () => router.push('/dashboard/users') },
-      { label: 'Leaderboard',   icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'Agents',        icon: '🤖', action: () => router.push('/dashboard/agents') },
-      { label: 'Map of Pi',     icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
-      { label: 'Photography',   icon: '📸', action: () => router.push('/dashboard/photography') },
+      { label: 'My Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'Ad Builder',     icon: '🏗', action: () => router.push('/dashboard/admin') },
+      { label: 'Users',          icon: '👥', action: () => router.push('/dashboard/users') },
+      { label: 'Leaderboard',    icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
+      { label: 'Agents',         icon: '🤖', action: () => router.push('/dashboard/agents') },
+      { label: 'Map of Pi',      icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
+      { label: 'Photography',    icon: '📸', action: () => router.push('/dashboard/photography') },
       { label: 'ANTCPU',         icon: '⚡', action: () => router.push('/dashboard/antcpu') },
-      { label: 'About',          icon: 'ℹ️',  action: () => router.push('/about') },
-      { label: 'Create Ad',     icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',       icon: '👤', action: () => router.push('/profile') },
+      { label: 'About',          icon: 'ℹ️', action: () => router.push('/about') },
+      { label: 'Create Ad',      icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Profile',        icon: '👤', action: () => router.push('/profile') },
     );
   }
+
   if (role === 'team') {
     menuItems.push(
-      { label: 'My Dashboard',  icon: '⚡', action: () => router.push('/dashboard/user') },
-      { label: 'Create Ad',     icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',       icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
-      { label: 'Map of Pi',     icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
-      { label: 'Photography',   icon: '📸', action: () => router.push('/dashboard/photography') },
-      { label: 'ANTCPU',        icon: '⚡', action: () => router.push('/dashboard/antcpu') },
-      { label: 'About',         icon: 'ℹ️',  action: () => router.push('/about') },
+      { label: 'My Dashboard', icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
+      { label: 'About',        icon: 'ℹ️', action: () => router.push('/about') },
     );
+    // Brand-specific dashboards — only show to the right team
+    if (MAPOFPI_TEAM.includes(userEmail)) {
+      menuItems.push({ label: 'Map of Pi', icon: '🗺️', action: () => router.push('/dashboard/mapofpi') });
+    }
+    if (PHOTOGRAPHY_TEAM.includes(userEmail)) {
+      menuItems.push({ label: 'Photography', icon: '📸', action: () => router.push('/dashboard/photography') });
+    }
   }
+
   if (role === 'user') {
     menuItems.push(
       { label: 'My Dashboard', icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
-      { label: 'About',        icon: 'ℹ️',  action: () => router.push('/about') },
+      { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
+      { label: 'About',        icon: 'ℹ️', action: () => router.push('/about') },
     );
   }
 
-  return (
-    <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: '1px solid #e5e5e5', background: '#fff', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 1px 4px #0000000a' }}>
+  const accentColor = trialStatus === 'team' ? '#7928ca' : '#0070f3';
 
-      {/* Logo */}
+  return (
+    <nav style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a',
+      background: '#0a0a0a', position: 'sticky', top: 0, zIndex: 50,
+    }}>
+      {/* LEFT — logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <span onClick={() => router.push('/dashboard/user')} style={{ fontWeight: 800, fontSize: '1.1rem', color: '#f0883e', letterSpacing: '0.05em', cursor: 'pointer' }}>
+        {onDrawerOpen && (
+          <button onClick={onDrawerOpen} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: '1.1rem', padding: '0.25rem' }} aria-label="Open drawer">☰</button>
+        )}
+        <span
+          onClick={() => role === 'admin' ? router.push('/dashboard') : router.push('/dashboard/user')}
+          style={{ fontWeight: 800, fontSize: '1.1rem', color: '#f0883e', letterSpacing: '0.05em', cursor: 'pointer' }}
+        >
           ⚡ ANTCPU ADS
         </span>
         {role === 'admin' && (
-          <span style={{ fontSize: '0.6rem', background: '#fff7ed', border: '1px solid #fed7aa', color: '#f0883e', borderRadius: '999px', padding: '0.15rem 0.5rem', letterSpacing: '0.1em', fontWeight: 700 }}>ADMIN</span>
+          <span style={{ fontSize: '0.6rem', background: '#f0883e15', border: '1px solid #f0883e30', color: '#f0883e', borderRadius: '999px', padding: '0.15rem 0.5rem', letterSpacing: '0.1em' }}>ADMIN</span>
         )}
         {role === 'team' && (
-          <span style={{ fontSize: '0.6rem', background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#7928ca', borderRadius: '999px', padding: '0.15rem 0.5rem', letterSpacing: '0.1em', fontWeight: 700 }}>TEAM</span>
+          <span style={{ fontSize: '0.6rem', background: '#7928ca15', border: '1px solid #7928ca30', color: '#b388ff', borderRadius: '999px', padding: '0.15rem 0.5rem', letterSpacing: '0.1em' }}>TEAM</span>
         )}
       </div>
 
-      {/* Right */}
+      {/* RIGHT — hamburger */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        {unread > 0 && (
-          <span style={{ background: '#f0883e', color: '#fff', borderRadius: '999px', padding: '0.15rem 0.55rem', fontSize: '0.7rem', fontWeight: 700 }}>{unread}</span>
+        {/* Trial/team badge — visible on larger screens */}
+        {(role === 'user' || role === 'team') && (
+          <span style={{
+            fontSize: '0.7rem', background: `${accentColor}15`,
+            border: `1px solid ${accentColor}40`, color: accentColor,
+            borderRadius: '999px', padding: '0.25rem 0.85rem',
+          }}>
+            {trialStatus === 'team' ? '🔵 Team' : '🟢 Trial'}
+          </span>
         )}
 
-        {/* Hamburger */}
         <div style={{ position: 'relative' }}>
-          <button onClick={() => setOpen(o => !o)} style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: '8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px 10px' }} aria-label="Menu">
-            <div style={{ width: '20px', height: '2px', background: open ? '#f0883e' : '#0a0a0a', borderRadius: '2px' }} />
-            <div style={{ width: '20px', height: '2px', background: open ? '#f0883e' : '#0a0a0a', borderRadius: '2px' }} />
-            <div style={{ width: '20px', height: '2px', background: open ? '#f0883e' : '#0a0a0a', borderRadius: '2px' }} />
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '5px', padding: '4px' }}
+            aria-label="Menu"
+          >
+            {[0,1,2].map(i => (
+              <div key={i} style={{ width: '22px', height: '2px', background: open ? '#f0883e' : '#fff', borderRadius: '2px', transition: 'background 0.2s' }} />
+            ))}
+            {unread > 0 && (
+              <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#f0883e', color: '#fff', borderRadius: '999px', fontSize: '0.55rem', fontWeight: 700, padding: '0.1rem 0.35rem', minWidth: '14px', textAlign: 'center' }}>
+                {unread}
+              </span>
+            )}
           </button>
 
           {open && (
-            <div style={{ position: 'absolute', top: 'calc(100% + 0.5rem)', right: 0, background: '#fff', border: '1px solid #e5e5e5', borderRadius: '14px', padding: '0.5rem', minWidth: '220px', zIndex: 100, boxShadow: '0 8px 32px #00000014' }}>
-
-              {/* User info */}
-              <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f0f0f0', marginBottom: '0.3rem' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0a0a0a' }}>{userName || userBrand}</div>
-                <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '0.1rem' }}>{userEmail}</div>
-                <div style={{ fontSize: '0.68rem', color: '#f0883e', marginTop: '0.2rem', fontWeight: 600 }}>{trialStatus === 'team' ? '🔵 Team — Unlimited' : '🟢 Trial'}</div>
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 0.5rem)', right: 0,
+              background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px',
+              padding: '0.5rem', minWidth: '210px', zIndex: 100,
+              boxShadow: '0 8px 32px #00000080',
+            }}>
+              {/* User info header */}
+              <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #1a1a1a', marginBottom: '0.3rem' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>{userName || userBrand}</div>
+                <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '0.1rem' }}>{userEmail}</div>
               </div>
 
-              {/* Menu items — grouped */}
-              {(() => {
-                const teamLabels = ['Map of Pi', 'Photography', 'ANTCPU'];
-                const teamItems = menuItems.filter(i => teamLabels.includes(i.label));
-                const otherItems = menuItems.filter(i => !teamLabels.includes(i.label));
-                return (
-                  <>
-                    {otherItems.map(item => (
-                      <button key={item.label} onClick={() => { setOpen(false); item.action(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#0a0a0a', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' }}>
-                        <span style={{ fontSize: '1rem', minWidth: '1.2rem' }}>{item.icon}</span>
-                        {item.label}
-                      </button>
-                    ))}
-                    {teamItems.length > 0 && (
-                      <>
-                        <div style={{ fontSize: '0.6rem', color: '#aaa', letterSpacing: '0.1em', padding: '0.5rem 1rem 0.25rem', borderTop: '1px solid #f0f0f0', marginTop: '0.25rem' }}>TEAMS</div>
-                        {teamItems.map(item => (
-                          <button key={item.label} onClick={() => { setOpen(false); item.action(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.55rem 1rem 0.55rem 1.5rem', color: '#555', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', textAlign: 'left' }}>
-                            <span style={{ fontSize: '0.95rem', minWidth: '1.2rem' }}>{item.icon}</span>
-                            {item.label}
-                          </button>
-                        ))}
-                      </>
-                    )}
-                  </>
-                );
-              })()}
+              {/* Menu items */}
+              {menuItems.map(item => (
+                <button
+                  key={item.label}
+                  onClick={() => { setOpen(false); item.action(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.6rem',
+                    width: '100%', padding: '0.7rem 1rem',
+                    color: item.color || '#fff', background: 'none', border: 'none',
+                    borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ fontSize: '1rem', minWidth: '1.2rem' }}>{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
 
               {/* Notifications */}
               {notifications.length > 0 && (
-                <div style={{ margin: '0.5rem 0', borderTop: '1px solid #f0f0f0', paddingTop: '0.5rem' }}>
-                  <div style={{ fontSize: '0.6rem', color: '#aaa', letterSpacing: '0.1em', padding: '0 1rem', marginBottom: '0.4rem' }}>NOTIFICATIONS</div>
+                <div style={{ margin: '0.5rem 0' }}>
+                  <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.1em', padding: '0 1rem', marginBottom: '0.4rem' }}>NOTIFICATIONS</div>
                   {notifications.map(n => (
-                    <div key={n.id} style={{ padding: '0.6rem 1rem', borderLeft: `3px solid ${n.type === 'aria' ? '#f0883e' : n.type === 'approved' ? '#22c55e' : '#0070f3'}`, marginBottom: '0.4rem', background: '#fafafa', borderRadius: '0 8px 8px 0' }}>
-                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0a0a0a' }}>{n.title}</div>
-                      {n.message && <div style={{ fontSize: '0.7rem', color: '#888' }}>{n.message.slice(0, 80)}{n.message.length > 80 ? '…' : ''}</div>}
+                    <div key={n.id} style={{
+                      padding: '0.6rem 1rem',
+                      borderLeft: `3px solid ${n.type === 'aria' ? '#f0883e' : n.type === 'approved' ? '#3fb950' : n.type === 'points' ? '#D4AF37' : '#0070f3'}`,
+                      marginBottom: '0.4rem', background: '#0a0a0a', borderRadius: '0 8px 8px 0',
+                    }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fff', marginBottom: '0.2rem' }}>{n.title}</div>
+                      {n.message && <div style={{ fontSize: '0.7rem', color: '#555', lineHeight: 1.4 }}>{n.message.slice(0, 80)}{n.message.length > 80 ? '…' : ''}</div>}
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Divider + logout */}
-              <div style={{ borderTop: '1px solid #f0f0f0', margin: '0.3rem 0' }} />
-              {isPrevAdmin && (
-                <button onClick={() => {
-                  setOpen(false);
-                  localStorage.removeItem('arena_prev_admin');
-                  localStorage.setItem('arena_user', JSON.stringify({ name: 'Antony Ciccone', email: 'antcpu@gmail.com', brand: 'ANTCPU', trialStatus: 'team' }));
-                  document.cookie = 'arena_session=antcpu%40gmail.com; path=/; max-age=86400';
-                  router.push('/dashboard/user');
-                }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#f0883e', background: '#fff7ed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left', fontWeight: 700, marginBottom: '0.25rem' }}>
-                  <span>↩</span> Return to Admin
+              <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
+
+              {/* Back to admin */}
+              {isPrevAdmin && userEmail !== 'antcpu@gmail.com' && (
+                <button
+                  onClick={() => {
+                    setOpen(false);
+                    localStorage.removeItem('arena_prev_admin');
+                    localStorage.setItem('arena_user', JSON.stringify({ name: 'Antony Ciccone', email: 'antcpu@gmail.com', brand: 'ANTCPU', trialStatus: 'team' }));
+                    document.cookie = 'arena_session=antcpu%40gmail.com; path=/; max-age=86400';
+                    router.push('/dashboard');
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.7rem 1rem', color: '#00ffcc', background: '#00ffcc08', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left', marginBottom: '0.2rem' }}
+                >
+                  <span>←</span> Back to Admin
                 </button>
               )}
-              <button onClick={() => { setOpen(false); handleLogout(); }} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.65rem 1rem', color: '#dc2626', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' }}>
+
+              {/* Logout */}
+              <button
+                onClick={() => { setOpen(false); handleLogout(); }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%', padding: '0.7rem 1rem', color: '#ff4444', background: 'none', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', textAlign: 'left' }}
+              >
                 <span>←</span> Log Out
               </button>
             </div>

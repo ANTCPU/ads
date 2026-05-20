@@ -13,6 +13,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
+
 const TIER_CONFIG: Record<string, { color: string; label: string }> = {
   entry:    { color: '#0070f3', label: 'Entry' },
   rising:   { color: '#7928ca', label: 'Rising' },
@@ -76,10 +78,23 @@ export default function UserDashboard() {
   async function trackClick(ad: Ad) {
     if (ad.id.startsWith('sample-')) return;
     try {
+      const newCount = (ad.click_count || 0) + 1;
       await Promise.all([
         supabase.from('ad_clicks').insert([{ ad_id: ad.id, email: user!.email, source: 'arena_feed' }]),
-        supabase.from('ads').update({ click_count: (ad.click_count || 0) + 1 }).eq('id', ad.id),
+        supabase.from('ads').update({ click_count: newCount }).eq('id', ad.id),
       ]);
+      // Discord milestone every 10 clicks
+      if (newCount % 10 === 0) {
+        fetch(DISCORD_WEBHOOK, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: `👆 **Click Milestone** — ${ad.brand} hit **${newCount} clicks**
+**Ad:** "${ad.title}"
+**Email:** ${ad.email}`,
+          }),
+        }).catch(() => {});
+      }
     } catch {}
   }
 
@@ -217,7 +232,11 @@ export default function UserDashboard() {
                 return (
                   <div key={ad.id} onClick={() => trackClick(ad)} style={{ background: '#fafafa', border: `1px solid ${ad.pinned ? '#f0883e40' : '#e5e5e5'}`, borderLeft: `3px solid ${tier.color}`, borderRadius: '10px', padding: '1rem', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0a0a0a' }}>{ad.brand}</span>
+                      <span
+                        onClick={e => { e.stopPropagation(); if (ad.email) router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
+                        style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color, cursor: ad.email ? 'pointer' : 'default', textDecoration: ad.email ? 'underline' : 'none', textDecorationColor: `${tier.color}60` }}
+                        title={ad.email ? `View ${ad.brand} profile` : ''}
+                      >{ad.brand}</span>
                       {ad.pinned && <span style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700 }}>📌 PINNED</span>}
                       {isOwn  && <span style={{ fontSize: '0.65rem', color: accent, fontWeight: 700 }}>YOUR AD</span>}
                       <span style={{ fontSize: '0.65rem', background: `${tier.color}15`, color: tier.color, border: `1px solid ${tier.color}30`, borderRadius: '999px', padding: '0.1rem 0.45rem', fontWeight: 700 }}>{tier.label}</span>
