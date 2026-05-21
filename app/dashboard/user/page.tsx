@@ -28,7 +28,7 @@ const SAMPLE_ADS = [
   { id: 'sample-3', brand: 'Your Brand Here',    title: 'This Could Be Your Ad ✨',           description: 'Join the Arena. Launch your first ad in minutes. Free trial — no credit card required.',           url: 'https://antcpu-ads.vercel.app', tier: 'entry',    pinned: false, category: 'Promotion',    status: 'active', email: '',                         promo_code: null },
 ];
 
-type Ad = { id: string; brand: string; title: string; url: string; description: string; category: string; status: string; tier: string; pinned: boolean; email: string; promo_code?: string | null; click_count?: number; points?: number; };
+type Ad = { id: string; brand: string; title: string; url: string; description: string; category: string; status: string; tier: string; pinned: boolean; email: string; promo_code?: string | null; click_count?: number; share_count?: number; points?: number; };
 type User = { name: string; email: string; brand: string; trialStatus: string; };
 
 export default function UserDashboard() {
@@ -83,6 +83,12 @@ export default function UserDashboard() {
         supabase.from('ad_clicks').insert([{ ad_id: ad.id, email: user!.email, source: 'arena_feed' }]),
         supabase.from('ads').update({ click_count: newCount }).eq('id', ad.id),
       ]);
+      // Recalculate score after every click
+      fetch('/api/scout/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_id: ad.id }),
+      }).catch(() => {});
       // Discord milestone every 10 clicks
       if (newCount % 10 === 0) {
         fetch(DISCORD_WEBHOOK, {
@@ -108,7 +114,22 @@ export default function UserDashboard() {
     };
     const tags = categoryTags[ad.category] || '#marketing #ads #antcpu';
     const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n${tags} #antcpuads`;
-    navigator.clipboard.writeText(text).then(() => { setSharedId(ad.id); setTimeout(() => setSharedId(null), 2500); });
+    navigator.clipboard.writeText(text).then(() => {
+      setSharedId(ad.id);
+      setTimeout(() => setSharedId(null), 2500);
+    });
+    // Increment share_count + recalculate score (fire and forget)
+    if (!ad.id.startsWith('sample-')) {
+      const newShares = (ad.share_count || 0) + 1;
+      supabase.from('ads').update({ share_count: newShares }).eq('id', ad.id)
+        .then(() => {
+          fetch('/api/scout/score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ad_id: ad.id }),
+          }).catch(() => {});
+        });
+    }
   }
 
   function copyMyAd() {
