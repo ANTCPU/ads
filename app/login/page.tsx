@@ -316,8 +316,16 @@ export default function Page() {
         setForm(f => ({ ...f, name: user.name, email: user.email, brand_name: user.brand }));
         setTrialStatus(user.trialStatus || 'trial');
         setSessionCookie(user);
+        // Already logged in — redirect silently without re-prompting PIN
         const p2 = new URLSearchParams(window.location.search);
-        handlePinAndRedirect(user.email, p2.get('redirect'));
+        const redirect = p2.get('redirect');
+        const dest = user.email.trim().toLowerCase() === 'antcpu@gmail.com'
+          ? redirect || '/dashboard/antcpu'
+          : user.email.trim().toLowerCase() === 'test@antcpu.com'
+          ? redirect || '/dashboard/user'
+          : redirect || '/dashboard/user';
+        window.location.href = dest;
+        return;
       } catch {}
     }
     setHydrated(true);

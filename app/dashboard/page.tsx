@@ -86,15 +86,23 @@ export default function DashboardHome() {
   const [sending,    setSending]      = useState(false);
   const [allEmails,  setAllEmails]    = useState<string[]>([]);
 
+  // Read user from localStorage with cookie fallback
+  function getUserFromCookie(): { email: string; name: string; brand: string; trialStatus: string } | null {
+    try {
+      const match = document.cookie.match(/arena_session=([^;]+)/);
+      if (!match) return null;
+      return JSON.parse(decodeURIComponent(match[1]));
+    } catch { return null; }
+  }
+
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
-    if (stored) {
-      try {
-        const u = JSON.parse(stored);
-        if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
-        setCurrentUser(u);
-      } catch { router.push('/dashboard/user'); }
-    }
+    const u = stored ? (() => { try { return JSON.parse(stored); } catch { return null; } })() : getUserFromCookie();
+    if (!u) { router.push('/login'); return; }
+    if (u.email.trim().toLowerCase() !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
+    setCurrentUser(u);
+    // Sync localStorage if we fell back to cookie
+    if (!stored) localStorage.setItem('arena_user', JSON.stringify(u));
     fetchAds();
     supabase.from('ad_signups').select('email', { count: 'exact', head: true })
       .then(({ count }) => setTotalUsers(count || 0));
