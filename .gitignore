@@ -36,3 +36,10 @@ pnpm-debug.log*
 .vercel
 .env*.local
 CREDENTIALS.md
+
+# Internal build docs — local only, never push
+ADS_V03.md
+*_V0*.md
+*_INTERNAL.md
+cloud-index-backup.html
+cloud-index-new.html
