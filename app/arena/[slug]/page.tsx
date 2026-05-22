@@ -20,9 +20,10 @@ const BRAND_META: Record<string, { name: string; tagline: string; url: string }>
 };
 
 export async function generateMetadata(
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
-  const slug = params.slug.toLowerCase();
+  const { slug: rawSlug } = await params;
+  const slug = rawSlug.toLowerCase();
   const brand = BRAND_META[slug];
 
   if (!brand) {
