@@ -44,21 +44,73 @@ function ariaCheck(title: string, url: string, description: string): {
   return { ok: true, field: null, message: "🦋 Looks great — your ad is ready to submit." };
 }
 
-// ── Aria performance suggestion ───────────────────────────────
-function ariaSuggest(ad: any): string {
-  const daysSince = Math.floor((Date.now() - new Date(ad.created_at).getTime()) / 86400000);
-  const clicks = ad.click_count || 0;
-  const shares = ad.share_count || 0;
+// ── Aria performance suggestion engine ────────────────────────
+// Timezone-aware posting windows (local hour of user)
+function getPostingWindow(): { label: string; tip: string } {
+  const hour = new Date().getHours(); // local browser time
+  if (hour >= 6 && hour < 9)
+    return { label: 'morning window', tip: 'Morning is peak scroll time — post now for maximum reach.' };
+  if (hour >= 9 && hour < 12)
+    return { label: 'mid-morning', tip: 'Mid-morning works well for Pi Network and crypto audiences in Asia.' };
+  if (hour >= 12 && hour < 14)
+    return { label: 'lunch window', tip: 'Lunch break is a high-engagement window — share your ad now.' };
+  if (hour >= 17 && hour < 20)
+    return { label: 'evening peak', tip: 'Evening is the #1 posting window — highest engagement across all platforms.' };
+  if (hour >= 20 && hour < 23)
+    return { label: 'night window', tip: 'Night posting reaches Pi Network users in Southeast Asia and the Middle East.' };
+  return { label: 'off-peak', tip: 'Off-peak hours — schedule a post for 7am or 6pm for better reach.' };
+}
 
+function ariaSuggest(ad: any, rank?: number | null): string {
+  const daysSince  = Math.floor((Date.now() - new Date(ad.created_at).getTime()) / 86400000);
+  const clicks     = ad.click_count  || 0;
+  const shares     = ad.share_count  || 0;
+  const points     = ad.points       || 0;
+  const window     = getPostingWindow();
+
+  // Pending review
+  if (ad.status === 'pending_review')
+    return `🦋 Your ad is in the review queue — usually approved within a few hours. While you wait, ${window.tip.toLowerCase()}`;
+
+  // 7+ days, zero activity — escalate to replace
+  if (clicks === 0 && shares === 0 && daysSince >= 7)
+    return `🦋 Your ad has been live ${daysSince} days with no activity. It may be time for a fresh approach — try replacing it with a stronger headline that tells people exactly what they get when they click. ${window.tip}`;
+
+  // 3–6 days, no clicks — suggest headline edit
   if (clicks === 0 && daysSince >= 3)
-    return `🦋 Your ad has been live ${daysSince} days with no clicks yet. Try a more specific headline — what exactly can someone do when they visit your link?`;
+    return `🦋 ${daysSince} days live, no clicks yet. Your headline might not be specific enough — what's the one thing someone gets by clicking your link? Edit it and repost. ${window.tip}`;
+
+  // Shares > clicks — URL or landing page issue
+  if (shares > clicks && clicks === 0)
+    return `🦋 People are sharing your ad but not clicking through — double-check your URL opens correctly and the landing page matches what your ad promises.`;
+
+  // Clicks but no shares — needs CTA
   if (clicks > 0 && shares === 0)
-    return `🦋 You have ${clicks} click${clicks > 1 ? 's' : ''} — great start. Adding a stronger call to action in your description could turn viewers into sharers.`;
+    return `🦋 ${clicks} click${clicks > 1 ? 's' : ''} — solid start. Now add a call to action at the end of your description like "Share this with your Pi Network" to turn viewers into promoters. ${window.tip}`;
+
+  // Just went live
+  if (clicks === 0 && shares === 0 && daysSince < 1)
+    return `🦋 Your ad just went live. ${window.tip} Post it now to get the first clicks rolling — early momentum matters for your rank.`;
+
   if (clicks === 0 && shares === 0 && daysSince < 3)
-    return `🦋 Your ad just went live — give it a day or two. Share it yourself to get the first clicks rolling.`;
+    return `🦋 Your ad is ${daysSince === 1 ? '1 day' : daysSince + ' days'} old with no activity yet. ${window.tip} Share it yourself first — your own network is your fastest path to points.`;
+
+  // Climbing with rank
+  if (rank && rank <= 3 && points > 0)
+    return `🦋 You're #${rank} in the Arena — top 3! Keep sharing daily to hold your position. ${window.tip}`;
+
+  if (rank && points > 0)
+    return `🦋 You're #${rank} in the Arena with ${points} pts. ${window.tip} Every share earns 5 points — post once a day to climb.`;
+
+  // Performing well
+  if (clicks >= 10)
+    return `🦋 ${clicks} clicks — your ad is working. ${window.tip} Share it again today to keep the momentum going.`;
+
   if (clicks >= 5)
-    return `🦋 Your ad is working — ${clicks} clicks and counting. Keep promoting it to climb the leaderboard.`;
-  return `🦋 Your ad is live. Share it to earn points and move up the rankings.`;
+    return `🦋 ${clicks} clicks and counting. ${window.tip} You're building momentum — one share a day keeps your rank climbing.`;
+
+  // Default
+  return `🦋 Your ad is live. ${window.tip} Share it to earn points and move up the leaderboard.`;
 }
 
 type ExistingAd = {
@@ -248,7 +300,7 @@ export default function CreateAdPage() {
 
   // ── VIEW MODE — existing ad + Aria suggestion ─────────────
   if (mode === 'view' && existingAd) {
-    const suggestion = ariaSuggest(existingAd);
+    const suggestion = ariaSuggest(existingAd, null);
     const daysSince  = Math.floor((Date.now() - new Date(existingAd.created_at).getTime()) / 86400000);
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
