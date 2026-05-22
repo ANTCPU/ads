@@ -42,6 +42,20 @@ const BRAND_CONFIG: Record<string, any> = {
       { label: 'Arena Pages', value: '23' },
     ],
   },
+  pipioneers: {
+    name: 'PiPioneersX',
+    tagline: 'Join Pi Network — Mine crypto on your smartphone 🚀',
+    primary: '#7928ca',
+    accent: '#ff0080',
+    bg: '#0a0a0a',
+    url: 'https://minepi.com/Ajataju',
+    stats: [
+      { label: 'Network',  value: 'Pi' },
+      { label: 'Mining',   value: '📱' },
+      { label: 'Referral', value: 'Ajataju' },
+      { label: 'Status',   value: 'Active' },
+    ],
+  },
   test: {
     name: 'ANTCPU TEST',
     tagline: 'Arena Copilot — Test Environment 🧪',

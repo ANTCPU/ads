@@ -12,6 +12,11 @@ const BRAND_META: Record<string, { name: string; tagline: string; url: string }>
     tagline: 'Automated marketing network powered by AI antbots.',
     url: 'https://antcpu.com',
   },
+  pipioneers: {
+    name: 'PiPioneersX',
+    tagline: 'Join Pi Network — Mine crypto on your smartphone. Referral: Ajataju.',
+    url: 'https://minepi.com/Ajataju',
+  },
   test: {
     name: 'ANTCPU TEST',
     tagline: 'Arena Copilot — Test Environment.',
