@@ -43,6 +43,7 @@ export default function UserDashboard() {
   const [hydrated, setHydrated]       = useState(false);
   const [sharedId, setSharedId]       = useState<string | null>(null);
   const [hasProfile, setHasProfile]   = useState(false);
+  const [myRank, setMyRank]            = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/doorbell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/dashboard/user', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }) }).catch(() => {});
@@ -62,11 +63,15 @@ export default function UserDashboard() {
 
   async function fetchData(email: string) {
     setLoading(true);
-    const [{ data: mine }, { data: arena }, { data: signups }] = await Promise.all([
+    const [{ data: mine }, { data: arena }, { data: signups }, { data: rankData }] = await Promise.all([
       supabase.from('ads').select('*').eq('email', email).eq('status', 'active').order('created_at', { ascending: false }).limit(1),
       supabase.from('ads').select('*').eq('status', 'active').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('ad_signups').select('email, promo_code'),
+      supabase.from('ads').select('rank_position').eq('email', email).eq('status', 'active').order('rank_position', { ascending: true }).limit(1),
     ]);
+    if (rankData && rankData.length > 0 && rankData[0].rank_position > 0) {
+      setMyRank(rankData[0].rank_position);
+    }
     const promoMap: Record<string, string> = {};
     (signups || []).forEach((s: any) => { if (s.promo_code) promoMap[s.email] = s.promo_code.toLowerCase(); });
     const enrich = (ads: any[]) => ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
@@ -164,7 +169,7 @@ export default function UserDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0a0a0a' }}>Welcome back, {firstName} ⚡</div>
-              <div style={{ fontSize: '0.82rem', color: '#888', marginTop: '0.25rem' }}>{user.brand} · {isAdmin ? 'Admin' : isTeam ? 'Team — Unlimited' : '3-day trial'}</div>
+              <div style={{ fontSize: '0.82rem', color: '#888', marginTop: '0.25rem' }}>{user.brand} · {isAdmin ? 'Admin' : isTeam ? 'Team — Unlimited' : '3-day trial'}{myRank && <span style={{ marginLeft: '0.5rem', background: accent + '20', color: accent, borderRadius: '999px', padding: '0.1rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>#{myRank} in the Arena</span>}</div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <Pill label={myAd ? '✏️ Edit Ad' : '📢 Create Ad'} onClick={() => router.push('/create-ad')} color={accent} />
