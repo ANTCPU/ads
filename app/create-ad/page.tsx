@@ -18,54 +18,111 @@ const AD_CATEGORIES = [
 
 const SEED_PHRASES = ['coming in hot', 'antcpu ad network', 'antcpu-ads.vercel.app'];
 
+// ── Multi-brand config — keyed by email ──────────────────────
+const MULTI_BRAND: Record<string, { label: string; icon: string; brand: string }[]> = {
+  'andri.postkast@gmail.com': [
+    { label: 'Map of Pi',    icon: '🗺️', brand: 'Map of Pi'    },
+    { label: 'PiPioneersX',  icon: '⚡', brand: 'PiPioneersX'  },
+  ],
+};
+
 // ── Aria live validation ──────────────────────────────────────
 function ariaCheck(title: string, url: string, description: string): {
-  ok: boolean;
-  message: string;
-  field: 'title' | 'url' | 'description' | 'seed' | null;
+  ok: boolean; message: string; field: 'title' | 'url' | 'description' | 'seed' | null;
 } {
   const combined = `${title} ${description}`.toLowerCase();
-  if (SEED_PHRASES.some(p => combined.includes(p))) {
+  if (SEED_PHRASES.some(p => combined.includes(p)))
     return { ok: false, field: 'seed', message: "⚠️ Looks like the example ad is still in there — write about your own brand instead." };
-  }
-  if (!title || title.trim().length < 8) {
+  if (!title || title.trim().length < 8)
     return { ok: false, field: 'title', message: "🦋 A stronger headline gets more clicks. Try to be specific about what you offer." };
-  }
-  if (!url || url.trim().length < 6) {
+  if (!url || url.trim().length < 6)
     return { ok: false, field: 'url', message: "🦋 Add a destination URL so people know where to go." };
-  }
-  if (url.trim().length > 5 && !url.startsWith('http')) {
+  if (url.trim().length > 5 && !url.startsWith('http'))
     return { ok: false, field: 'url', message: "🦋 Make sure your URL starts with https:// so it links correctly." };
-  }
-  if (!description || description.trim().length < 20) {
+  if (!description || description.trim().length < 20)
     return { ok: false, field: 'description', message: "🦋 Tell people what makes your brand worth clicking. One strong sentence is enough." };
-  }
   return { ok: true, field: null, message: "🦋 Looks great — your ad is ready to submit." };
 }
 
+// ── Aria performance suggestion ───────────────────────────────
+function ariaSuggest(ad: any): string {
+  const daysSince = Math.floor((Date.now() - new Date(ad.created_at).getTime()) / 86400000);
+  const clicks = ad.click_count || 0;
+  const shares = ad.share_count || 0;
+
+  if (clicks === 0 && daysSince >= 3)
+    return `🦋 Your ad has been live ${daysSince} days with no clicks yet. Try a more specific headline — what exactly can someone do when they visit your link?`;
+  if (clicks > 0 && shares === 0)
+    return `🦋 You have ${clicks} click${clicks > 1 ? 's' : ''} — great start. Adding a stronger call to action in your description could turn viewers into sharers.`;
+  if (clicks === 0 && shares === 0 && daysSince < 3)
+    return `🦋 Your ad just went live — give it a day or two. Share it yourself to get the first clicks rolling.`;
+  if (clicks >= 5)
+    return `🦋 Your ad is working — ${clicks} clicks and counting. Keep promoting it to climb the leaderboard.`;
+  return `🦋 Your ad is live. Share it to earn points and move up the rankings.`;
+}
+
+type ExistingAd = {
+  id: string; title: string; url: string; description: string;
+  category: string; status: string; click_count: number;
+  share_count: number; points: number; created_at: string; brand: string;
+};
+
 export default function CreateAdPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>({ name: '', email: '', brand: '', trialStatus: 'trial' });
-  const [form, setForm] = useState({ title: '', url: '', description: '', category: 'Brand Awareness' });
+  const [loading, setLoading]       = useState(false);
+  const [user, setUser]             = useState<any>({ name: '', email: '', brand: '', trialStatus: 'trial' });
+  const [form, setForm]             = useState({ title: '', url: '', description: '', category: 'Brand Awareness' });
   const [submitError, setSubmitError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+  const [submitted, setSubmitted]   = useState(false);
+  const [hydrated, setHydrated]     = useState(false);
+  const [existingAd, setExistingAd] = useState<ExistingAd | null>(null);
+  const [mode, setMode]             = useState<'view' | 'edit' | 'replace' | 'new'>('new');
+  const [selectedBrand, setSelectedBrand] = useState('');
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     if (stored) {
-      try { setUser(JSON.parse(stored)); } catch {}
+      try {
+        const u = JSON.parse(stored);
+        setUser(u);
+        setSelectedBrand(u.brand || '');
+        checkExisting(u.email);
+      } catch {}
     }
     setHydrated(true);
   }, []);
 
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-  const isTeam = user.trialStatus === 'team';
-  const isAdmin = user.email === 'antcpu@gmail.com';
-  const accent = isAdmin ? '#f0883e' : isTeam ? '#7928ca' : '#0070f3';
+  async function checkExisting(email: string) {
+    const { data } = await supabase
+      .from('ads')
+      .select('id, title, url, description, category, status, click_count, share_count, points, created_at, brand')
+      .eq('email', email)
+      .in('status', ['active', 'pending_review'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (data && data.length > 0) {
+      setExistingAd(data[0]);
+      setMode('view');
+    }
+  }
 
-  const aria = ariaCheck(form.title, form.url, form.description);
+  function startEdit(ad: ExistingAd) {
+    setForm({ title: ad.title, url: ad.url, description: ad.description, category: ad.category });
+    setSelectedBrand(ad.brand);
+    setMode('edit');
+  }
+
+  function startReplace() {
+    setForm({ title: '', url: '', description: '', category: 'Brand Awareness' });
+    setMode('replace');
+  }
+
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const isTeam  = user.trialStatus === 'team';
+  const isAdmin = user.email === 'antcpu@gmail.com';
+  const accent  = isAdmin ? '#f0883e' : isTeam ? '#7928ca' : '#0070f3';
+  const aria    = ariaCheck(form.title, form.url, form.description);
+  const brands  = MULTI_BRAND[user.email] || null;
 
   const inp: React.CSSProperties = {
     width: '100%', background: '#0a0a0a', border: '1px solid #222',
@@ -74,85 +131,112 @@ export default function CreateAdPage() {
     outline: 'none', fontFamily: 'inherit',
   };
 
-  const handleSubmit = async () => {
-    if (!aria.ok) return;
+  // ── SAVE EDIT (update in place) ───────────────────────────
+  async function handleEdit() {
+    if (!aria.ok || !existingAd) return;
     setLoading(true);
-    setSubmitError('');
-
-    // Check for existing pending or active ad
-    const { data: existing } = await supabase
-      .from('ads')
-      .select('id, status')
-      .eq('email', user.email)
-      .in('status', ['pending_review', 'active'])
-      .limit(1);
-
-    if (existing && existing.length > 0) {
-      setSubmitError(
-        existing[0].status === 'pending_review'
-          ? '🦋 Your ad is already pending review — Aria will get to it soon.'
-          : '✅ You already have an active ad in the Arena.'
-      );
-      setLoading(false);
-      return;
-    }
-
-    const payload = {
-      email: user.email,
-      name: user.name,
-      brand: user.brand,
-      title: form.title.trim(),
-      url: form.url.trim(),
+    await supabase.from('ads').update({
+      title:       form.title.trim(),
+      url:         form.url.trim(),
       description: form.description.trim(),
-      category: form.category,
-      status: 'pending_review',
-      trial_status: user.trialStatus,
-      tier: 'entry',
-    };
-
-    const { error } = await supabase.from('ads').insert([payload]);
-
-    if (error) {
-      setSubmitError(error.message);
-      setLoading(false);
-      return;
-    }
-
-    // Discord notification
-    await fetch(DISCORD_WEBHOOK, {
+      category:    form.category,
+      brand:       selectedBrand,
+    }).eq('id', existingAd.id);
+    // Rescore after edit
+    fetch('/api/scout/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_id: existingAd.id }),
+    }).catch(() => {});
+    fetch(DISCORD_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        content: `🆕 **New Ad Submitted**\n**Brand:** ${user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Category:** ${form.category}\n**Email:** ${user.email}\n**Status:** pending_review`,
+        content: `✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`,
       }),
     }).catch(() => {});
-
     setLoading(false);
     setSubmitted(true);
-  };
+  }
 
-  // ── Success screen ────────────────────────────────────────
+  // ── REPLACE (archive old, submit new) ────────────────────
+  async function handleReplace() {
+    if (!aria.ok || !existingAd) return;
+    setLoading(true);
+    // Archive old
+    await supabase.from('ads').update({ status: 'archived' }).eq('id', existingAd.id);
+    // Insert new
+    const { error } = await supabase.from('ads').insert([{
+      email:        user.email,
+      name:         user.name,
+      brand:        selectedBrand,
+      title:        form.title.trim(),
+      url:          form.url.trim(),
+      description:  form.description.trim(),
+      category:     form.category,
+      status:       'pending_review',
+      trial_status: user.trialStatus,
+      tier:         'entry',
+    }]);
+    if (!error) {
+      fetch(DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`,
+        }),
+      }).catch(() => {});
+      setSubmitted(true);
+    }
+    setLoading(false);
+  }
+
+  // ── NEW SUBMIT ────────────────────────────────────────────
+  async function handleSubmit() {
+    if (!aria.ok) return;
+    setLoading(true);
+    setSubmitError('');
+    const { error } = await supabase.from('ads').insert([{
+      email:        user.email,
+      name:         user.name,
+      brand:        selectedBrand || user.brand,
+      title:        form.title.trim(),
+      url:          form.url.trim(),
+      description:  form.description.trim(),
+      category:     form.category,
+      status:       'pending_review',
+      trial_status: user.trialStatus,
+      tier:         'entry',
+    }]);
+    if (error) { setSubmitError(error.message); setLoading(false); return; }
+    fetch(DISCORD_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`,
+      }),
+    }).catch(() => {});
+    setLoading(false);
+    setSubmitted(true);
+  }
+
+  // ── SUCCESS ───────────────────────────────────────────────
   if (submitted) {
+    const isEdit = mode === 'edit';
     return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '480px', width: '100%', padding: '2rem 1.25rem', textAlign: 'center' }}>
+      <div style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+        <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🦋</div>
-          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', marginBottom: '0.5rem' }}>
-            Aria has your ad.
-          </div>
-          <div style={{ color: '#555', fontSize: '0.95rem', marginBottom: '2rem', lineHeight: 1.6 }}>
-            Your ad is in the review queue. Aria will check it for quality and clarity — usually within a few hours. You'll see it go live in your dashboard.
-          </div>
-          <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left' }}>
-            <div style={{ fontSize: '0.7rem', color: '#555', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>YOUR SUBMISSION</div>
-            <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.25rem' }}>{form.title}</div>
-            <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '0.25rem' }}>{form.description}</div>
-            <div style={{ fontSize: '0.78rem', color: accent }}>{form.url}</div>
-          </div>
-          <button
-            onClick={() => router.push('/dashboard/user')}
-            style={{ background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem 2rem', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', width: '100%' }}
-          >
+          <h2 style={{ color: '#fff', fontWeight: 800, marginBottom: '0.5rem' }}>
+            {isEdit ? 'Ad updated.' : 'Aria has your ad.'}
+          </h2>
+          <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '2rem' }}>
+            {isEdit
+              ? 'Your changes are live. Aria will keep an eye on performance.'
+              : 'Your ad is in the review queue. Usually live within a few hours.'}
+          </p>
+          <button onClick={() => router.push('/dashboard/user')}
+            style={{ background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem 2rem', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', width: '100%' }}>
             Back to the Arena →
           </button>
         </div>
@@ -162,142 +246,153 @@ export default function CreateAdPage() {
 
   if (!hydrated) return null;
 
-  return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
-      <ArenaNav
-        role={isAdmin ? 'admin' : isTeam ? 'team' : 'user'}
-        userName={user.name}
-        userEmail={user.email}
-        userBrand={user.brand}
-        trialStatus={user.trialStatus}
-        onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
-      />
+  // ── VIEW MODE — existing ad + Aria suggestion ─────────────
+  if (mode === 'view' && existingAd) {
+    const suggestion = ariaSuggest(existingAd);
+    const daysSince  = Math.floor((Date.now() - new Date(existingAd.created_at).getTime()) / 86400000);
+    return (
+      <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+        <ArenaNav role={isAdmin ? 'admin' : isTeam ? 'team' : 'user'}
+          userName={user.name} userEmail={user.email} userBrand={user.brand}
+          trialStatus={isTeam ? 'team' : 'trial'}
+          onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
+        />
+        <div style={{ maxWidth: '520px', margin: '0 auto', padding: '2rem 1.5rem' }}>
 
-      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '2.5rem 1.25rem' }}>
+          {/* Aria card */}
+          <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🦋</div>
+            <div style={{ color: '#fff', fontWeight: 700, marginBottom: '0.25rem' }}>Aria — Your Active Ad</div>
+            <div style={{ color: '#555', fontSize: '0.82rem' }}>{suggestion}</div>
+          </div>
 
-        {/* ── Aria intro card ── */}
-        <div style={{ background: '#0f0f0f', border: '1px solid #f0883e30', borderLeft: '3px solid #f0883e', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.4rem' }}>🦋</span>
-            <div>
-              <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
-                Hi, I'm Aria — I'll review your ad before it goes live.
-              </div>
-              <div style={{ color: '#666', fontSize: '0.82rem', lineHeight: 1.6 }}>
-                A strong ad has a clear headline, a working URL, and one sentence that tells people exactly what you offer. Fill in the form below and I'll give you live feedback as you go.
+          {/* Current ad card */}
+          <div style={{ background: '#111', border: `1px solid ${accent}30`, borderLeft: `3px solid ${accent}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+              <div style={{ color: accent, fontWeight: 700, fontSize: '0.8rem' }}>{existingAd.brand}</div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.68rem', color: '#555' }}>🟢 LIVE</span>
+                <span style={{ fontSize: '0.68rem', color: '#555' }}>{daysSince}d old</span>
               </div>
             </div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '1rem', marginBottom: '0.4rem' }}>{existingAd.title}</div>
+            <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: '0.75rem' }}>{existingAd.description}</div>
+            <div style={{ color: '#555', fontSize: '0.75rem', marginBottom: '0.75rem' }}>{existingAd.url}</div>
+            <div style={{ display: 'flex', gap: '1rem', fontSize: '0.72rem', color: '#555' }}>
+              <span>👆 {existingAd.click_count || 0} clicks</span>
+              <span>↗ {existingAd.share_count || 0} shares</span>
+              <span>⚡ {existingAd.points || 0} pts</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button onClick={() => startEdit(existingAd)}
+              style={{ flex: 1, background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+              ✏️ Edit This Ad
+            </button>
+            <button onClick={startReplace}
+              style={{ flex: 1, background: 'transparent', border: `1px solid #333`, color: '#888', borderRadius: '8px', padding: '0.85rem', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}>
+              🔄 Replace with New
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── FORM — edit / replace / new ───────────────────────────
+  const formTitle = mode === 'edit' ? '✏️ Edit Your Ad' : mode === 'replace' ? '🔄 New Ad — Replace Current' : 'Create Your Ad';
+  const formSub   = mode === 'edit' ? 'Changes go live immediately — no re-review needed' : mode === 'replace' ? 'Current ad will be archived · new ad goes to review' : '2 minutes to go live · Entry tier · free';
+  const handleAction = mode === 'edit' ? handleEdit : mode === 'replace' ? handleReplace : handleSubmit;
+
+  return (
+    <div style={{ background: '#0a0a0a', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+      <ArenaNav role={isAdmin ? 'admin' : isTeam ? 'team' : 'user'}
+        userName={user.name} userEmail={user.email} userBrand={user.brand}
+        trialStatus={isTeam ? 'team' : 'trial'}
+        onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
+      />
+      <div style={{ maxWidth: '520px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+
+        {/* Aria intro */}
+        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🦋</div>
+          <div style={{ color: '#fff', fontWeight: 700, marginBottom: '0.25rem' }}>
+            {mode === 'edit' ? "Aria — Let's improve your ad" : "Hi, I'm Aria — I'll review your ad before it goes live."}
+          </div>
+          <div style={{ color: '#555', fontSize: '0.82rem' }}>
+            {aria.message}
           </div>
         </div>
 
-        {/* ── User badge ── */}
-        {user.name && (
-          <div style={{ marginBottom: '1.5rem' }}>
-            <span style={{ background: `${accent}15`, border: `1px solid ${accent}40`, color: accent, borderRadius: '999px', padding: '0.3rem 0.85rem', fontSize: '0.78rem', fontWeight: 600 }}>
-              {isTeam ? '🔵' : '🟢'} {isTeam ? 'Team' : 'Free trial'} · {user.brand}
-            </span>
+        {/* Brand selector — only for multi-brand users */}
+        {brands && (
+          <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
+            <div style={{ color: '#888', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>Which brand is this ad for?</div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              {brands.map(b => (
+                <button key={b.brand} onClick={() => setSelectedBrand(b.brand)}
+                  style={{
+                    flex: 1, padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem',
+                    background: selectedBrand === b.brand ? accent : '#0a0a0a',
+                    border: `1px solid ${selectedBrand === b.brand ? accent : '#333'}`,
+                    color: selectedBrand === b.brand ? '#fff' : '#666',
+                    transition: 'all 0.15s',
+                  }}>
+                  {b.icon} {b.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* ── Form card ── */}
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', padding: '2rem' }}>
-          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#fff', marginBottom: '0.25rem' }}>Create Your Ad</div>
-          <div style={{ color: '#555', fontSize: '0.85rem', marginBottom: '1.75rem' }}>2 minutes to go live · Entry tier · free</div>
+        {/* Form card */}
+        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.5rem', marginBottom: '1rem' }}>
+          <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.25rem' }}>{formTitle}</div>
+          <div style={{ color: '#555', fontSize: '0.78rem', marginBottom: '1.5rem' }}>{formSub}</div>
 
-          {/* Title */}
-          <label style={{ display: 'block', fontSize: '0.75rem', color: '#666', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-            Ad Title
-          </label>
-          <input
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            placeholder={`What does ${user.brand || 'your brand'} offer?`}
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginBottom: '0.3rem' }}>Ad Title</label>
+          <input value={form.title} onChange={e => set('title', e.target.value)}
+            placeholder={`What does ${selectedBrand || user.brand || 'your brand'} offer?`}
             style={{ ...inp, borderColor: aria.field === 'title' || aria.field === 'seed' ? '#f0883e60' : '#222' }}
           />
 
-          {/* URL */}
-          <label style={{ display: 'block', fontSize: '0.75rem', color: '#666', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem', marginTop: '0.75rem' }}>
-            Destination URL
-          </label>
-          <input
-            value={form.url}
-            onChange={e => set('url', e.target.value)}
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginBottom: '0.3rem' }}>Destination URL</label>
+          <input value={form.url} onChange={e => set('url', e.target.value)}
             placeholder="https://yourbrand.com"
             style={{ ...inp, borderColor: aria.field === 'url' ? '#f0883e60' : '#222' }}
           />
 
-          {/* Description */}
-          <label style={{ display: 'block', fontSize: '0.75rem', color: '#666', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem', marginTop: '0.75rem' }}>
-            Description
-          </label>
-          <textarea
-            value={form.description}
-            onChange={e => set('description', e.target.value)}
-            placeholder="One sentence about what makes your brand worth clicking..."
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginBottom: '0.3rem' }}>Description</label>
+          <textarea value={form.description} onChange={e => set('description', e.target.value)}
+            placeholder="One sentence that tells people exactly what you offer."
             rows={3}
             style={{ ...inp, resize: 'vertical', borderColor: aria.field === 'description' ? '#f0883e60' : '#222' }}
           />
 
-          {/* Category */}
-          <label style={{ display: 'block', fontSize: '0.75rem', color: '#666', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem', marginTop: '0.75rem' }}>
-            Category
-          </label>
-          <select
-            value={form.category}
-            onChange={e => set('category', e.target.value)}
-            style={{ ...inp, marginBottom: '1.5rem' }}
-          >
+          <label style={{ color: '#888', fontSize: '0.75rem', display: 'block', marginBottom: '0.3rem' }}>Category</label>
+          <select value={form.category} onChange={e => set('category', e.target.value)}
+            style={{ ...inp, marginBottom: '1.5rem' }}>
             {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
 
-          {/* ── Aria live feedback ── */}
-          <div style={{
-            background: aria.ok ? '#0f2a1a' : '#1a0f00',
-            border: `1px solid ${aria.ok ? '#22c55e40' : '#f0883e40'}`,
-            borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.5rem',
-            display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
-          }}>
-            <div style={{ fontSize: '0.85rem', color: aria.ok ? '#22c55e' : '#f0883e', lineHeight: 1.5 }}>
-              {aria.message}
-            </div>
-          </div>
-
-          {/* Submit error */}
-          {submitError && (
-            <div style={{ background: '#1a0f00', border: '1px solid #f0883e40', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#f0883e' }}>
-              {submitError}
-            </div>
-          )}
-
-          {/* Submit button */}
-          <button
-            onClick={handleSubmit}
-            disabled={!aria.ok || loading}
-            style={{
-              width: '100%', background: aria.ok ? accent : '#1a1a1a',
-              border: 'none', color: aria.ok ? '#fff' : '#444',
-              borderRadius: '8px', padding: '1rem', fontWeight: 700,
-              fontSize: '1rem', cursor: aria.ok ? 'pointer' : 'not-allowed',
-              transition: 'all 0.2s',
-            }}
-          >
-            {loading ? 'Submitting...' : aria.ok ? 'Submit to Aria for Review →' : 'Complete your ad to continue'}
+          <button onClick={handleAction} disabled={!aria.ok || loading}
+            style={{ width: '100%', background: aria.ok ? accent : '#222', border: 'none', color: aria.ok ? '#fff' : '#444', borderRadius: '8px', padding: '0.9rem', fontWeight: 700, fontSize: '1rem', cursor: aria.ok ? 'pointer' : 'not-allowed', transition: 'background 0.2s' }}>
+            {loading ? 'Saving...' : mode === 'edit' ? 'Save Changes →' : mode === 'replace' ? 'Submit New Ad →' : 'Submit to Aria →'}
           </button>
 
-          <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.78rem', color: '#444' }}>
-            Aria reviews every ad before it goes live · usually within a few hours
-          </div>
+          {submitError && <div style={{ color: '#f0883e', fontSize: '0.8rem', marginTop: '0.75rem' }}>{submitError}</div>}
         </div>
 
-        {/* Back link */}
-        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-          <button
-            onClick={() => router.push('/dashboard/user')}
-            style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            ← Back to Dashboard
+        {/* Back link for edit/replace */}
+        {(mode === 'edit' || mode === 'replace') && (
+          <button onClick={() => setMode('view')}
+            style={{ background: 'none', border: 'none', color: '#555', fontSize: '0.8rem', cursor: 'pointer', padding: 0 }}>
+            ← Back to current ad
           </button>
-        </div>
+        )}
+
       </div>
     </div>
   );
