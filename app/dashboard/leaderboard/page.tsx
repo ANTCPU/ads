@@ -71,10 +71,10 @@ export default function LeaderboardPage() {
   async function fetchLeaderboard() {
     setLoading(true);
 
-    // Pull all active ads grouped by email
+    // Pull all active ads — use stored points (full formula: clicks×3 + shares×5 + tier + pinned)
     const { data: ads } = await supabase
       .from('ads')
-      .select('email, name, brand, tier, points')
+      .select('email, name, brand, tier, points, rank_position, click_count, share_count, pinned')
       .eq('status', 'active');
 
     // Pull signups for brand_name + status
@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
 
     if (!ads || !signups) { setLoading(false); return; }
 
-    // Group ads by email
+    // Group ads by email — read ads.points directly, not tier recalc
     const map: Record<string, Entry> = {};
 
     for (const ad of ads) {
@@ -101,7 +101,7 @@ export default function LeaderboardPage() {
         };
       }
       map[ad.email].ad_count += 1;
-      map[ad.email].points += TIER_POINTS[ad.tier] ?? 0;
+      map[ad.email].points += ad.points || 0; // full formula score from DB
       if ((TIER_POINTS[ad.tier] ?? 0) > (TIER_POINTS[map[ad.email].top_tier] ?? 0)) {
         map[ad.email].top_tier = ad.tier;
       }

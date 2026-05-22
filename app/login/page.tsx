@@ -237,14 +237,14 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
     return;
   }
 
-  // TEST ACCOUNT
+  // TEST ACCOUNT — PIN 1234, team-level access, arena_preview cookie set
   if (normalizedEmail === 'test@antcpu.com') {
     const pin = prompt('Enter test PIN:');
     if (pin !== '1234') {
       alert('Invalid PIN.');
       return;
     }
-    // Ensure tester gets team-level nav and badge
+    // Upgrade to team in localStorage
     const stored = localStorage.getItem('arena_user');
     if (stored) {
       try {
@@ -253,6 +253,9 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
         u.name = u.name || 'Tester';
         u.brand = u.brand || 'Test Brand';
         localStorage.setItem('arena_user', JSON.stringify(u));
+        // Set arena_preview cookie — passes middleware on all protected routes
+        const expires = new Date(Date.now() + 90 * 864e5).toUTCString();
+        document.cookie = `arena_preview=test; path=/; expires=${expires}; SameSite=Lax`;
       } catch {}
     }
     window.location.href = redirect || '/dashboard/user';
