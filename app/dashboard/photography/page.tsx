@@ -18,9 +18,12 @@ const TEAM = [
 ];
 
 const POSTS = [
-  { id: 1, text: 'Stories Through a Lens 📸\n\nA mother and grandmother capturing life\'s most beautiful moments. Family portraits, events, and memories that last forever.\n\n→ antcpu.com/manda\n\n#photography #portraits #memories #photographer #antcpuads' },
-  { id: 2, text: 'Every moment tells a story 📷\n\nFrom first steps to golden anniversaries — Amanda Photography captures the moments that matter most.\n\n→ antcpu.com/manda\n\n#photography #familyportraits #memories #photographer #antcpuads' },
-  { id: 3, text: 'Book your session today 🌟\n\nProfessional photography for families, events, and special occasions. Real moments. Real memories.\n\n→ antcpu.com/manda\n\n#photography #bookasession #portraits #photographer #antcpuads' },
+  { id: 1, tag: '🌅 Morning', text: 'Good morning ☀️\n\nEvery family has a story worth capturing.\n\nAmanda Photography — 20+ years of portraits, events, and real moments in Thomasville, NC.\n\nNow booking for summer sessions 📸\n\n→ antcpu.com/manda\n\n#photography #familyportraits #nc #portraits #memories' },
+  { id: 2, tag: '☀️ Noon', text: 'The best photos aren\'t posed — they\'re felt. 💛\n\nAmanda Photography captures the real moments. The laughs, the tears, the in-between.\n\nBook your session today.\n\n→ antcpu.com/manda\n\n#photographer #portraitphotography #ncphotographer #familyphotos' },
+  { id: 3, tag: '🌙 Evening', text: 'Every picture tells a story 🌙\n\nAs a mother and grandmother, Amanda knows what moments matter most.\n\nLet her capture yours.\n\n→ antcpu.com/manda\n\n#photography #memories #portraits #storytelling #nc' },
+  { id: 4, tag: '📅 Booking', text: 'Now booking summer sessions 🌸\n\nPortraits · Events · Special Occasions\n\nLimited availability — Thomasville, NC area.\n\nReach out today to reserve your date.\n\n→ antcpu.com/manda\n\n#ncphotographer #bookingsopen #portraitphotography #familyphotos #summer' },
+  { id: 5, tag: '❤️ Story', text: 'Behind every great photo is someone who truly sees you.\n\nAmanda has been capturing families, milestones, and memories for over 20 years.\n\nNot just a photographer — a storyteller.\n\n→ antcpu.com/manda\n\n#photography #storyteller #portraits #nc #familyphotographer' },
+  { id: 6, tag: '🎓 Events', text: 'Graduation season is here 🎓\n\nCapture the milestone. Keep the memory forever.\n\nAmanda Photography — portraits for every chapter of life.\n\nBooking now for spring and summer events.\n\n→ antcpu.com/manda\n\n#graduation #portraits #ncphotographer #classof2026 #photography' },
 ];
 
 export default function PhotographyDashboard() {

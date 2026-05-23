@@ -59,16 +59,24 @@ const BRAND_CONFIG: Record<string, any> = {
   },
   photography: {
     name: 'Amanda Photography',
-    tagline: "Capturing Life's Most Beautiful Moments 📸",
+    tagline: "Mother. Grandmother. Storyteller with a lens. 📸",
     primary: '#c9a96e',
     accent: '#8b6914',
     bg: '#0d0a07',
     url: 'https://antcpu.com/manda/',
+    logo: null,
+    hero: '/livead.jpeg',
+    cta: 'Book a Session →',
     stats: [
       { label: 'Style', value: 'Portrait' },
       { label: 'Location', value: 'NC' },
       { label: 'Experience', value: '20+ yrs' },
-      { label: 'Status', value: 'Booking' },
+      { label: 'Status', value: '📅 Booking' },
+    ],
+    posts: [
+      { slot: 'morning', text: 'Good morning ☀️\n\nEvery family has a story worth capturing.\n\nAmanda Photography — 20+ years of portraits, events, and real moments in Thomasville, NC.\n\nNow booking for summer sessions 📸\n\n→ antcpu.com/manda\n\n#photography #familyportraits #nc #portraits #memories' },
+      { slot: 'noon',    text: 'The best photos aren\'t posed — they\'re felt. 💛\n\nAmanda Photography captures the real moments. The laughs, the tears, the in-between.\n\nBook your session today.\n\n→ antcpu.com/manda\n\n#photographer #portraitphotography #ncphotographer #familyphotos' },
+      { slot: 'evening', text: 'Every picture tells a story 🌙\n\nAs a mother and grandmother, Amanda knows what moments matter most.\n\nLet her capture yours.\n\n→ antcpu.com/manda\n\n#photography #memories #portraits #storytelling #nc' },
     ],
   },
   'ads-network': {
@@ -202,6 +210,12 @@ export default function ArenaClient() {
   }
 
   // Brand image map — used in share modal
+  // Brand-specific schedule posts
+  const BRAND_POSTS: Record<string, {slot:string;text:string}[]> = {
+    photography: (BRAND_CONFIG['photography'] as any).posts || [],
+  };
+  const brandPosts = BRAND_POSTS[slug] || [];
+
   const BRAND_VIDEOS: Record<string, string[]> = {
     'ads-network': ['/Video2.mp4', '/antcpuads.mp4'],
     antcpu:        ['/Video2.mp4'],
@@ -484,25 +498,49 @@ export default function ArenaClient() {
                   </div>
                 </div>
                 {/* Noon — text + share */}
-                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', marginBottom: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px' }}>
-                  <div>☀️ Noon · text post</div>
-                  {ads.length > 0 && isToday && (
-                    <button onClick={() => openShare(ads[Math.floor(ads.length / 2)] || ads[0])}
-                      style={{ marginTop: '0.25rem', background: brand.primary, border: 'none', color: '#fff', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.55rem', cursor: 'pointer', fontWeight: 700 }}>
-                      ↗ Share
-                    </button>
-                  )}
-                </div>
+                {(() => {
+                  const noonPost = brandPosts.find(p => p.slot === 'noon');
+                  return (
+                    <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', marginBottom: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px' }}>
+                      <div style={{ color: noonPost ? '#888' : '#444', lineHeight: 1.4 }}>
+                        {noonPost ? noonPost.text.split('\n')[0] : '☀️ Noon · text post'}
+                      </div>
+                      {isToday && (noonPost || ads.length > 0) && (
+                        <button onClick={() => {
+                          if (noonPost) {
+                            navigator.clipboard.writeText(noonPost.text).catch(() => {});
+                            if (ads.length > 0) openShare(ads[Math.floor(ads.length / 2)] || ads[0]);
+                          } else if (ads.length > 0) openShare(ads[Math.floor(ads.length / 2)] || ads[0]);
+                        }}
+                          style={{ marginTop: '0.25rem', background: brand.primary, border: 'none', color: '#fff', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.55rem', cursor: 'pointer', fontWeight: 700 }}>
+                          ↗ Share
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* Evening — text + share */}
-                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px' }}>
-                  <div>🌙 Evening · text post</div>
-                  {ads.length > 0 && isToday && (
-                    <button onClick={() => openShare(ads[ads.length - 1] || ads[0])}
-                      style={{ marginTop: '0.25rem', background: brand.primary, border: 'none', color: '#fff', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.55rem', cursor: 'pointer', fontWeight: 700 }}>
-                      ↗ Share
-                    </button>
-                  )}
-                </div>
+                {(() => {
+                  const eveningPost = brandPosts.find(p => p.slot === 'evening');
+                  return (
+                    <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px' }}>
+                      <div style={{ color: eveningPost ? '#888' : '#444', lineHeight: 1.4 }}>
+                        {eveningPost ? eveningPost.text.split('\n')[0] : '🌙 Evening · text post'}
+                      </div>
+                      {isToday && (eveningPost || ads.length > 0) && (
+                        <button onClick={() => {
+                          if (eveningPost) {
+                            navigator.clipboard.writeText(eveningPost.text).catch(() => {});
+                            if (ads.length > 0) openShare(ads[ads.length - 1] || ads[0]);
+                          } else if (ads.length > 0) openShare(ads[ads.length - 1] || ads[0]);
+                        }}
+                          style={{ marginTop: '0.25rem', background: brand.primary, border: 'none', color: '#fff', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.55rem', cursor: 'pointer', fontWeight: 700 }}>
+                          ↗ Share
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
