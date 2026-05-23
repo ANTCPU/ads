@@ -107,6 +107,7 @@ type Ad = {
   description: string; category: string; status: string;
   tier: string; pinned: boolean; email: string;
   points?: number; click_count?: number; share_count?: number;
+  image_url?: string;
 };
 
 export default function ArenaClient() {
@@ -213,6 +214,20 @@ export default function ArenaClient() {
     test:         '/adDashboard.jpeg',
   };
   const brandImage = BRAND_IMAGES[slug] || null;
+
+  // System ad image rotation — 5 images across 10 ads
+  const SYSTEM_AD_IMAGES: Record<string, string> = {
+    'Your Brand. Live in Minutes. Free 3-Day Trial.':              '/JoinNow.jpeg',
+    'The Arena is Live — 4 Tiers. Real Engagement. Real Results.': '/adNetwork.jpeg',
+    'Your Ad Dashboard. Points. Rankings. Growth.':                '/adDashboard.jpeg',
+    'Live Ads. Real Brands. Real People Watching.':                '/livead.jpeg',
+    'Reach Pioneers Worldwide. 8 Languages. One Network.':         '/adsworldwide.jpeg',
+    '$9.99/Month. No Contracts. Cancel Anytime.':                  '/JoinNow.jpeg',
+    'AI Antbots Promote Your Brand 24/7.':                         '/adNetwork.jpeg',
+    'Same-Day Setup. Your Ad Live Before Tonight.':                '/adDashboard.jpeg',
+    'Compete. Share. Earn Points. Rise to the Top.':               '/livead.jpeg',
+    'Veteran-Built. Developer-Powered. Arena-Tested.':             '/adsworldwide.jpeg',
+  };
 
   const isAdmin = user.email === 'antcpu@gmail.com';
   const isTeam = user.trialStatus === 'team';
