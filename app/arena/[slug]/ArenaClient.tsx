@@ -118,6 +118,7 @@ export default function ArenaClient() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>({ name: '', email: '', brand: '', trialStatus: 'trial' });
   const [sharedId, setSharedId] = useState('');
+  const [shareModal, setShareModal] = useState<Ad | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -139,21 +140,22 @@ export default function ArenaClient() {
     setLoading(false);
   }
 
-  async function shareAd(ad: Ad) {
-    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n#antcpuads #marketing`;
-    let shared = false;
+  function openShare(ad: Ad) {
+    // Mobile — native share sheet immediately
     if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title: ad.title, text, url: ad.url });
-        shared = true;
-      } catch {}
+      const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n#antcpuads #marketing`;
+      navigator.share({ title: ad.title, text, url: ad.url })
+        .then(() => recordShare(ad))
+        .catch(() => setShareModal(ad)); // fallback to modal if share cancelled
+      return;
     }
-    if (!shared) {
-      navigator.clipboard.writeText(text).catch(() => {});
-    }
+    // Desktop — open share modal
+    setShareModal(ad);
+  }
+
+  function recordShare(ad: Ad) {
     setSharedId(ad.id);
     setTimeout(() => setSharedId(''), 2500);
-    // Increment share_count + Discord ping
     const newShares = (ad.share_count || 0) + 1;
     supabase.from('ads').update({ share_count: newShares }).eq('id', ad.id).then(() => {
       fetch('/api/scout/score', {
@@ -170,6 +172,39 @@ export default function ArenaClient() {
       }),
     }).catch(() => {});
   }
+
+  function shareToFacebook(ad: Ad) {
+    const url = encodeURIComponent(ad.url);
+    const quote = encodeURIComponent(`"${ad.title}" — ${ad.description}`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${quote}`, '_blank', 'width=600,height=500,scrollbars=yes');
+    recordShare(ad);
+    setShareModal(null);
+  }
+
+  function shareToTwitter(ad: Ad) {
+    const text = encodeURIComponent(`Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n→ ${ad.url}\n\n#antcpuads #marketing`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank', 'width=600,height=500,scrollbars=yes');
+    recordShare(ad);
+    setShareModal(null);
+  }
+
+  function copyText(ad: Ad) {
+    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n#antcpuads #marketing`;
+    navigator.clipboard.writeText(text).catch(() => {});
+    recordShare(ad);
+    setShareModal(null);
+  }
+
+  // Brand image map — used in share modal
+  const BRAND_IMAGES: Record<string, string> = {
+    mapofpi:      '/brands/mapofpi/Mapofpiv2.jpg',
+    antcpu:       '/adNetwork.jpeg',
+    pipioneers:   '/JoinNow.jpeg',
+    photography:  '/livead.jpeg',
+    'ads-network':'/adsworldwide.jpeg',
+    test:         '/adDashboard.jpeg',
+  };
+  const brandImage = BRAND_IMAGES[slug] || null;
 
   const isAdmin = user.email === 'antcpu@gmail.com';
   const isTeam = user.trialStatus === 'team';
@@ -260,7 +295,7 @@ export default function ArenaClient() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <a href={ad.url} target="_blank" rel="noopener noreferrer" style={{ color: brand.primary, fontSize: '0.82rem', fontWeight: 600, textDecoration: 'none' }}>{ad.url} →</a>
                   <button
-                    onClick={() => shareAd(ad)}
+                    onClick={() => openShare(ad)}
                     style={{ background: sharedId === ad.id ? `${brand.primary}20` : '#f5f5f5', border: `1px solid ${sharedId === ad.id ? brand.primary + '60' : '#e5e5e5'}`, color: sharedId === ad.id ? brand.primary : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}
                   >
                     {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
@@ -271,7 +306,110 @@ export default function ArenaClient() {
           })
         )}
 
-        {/* Footer */}
+        
+      {/* ── SHARE MODAL ── */}
+      {shareModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 300,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem',
+        }} onClick={() => setShareModal(null)}>
+          <div style={{
+            background: '#111', border: `1px solid ${brand.primary}40`,
+            borderRadius: '16px', padding: '1.5rem',
+            maxWidth: '420px', width: '100%',
+          }} onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>↗ Share This Ad</div>
+              <button onClick={() => setShareModal(null)}
+                style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </div>
+
+            {/* Brand image */}
+            {brandImage && (
+              <img src={brandImage} alt={brand.name}
+                style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '10px', marginBottom: '1rem' }} />
+            )}
+
+            {/* Ad preview */}
+            <div style={{ background: '#0a0a0a', borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '1.25rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: brand.primary, marginBottom: '0.3rem' }}>{shareModal.brand}</div>
+              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#fff', marginBottom: '0.3rem' }}>{shareModal.title}</div>
+              <div style={{ fontSize: '0.78rem', color: '#888', lineHeight: 1.5 }}>{shareModal.description}</div>
+            </div>
+
+            {/* Share buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <button onClick={() => shareToFacebook(shareModal)}
+                style={{ background: '#1877F2', border: 'none', color: '#fff', borderRadius: '10px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                📘 Share on Facebook
+              </button>
+              <button onClick={() => shareToTwitter(shareModal)}
+                style={{ background: '#000', border: '1px solid #333', color: '#fff', borderRadius: '10px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                𝕏 Share on X / Twitter
+              </button>
+              <button onClick={() => copyText(shareModal)}
+                style={{ background: '#1a1a1a', border: '1px solid #333', color: '#aaa', borderRadius: '10px', padding: '0.85rem', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                📋 Copy Text
+              </button>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#333', marginTop: '1rem' }}>
+              Every share earns points · {brand.name} Arena
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── WEEKLY SCHEDULE PANEL ── */}
+      <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem 3rem' }}>
+        <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+          📅 Weekly Share Schedule
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+          {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, di) => {
+            const today = new Date().getDay();
+            const dayMap: Record<string,number> = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+            const isToday = dayMap[day] === today;
+            return (
+              <div key={day} style={{
+                minWidth: '110px', background: isToday ? `${brand.primary}15` : '#111',
+                border: `1px solid ${isToday ? brand.primary + '50' : '#1a1a1a'}`,
+                borderRadius: '12px', padding: '0.75rem',
+                flex: '0 0 auto',
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '0.78rem', color: isToday ? brand.primary : '#555', marginBottom: '0.6rem', textAlign: 'center' }}>
+                  {day}{isToday && <span style={{ fontSize: '0.6rem', marginLeft: '0.3rem', color: brand.primary }}>TODAY</span>}
+                </div>
+                {/* Morning — image post */}
+                <div style={{ background: '#0a0a0a', borderRadius: '8px', marginBottom: '0.4rem', overflow: 'hidden' }}>
+                  {brandImage
+                    ? <img src={brandImage} alt="" style={{ width: '100%', height: '52px', objectFit: 'cover', opacity: 0.7 }} />
+                    : <div style={{ height: '52px', background: `${brand.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#444' }}>🖼 Image Post</div>
+                  }
+                  <div style={{ padding: '0.3rem 0.4rem', fontSize: '0.6rem', color: '#555' }}>🌅 Morning</div>
+                </div>
+                {/* Noon — text */}
+                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', marginBottom: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px', display: 'flex', alignItems: 'center' }}>
+                  ☀️ Noon · text post
+                </div>
+                {/* Evening — text */}
+                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px', display: 'flex', alignItems: 'center' }}>
+                  🌙 Evening · text post
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: '0.68rem', color: '#333', marginTop: '0.75rem' }}>
+          Schedule customization coming soon · content per brand
+        </div>
+      </div>
+
+      {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e5e5' }}>
           <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}>← Back to The Arena</button>
           <div style={{ color: '#ccc', fontSize: '0.72rem', marginTop: '0.5rem' }}>⚡ ANTCPU ADS · Brand Arena · {brand.name}</div>
