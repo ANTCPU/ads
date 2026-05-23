@@ -1,8 +1,8 @@
 'use client';
-
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
+import { clearSessionCookie } from '../../lib/session';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -10,235 +10,187 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Entry = {
-  email: string;
-  brand_name: string;
-  name: string;
-  status: string;
-  points: number;
-  ad_count: number;
-  top_tier: string;
-  created_at?: string;
-  trial_expiry?: string;
+const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
+  entry:    { color: '#0070f3', label: 'Entry',    icon: '📝' },
+  rising:   { color: '#7928ca', label: 'Rising',   icon: '🖼' },
+  featured: { color: '#ff0080', label: 'Featured', icon: '🎬' },
+  toptier:  { color: '#f0883e', label: 'Top Tier', icon: '☁️' },
 };
 
-const TIER_POINTS: Record<string, number> = {
-  top_tier: 750,
-  featured:  300,
-  rising:    100,
-  entry:       0,
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+type LeaderAd = {
+  id: string; brand: string; title: string; email: string;
+  tier: string; points: number; click_count: number;
+  share_count: number; score: number; rank_position: number;
+  is_system: boolean;
 };
 
-const TIER_LABEL: Record<string, string> = {
-  top_tier: '🏆 Top Tier',
-  featured: '⭐ Featured',
-  rising:   '📈 Rising',
-  entry:    '🟢 Entry',
-};
-
-const RANK_BADGE: Record<number, string> = {
-  0: '🥇',
-  1: '🥈',
-  2: '🥉',
-};
+type User = { name: string; email: string; brand: string; trialStatus: string };
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const [hydrated, setHydrated] = useState(false);
-  const [entries, setEntries] = useState<Entry[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [ads, setAds] = useState<LeaderAd[]>([]);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<'admin' | 'user'>('user');
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userBrand, setUserBrand] = useState('');
-  const [trialStatus, setTrialStatus] = useState<'team' | 'trial' | 'pending'>('trial');
+  const [hydrated, setHydrated] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'user' | 'system'>('all');
+  const [myRank, setMyRank] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
-    if (!stored) { router.push('/login'); return; }
+    if (!stored) { router.push('/'); return; }
     try {
       const u = JSON.parse(stored);
-      setUserName(u.name || '');
-      setUserEmail(u.email || '');
-      setUserBrand(u.brand || '');
-      setTrialStatus(u.trialStatus || 'trial');
-      if (u.email === 'antcpu@gmail.com') setRole('admin');
-    } catch { router.push('/login'); return; }
+      setUser(u);
+      fetchLeaderboard(u.email);
+    } catch { router.push('/'); }
     setHydrated(true);
-    fetchLeaderboard();
   }, []);
 
-  async function fetchLeaderboard() {
+  async function fetchLeaderboard(email: string) {
     setLoading(true);
-
-    // Pull all active ads — use stored points (full formula: clicks×3 + shares×5 + tier + pinned)
-    const { data: ads } = await supabase
+    const { data } = await supabase
       .from('ads')
-      .select('email, name, brand, tier, points, rank_position, click_count, share_count, pinned')
-      .eq('status', 'active');
+      .select('id, brand, title, email, tier, points, click_count, share_count, score, rank_position, is_system')
+      .eq('status', 'active')
+      .order('points', { ascending: false })
+      .order('click_count', { ascending: false });
 
-    // Pull signups for brand_name + status
-    const { data: signups } = await supabase
-      .from('ad_signups')
-      .select('email, brand_name, name, status, points, created_at, trial_expiry');
+    const ranked = (data || []).map((ad, i) => ({ ...ad, rank_position: i + 1 }));
+    setAds(ranked);
 
-    if (!ads || !signups) { setLoading(false); return; }
-
-    // Group ads by email — read ads.points directly, not tier recalc
-    const map: Record<string, Entry> = {};
-
-    for (const ad of ads) {
-      if (!map[ad.email]) {
-        const signup = signups.find(s => s.email?.toLowerCase() === ad.email?.toLowerCase());
-        map[ad.email] = {
-          email:     ad.email,
-          brand_name: signup?.brand_name || ad.brand || ad.name || ad.email,
-          name:      signup?.name || ad.name || '',
-          status:    signup?.status || 'trial',
-          points:    0,
-          ad_count:  0,
-          top_tier:  'entry',
-        };
-      }
-      map[ad.email].ad_count += 1;
-      map[ad.email].points += ad.points || 0; // full formula score from DB
-      if ((TIER_POINTS[ad.tier] ?? 0) > (TIER_POINTS[map[ad.email].top_tier] ?? 0)) {
-        map[ad.email].top_tier = ad.tier;
-      }
-    }
-
-    // Also include signups with points even if no active ads
-    for (const s of signups) {
-      if (!map[s.email] && (s.points ?? 0) > 0) {
-        map[s.email] = {
-          email:     s.email,
-          brand_name: s.brand_name || s.name || s.email,
-          name:      s.name || '',
-          status:    s.status || 'trial',
-          points:    s.points || 0,
-          ad_count:  0,
-          top_tier:  'entry',
-        };
-      }
-    }
-
-    const sorted = Object.values(map).sort((a, b) => b.points - a.points);
-    setEntries(sorted);
+    const mine = ranked.find(a => a.email === email);
+    if (mine) setMyRank(mine.rank_position);
     setLoading(false);
   }
 
-  function trialCountdown(expiry?: string): string | null {
-    if (!expiry) return null;
-    const diff = new Date(expiry).getTime() - Date.now();
-    if (diff <= 0) return 'expired';
-    const days = Math.floor(diff / 86400000);
-    const hrs  = Math.floor((diff % 86400000) / 3600000);
-    return days > 0 ? `${days}d left` : `${hrs}h left`;
-  }
+  if (!hydrated || !user) return null;
 
-  if (!hydrated) return (
-    <div style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#333', fontSize: '0.85rem' }}>loading...</div>
-    </div>
-  );
+  const isAdmin = user.email === 'antcpu@gmail.com';
+  const isTeam  = user.trialStatus === 'team';
+  const accent  = isAdmin ? '#f0883e' : isTeam ? '#7928ca' : '#0070f3';
+
+  const filtered = ads.filter(ad => {
+    if (filter === 'user')   return !ad.is_system;
+    if (filter === 'system') return ad.is_system;
+    return true;
+  });
+
+  const myAd = ads.find(a => a.email === user.email);
 
   return (
-    <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
+    <div style={{ background: '#0a0a0a', minHeight: '100vh', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
       <ArenaNav
-        role={role}
-        userName={userName}
-        userEmail={userEmail}
-        userBrand={userBrand}
-        trialStatus={trialStatus}
+        role={isAdmin ? 'admin' : isTeam ? 'team' : 'user'}
+        userName={user.name}
+        userEmail={user.email}
+        userBrand={user.brand}
+        trialStatus={user.trialStatus as any}
+        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
 
-      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2.5rem 2rem' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1.25rem' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-          <div>
-            <button onClick={() => router.push(role === 'admin' ? '/dashboard' : '/dashboard/user')}
-              style={{ background: 'none', border: 'none', color: '#444', fontSize: '0.8rem', cursor: 'pointer', padding: 0, marginBottom: '0.75rem' }}>
-              ← {role === 'admin' ? 'Admin' : 'Dashboard'}
-            </button>
-            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.3rem' }}>🏆 Leaderboard</h1>
-            <p style={{ color: '#444', fontSize: '0.88rem' }}>Ranked by ad points · updates as tiers change</p>
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ fontSize: '0.72rem', color: '#555', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+            ⚡ ANTCPU ADS
           </div>
-          <div style={{ textAlign: 'right' as const }}>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#D4AF37' }}>{entries.length}</div>
-            <div style={{ fontSize: '0.65rem', color: '#444', letterSpacing: '0.1em' }}>COMPETITORS</div>
+          <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: 0 }}>Leaderboard</h1>
+          <div style={{ color: '#555', fontSize: '0.88rem', marginTop: '0.4rem' }}>
+            Ranked by points · updates live · {ads.length} active ads
           </div>
         </div>
 
-        {/* Tier legend */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.75rem', flexWrap: 'wrap' as const }}>
-          {Object.entries(TIER_LABEL).map(([tier, label]) => (
-            <div key={tier} style={{ fontSize: '0.72rem', color: '#555', background: '#111', border: '1px solid #1a1a1a', borderRadius: '999px', padding: '0.25rem 0.75rem' }}>
-              {label} · {TIER_POINTS[tier]}pts
+        {/* My rank banner */}
+        {myAd && (
+          <div style={{
+            background: `${accent}15`, border: `1px solid ${accent}40`,
+            borderRadius: '12px', padding: '1rem 1.25rem',
+            marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div>
+              <div style={{ fontSize: '0.72rem', color: accent, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Your Position</div>
+              <div style={{ fontWeight: 700, fontSize: '1.1rem', marginTop: '0.2rem' }}>#{myRank} — {myAd.brand}</div>
+              <div style={{ fontSize: '0.8rem', color: '#888', marginTop: '0.2rem' }}>{myAd.points} pts · {myAd.click_count || 0} clicks · {myAd.share_count || 0} shares</div>
             </div>
+            <div style={{ fontSize: '2rem' }}>{myRank && myRank <= 3 ? MEDALS[myRank - 1] : '🏅'}</div>
+          </div>
+        )}
+
+        {/* Filter tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          {(['all', 'user', 'system'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              background: filter === f ? accent : '#111',
+              border: `1px solid ${filter === f ? accent : '#222'}`,
+              color: filter === f ? '#fff' : '#555',
+              borderRadius: '8px', padding: '0.4rem 1rem',
+              fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+              textTransform: 'capitalize',
+            }}>
+              {f === 'all' ? `All (${ads.length})` : f === 'user' ? `Brands (${ads.filter(a => !a.is_system).length})` : `System (${ads.filter(a => a.is_system).length})`}
+            </button>
           ))}
         </div>
 
-        {/* Board */}
+        {/* Leaderboard list */}
         {loading ? (
-          <div style={{ color: '#333', fontSize: '0.85rem' }}>loading rankings...</div>
-        ) : entries.length === 0 ? (
-          <div style={{ color: '#333', fontSize: '0.85rem' }}>no active ads yet — be the first</div>
+          <div style={{ color: '#444', textAlign: 'center', padding: '3rem' }}>Loading leaderboard...</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ color: '#444', textAlign: 'center', padding: '3rem' }}>No ads in this category yet.</div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.5rem' }}>
-            {entries.map((e, i) => (
-              <div key={e.email + i} style={{
-                background: i === 0 ? '#D4AF3708' : i === 1 ? '#C0C0C008' : i === 2 ? '#CD7F3208' : '#111',
-                border: `1px solid ${i === 0 ? '#D4AF3730' : i === 1 ? '#C0C0C020' : i === 2 ? '#CD7F3220' : '#1a1a1a'}`,
-                borderRadius: '12px',
-                padding: '1rem 1.25rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-              }}>
+          filtered.map((ad, i) => {
+            const tier  = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
+            const rank  = ads.indexOf(ad) + 1;
+            const isMe  = ad.email === user.email;
+            const medal = rank <= 3 ? MEDALS[rank - 1] : null;
+
+            return (
+              <div key={ad.id} onClick={() => router.push(`/profile/${encodeURIComponent(ad.email)}`)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem',
+                  background: isMe ? `${accent}10` : '#111',
+                  border: `1px solid ${isMe ? accent + '40' : '#1a1a1a'}`,
+                  borderLeft: `3px solid ${tier.color}`,
+                  borderRadius: '10px', padding: '0.9rem 1rem',
+                  marginBottom: '0.5rem', cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }}>
+
                 {/* Rank */}
-                <div style={{ fontSize: i < 3 ? '1.5rem' : '1rem', minWidth: '2rem', textAlign: 'center' as const, color: i >= 3 ? '#333' : undefined }}>
-                  {RANK_BADGE[i] ?? `#${i + 1}`}
+                <div style={{ minWidth: '2rem', textAlign: 'center', fontSize: medal ? '1.3rem' : '0.85rem', fontWeight: 700, color: medal ? undefined : '#444' }}>
+                  {medal || `#${rank}`}
                 </div>
 
-                {/* Info */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' as const }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.92rem' }}>{e.brand_name || e.name || e.email}</span>
-                    <span style={{ fontSize: '0.68rem', color: '#555' }}>{TIER_LABEL[e.top_tier]}</span>
+                {/* Brand + title */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: tier.color }}>{ad.brand}</span>
+                    {ad.is_system && <span style={{ fontSize: '0.65rem', background: '#ffffff10', border: '1px solid #333', color: '#555', borderRadius: '4px', padding: '0.1rem 0.4rem' }}>SYSTEM</span>}
+                    {isMe && <span style={{ fontSize: '0.65rem', background: `${accent}20`, border: `1px solid ${accent}40`, color: accent, borderRadius: '4px', padding: '0.1rem 0.4rem' }}>YOU</span>}
+                    <span style={{ fontSize: '0.68rem', color: '#444' }}>{tier.label}</span>
                   </div>
-                  <div style={{ fontSize: '0.72rem', color: '#444', marginTop: '0.15rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const }}>
-                    <span>{e.ad_count} active ad{e.ad_count !== 1 ? 's' : ''} · {e.status}</span>
-                    {e.created_at && <span>joined {new Date(e.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>}
-                    {e.status === 'trial' && trialCountdown(e.trial_expiry) && (
-                      <span style={{ color: trialCountdown(e.trial_expiry) === 'expired' ? '#ff4444' : '#f0c040' }}>
-                        ⏱ {trialCountdown(e.trial_expiry)}
-                      </span>
-                    )}
-                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#888', marginTop: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.title}</div>
                 </div>
 
-                {/* Points */}
-                <div style={{ textAlign: 'right' as const }}>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: i === 0 ? '#D4AF37' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#f0883e' }}>
-                    {e.points}
+                {/* Stats */}
+                <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{ad.points} <span style={{ fontSize: '0.7rem', color: '#555' }}>pts</span></div>
+                  <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '0.2rem' }}>
+                    👆{ad.click_count || 0} ↗{ad.share_count || 0}
                   </div>
-                  <div style={{ fontSize: '0.6rem', color: '#333', letterSpacing: '0.08em' }}>PTS</div>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })
         )}
 
-        {/* Empty state CTA */}
-        {!loading && entries.length === 0 && (
-          <div style={{ marginTop: '2rem', textAlign: 'center' as const }}>
-            <button onClick={() => router.push('/create-ad')}
-              style={{ background: '#f0883e', border: 'none', borderRadius: '10px', padding: '0.75rem 2rem', color: '#fff', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
-              Submit Your First Ad →
-            </button>
-          </div>
-        )}
+        {/* Footer */}
+        <div style={{ textAlign: 'center', color: '#333', fontSize: '0.75rem', marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #111' }}>
+          ⚡ ANTCPU ADS · Points update after every share and click
+        </div>
       </div>
     </div>
   );
