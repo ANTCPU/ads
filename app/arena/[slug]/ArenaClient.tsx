@@ -77,6 +77,7 @@ const BRAND_CONFIG: Record<string, any> = {
     accent: '#003580',
     bg: '#020810',
     url: 'https://antcpu.com/cloud/',
+    videos: ['/Video2.mp4', '/antcpuads.mp4'],
     stats: [
       { label: 'Active Ads', value: '10+' },
       { label: 'Tiers', value: '4' },
@@ -196,6 +197,13 @@ export default function ArenaClient() {
   }
 
   // Brand image map — used in share modal
+  const BRAND_VIDEOS: Record<string, string[]> = {
+    'ads-network': ['/Video2.mp4', '/antcpuads.mp4'],
+    antcpu:        ['/Video2.mp4'],
+  };
+  const brandVideos = BRAND_VIDEOS[slug] || [];
+  const isWeekend = [0, 6].includes(new Date().getDay());
+
   const BRAND_IMAGES: Record<string, string> = {
     mapofpi:      '/brands/mapofpi/Mapofpiv2.jpg',
     antcpu:       '/adNetwork.jpeg',
@@ -364,6 +372,49 @@ export default function ArenaClient() {
         </div>
       )}
 
+
+      {/* ── PREMIUM VIDEO ADS — ads-network demo ── */}
+      {brandVideos.length > 0 && (
+        <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              🎬 Premium Video Ads
+            </div>
+            <div style={{ background: '#f0883e20', border: '1px solid #f0883e40', color: '#f0883e', borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.62rem', fontWeight: 700 }}>
+              DELUXE & CLOUD TIER
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+            {brandVideos.map((vid, vi) => (
+              <div key={vi} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #f0883e30', background: '#0a0a0a' }}>
+                <video
+                  src={vid}
+                  controls
+                  playsInline
+                  style={{ width: '100%', display: 'block', maxHeight: '200px', objectFit: 'cover' }}
+                />
+                <div style={{ padding: '0.75rem 1rem' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fff', marginBottom: '0.2rem' }}>
+                    {vi === 0 ? 'ANTCPU ADS — Network Demo' : 'ANTCPU ADS — Arena Promo'}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#555' }}>
+                    Video ad · Weekend premium slot · Deluxe plan
+                  </div>
+                </div>
+                {/* Coming Soon tools overlay */}
+                <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid #1a1a1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#f0883e', fontWeight: 600 }}>🎬 Video Ad Creator</div>
+                  <div style={{ fontSize: '0.62rem', background: '#1a1a1a', border: '1px solid #333', color: '#555', borderRadius: '6px', padding: '0.2rem 0.5rem' }}>Coming Soon</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: '#333', marginTop: '0.75rem' }}>
+            Upload your own video ads with Deluxe plan · $79/month · <a href="https://antcpu.com/cloud/" style={{ color: '#f0883e', textDecoration: 'none' }}>Apply for Cloud Access →</a>
+          </div>
+        </div>
+      )}
+
       {/* ── WEEKLY SCHEDULE PANEL ── */}
       <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem 3rem' }}>
         <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
@@ -384,13 +435,34 @@ export default function ArenaClient() {
                 <div style={{ fontWeight: 700, fontSize: '0.78rem', color: isToday ? brand.primary : '#555', marginBottom: '0.6rem', textAlign: 'center' }}>
                   {day}{isToday && <span style={{ fontSize: '0.6rem', marginLeft: '0.3rem', color: brand.primary }}>TODAY</span>}
                 </div>
-                {/* Morning — image post */}
-                <div style={{ background: '#0a0a0a', borderRadius: '8px', marginBottom: '0.4rem', overflow: 'hidden' }}>
-                  {brandImage
-                    ? <img src={brandImage} alt="" style={{ width: '100%', height: '52px', objectFit: 'cover', opacity: 0.7 }} />
-                    : <div style={{ height: '52px', background: `${brand.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#444' }}>🖼 Image Post</div>
-                  }
-                  <div style={{ padding: '0.3rem 0.4rem', fontSize: '0.6rem', color: '#555' }}>🌅 Morning</div>
+                {/* Morning — video on weekends (premium), image on weekdays */}
+                <div style={{ background: '#0a0a0a', borderRadius: '8px', marginBottom: '0.4rem', overflow: 'hidden', position: 'relative' }}>
+                  {(di === 5 || di === 6) && brandVideos.length > 0 ? (
+                    <>
+                      <video
+                        src={brandVideos[di === 6 ? 1 : 0] || brandVideos[0]}
+                        muted playsInline
+                        style={{ width: '100%', height: '52px', objectFit: 'cover', opacity: 0.5 }}
+                      />
+                      {/* Coming Soon overlay */}
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        background: 'rgba(0,0,0,0.6)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: '2px',
+                      }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 800, color: '#f0883e', letterSpacing: '0.08em' }}>▶ VIDEO AD</div>
+                        <div style={{ fontSize: '0.5rem', background: '#f0883e', color: '#000', borderRadius: '3px', padding: '0.1rem 0.3rem', fontWeight: 700 }}>PREMIUM</div>
+                      </div>
+                    </>
+                  ) : brandImage ? (
+                    <img src={brandImage} alt="" style={{ width: '100%', height: '52px', objectFit: 'cover', opacity: 0.7 }} />
+                  ) : (
+                    <div style={{ height: '52px', background: `${brand.primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', color: '#444' }}>🖼 Image Post</div>
+                  )}
+                  <div style={{ padding: '0.3rem 0.4rem', fontSize: '0.6rem', color: (di === 5 || di === 6) ? '#f0883e' : '#555' }}>
+                    {(di === 5 || di === 6) ? '🎬 Weekend Video' : '🌅 Morning'}
+                  </div>
                 </div>
                 {/* Noon — text */}
                 <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', marginBottom: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px', display: 'flex', alignItems: 'center' }}>
