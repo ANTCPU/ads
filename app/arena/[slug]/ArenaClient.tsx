@@ -58,7 +58,7 @@ const BRAND_CONFIG: Record<string, any> = {
   },
   photography: {
     name: 'Amanda Photography',
-    tagline: 'Capturing Life's Most Beautiful Moments 📸',
+    tagline: "Capturing Life's Most Beautiful Moments 📸",
     primary: '#c9a96e',
     accent: '#8b6914',
     bg: '#0d0a07',
@@ -105,7 +105,7 @@ type Ad = {
   id: string; brand: string; title: string; url: string;
   description: string; category: string; status: string;
   tier: string; pinned: boolean; email: string;
-  points?: number; click_count?: number;
+  points?: number; click_count?: number; share_count?: number;
 };
 
 export default function ArenaClient() {

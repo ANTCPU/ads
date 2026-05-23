@@ -153,6 +153,7 @@ export default function ArenaNav({
   // brands panel injected below in JSX
 
   return (
+    <>
     <nav style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a',
@@ -398,5 +399,6 @@ export default function ArenaNav({
           </div>
         </div>
       )}
+    </>
   );
 }

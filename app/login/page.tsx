@@ -289,6 +289,15 @@ export default function Page() {
   
   const [loading,      setLoading]      = useState(false);
   const [showShare,    setShowShare]    = useState(false);
+  const [brandCheckLoading, setBrandCheckLoading] = useState(false);
+  const [brandBlocked,      setBrandBlocked]      = useState('');
+  const [brandProtected,    setBrandProtected]    = useState<{brand:string;domain:string;message:string}|null>(null);
+  const [verifyStep,        setVerifyStep]        = useState(false);
+  const [verifyEmail,       setVerifyEmail]       = useState('');
+  const [verifyToken,       setVerifyToken]       = useState('');
+  const [verifyInput,       setVerifyInput]       = useState('');
+  const [verifyError,       setVerifyError]       = useState('');
+  const [verifyLoading,     setVerifyLoading]     = useState(false);
   const [trialStatus,  setTrialStatus]  = useState<'team' | 'trial' | 'pending'>('trial');
   const [form, setForm] = useState({
     name: '', email: '', brand_name: '', website_url: '',
@@ -687,7 +696,7 @@ export default function Page() {
               {(!form.name || !form.email || !form.brand_name) && (
                 <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '0.75rem' }}>Fill in all fields to continue</div>
               )}
-              <button style={s.stepBtn} onClick={() => async () => {
+              <button style={s.stepBtn} onClick={async () => {
           if (!form.name || !form.email || !form.brand_name) return;
           setBrandCheckLoading(true);
           setBrandBlocked('');
