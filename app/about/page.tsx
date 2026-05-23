@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import ArenaFooter from '../components/ArenaFooter';
 
 export default function AboutPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function AboutPage() {
           <p style={{ fontSize: '1rem', color: '#666', maxWidth: '520px', margin: '0 auto 2rem', lineHeight: 1.7 }}>ANTCPU ADS is a competitive ad arena where brands grow through real engagement, promo codes, and community sharing — not just spend.</p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={() => router.push('/login')} style={{ background: '#f0883e', border: 'none', borderRadius: '10px', padding: '0.85rem 2rem', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: '#fff' }}>Start Free Trial →</button>
-            <button onClick={() => router.push('/')} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '0.85rem 2rem', cursor: 'pointer', fontWeight: 600, fontSize: '1rem', color: '#0a0a0a' }}>View The Arena</button>
+            <button onClick={() => router.push('/arena/ads-network')} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '0.85rem 2rem', cursor: 'pointer', fontWeight: 600, fontSize: '1rem', color: '#0a0a0a' }}>View The Arena</button>
           </div>
         </div>
 
@@ -41,21 +42,21 @@ export default function AboutPage() {
           </div>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div style={step}>
-              <div style={screenshot}>📸 screenshot — sign up form</div>
+              <div style={screenshot}><div style={{ width: "100%", aspectRatio: "16/9", background: "#f0faf4", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", marginBottom: "1rem" }}>📝</div></div>
               <div style={{ display: 'inline-block', background: '#f0883e', color: '#fff', borderRadius: '999px', width: '28px', height: '28px', lineHeight: '28px', fontWeight: 800, fontSize: '0.85rem', marginBottom: '0.75rem' }}>1</div>
               <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', fontWeight: 800 }}>Sign Up</h3>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#666', lineHeight: 1.6 }}>Create your account, set your brand name, and get your unique promo code. Takes under 2 minutes.</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: '#ddd', paddingTop: '4rem', minWidth: '24px' }}>→</div>
             <div style={step}>
-              <div style={screenshot}>📸 screenshot — ad builder</div>
+              <div style={screenshot}><div style={{ width: "100%", aspectRatio: "16/9", background: "#f0f0ff", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", marginBottom: "1rem" }}>📢</div></div>
               <div style={{ display: 'inline-block', background: '#7928ca', color: '#fff', borderRadius: '999px', width: '28px', height: '28px', lineHeight: '28px', fontWeight: 800, fontSize: '0.85rem', marginBottom: '0.75rem' }}>2</div>
               <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', fontWeight: 800 }}>Build Your Ad</h3>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#666', lineHeight: 1.6 }}>Use the Arena ad builder to create your campaign. Choose your tier, category, and message — then publish live.</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: '#ddd', paddingTop: '4rem', minWidth: '24px' }}>→</div>
             <div style={step}>
-              <div style={screenshot}>📸 screenshot — arena feed</div>
+              <div style={screenshot}><div style={{ width: "100%", aspectRatio: "16/9", background: "#fff8f0", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", marginBottom: "1rem" }}>🏟</div></div>
               <div style={{ display: 'inline-block', background: '#22c55e', color: '#fff', borderRadius: '999px', width: '28px', height: '28px', lineHeight: '28px', fontWeight: 800, fontSize: '0.85rem', marginBottom: '0.75rem' }}>3</div>
               <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem', fontWeight: 800 }}>Share + Earn</h3>
               <p style={{ margin: 0, fontSize: '0.85rem', color: '#666', lineHeight: 1.6 }}>Share your promo code. Every signup through your code earns you points and moves your ad up the Arena.</p>
@@ -83,7 +84,7 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-          <button onClick={() => router.push('/')} style={{ background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '0.6rem 1.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#0a0a0a' }}>View The Arena →</button>
+          <button onClick={() => router.push('/arena/ads-network')} style={{ background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '0.6rem 1.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#0a0a0a' }}>View The Arena →</button>
         </div>
 
         {/* PROMO CODES */}
@@ -110,7 +111,7 @@ export default function AboutPage() {
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f0883e', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>REWARDS</div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1rem' }}>Friendly competition. Real rewards.</h2>
           <p style={{ fontSize: '0.9rem', color: '#555', lineHeight: 1.7, marginBottom: '1rem' }}>The Arena leaderboard tracks every brand's performance. The more your ad gets clicked, shared, and referred — the higher you climb. Top performers get featured placement, recognition, and exclusive rewards as the system grows.</p>
-          <div style={{ display: 'inline-block', background: '#fff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>🏆 Leaderboard launching soon</div>
+          <div style={{ display: 'inline-block', background: '#fff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>🏆 <span style={{ cursor: "pointer", color: "#f0883e", textDecoration: "underline" }} onClick={() => router.push('/dashboard/leaderboard')}>View Live Leaderboard →</span></div>
         </div>
 
         {/* CTA */}

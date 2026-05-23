@@ -771,7 +771,7 @@ export default function Page() {
               <label style={s.label}>
                 Promo Code{' '}
                 <span style={{ color: liveStatus === 'team' ? '#b388ff' : '#555' }}>
-                  {liveStatus === 'team' ? '✓ Team code applied' : '(optional — team members use MAPOFPI)'}
+                  {liveStatus === 'team' ? '✓ Team code applied' : '(optional — have a referral code? Enter it here)'}
                 </span>
               </label>
               <input
