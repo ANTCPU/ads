@@ -132,10 +132,13 @@ export default function ArenaClient() {
 
   async function fetchAds() {
     setLoading(true);
+    const brandNames = slug === 'antcpu'
+      ? ['ANTCPU', 'ANTCPU ADS']
+      : [brand.name];
     const { data } = await supabase
       .from('ads')
       .select('*')
-      .ilike('brand', brand.name)
+      .in('brand', brandNames)
       .eq('status', 'active')
       .order('pinned', { ascending: false })
       .order('points', { ascending: false });
@@ -480,13 +483,25 @@ export default function ArenaClient() {
                     {(di === 5 || di === 6) ? '🎬 Weekend Video' : '🌅 Morning'}
                   </div>
                 </div>
-                {/* Noon — text */}
-                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', marginBottom: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px', display: 'flex', alignItems: 'center' }}>
-                  ☀️ Noon · text post
+                {/* Noon — text + share */}
+                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', marginBottom: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px' }}>
+                  <div>☀️ Noon · text post</div>
+                  {ads.length > 0 && isToday && (
+                    <button onClick={() => openShare(ads[Math.floor(ads.length / 2)] || ads[0])}
+                      style={{ marginTop: '0.25rem', background: brand.primary, border: 'none', color: '#fff', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.55rem', cursor: 'pointer', fontWeight: 700 }}>
+                      ↗ Share
+                    </button>
+                  )}
                 </div>
-                {/* Evening — text */}
-                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px', display: 'flex', alignItems: 'center' }}>
-                  🌙 Evening · text post
+                {/* Evening — text + share */}
+                <div style={{ background: '#0a0a0a', borderRadius: '8px', padding: '0.4rem', fontSize: '0.6rem', color: '#444', minHeight: '36px' }}>
+                  <div>🌙 Evening · text post</div>
+                  {ads.length > 0 && isToday && (
+                    <button onClick={() => openShare(ads[ads.length - 1] || ads[0])}
+                      style={{ marginTop: '0.25rem', background: brand.primary, border: 'none', color: '#fff', borderRadius: '4px', padding: '0.15rem 0.4rem', fontSize: '0.55rem', cursor: 'pointer', fontWeight: 700 }}>
+                      ↗ Share
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -498,11 +513,11 @@ export default function ArenaClient() {
       </div>
 
       {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e5e5' }}>
+        <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1rem' }}>
           <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}>← Back to The Arena</button>
-          <div style={{ color: '#ccc', fontSize: '0.72rem', marginTop: '0.5rem' }}></div>
         </div>
       </div>
+      <ArenaFooter brand={brand.name} accent={brand.primary} />
     </div>
   );
 }
