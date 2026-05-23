@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
       email: 'test@antcpu.com',
       brand: 'ANTCPU Test',
       trialStatus: 'team',
-      dashboard: 'https://antcpu-ads.vercel.app/dashboard/user',
+      dashboard: 'https://antcpu-ads.vercel.app/dashboard/antcpu',
     },
   });
 }
