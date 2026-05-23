@@ -6,6 +6,7 @@ import Card from '../../components/Card';
 import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
+import ArenaFooter from '../../components/ArenaFooter';
 
 const TEAM = [
   { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',     role: 'Founder & Project Manager', icon: '🗺️' },
@@ -135,9 +136,7 @@ export default function MapOfPiDashboard() {
           </div>
         </Card>
 
-        <div style={{ textAlign: 'center', padding: '2rem 0', color: '#aaa', fontSize: '0.78rem' }}>
-          ⚡ ANTCPU ADS · <a href="mailto:antcpu@gmail.com" style={{ color: '#aaa' }}>antcpu@gmail.com</a>
-        </div>
+        <ArenaFooter accent="#2D6A4F" />
 
       </div>
     </div>

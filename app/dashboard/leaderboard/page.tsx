@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
 import { clearSessionCookie } from '../../lib/session';
+import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -189,7 +190,7 @@ export default function LeaderboardPage() {
 
         {/* Footer */}
         <div style={{ textAlign: 'center', color: '#333', fontSize: '0.75rem', marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #111' }}>
-          ⚡ ANTCPU ADS · Points update after every share and click
+          
         </div>
       </div>
     </div>
