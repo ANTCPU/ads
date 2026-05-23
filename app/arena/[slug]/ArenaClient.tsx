@@ -28,6 +28,11 @@ const BRAND_CONFIG: Record<string, any> = {
       { label: 'Transactions', value: '173K+' },
       { label: 'Pi Price', value: '$0.17' },
     ],
+    posts: [
+      { slot: 'morning', text: 'Good morning ☀️\n\nPi Network is growing — and Map of Pi is where commerce happens.\n\n2.1M+ registered users. 148K sellers. 173K+ completed transactions.\n\nFind Pi sellers near you today 🗺️\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #picommerce #crypto' },
+      { slot: 'noon',    text: 'The Pi economy is real 💛\n\nReal sellers. Real buyers. Real transactions happening right now on Map of Pi.\n\nLeave a review. Build trust. Grow the Pi community.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picommerce #blockchain #crypto' },
+      { slot: 'evening', text: 'Pi Network is going mainstream 🌙\n\nMap of Pi is the largest Pi commerce platform in the world.\n\nJoin 2.1M+ users already building the Pi economy.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #crypto #picommerce' },
+    ],
   },
   antcpu: {
     name: 'ANTCPU',
@@ -213,6 +218,7 @@ export default function ArenaClient() {
   // Brand-specific schedule posts
   const BRAND_POSTS: Record<string, {slot:string;text:string}[]> = {
     photography: (BRAND_CONFIG['photography'] as any).posts || [],
+    mapofpi:     (BRAND_CONFIG['mapofpi'] as any).posts || [],
   };
   const brandPosts = BRAND_POSTS[slug] || [];
 

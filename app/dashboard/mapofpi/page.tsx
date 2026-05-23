@@ -15,9 +15,16 @@ const TEAM = [
 ];
 
 const POSTS = [
-  { id: 1, text: 'Map of Pi — Version 2 is Coming\n\n2.1M+ users. 148K sellers. 173K+ transactions. The Pi Network community is building real commerce — and Map of Pi is leading the way. Version 2 makes finding shops easier than ever. Trust built one review at a time. 2024 Pi Commerce Hackathon Winner.\n\n#mapofpi #pinetwork #picommerce #buildinpublic #web3' },
-  { id: 2, text: 'Real commerce on Pi Network is here.\n\nMap of Pi connects buyers and sellers across the Pi ecosystem. 2.1M+ registered users. 148K sellers. 173K+ completed transactions. Version 2 is coming — and it is going to change how you find shops.\n\n#mapofpi #pinetwork #picommerce #web3 #buildinpublic' },
-  { id: 3, text: 'Trust built one review at a time.\n\nMap of Pi is the 2024 Pi Commerce Hackathon Winner. Join 2.1M+ users already building the future of Pi eCommerce. Version 2 is on its way.\n\n#mapofpi #pinetwork #picommerce #crypto #buildinpublic' },
+  { id: 1,  tag: '🌅 Morning', text: 'Good morning ☀️\n\nPi Network is growing — and Map of Pi is where commerce happens.\n\n2.1M+ registered users. 148K sellers. 173K+ completed transactions.\n\nFind Pi sellers near you today 🗺️\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #picommerce #crypto' },
+  { id: 2,  tag: '☀️ Noon',    text: 'The Pi economy is real 💛\n\nReal sellers. Real buyers. Real transactions happening right now on Map of Pi.\n\nLeave a review. Build trust. Grow the Pi community.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picommerce #blockchain #crypto' },
+  { id: 3,  tag: '🌙 Evening', text: 'Pi Network is going mainstream 🌙\n\nMap of Pi is the largest Pi commerce platform in the world.\n\nJoin 2.1M+ users already building the Pi economy.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #crypto #picommerce' },
+  { id: 4,  tag: '🗺️ Discovery', text: 'Did you know? 🗺️\n\nMap of Pi has 148K+ sellers listed worldwide.\n\nFind local Pi sellers, leave honest reviews, and help build a trusted Pi marketplace.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picommerce #sellers #crypto' },
+  { id: 5,  tag: '📈 Growth',   text: '173,000+ completed Pi transactions 📈\n\nMap of Pi is not a concept — it is a working Pi commerce platform with real activity every day.\n\nJoin the movement.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #picommerce #growthhacking' },
+  { id: 6,  tag: '🏆 Hackathon', text: '🏆 2024 Pi Commerce Hackathon Winner\n\nMap of Pi won the official Pi Network hackathon — recognized as the best Pi commerce platform in the ecosystem.\n\nBuilt by the community. For the community.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #hackathon #picommerce #crypto' },
+  { id: 7,  tag: '🚀 Pi Price',  text: 'Pi is at $0.17 and climbing 🚀\n\nAs Pi value grows, so does the Map of Pi marketplace.\n\n148K sellers ready to transact. 2.1M+ users ready to buy.\n\nThe Pi economy is just getting started.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #crypto #picommerce' },
+  { id: 8,  tag: '🌍 Global',    text: 'Pi commerce is global 🌍\n\nMap of Pi connects Pi buyers and sellers across every continent.\n\nNo borders. No banks. Just Pi.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #globalcommerce #crypto #picommerce' },
+  { id: 9,  tag: '⭐ Reviews',   text: 'Trust is everything in Pi commerce ⭐\n\nMap of Pi lets buyers leave verified reviews — so the best sellers rise to the top.\n\nBuild your reputation. Grow your Pi business.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #reviews #picommerce #trust' },
+  { id: 10, tag: '📱 Mobile',    text: 'Pi commerce in your pocket 📱\n\nMap of Pi works on any device. Find sellers, complete transactions, and leave reviews — all from your phone.\n\nThe future of Pi commerce is mobile.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #mobile #picommerce #crypto' },
 ];
 
 export default function MapOfPiDashboard() {
