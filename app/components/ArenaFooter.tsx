@@ -45,9 +45,9 @@ export default function ArenaFooter({ brand = 'ANTCPU ADS', accent = '#0070f3' }
           <div style={{ fontSize: '0.75rem', color: '#333', lineHeight: 1.6, maxWidth: '200px' }}>
             The Arena — automated marketing powered by AI antbots. Free 3-day trial.
           </div>
-          <div onClick={() => nav('/login')}
-            style={{ marginTop: '0.85rem', display: 'inline-block', background: accent, color: '#fff', borderRadius: '7px', padding: '0.4rem 0.9rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
-            Start Free →
+          <div onClick={() => nav('/profile')}
+            style={{ marginTop: '0.85rem', display: 'inline-block', background: 'none', border: `1px solid ${accent}50`, color: accent, borderRadius: '7px', padding: '0.4rem 0.9rem', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+            🔗 Get Your Referral Code →
           </div>
         </div>
 
