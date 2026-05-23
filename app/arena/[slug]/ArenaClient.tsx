@@ -56,6 +56,20 @@ const BRAND_CONFIG: Record<string, any> = {
       { label: 'Status',   value: 'Active' },
     ],
   },
+  'ads-network': {
+    name: 'ANTCPU ADS',
+    tagline: 'The Arena — Automated Marketing Network ⚡',
+    primary: '#0070f3',
+    accent: '#003580',
+    bg: '#020810',
+    url: 'https://antcpu.com/cloud/',
+    stats: [
+      { label: 'Active Ads', value: '10+' },
+      { label: 'Tiers', value: '4' },
+      { label: 'Antbots', value: '10' },
+      { label: 'Languages', value: '8' },
+    ],
+  },
   test: {
     name: 'ANTCPU TEST',
     tagline: 'Arena Copilot — Test Environment 🧪',
@@ -111,11 +125,36 @@ export default function ArenaClient() {
     setLoading(false);
   }
 
-  function shareAd(ad: Ad) {
-    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n→ ${ad.url}\n\n#antcpuads`;
-    navigator.clipboard.writeText(text);
+  async function shareAd(ad: Ad) {
+    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n#antcpuads #marketing`;
+    let shared = false;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: ad.title, text, url: ad.url });
+        shared = true;
+      } catch {}
+    }
+    if (!shared) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
     setSharedId(ad.id);
-    setTimeout(() => setSharedId(''), 2000);
+    setTimeout(() => setSharedId(''), 2500);
+    // Increment share_count + Discord ping
+    const newShares = (ad.share_count || 0) + 1;
+    supabase.from('ads').update({ share_count: newShares }).eq('id', ad.id).then(() => {
+      fetch('/api/scout/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_id: ad.id }),
+      }).catch(() => {});
+    });
+    fetch(process.env.NEXT_PUBLIC_DISCORD_WEBHOOK || '', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**Shares:** ${newShares}\n**Source:** arena/${slug}`,
+      }),
+    }).catch(() => {});
   }
 
   const isAdmin = user.email === 'antcpu@gmail.com';

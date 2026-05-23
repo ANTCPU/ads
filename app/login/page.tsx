@@ -1,5 +1,6 @@
 'use client';
 import { setSessionCookie, clearSessionCookie } from '../lib/session';
+import { checkBrand, getVerificationToken } from '../lib/brandCheck';
 import { getLocation } from '../lib/location';
 
 import React, { useState } from 'react';
@@ -686,7 +687,35 @@ export default function Page() {
               {(!form.name || !form.email || !form.brand_name) && (
                 <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '0.75rem' }}>Fill in all fields to continue</div>
               )}
-              <button style={s.stepBtn} onClick={() => setStep(1)} disabled={!form.name || !form.email || !form.brand_name}>Next →</button>
+              <button style={s.stepBtn} onClick={() => async () => {
+          if (!form.name || !form.email || !form.brand_name) return;
+          setBrandCheckLoading(true);
+          setBrandBlocked('');
+          setBrandProtected(null);
+          const result = await checkBrand(form.brand_name);
+          setBrandCheckLoading(false);
+          if (result.status === 'internal') {
+            setBrandBlocked(result.message);
+            return;
+          }
+          if (result.status === 'protected') {
+            setBrandProtected(result);
+            setVerifyStep(true);
+            const token = getVerificationToken();
+            setVerifyToken(token);
+            // Discord alert on protected brand attempt
+            fetch('/api/discord', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                content: `🔐 **Protected Brand Attempt**\n**Brand:** ${form.brand_name}\n**Email:** ${form.email}\n**Matched:** ${result.brand} (${result.domain})\n**Token:** ${token}`,
+              }),
+            }).catch(() => {});
+            return;
+          }
+          setStep(1);
+        }} disabled={!form.name || !form.email || !form.brand_name || brandCheckLoading}>
+        {brandCheckLoading ? 'Checking brand...' : 'Next →'}</button>
             </div>
           )}
 

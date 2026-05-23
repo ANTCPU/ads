@@ -109,7 +109,7 @@ export default function UserDashboard() {
     } catch {}
   }
 
-  function shareAd(ad: Ad) {
+  async function shareAd(ad: Ad) {
     const categoryTags: Record<string, string> = {
       'Pi Commerce': '#mapofpi #pinetwork #picommerce #crypto',
       'Photography': '#photography #portraits #memories #photographer',
@@ -119,11 +119,18 @@ export default function UserDashboard() {
     };
     const tags = categoryTags[ad.category] || '#marketing #ads #antcpu';
     const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n${tags} #antcpuads`;
-    navigator.clipboard.writeText(text).then(() => {
-      setSharedId(ad.id);
-      setTimeout(() => setSharedId(null), 2500);
-    });
-    // Increment share_count + recalculate score (fire and forget)
+    let shared = false;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: ad.title, text, url: ad.url });
+        shared = true;
+      } catch {}
+    }
+    if (!shared) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setSharedId(ad.id);
+    setTimeout(() => setSharedId(null), 2500);
     if (!ad.id.startsWith('sample-')) {
       const newShares = (ad.share_count || 0) + 1;
       supabase.from('ads').update({ share_count: newShares }).eq('id', ad.id)
@@ -134,6 +141,14 @@ export default function UserDashboard() {
             body: JSON.stringify({ ad_id: ad.id }),
           }).catch(() => {});
         });
+      // Discord ping on share
+      fetch(process.env.NEXT_PUBLIC_DISCORD_WEBHOOK || '', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user?.email}\n**Shares:** ${newShares}\n**Native share:** ${shared}`,
+        }),
+      }).catch(() => {});
     }
   }
 
