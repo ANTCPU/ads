@@ -108,27 +108,25 @@ export default function ArenaNav({
 
   if (role === 'admin') {
     menuItems.push(
-      { label: 'My Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
-      { label: 'Ad Builder',     icon: '🏗', action: () => router.push('/dashboard/admin') },
-      { label: 'Users',          icon: '👥', action: () => router.push('/dashboard/users') },
-      { label: 'Leaderboard',    icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'Agents',         icon: '🤖', action: () => router.push('/dashboard/agents') },
-      { label: 'Map of Pi',      icon: '🗺️', action: () => router.push('/dashboard/mapofpi') },
-      { label: 'Photography',    icon: '📸', action: () => router.push('/dashboard/photography') },
-      { label: 'ANTCPU',         icon: '⚡', action: () => router.push('/dashboard/antcpu') },
-      { label: 'About',          icon: 'ℹ️', action: () => router.push('/about') },
-      { label: 'Create Ad',      icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',        icon: '👤', action: () => router.push('/profile') },
+      { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena/ads-network') },
+      { label: 'Brands',       icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
+      { label: 'Ad Builder',   icon: '🏗', action: () => router.push('/dashboard/admin') },
+      { label: 'Users',        icon: '👥', action: () => router.push('/dashboard/users') },
+      { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
+      { label: 'Agents',       icon: '🤖', action: () => router.push('/dashboard/agents') },
+      { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Profile',      icon: '👤', action: () => router.push('/profile') },
     );
   }
 
   if (role === 'team') {
     menuItems.push(
-      { label: 'My Dashboard', icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena/ads-network') },
       { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
       { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'About',        icon: 'ℹ️', action: () => router.push('/about') },
+      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
     // Brand-specific dashboards — only show to the right team
     if (MAPOFPI_TEAM.includes(userEmail)) {
@@ -141,11 +139,11 @@ export default function ArenaNav({
 
   if (role === 'user') {
     menuItems.push(
-      { label: 'My Dashboard', icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena/ads-network') },
       { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
       { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'About',        icon: 'ℹ️', action: () => router.push('/about') },
+      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
   }
 
@@ -394,7 +392,7 @@ export default function ArenaNav({
 
             {/* Footer */}
             <div style={{ marginTop: 'auto', fontSize: '0.72rem', color: '#333', textAlign: 'center' as const }}>
-              {ALL_BRANDS.length} brands · add more in ArenaNav.tsx
+              {ALL_BRANDS.length} brands in the Arena
             </div>
           </div>
         </div>
