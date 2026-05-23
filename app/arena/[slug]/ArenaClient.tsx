@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
+import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -499,7 +500,7 @@ export default function ArenaClient() {
       {/* Footer */}
         <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e5e5' }}>
           <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}>← Back to The Arena</button>
-          <div style={{ color: '#ccc', fontSize: '0.72rem', marginTop: '0.5rem' }}>⚡ ANTCPU ADS · Brand Arena · {brand.name}</div>
+          <div style={{ color: '#ccc', fontSize: '0.72rem', marginTop: '0.5rem' }}></div>
         </div>
       </div>
     </div>

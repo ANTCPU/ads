@@ -6,6 +6,7 @@ import Card from '../../components/Card';
 import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
+import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
