@@ -56,6 +56,20 @@ const BRAND_CONFIG: Record<string, any> = {
       { label: 'Status',   value: 'Active' },
     ],
   },
+  photography: {
+    name: 'Amanda Photography',
+    tagline: 'Capturing Life's Most Beautiful Moments 📸',
+    primary: '#c9a96e',
+    accent: '#8b6914',
+    bg: '#0d0a07',
+    url: 'https://antcpu.com/manda/',
+    stats: [
+      { label: 'Style', value: 'Portrait' },
+      { label: 'Location', value: 'NC' },
+      { label: 'Experience', value: '20+ yrs' },
+      { label: 'Status', value: 'Booking' },
+    ],
+  },
   'ads-network': {
     name: 'ANTCPU ADS',
     tagline: 'The Arena — Automated Marketing Network ⚡',
