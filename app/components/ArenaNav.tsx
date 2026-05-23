@@ -43,6 +43,9 @@ export default function ArenaNav({
 }: ArenaNavProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(false);
+  const [brandSearch, setBrandSearch] = useState('');
+  const [lastVisited, setLastVisited] = React.useState<string[]>([]);
   const [isPrevAdmin, setIsPrevAdmin] = React.useState(false);
   const [notifications, setNotifications] = React.useState<
     { id: string; type: string; title: string; message: string; created_at: string }[]
@@ -51,6 +54,10 @@ export default function ArenaNav({
 
   React.useEffect(() => {
     setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
+    try {
+      const lv = JSON.parse(localStorage.getItem('arena_last_visited') || '[]');
+      setLastVisited(Array.isArray(lv) ? lv : []);
+    } catch {}
     if (!userEmail) return;
     supabase
       .from('notifications')
@@ -63,6 +70,32 @@ export default function ArenaNav({
         setUnread((data || []).length);
       });
   }, [userEmail]);
+
+  const ALL_BRANDS = [
+    { slug: 'antcpu',      label: 'ANTCPU',             icon: '⚡', dashboard: '/dashboard/antcpu' },
+    { slug: 'mapofpi',     label: 'Map of Pi',           icon: '🗺️', dashboard: '/dashboard/mapofpi' },
+    { slug: 'photography', label: 'Amanda Photography',  icon: '📸', dashboard: '/dashboard/photography' },
+    { slug: 'ads-network', label: 'ANTCPU ADS Network',  icon: '📢', dashboard: '/dashboard/antcpu' },
+    { slug: 'pipioneers',  label: 'PiPioneersX',         icon: '🚀', dashboard: null },
+  ];
+
+  function visitBrand(slug: string) {
+    const updated = [slug, ...lastVisited.filter(s => s !== slug)].slice(0, 3);
+    setLastVisited(updated);
+    localStorage.setItem('arena_last_visited', JSON.stringify(updated));
+    setBrandsOpen(false);
+    setOpen(false);
+    router.push(`/arena/${slug}`);
+  }
+
+  const filteredBrands = ALL_BRANDS.filter(b =>
+    b.label.toLowerCase().includes(brandSearch.toLowerCase()) ||
+    b.slug.toLowerCase().includes(brandSearch.toLowerCase())
+  );
+
+  const recentBrands = lastVisited
+    .map(s => ALL_BRANDS.find(b => b.slug === s))
+    .filter(Boolean) as typeof ALL_BRANDS;
 
   function handleLogout() {
     localStorage.removeItem('arena_user');
@@ -117,6 +150,7 @@ export default function ArenaNav({
   }
 
   const accentColor = trialStatus === 'team' ? '#7928ca' : '#0070f3';
+  // brands panel injected below in JSX
 
   return (
     <nav style={{
@@ -249,5 +283,120 @@ export default function ArenaNav({
         </div>
       </div>
     </nav>
+      {/* ── BRANDS PANEL ── */}
+      {brandsOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex', justifyContent: 'flex-end',
+        }} onClick={() => setBrandsOpen(false)}>
+          <div style={{
+            width: '320px', maxWidth: '90vw',
+            background: '#111', borderLeft: '1px solid #1a1a1a',
+            height: '100%', overflowY: 'auto',
+            padding: '1.5rem 1.25rem',
+            display: 'flex', flexDirection: 'column', gap: '1rem',
+          }} onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>🏷 Brands</div>
+              <button onClick={() => setBrandsOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </div>
+
+            {/* Search */}
+            <input
+              autoFocus
+              placeholder="Search brands..."
+              value={brandSearch}
+              onChange={e => setBrandSearch(e.target.value)}
+              style={{
+                width: '100%', background: '#0a0a0a', border: '1px solid #222',
+                borderRadius: '8px', padding: '0.7rem 1rem', color: '#fff',
+                fontSize: '0.9rem', boxSizing: 'border-box' as const, outline: 'none',
+              }}
+            />
+
+            {/* Last Visited */}
+            {recentBrands.length > 0 && brandSearch === '' && (
+              <div>
+                <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Recently Visited</div>
+                {recentBrands.map(b => (
+                  <div key={b.slug} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: '#1a1a1a', border: '1px solid #222', borderRadius: '10px',
+                    padding: '0.75rem 1rem', marginBottom: '0.5rem', cursor: 'pointer',
+                  }} onClick={() => visitBrand(b.slug)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontSize: '1.1rem' }}>{b.icon}</span>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fff' }}>{b.label}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#555' }}>arena/{b.slug}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                      {b.dashboard && (
+                        <button onClick={e => { e.stopPropagation(); setBrandsOpen(false); router.push(b.dashboard!); }}
+                          style={{ background: '#0070f320', border: '1px solid #0070f340', color: '#0070f3', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 600 }}>
+                          Dash
+                        </button>
+                      )}
+                      <button onClick={e => { e.stopPropagation(); visitBrand(b.slug); }}
+                        style={{ background: '#ffffff10', border: '1px solid #333', color: '#aaa', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}>
+                        Arena
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ height: '1px', background: '#1a1a1a', margin: '0.75rem 0' }} />
+              </div>
+            )}
+
+            {/* All / Filtered Brands */}
+            <div>
+              <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                {brandSearch ? `Results (${filteredBrands.length})` : 'All Brands'}
+              </div>
+              {filteredBrands.length === 0 && (
+                <div style={{ color: '#444', fontSize: '0.85rem', padding: '1rem 0' }}>No brands found for "{brandSearch}"</div>
+              )}
+              {filteredBrands.map(b => (
+                <div key={b.slug} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '10px',
+                  padding: '0.75rem 1rem', marginBottom: '0.5rem', cursor: 'pointer',
+                  transition: 'border-color 0.15s',
+                }} onClick={() => visitBrand(b.slug)}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <span style={{ fontSize: '1.1rem' }}>{b.icon}</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#fff' }}>{b.label}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#555' }}>arena/{b.slug}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    {b.dashboard && (
+                      <button onClick={e => { e.stopPropagation(); setBrandsOpen(false); router.push(b.dashboard!); }}
+                        style={{ background: '#0070f320', border: '1px solid #0070f340', color: '#0070f3', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer', fontWeight: 600 }}>
+                        Dash
+                      </button>
+                    )}
+                    <button onClick={e => { e.stopPropagation(); visitBrand(b.slug); }}
+                      style={{ background: '#ffffff10', border: '1px solid #333', color: '#aaa', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.7rem', cursor: 'pointer' }}>
+                      Arena
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div style={{ marginTop: 'auto', fontSize: '0.72rem', color: '#333', textAlign: 'center' as const }}>
+              {ALL_BRANDS.length} brands · add more in ArenaNav.tsx
+            </div>
+          </div>
+        </div>
+      )}
   );
 }
