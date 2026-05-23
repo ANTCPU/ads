@@ -14,8 +14,12 @@ const TIER_POINTS: Record<string, number> = {
 };
 
 // Full Arena score formula (ADS_V03)
-// score = (click_count × 3) + (share_count × 5) + tier_points + pinned_bonus(50)
-function calcScore(click_count: number, share_count: number, tier: string, pinned: boolean): number {
+// User ads:   score = (clicks × 3) + (shares × 5) + tier_pts + pinned_bonus(50)
+// System ads: score = (clicks × 1) + (shares × 1) — no tier bonus, no pinned bonus, entry only
+function calcScore(click_count: number, share_count: number, tier: string, pinned: boolean, is_system = false): number {
+  if (is_system) {
+    return (click_count * 1) + (share_count * 1);
+  }
   return (click_count * 3) + (share_count * 5) + (TIER_POINTS[tier] ?? 0) + (pinned ? 50 : 0);
 }
 
@@ -25,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const { data: ad, error } = await supabase
     .from('ads')
-    .select('id, tier, email, name, brand, click_count, share_count, pinned')
+    .select('id, tier, email, name, brand, click_count, share_count, pinned, is_system')
     .eq('id', ad_id).single();
   if (error || !ad) return NextResponse.json({ error: 'ad not found' }, { status: 404 });
 
@@ -33,7 +37,8 @@ export async function POST(req: NextRequest) {
   const share_count = ad.share_count || 0;
   const pinned      = ad.pinned || false;
 
-  const points = calcScore(click_count, share_count, ad.tier, pinned);
+  const is_system = ad.is_system || false;
+  const points = calcScore(click_count, share_count, ad.tier, pinned, is_system);
 
   await supabase.from('ads').update({ points }).eq('id', ad_id);
 
@@ -47,14 +52,14 @@ export async function POST(req: NextRequest) {
   // After any score change, recalculate rank_position for every active ad
   const { data: allActive } = await supabase
     .from('ads')
-    .select('id, tier, click_count, share_count, pinned, points')
+    .select('id, tier, click_count, share_count, pinned, points, is_system')
     .eq('status', 'active');
 
   if (allActive && allActive.length > 0) {
     // Recalculate score for every ad then sort
     const scored = allActive.map((a: any) => ({
       id: a.id,
-      points: calcScore(a.click_count || 0, a.share_count || 0, a.tier, a.pinned || false),
+      points: calcScore(a.click_count || 0, a.share_count || 0, a.tier, a.pinned || false, a.is_system || false),
     }));
     // Sort descending — highest score = rank 1
     scored.sort((a: any, b: any) => b.points - a.points);
@@ -68,6 +73,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ad_id, tier: ad.tier, points, user_total: total,
-    breakdown: { clicks: click_count * 3, shares: share_count * 5, tier: TIER_POINTS[ad.tier] ?? 0, pinned: pinned ? 50 : 0 }
+    breakdown: { clicks: is_system ? click_count * 1 : click_count * 3, shares: is_system ? share_count * 1 : share_count * 5, tier: is_system ? 0 : (TIER_POINTS[ad.tier] ?? 0), pinned: is_system ? 0 : (pinned ? 50 : 0), is_system }
   });
 }
