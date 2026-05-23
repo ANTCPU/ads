@@ -297,9 +297,7 @@ export default function UserDashboard() {
           )}
         </Card>
 
-        <div style={{ textAlign: 'center', padding: '2rem 0', color: '#aaa', fontSize: '0.78rem' }}>
-          ⚡ ANTCPU ADS · <a href="mailto:antcpu@gmail.com" style={{ color: '#aaa' }}>antcpu@gmail.com</a>
-        </div>
+        <ArenaFooter accent={accent} />
 
       </div>
     </div>
