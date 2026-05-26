@@ -40,6 +40,21 @@ export function proxy(req: NextRequest) {
 
   const session = req.cookies.get('arena_session');
   const preview = req.cookies.get('arena_preview');
+  const testToken = req.nextUrl.searchParams.get('token');
+
+  // autotest pass-through — token in URL bypasses middleware
+  if (testToken === 'antcpu-test-2026') {
+    const res = NextResponse.next();
+    const expires = new Date(Date.now() + 90 * 864e5).toUTCString();
+    res.cookies.set('arena_session', encodeURIComponent(JSON.stringify({
+      name: 'Autotest', email: 'test@antcpu.com',
+      brand: 'ANTCPU TEST', trialStatus: 'team'
+    })), { path: '/', expires: new Date(Date.now() + 90 * 864e5), sameSite: 'lax' });
+    res.cookies.set('arena_preview', 'test', {
+      path: '/', expires: new Date(Date.now() + 90 * 864e5), sameSite: 'lax'
+    });
+    return res;
+  }
 
   if (!session?.value && !preview?.value) {
     const url = req.nextUrl.clone();

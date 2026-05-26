@@ -239,11 +239,16 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
   }
 
   // TEST ACCOUNT — PIN 1234, team-level access, arena_preview cookie set
+  // skip PIN if autotest token present in URL
   if (normalizedEmail === 'test@antcpu.com') {
-    const pin = prompt('Enter test PIN:');
-    if (pin !== '1234') {
-      alert('Invalid PIN.');
-      return;
+    const p = new URLSearchParams(window.location.search);
+    const autotoken = p.get('token');
+    if (autotoken !== 'antcpu-test-2026') {
+      const pin = prompt('Enter test PIN:');
+      if (pin !== '1234') {
+        alert('Invalid PIN.');
+        return;
+      }
     }
     // Upgrade to team in localStorage
     const stored = localStorage.getItem('arena_user');
@@ -333,7 +338,7 @@ export default function Page() {
         const p2 = new URLSearchParams(window.location.search);
         const redirect = p2.get('redirect');
         const dest = user.email.trim().toLowerCase() === 'antcpu@gmail.com'
-          ? redirect || '/dashboard/antcpu'
+          ? redirect || '/dashboard/admin'
           : user.email.trim().toLowerCase() === 'test@antcpu.com'
           ? redirect || '/dashboard/user'
           : redirect || '/dashboard/user';

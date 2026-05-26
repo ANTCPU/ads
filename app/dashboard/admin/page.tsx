@@ -38,10 +38,12 @@ export default function AdminDashboard() {
   const [clicks, setClicks] = useState<any[]>([]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('arena_user');
-    if (!stored) { router.push('/'); return; }
+    // read from cookie — middleware already verified session exists
+    const cookie = document.cookie.split(';').map(c => c.trim())
+      .find(c => c.startsWith('arena_session='));
+    if (!cookie) { router.push('/'); return; }
     try {
-      const u = JSON.parse(stored);
+      const u = JSON.parse(decodeURIComponent(cookie.split('=').slice(1).join('=')));
       if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
     } catch { router.push('/'); return; }
     setHydrated(true);
