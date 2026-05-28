@@ -134,6 +134,9 @@ export default function ArenaClient() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>({ name: '', email: '', brand: '', trialStatus: 'trial' });
   const [sharedId, setSharedId] = useState('');
+  const [activeRegion, setActiveRegion] = useState('North America');
+  const [activeTerr, setActiveTerr] = useState('');
+  const [activeCountry, setActiveCountry] = useState('USA');
   const [shareModal, setShareModal] = useState<Ad | null>(null);
 
   useEffect(() => {
@@ -330,7 +333,7 @@ export default function ArenaClient() {
         ) : (
           ads.map(ad => {
             const tier = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
-            return (
+            <>
               <div key={ad.id} style={{ background: '#fff', border: `1px solid #e5e5e5`, borderLeft: `3px solid ${tier.color}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0a0a0a' }}>{ad.title}</span>
@@ -455,17 +458,31 @@ export default function ArenaClient() {
       )}
 
       {/* ── CAMPAIGN HUB ── */}
-      {slug === 'mapofpi' && (() => {
+      {slug === 'mapofpi' && ((
         const REGIONS: Record<string,{flag:string;label:string;status:string;desc:string;color:string;territories:string[]}> = {
           'North America': {
-            flag: '🇺🇸', label: 'North America', status: 'active', color: '#2D6A4F',
-            desc: '50 states · Canada · Mexico',
-            territories: ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','Canada','Mexico'],
+            flag: '🌎', label: 'North America', status: 'active', color: '#2D6A4F',
+            desc: 'USA · Canada · Mexico',
+            countries: {
+              'USA': {
+                flag: '🇺🇸',
+                territories: ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'],
+              },
+              'Canada': {
+                flag: '🇨🇦',
+                territories: ['Alberta','British Columbia','Manitoba','New Brunswick','Newfoundland and Labrador','Northwest Territories','Nova Scotia','Nunavut','Ontario','Prince Edward Island','Quebec','Saskatchewan','Yukon'],
+              },
+              'Mexico': {
+                flag: '🇲🇽',
+                territories: ['Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco','Mexico City','Mexico State','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'],
+              },
+            },
+            territories: [],
           },
           'Africa': {
             flag: '🌍', label: 'Africa', status: 'next', color: '#D4AF37',
             desc: 'Nigeria · Ghana · Kenya · South Africa · Ethiopia + more',
-            territories: ['Nigeria','Ghana','Kenya','South Africa','Ethiopia','Tanzania','Uganda','Rwanda','Cameroon','Senegal','Ivory Coast','Zimbabwe','Zambia','Mozambique','Angola','Egypt','Morocco','Tunisia','Algeria','Libya'],
+            territories: ['Egypt','Nigeria','Ghana','Kenya','South Africa','Ethiopia','Tanzania','Uganda','Rwanda','Cameroon','Senegal','Ivory Coast','Zimbabwe','Zambia','Mozambique','Angola','Morocco','Tunisia','Algeria','Libya'],
           },
           'UK': {
             flag: '🇬🇧', label: 'UK', status: 'soon', color: '#003580',
@@ -500,8 +517,7 @@ export default function ArenaClient() {
         };
 
         const STATUS_LABEL: Record<string,string> = { active: '🟢 Active', next: '🟡 Next', soon: '⚪ Soon' };
-        const [activeRegion, setActiveRegion] = React.useState('North America');
-        const [activeTerr, setActiveTerr] = React.useState('');
+
         const region = REGIONS[activeRegion];
 
         return (
@@ -543,6 +559,27 @@ export default function ArenaClient() {
               </div>
               <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '1rem' }}>{region.desc}</div>
 
+              {/* COUNTRY SUB-SELECTOR — North America only */}
+              {(region as any).countries && (
+                <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                  {Object.entries((region as any).countries).map(([country, data]: any) => (
+                    <button key={country} onClick={() => { setActiveCountry(country); setActiveTerr(''); }} style={{
+                      background: activeCountry === country ? region.color : 'transparent',
+                      color: activeCountry === country ? '#fff' : region.color,
+                      border: '1px solid ' + region.color + '60',
+                      borderRadius: '999px',
+                      padding: '0.35rem 0.85rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {data.flag} {country}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* TERRITORY DROPDOWN */}
               <select
                 value={activeTerr}
@@ -550,13 +587,16 @@ export default function ArenaClient() {
                 style={{ width: '100%', background: '#fff', border: '1px solid ' + region.color + '40', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.8rem', color: '#333', fontWeight: 600, outline: 'none', cursor: 'pointer', marginBottom: activeTerr ? '1rem' : '0' }}
               >
                 <option value=''>— Select a territory —</option>
-                {region.territories.map(t => <option key={t} value={t}>{t}</option>)}
+                {((region as any).countries
+                  ? (region as any).countries[activeCountry]?.territories
+                  : region.territories
+                ).map((t: string) => <option key={t} value={t}>{t}</option>)}
               </select>
 
               {/* TERRITORY CARD */}
               {activeTerr && (
                 <div style={{ background: '#fff', border: '1px solid ' + region.color + '30', borderRadius: '10px', padding: '1rem' }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: region.color, marginBottom: '0.25rem' }}>{region.flag} {activeTerr}</div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: region.color, marginBottom: '0.25rem' }}>{(region as any).countries ? (region as any).countries[activeCountry]?.flag : region.flag} {activeTerr}</div>
                   <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.75rem' }}>Map of Pi · {region.label} Campaign</div>
                   <div style={{ fontSize: '0.78rem', color: '#444', lineHeight: 1.6, marginBottom: '0.75rem', background: '#f9f9f9', borderRadius: '8px', padding: '0.75rem' }}>
                     📍 Pi Pioneers in <strong>{activeTerr}</strong> — your territory is live on Map of Pi!{'
@@ -587,8 +627,8 @@ Find your region on the map, take a screenshot, and post it on Pi Fireside + soc
               )}
             </div>
           </div>
-        );
-      })()}
+        </>
+      ))}
 
       {/* ── WEEKLY SCHEDULE PANEL ── */}
       <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem 3rem' }}>
