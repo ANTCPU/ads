@@ -455,35 +455,140 @@ export default function ArenaClient() {
       )}
 
       {/* ── CAMPAIGN HUB ── */}
-      {slug === 'mapofpi' && (
-        <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
-          <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-            🌍 Regional Campaigns
+      {slug === 'mapofpi' && (() => {
+        const REGIONS: Record<string,{flag:string;label:string;status:string;desc:string;color:string;territories:string[]}> = {
+          'North America': {
+            flag: '🇺🇸', label: 'North America', status: 'active', color: '#2D6A4F',
+            desc: '50 states · Canada · Mexico',
+            territories: ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming','Canada','Mexico'],
+          },
+          'Africa': {
+            flag: '🌍', label: 'Africa', status: 'next', color: '#D4AF37',
+            desc: 'Nigeria · Ghana · Kenya · South Africa · Ethiopia + more',
+            territories: ['Nigeria','Ghana','Kenya','South Africa','Ethiopia','Tanzania','Uganda','Rwanda','Cameroon','Senegal','Ivory Coast','Zimbabwe','Zambia','Mozambique','Angola','Egypt','Morocco','Tunisia','Algeria','Libya'],
+          },
+          'UK': {
+            flag: '🇬🇧', label: 'UK', status: 'soon', color: '#003580',
+            desc: 'England · Scotland · Wales · Northern Ireland',
+            territories: ['England','Scotland','Wales','Northern Ireland'],
+          },
+          'India': {
+            flag: '🇮🇳', label: 'India', status: 'soon', color: '#FF9933',
+            desc: '28 states · 8 union territories',
+            territories: ['Maharashtra','Delhi','Karnataka','Tamil Nadu','Telangana','Gujarat','Rajasthan','Uttar Pradesh','West Bengal','Kerala','Punjab','Haryana','Bihar','Madhya Pradesh','Andhra Pradesh'],
+          },
+          'China': {
+            flag: '🇨🇳', label: 'China', status: 'soon', color: '#DE2910',
+            desc: 'Major provinces + cities',
+            territories: ['Beijing','Shanghai','Guangdong','Sichuan','Zhejiang','Jiangsu','Shandong','Henan','Hubei','Hunan'],
+          },
+          'South Korea': {
+            flag: '🇰🇷', label: 'South Korea', status: 'soon', color: '#003478',
+            desc: 'Seoul · Busan · Incheon + regions',
+            territories: ['Seoul','Busan','Incheon','Daegu','Daejeon','Gwangju','Ulsan','Gyeonggi','Gangwon','Jeju'],
+          },
+          'Japan': {
+            flag: '🇯🇵', label: 'Japan', status: 'soon', color: '#BC002D',
+            desc: 'Tokyo · Osaka · Kyoto + prefectures',
+            territories: ['Tokyo','Osaka','Kyoto','Hokkaido','Aichi','Fukuoka','Kanagawa','Saitama','Chiba','Hyogo'],
+          },
+          'Middle East': {
+            flag: '🕌', label: 'Middle East', status: 'soon', color: '#C8A951',
+            desc: 'UAE · Saudi Arabia · Qatar · Kuwait + more',
+            territories: ['UAE','Saudi Arabia','Qatar','Kuwait','Bahrain','Oman','Jordan','Lebanon','Egypt','Iraq'],
+          },
+        };
+
+        const STATUS_LABEL: Record<string,string> = { active: '🟢 Active', next: '🟡 Next', soon: '⚪ Soon' };
+        const [activeRegion, setActiveRegion] = React.useState('North America');
+        const [activeTerr, setActiveTerr] = React.useState('');
+        const region = REGIONS[activeRegion];
+
+        return (
+          <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
+            <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+              🌍 Regional Campaigns
+            </div>
+
+            {/* TAB BAR */}
+            <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.5rem', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              {Object.values(REGIONS).map(r => {
+                const isActive = r.label === activeRegion;
+                return (
+                  <button key={r.label} onClick={() => { setActiveRegion(r.label); setActiveTerr(''); }} style={{
+                    flexShrink: 0,
+                    background: isActive ? r.color : 'transparent',
+                    color: isActive ? '#fff' : '#666',
+                    border: '1px solid ' + (isActive ? r.color : '#e0e0e0'),
+                    borderRadius: '999px',
+                    padding: '0.4rem 0.9rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: r.status === 'active' || r.status === 'next' ? 'pointer' : 'default',
+                    whiteSpace: 'nowrap',
+                    opacity: r.status === 'soon' ? 0.5 : 1,
+                    transition: 'all 0.15s',
+                  }}>
+                    {r.flag} {r.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* REGION CARD */}
+            <div style={{ marginTop: '1rem', background: region.color + '08', border: '1px solid ' + region.color + '30', borderRadius: '14px', padding: '1.1rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: region.color }}>{region.flag} {region.label} Campaign</div>
+                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: region.color, background: region.color + '15', border: '1px solid ' + region.color + '30', borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{STATUS_LABEL[region.status]}</div>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '1rem' }}>{region.desc}</div>
+
+              {/* TERRITORY DROPDOWN */}
+              <select
+                value={activeTerr}
+                onChange={e => setActiveTerr(e.target.value)}
+                style={{ width: '100%', background: '#fff', border: '1px solid ' + region.color + '40', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.8rem', color: '#333', fontWeight: 600, outline: 'none', cursor: 'pointer', marginBottom: activeTerr ? '1rem' : '0' }}
+              >
+                <option value=''>— Select a territory —</option>
+                {region.territories.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+
+              {/* TERRITORY CARD */}
+              {activeTerr && (
+                <div style={{ background: '#fff', border: '1px solid ' + region.color + '30', borderRadius: '10px', padding: '1rem' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: region.color, marginBottom: '0.25rem' }}>{region.flag} {activeTerr}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.75rem' }}>Map of Pi · {region.label} Campaign</div>
+                  <div style={{ fontSize: '0.78rem', color: '#444', lineHeight: 1.6, marginBottom: '0.75rem', background: '#f9f9f9', borderRadius: '8px', padding: '0.75rem' }}>
+                    📍 Pi Pioneers in <strong>{activeTerr}</strong> — your territory is live on Map of Pi!{'
+
+'}Find your region on the map, take a screenshot, and post it on Pi Fireside + social media.{'
+
+'}→ mapofpi.com{'
+
+'}#mapofpi #pinetwork #{activeTerr.toLowerCase().replace(/ /g,'')} #picommerce
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => navigator.clipboard.writeText(`📍 Pi Pioneers in ${activeTerr} — your territory is live on Map of Pi!
+
+Find your region on the map, take a screenshot, and post it on Pi Fireside + social media.
+
+→ mapofpi.com
+
+#mapofpi #pinetwork #${activeTerr.toLowerCase().replace(/ /g,'')} #picommerce`)}
+                      style={{ background: region.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                      📋 Copy Post
+                    </button>
+                    <button onClick={() => { if(ads.length > 0) openShare(ads[0]); }}
+                      style={{ background: 'transparent', border: '1px solid ' + region.color, color: region.color, borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                      ↗ Share Ad
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', WebkitOverflowScrolling: 'touch' }}>
-            {['North America','Africa','UK','India','China','South Korea','Japan','Middle East'].map(region => (
-              <button key={region} style={{
-                flexShrink: 0,
-                background: region === 'North America' ? '#2D6A4F' : '#f5f5f5',
-                color: region === 'North America' ? '#fff' : '#555',
-                border: '1px solid ' + (region === 'North America' ? '#2D6A4F' : '#e5e5e5'),
-                borderRadius: '999px',
-                padding: '0.4rem 1rem',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}>
-                {region}
-              </button>
-            ))}
-          </div>
-          <div style={{ marginTop: '1rem', background: '#f0faf4', border: '1px solid #2D6A4F30', borderRadius: '12px', padding: '1rem 1.25rem' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#2D6A4F', marginBottom: '0.25rem' }}>🇺🇸 North America Campaign — Active</div>
-            <div style={{ fontSize: '0.75rem', color: '#555' }}>50 states · Canada · Mexico · Select a territory to view campaign content</div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── WEEKLY SCHEDULE PANEL ── */}
       <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem 3rem' }}>
