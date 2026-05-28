@@ -67,7 +67,7 @@ const s: Record<string, React.CSSProperties> = {
   dropItem: { display: 'block', padding: '0.7rem 1rem', color: '#fff', textDecoration: 'none', fontSize: '0.9rem', borderRadius: '8px', cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left' }
 };
 
-// ── UTILITIES ────────────────────────────────────────────────────────
+// ── UTILITIES  ────────────────────────────────────────────────────────
 function resolveStatus(promo: string): 'team' | 'trial' | 'pending' {
   return promo.trim().toUpperCase() === TEAM_CODE ? 'team' : 'trial';
 }
