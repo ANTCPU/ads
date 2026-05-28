@@ -333,7 +333,7 @@ export default function ArenaClient() {
         ) : (
           ads.map(ad => {
             const tier = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
-            <>
+            return (
               <div key={ad.id} style={{ background: '#fff', border: `1px solid #e5e5e5`, borderLeft: `3px solid ${tier.color}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0a0a0a' }}>{ad.title}</span>
@@ -354,7 +354,6 @@ export default function ArenaClient() {
               </div>
             );
           })
-        )
 
         
       {/* ── SHARE MODAL ── */}
