@@ -454,6 +454,37 @@ export default function ArenaClient() {
         </div>
       )}
 
+      {/* ── CAMPAIGN HUB ── */}
+      {slug === 'mapofpi' && (
+        <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
+          <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+            🌍 Regional Campaigns
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', WebkitOverflowScrolling: 'touch' }}>
+            {['North America','Africa','UK','India','China','South Korea','Japan','Middle East'].map(region => (
+              <button key={region} style={{
+                flexShrink: 0,
+                background: region === 'North America' ? '#2D6A4F' : '#f5f5f5',
+                color: region === 'North America' ? '#fff' : '#555',
+                border: '1px solid ' + (region === 'North America' ? '#2D6A4F' : '#e5e5e5'),
+                borderRadius: '999px',
+                padding: '0.4rem 1rem',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}>
+                {region}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: '1rem', background: '#f0faf4', border: '1px solid #2D6A4F30', borderRadius: '12px', padding: '1rem 1.25rem' }}>
+            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#2D6A4F', marginBottom: '0.25rem' }}>🇺🇸 North America Campaign — Active</div>
+            <div style={{ fontSize: '0.75rem', color: '#555' }}>50 states · Canada · Mexico · Select a territory to view campaign content</div>
+          </div>
+        </div>
+      )}
+
       {/* ── WEEKLY SCHEDULE PANEL ── */}
       <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem 3rem' }}>
         <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
