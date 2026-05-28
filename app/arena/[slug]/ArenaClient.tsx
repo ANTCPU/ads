@@ -333,28 +333,26 @@ export default function ArenaClient() {
         ) : (
           ads.map(ad => {
             const tier = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
-            return (
-              <div key={ad.id} style={{ background: '#fff', border: `1px solid #e5e5e5`, borderLeft: `3px solid ${tier.color}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0a0a0a' }}>{ad.title}</span>
-                  <span style={{ fontSize: '0.62rem', background: `${tier.color}20`, color: tier.color, borderRadius: '999px', padding: '0.15rem 0.5rem', fontWeight: 700 }}>{tier.label.toUpperCase()}</span>
-                  {(ad.points || 0) > 0 && <span style={{ fontSize: '0.65rem', color: '#D4AF37' }}>⚡ {ad.points}pts</span>}
-                  {(ad.click_count || 0) > 0 && <span style={{ fontSize: '0.65rem', color: '#888' }}>👆 {ad.click_count}</span>}
-                </div>
-                <div style={{ color: '#555', fontSize: '0.85rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>{ad.description}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <a href={ad.url} target="_blank" rel="noopener noreferrer" style={{ color: brand.primary, fontSize: '0.82rem', fontWeight: 600, textDecoration: 'none' }}>{ad.url} →</a>
-                  <button
-                    onClick={() => openShare(ad)}
-                    style={{ background: sharedId === ad.id ? `${brand.primary}20` : '#f5f5f5', border: `1px solid ${sharedId === ad.id ? brand.primary + '60' : '#e5e5e5'}`, color: sharedId === ad.id ? brand.primary : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}
-                  >
-                    {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
-                  </button>
-                </div>
-              </div>
-            );
-          })
-
+            // 1. Ensure the start of the map loop returns the container cleanly
+        return (
+          <div key={ad.id} style={{ background: '#fff', border: `1px solid #e5e5e5`, borderLeft: `3px solid ${tier.color}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0a0a0a' }}>{ad.title}</span>
+              <span style={{ fontSize: '0.62rem', background: `${tier.color}20`, color: tier.color, borderRadius: '999px', padding: '0.15rem 0.5rem', fontWeight: 700 }}>{tier.label.toUpperCase()}</span>
+              {(ad.points || 0) > 0 && <span style={{ fontSize: '0.65rem', color: '#D4AF37' }}>⚡ {ad.points}pts</span>}
+              {(ad.click_count || 0) > 0 && <span style={{ fontSize: '0.65rem', color: '#888' }}>👆 {ad.click_count}</span>}
+            </div>
+            <div style={{ color: '#555', fontSize: '0.85rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>{ad.description}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <a href={ad.url} target="_blank" rel="noopener noreferrer" style={{ color: brand.primary, fontSize: '0.82rem', fontWeight: 600, textDecoration: 'none' }}>{ad.url} →</a>
+              <button onClick={() => openShare(ad)} style={{ background: sharedId === ad.id ? `${brand.primary}20` : '#f5f5f5', border: `1px solid ${sharedId === ad.id ? brand.primary + '60' : '#e5e5e5'}`, color: sharedId === ad.id ? brand.primary : '#555', borderRadius: '6px', padding: '0.25rem 0.65rem', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }} >
+                {sharedId === ad.id ? '✓ Copied' : '↗ Share'}
+              </button>
+            </div>
+          </div>
+        );
+      })
+    )}
         
       {/* ── SHARE MODAL ── */}
       {shareModal && (
