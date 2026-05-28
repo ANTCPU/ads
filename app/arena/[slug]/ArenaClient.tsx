@@ -354,7 +354,7 @@ export default function ArenaClient() {
               </div>
             );
           })
-        )}
+        )
 
         
       {/* ── SHARE MODAL ── */}
