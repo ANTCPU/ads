@@ -38,11 +38,11 @@ const BRAND_CONFIG: Record<string, any> = {
   antcpu: {
     name: 'ANTCPU ADS',
     tagline: 'The Arena — Automated Marketing Network ⚡',
-    primary: '#00bfff', // Electric Cyan glow accent
+    primary: '#00bfff', 
     accent: '#0070f3',
-    bg: '#030712',      // Deep cinematic charcoal/midnight black
+    bg: '#030712',      
     url: 'https://antcpu.com',
-    videos: ['/brands/antcpu/Video2.mp4', '/brands/antcpu/antcpuads.mp4'], // Moved paths inside folder
+    videos: ['/brands/antcpu/Video2.mp4', '/brands/antcpu/antcpuads.mp4'], 
     stats: [
       { label: 'Active Ads', value: '10+' },
       { label: 'Tiers', value: '4' },
@@ -96,25 +96,17 @@ const BRAND_CONFIG: Record<string, any> = {
   },
 };
 
+// Unified Image Mapping Block
 const BRAND_IMAGES: Record<string, string> = {
   mapofpi: '/brands/mapofpi/Mapofpiv2.jpg',
-  antcpu: '/brands/antcpu/adsnetwork.jpg',        // Cleanly mapped to the brand folder
+  antcpu: '/brands/antcpu/adsnetwork.jpg',        
   pipioneers: '/JoinNow.jpeg',
   photography: '/livead.jpeg',
-  'ads-network': '/adsworldwide.jpeg',            // Kept from the old config
-  test: '/brands/antcpu/adsnetworkmobile.jpg',    // Prepped for your new generated file
+  'ads-network': '/adsworldwide.jpeg',            
+  test: '/brands/antcpu/adsnetworkmobile.jpg',    
 };
 
-const BRAND_IMAGES: Record<string, string> = {
-  mapofpi: '/brands/mapofpi/Mapofpiv2.jpg',
-  antcpu: '/adNetwork.jpeg',
-  pipioneers: '/JoinNow.jpeg',
-  photography: '/livead.jpeg',
-  'ads-network': '/adsworldwide.jpeg',
-  test: '/adDashboard.jpeg',
-};
-
-// ── REGIONAL REGISTRY (MOVED OUTSIDE RENDER FOR COMPILER STABILITY) ──
+// ── REGIONAL REGISTRY ────────────────────────────────────────────────
 const REGIONS: Record<string, { flag: string; label: string; status: string; desc: string; color: string; countries?: any; territories: string[] }> = {
   'North America': {
     flag: '🌎',
@@ -202,6 +194,13 @@ const STATUS_LABEL: Record<string, string> = {
   soon: '⚪ Soon'
 };
 
+const TIER_CONFIG: Record<string, { label: string; color: string }> = {
+  entry: { label: 'Entry Tier', color: '#00bfff' },
+  premium: { label: 'Premium Tier', color: '#7928ca' },
+  deluxe: { label: 'Deluxe Tier', color: '#f0883e' },
+  cloud: { label: 'Cloud Tier', color: '#ff0080' }
+};
+
 type Ad = {
   id: string;
   brand: string;
@@ -219,6 +218,110 @@ type Ad = {
   image_url?: string;
 };
 
+// ── SUB-COMPONENT: BRAND-SPECIFIC INTERACTIVE HUBS ───────────────────
+function BrandHub({ slug, brand }: { slug: string; brand: any }) {
+  const [activeRegion, setActiveRegion] = useState('North America');
+  const [activeTerr, setActiveTerr] = useState('');
+  const [activeCountry, setActiveCountry] = useState('USA');
+
+  const region = REGIONS[activeRegion];
+
+  return (
+    <div style={{ maxWidth: '860px', margin: '2rem auto 0' }}>
+      {/* LAYOUT 1: MAP OF PI (GLOBAL REGIONS) */}
+      {slug === 'mapofpi' && region && (
+        <div>
+          <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+            🌍 Regional Campaigns
+          </div>
+          
+          <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.5rem', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+            {Object.values(REGIONS).map(r => {
+              const isActive = r.label === activeRegion;
+              return (
+                <button key={r.label} onClick={() => { setActiveRegion(r.label); setActiveTerr(''); }} style={{ flexShrink: 0, background: isActive ? r.color : 'transparent', color: isActive ? '#fff' : '#666', border: '1px solid ' + (isActive ? r.color : '#e0e0e0'), borderRadius: '999px', padding: '0.4rem 0.9rem', fontSize: '0.72rem', fontWeight: 700, cursor: r.status === 'active' || r.status === 'next' ? 'pointer' : 'default', whiteSpace: 'nowrap', opacity: r.status === 'soon' ? 0.5 : 1, transition: 'all 0.15s' }}>
+                  {r.flag} {r.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: '1rem', background: region.color + '08', border: '1px solid ' + region.color + '30', borderRadius: '14px', padding: '1.1rem 1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', color: region.color }}>{region.flag} {region.label} Campaign</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: region.color, background: region.color + '15', border: '1px solid ' + region.color + '30', borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{STATUS_LABEL[region.status]}</div>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '1rem' }}>{region.desc}</div>
+            
+            {region.countries && (
+              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                {Object.entries(region.countries).map(([country, data]: any) => (
+                  <button key={country} onClick={() => { setActiveCountry(country); setActiveTerr(''); }} style={{ background: activeCountry === country ? region.color : 'transparent', color: activeCountry === country ? '#fff' : region.color, border: '1px solid ' + region.color + '60', borderRadius: '999px', padding: '0.35rem 0.85rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {data.flag} {country}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            <select value={activeTerr} onChange={e => setActiveTerr(e.target.value)} style={{ width: '100%', background: '#fff', border: '1px solid ' + region.color + '40', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.8rem', color: '#333', fontWeight: 600, outline: 'none', cursor: 'pointer' }}>
+              <option value=''>— Select a territory —</option>
+              {(region.countries ? region.countries[activeCountry]?.territories : region.territories).map((t: string) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            
+            {activeTerr && (
+              <div style={{ background: '#fff', border: '1px solid ' + region.color + '30', borderRadius: '10px', padding: '1rem', marginTop: '1rem' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: region.color, marginBottom: '0.25rem' }}>{region.countries ? region.countries[activeCountry]?.flag : region.flag} {activeTerr}</div>
+                <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.75rem' }}>Map of Pi · {region.label} Campaign</div>
+                <div style={{ fontSize: '0.78rem', color: '#444', lineHeight: 1.6, marginBottom: '0.75rem', background: '#f9f9f9', borderRadius: '8px', padding: '0.75rem' }}>
+                  📍 Pi Pioneers in <strong>{activeTerr}</strong> — your territory is live on Map of Pi! Find your region on the map, take a screenshot, and post it on Pi Fireside + social media. → mapofpi.com
+                </div>
+                <button onClick={() => navigator.clipboard.writeText(`📍 Pi Pioneers in ${activeTerr} — your territory is live on Map of Pi!`)} style={{ background: region.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>📋 Copy Post</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* LAYOUT 2: ANTCPU ADS (PLACEHOLDER FOR SYSTEM / ANTBOT UTILITIES) */}
+      {slug === 'antcpu' && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.72rem', color: brand.primary, letterSpacing: '0.12em', textTransform: 'uppercase' }}>⚡ ANTCPU Automation Hub</div>
+            <div style={{ background: `${brand.primary}15`, border: `1px solid ${brand.primary}40`, color: brand.primary, borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.62rem', fontWeight: 700 }}>SYSTEM ENGINE</div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            {['Antbot Core', 'Network Registry', 'Ad Metrics'].map((tab, ti) => (
+              <button key={tab} style={{ background: ti === 0 ? brand.primary : '#111', color: ti === 0 ? '#000' : '#666', border: `1px solid ${ti === 0 ? brand.primary : '#222'}`, borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>{tab}</button>
+            ))}
+          </div>
+          <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: '14px', padding: '1.5rem', textAlign: 'center' }}>
+            <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem' }}>Antbot Distribution Center</div>
+            <div style={{ color: '#64748b', fontSize: '0.8rem', lineHeight: 1.5 }}>[Placeholder] Automated network distribution loops and active crawler paths for ANTCPU node delivery will interface here.</div>
+          </div>
+        </div>
+      )}
+
+      {/* LAYOUT 3: AMANDA PHOTOGRAPHY (PLACEHOLDER FOR PORTFOLIO SECTIONS) */}
+      {slug === 'photography' && (
+        <div>
+          <div style={{ fontSize: '0.72rem', color: brand.primary, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>📸 Gallery Collections</div>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            {['Portraits', 'Weddings', 'Landscapes'].map((tab, ti) => (
+              <button key={tab} style={{ background: ti === 0 ? brand.primary : '#111', color: ti === 0 ? '#000' : '#aaa', border: '1px solid #333', borderRadius: '8px', padding: '0.4rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>{tab}</button>
+            ))}
+          </div>
+          <div style={{ background: '#110d0a', border: '1px solid #2a2015', borderRadius: '14px', padding: '1.5rem', textAlign: 'center' }}>
+            <div style={{ color: brand.primary, fontSize: '0.9rem', fontWeight: 700, marginBottom: '0.5rem' }}>Session Portfolios</div>
+            <div style={{ color: '#666', fontSize: '0.8rem' }}>[Placeholder] Image collection previews and real-time session booking slots will load here.</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── COMPONENT EXECUTION LOOP ─────────────────────────────────────────
 export default function ArenaClient() {
   const router = useRouter();
@@ -230,11 +333,6 @@ export default function ArenaClient() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>({ name: '', email: '', brand: '', trialStatus: 'trial' });
   const [sharedId, setSharedId] = useState('');
-  
-  // Tab States for Map of Pi regional selector
-  const [activeRegion, setActiveRegion] = useState('North America');
-  const [activeTerr, setActiveTerr] = useState('');
-  const [activeCountry, setActiveCountry] = useState('USA');
   const [shareModal, setShareModal] = useState<Ad | null>(null);
 
   useEffect(() => {
@@ -258,7 +356,6 @@ export default function ArenaClient() {
       .eq('status', 'active')
       .order('pinned', { ascending: false })
       .order('points', { ascending: false });
-    
     setAds(data || []);
     setLoading(false);
   }
@@ -278,7 +375,6 @@ export default function ArenaClient() {
     setSharedId(ad.id);
     setTimeout(() => setSharedId(''), 2500);
     const newShares = (ad.share_count || 0) + 1;
-    
     supabase.from('ads').update({ share_count: newShares }).eq('id', ad.id).then(() => {
       fetch('/api/scout/score', {
         method: 'POST',
@@ -321,11 +417,9 @@ export default function ArenaClient() {
   const brandPosts = BRAND_CONFIG[slug]?.posts || [];
   const brandVideos = BRAND_CONFIG[slug]?.videos || [];
   const brandImage = BRAND_IMAGES[slug] || null;
-
   const isAdmin = user.email === 'antcpu@gmail.com';
   const isTeam = user.trialStatus === 'team';
 
-  // 404 Fallback Gate
   if (!brand) {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif', gap: '1rem' }}>
@@ -337,12 +431,9 @@ export default function ArenaClient() {
     );
   }
 
-  const region = REGIONS[activeRegion];
-
   return (
     <div style={{ background: brand.bg || '#fff', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       <ArenaNav role={isAdmin ? 'admin' : isTeam ? 'team' : 'user'} userName={user.name} userEmail={user.email} userBrand={user.brand} trialStatus={user.trialStatus} />
-      
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '2rem 1.25rem' }}>
         
         {/* ── BRAND HERO BANNER ── */}
@@ -363,7 +454,7 @@ export default function ArenaClient() {
               ))}
             </div>
           )}
-
+          
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <a href={brand.url} target="_blank" rel="noopener noreferrer" style={{ background: brand.primary, color: '#fff', borderRadius: '8px', padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>
               🌐 Visit {brand.name} →
@@ -380,7 +471,7 @@ export default function ArenaClient() {
         <div style={{ fontSize: '0.75rem', color: '#888', letterSpacing: '0.1em', marginBottom: '1rem' }}>
           {brand.name} Ads — {ads.length} active
         </div>
-
+        
         {loading ? (
           <div style={{ color: '#888', fontSize: '0.85rem' }}>Loading...</div>
         ) : ads.length === 0 ? (
@@ -412,66 +503,8 @@ export default function ArenaClient() {
           })
         )}
 
-        {/* ── CAMPAIGN HUB (CLEAN CONDITIONAL RENDERING) ── */}
-        {slug === 'mapofpi' && (
-          <div style={{ maxWidth: '860px', margin: '2rem auto 0' }}>
-            <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-              🌍 Regional Campaigns
-            </div>
-            
-            {/* TAB BAR */}
-            <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.5rem', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-              {Object.values(REGIONS).map(r => {
-                const isActive = r.label === activeRegion;
-                return (
-                  <button key={r.label} onClick={() => { setActiveRegion(r.label); setActiveTerr(''); }} style={{ flexShrink: 0, background: isActive ? r.color : 'transparent', color: isActive ? '#fff' : '#666', border: '1px solid ' + (isActive ? r.color : '#e0e0e0'), borderRadius: '999px', padding: '0.4rem 0.9rem', fontSize: '0.72rem', fontWeight: 700, cursor: r.status === 'active' || r.status === 'next' ? 'pointer' : 'default', whiteSpace: 'nowrap', opacity: r.status === 'soon' ? 0.5 : 1, transition: 'all 0.15s' }}>
-                    {r.flag} {r.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* REGION DISPLAY CARD */}
-            <div style={{ marginTop: '1rem', background: region.color + '08', border: '1px solid ' + region.color + '30', borderRadius: '14px', padding: '1.1rem 1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: region.color }}>{region.flag} {region.label} Campaign</div>
-                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: region.color, background: region.color + '15', border: '1px solid ' + region.color + '30', borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{STATUS_LABEL[region.status]}</div>
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '1rem' }}>{region.desc}</div>
-
-              {region.countries && (
-                <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                  {Object.entries(region.countries).map(([country, data]: any) => (
-                    <button key={country} onClick={() => { setActiveCountry(country); setActiveTerr(''); }} style={{ background: activeCountry === country ? region.color : 'transparent', color: activeCountry === country ? '#fff' : region.color, border: '1px solid ' + region.color + '60', borderRadius: '999px', padding: '0.35rem 0.85rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      {data.flag} {country}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <select value={activeTerr} onChange={e => setActiveTerr(e.target.value)} style={{ width: '100%', background: '#fff', border: '1px solid ' + region.color + '40', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.8rem', color: '#333', fontWeight: 600, outline: 'none', cursor: 'pointer', marginBottom: activeTerr ? '1rem' : '0' }}>
-                <option value=''>— Select a territory —</option>
-                {(region.countries ? region.countries[activeCountry]?.territories : region.territories).map((t: string) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-
-              {activeTerr && (
-                <div style={{ background: '#fff', border: '1px solid ' + region.color + '30', borderRadius: '10px', padding: '1rem', marginTop: '1rem' }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: region.color, marginBottom: '0.25rem' }}>{region.countries ? region.countries[activeCountry]?.flag : region.flag} {activeTerr}</div>
-                  <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.75rem' }}>Map of Pi · {region.label} Campaign</div>
-                  <div style={{ fontSize: '0.78rem', color: '#444', lineHeight: 1.6, marginBottom: '0.75rem', background: '#f9f9f9', borderRadius: '8px', padding: '0.75rem' }}>
-                    📍 Pi Pioneers in <strong>{activeTerr}</strong> — your territory is live on Map of Pi! Find your region on the map, take a screenshot, and post it on Pi Fireside + social media. → mapofpi.com #mapofpi #pinetwork #{activeTerr.toLowerCase().replace(/ /g,'')} #picommerce
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button onClick={() => navigator.clipboard.writeText(`📍 Pi Pioneers in ${activeTerr} — your territory is live on Map of Pi! Find your region on the map, take a screenshot, and post it on Pi Fireside + social media. → mapofpi.com #mapofpi #pinetwork #${activeTerr.toLowerCase().replace(/ /g,'')} #picommerce`)} style={{ background: region.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>📋 Copy Post</button>
-                    <button onClick={() => { if(ads.length > 0) openShare(ads[0]); }} style={{ background: 'transparent', border: '1px solid ' + region.color, color: region.color, borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>↗ Share Ad</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* ── CENTRAL HUB: BRAND-SPECIFIC INTERACTIVE HUBS ── */}
+        <BrandHub slug={slug} brand={brand} />
 
         {/* ── PREMIUM VIDEO MODULE ── */}
         {brandVideos.length > 0 && (
@@ -485,7 +518,7 @@ export default function ArenaClient() {
                 <div key={vi} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #f0883e30', background: '#0a0a0a' }}>
                   <video src={vid} controls playsInline style={{ width: '100%', display: 'block', maxHeight: '200px', objectFit: 'cover' }} />
                   <div style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fff', marginBottom: '0.2rem' }}>{vi === 0 ? 'ANTCPU ADS — Network Demo' : 'ANTCPU ADS — Arena Promo'}</div>
+                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fff', marginBottom: '0.2' }}>{vi === 0 ? 'ANTCPU ADS — Network Demo' : 'ANTCPU ADS — Arena Promo'}</div>
                     <div style={{ fontSize: '0.72rem', color: '#555' }}>Video ad · Weekend premium slot · Deluxe plan</div>
                   </div>
                 </div>
@@ -498,13 +531,12 @@ export default function ArenaClient() {
         <div style={{ maxWidth: '860px', margin: '2rem auto 0', paddingBottom: '3rem' }}>
           <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>📅 Weekly Share Schedule</div>
           <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-            {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, di) => {
+            {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day) => {
               const today = new Date().getDay();
               const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
               const isToday = dayMap[day] === today;
               const noonPost = brandPosts.find((p: any) => p.slot === 'noon');
               const eveningPost = brandPosts.find((p: any) => p.slot === 'evening');
-
               return (
                 <div key={day} style={{ minWidth: '110px', background: isToday ? `${brand.primary}15` : '#111', border: `1px solid ${isToday ? brand.primary + '50' : '#1a1a1a'}`, borderRadius: '12px', padding: '0.75rem', flex: '0 0 auto' }}>
                   <div style={{ fontWeight: 700, fontSize: '0.78rem', color: isToday ? brand.primary : '#555', marginBottom: '0.6rem', textAlign: 'center' }}>
@@ -527,7 +559,7 @@ export default function ArenaClient() {
 
         {/* Footer Navigation Backtrack */}
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-          <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}>← Back to The Arena</button>
+          <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}>← Back to Arena</button>
         </div>
       </div>
 
@@ -547,7 +579,6 @@ export default function ArenaClient() {
           </div>
         </div>
       )}
-
       <ArenaFooter brand={brand.name} accent={brand.primary} />
     </div>
   );
