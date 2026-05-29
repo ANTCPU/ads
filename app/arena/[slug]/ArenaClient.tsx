@@ -98,10 +98,11 @@ const BRAND_CONFIG: Record<string, any> = {
 
 const BRAND_IMAGES: Record<string, string> = {
   mapofpi: '/brands/mapofpi/Mapofpiv2.jpg',
-  antcpu: '/brands/antcpu/adsnetwork.jpg', // Cleanly mapped to the brand folder
+  antcpu: '/brands/antcpu/adsnetwork.jpg',        // Cleanly mapped to the brand folder
   pipioneers: '/JoinNow.jpeg',
   photography: '/livead.jpeg',
-  test: '/brands/antcpu/adsnetworkmobile.jpg', // Prepped for your new generated file
+  'ads-network': '/adsworldwide.jpeg',            // Kept from the old config
+  test: '/brands/antcpu/adsnetworkmobile.jpg',    // Prepped for your new generated file
 };
 
 const BRAND_IMAGES: Record<string, string> = {
