@@ -36,17 +36,18 @@ const BRAND_CONFIG: Record<string, any> = {
     ],
   },
   antcpu: {
-    name: 'ANTCPU',
-    tagline: 'Automated Marketing Network ⚡',
-    primary: '#0070f3',
-    accent: '#003580',
-    bg: '#020810',
+    name: 'ANTCPU ADS',
+    tagline: 'The Arena — Automated Marketing Network ⚡',
+    primary: '#00bfff', // Electric Cyan glow accent
+    accent: '#0070f3',
+    bg: '#030712',      // Deep cinematic charcoal/midnight black
     url: 'https://antcpu.com',
+    videos: ['/brands/antcpu/Video2.mp4', '/brands/antcpu/antcpuads.mp4'], // Moved paths inside folder
     stats: [
-      { label: 'Ad Network', value: 'Live' },
+      { label: 'Active Ads', value: '10+' },
       { label: 'Tiers', value: '4' },
       { label: 'Antbots', value: '10' },
-      { label: 'Arena Pages', value: '23' },
+      { label: 'Languages', value: '8' },
     ],
   },
   pipioneers: {
@@ -85,21 +86,6 @@ const BRAND_CONFIG: Record<string, any> = {
       { slot: 'evening', text: 'Every picture tells a story 🌙\n\nAs a mother and grandmother, Amanda knows what moments matter most.\n\nLet her capture yours.\n\n→ antcpu.com/manda\n\n#photography #memories #portraits #storytelling #nc' },
     ],
   },
-  'ads-network': {
-    name: 'ANTCPU ADS',
-    tagline: 'The Arena — Automated Marketing Network ⚡',
-    primary: '#0070f3',
-    accent: '#003580',
-    bg: '#020810',
-    url: 'https://antcpu.com/cloud/',
-    videos: ['/Video2.mp4', '/antcpuads.mp4'],
-    stats: [
-      { label: 'Active Ads', value: '10+' },
-      { label: 'Tiers', value: '4' },
-      { label: 'Antbots', value: '10' },
-      { label: 'Languages', value: '8' },
-    ],
-  },
   test: {
     name: 'ANTCPU TEST',
     tagline: 'Arena Copilot — Test Environment 🧪',
@@ -110,11 +96,12 @@ const BRAND_CONFIG: Record<string, any> = {
   },
 };
 
-const TIER_CONFIG: Record<string, { color: string; label: string }> = {
-  entry: { color: '#0070f3', label: 'Entry' },
-  rising: { color: '#7928ca', label: 'Rising' },
-  featured: { color: '#ff0080', label: 'Featured' },
-  toptier: { color: '#f0883e', label: 'Top Tier' },
+const BRAND_IMAGES: Record<string, string> = {
+  mapofpi: '/brands/mapofpi/Mapofpiv2.jpg',
+  antcpu: '/brands/antcpu/adsnetwork.jpg', // Cleanly mapped to the brand folder
+  pipioneers: '/JoinNow.jpeg',
+  photography: '/livead.jpeg',
+  test: '/brands/antcpu/adsnetworkmobile.jpg', // Prepped for your new generated file
 };
 
 const BRAND_IMAGES: Record<string, string> = {
