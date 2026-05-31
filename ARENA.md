@@ -1,5 +1,5 @@
 # ANTCPU ADS — ARENA LIBRARY
-> Single source of truth. Updated: 2026-05-11
+> Single source of truth. Updated: 2026-05-31 (end-of-month audit)
 > Maintained by: Antony Ciccone · antcpu@gmail.com
 
 ---

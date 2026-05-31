@@ -103,6 +103,9 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
   if (norm === 'antcpu@gmail.com') {
     const pin = prompt('Enter admin PIN:');
     if (pin !== process.env.NEXT_PUBLIC_ADMIN_PIN) return alert('Invalid PIN. Access denied.');
+    const session = { email: norm, name: 'Antony Ciccone', brand: 'ANTCPU', trialStatus: 'team' };
+    document.cookie = `arena_session=${encodeURIComponent(JSON.stringify(session))}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
+    localStorage.setItem('arena_user', JSON.stringify(session));
     window.location.href = redirect || '/dashboard/antcpu';
     return;
   }
