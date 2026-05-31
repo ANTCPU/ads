@@ -226,6 +226,13 @@ function SignInBox() {
 }
 
 export default function Page() {
+  // Break redirect loops — clear stale session cookie if redirected here
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('redirect')) {
+      document.cookie = 'arena_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    }
+  }
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
