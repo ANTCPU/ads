@@ -206,8 +206,6 @@ function SignInBox() {
         trialStatus: profile ? 'trial' : signupStatus,
       };
 
-      localStorage.setItem('arena_user', JSON.stringify(user));
-      setSessionCookie(user);
       await handlePinAndRedirect(trimmed, new URLSearchParams(window.location.search).get('redirect'));
     } catch {
       setError('An error occurred. Please try again.');
