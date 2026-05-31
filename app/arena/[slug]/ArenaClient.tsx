@@ -108,7 +108,7 @@ export default function ArenaClient() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
             {ads.map(ad => (
               <div key={ad.id} style={{ background: '#111', border: '1px solid #222', borderRadius: '12px', padding: '1rem' }}>
-                {ad.image_url && <img src={ad.image_url} alt={ad.title} style={{ width: '100%', borderRadius: '8px', marginBottom: '0.75rem' }} />}
+                {ad.image_url && (ad.pinned || ad.tier !== 'entry') && <img src={ad.image_url} alt={ad.title} style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.75rem', display: 'block' }} />}
                 <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.25rem' }}>{ad.title}</div>
                 <div style={{ fontSize: '0.8rem', color: '#888', marginBottom: '0.75rem' }}>{ad.description}</div>
                 <a href={ad.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: brand.primary, color: '#fff', borderRadius: '6px', padding: '0.4rem 0.9rem', fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none' }}>View</a>

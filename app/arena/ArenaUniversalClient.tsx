@@ -23,6 +23,7 @@ type Ad = {
   points?: number;
   click_count?: number;
   share_count?: number;
+  image_url?: string;
 };
 
 const BRAND_COLORS: Record<string, string> = {
@@ -199,6 +200,13 @@ export default function ArenaUniversalClient() {
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
                     <span style={{ fontSize: '0.7rem', fontWeight: 700, color, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{ad.brand}</span>
                   </div>
+
+                  {/* Image */}
+                  {ad.image_url && (ad.pinned || ad.tier !== 'entry') && (
+                    <div style={{ margin: '0 -1.25rem', marginTop: '-0.25rem', marginBottom: '0.75rem', overflow: 'hidden', borderRadius: '0 0 0 0', height: '160px' }}>
+                      <img src={ad.image_url} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </div>
+                  )}
 
                   {/* Title */}
                   <div style={{ fontWeight: 700, color: white, fontSize: '0.95rem', lineHeight: 1.4, marginBottom: '0.5rem', paddingRight: isPinned ? '80px' : '0' }}>
