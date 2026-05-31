@@ -7,12 +7,6 @@ import { checkBrand, getVerificationToken } from '../lib/brandCheck';
 import { getLocation } from '../lib/location';
 import { MAPOFPI_KB } from '../clients/mapofpi/kb';
 
-<<<<<<< HEAD
-// ── CONFIGURATION & CONSTANTS ────────────────────────────────────────
-const TEAM_CODE = 'MAPOFPI';
-const FREE_CODE = 'FREETRIAL';
-const TEAM_DAYS = 90;
-=======
 
 
 // ── TRIAL CONFIG ─────────────────────────────────────────────
@@ -32,7 +26,6 @@ type AdSignup = {
 const TEAM_CODE  = 'MAPOFPI';
 const FREE_CODE  = 'FREETRIAL';
 const TEAM_DAYS  = 90;
->>>>>>> 978fc95 (feat: ads-network arena — conversion gate, EDU panel, OG fallback, 8 new ads seeded)
 const TRIAL_DAYS = 3;
 
 const supabase = createClient(
