@@ -51,8 +51,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 };
 
 export function t(locale: Locale, key: string): string {
-  if (locale === 'en') return key;
-  return translations[locale]?.[key] ?? key;
+  return translations[locale]?.[key] ?? translations['en']?.[key] ?? key;
 }
 
 export function isRTL(locale: Locale): boolean {
