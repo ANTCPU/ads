@@ -17,6 +17,11 @@ const BRAND_META: Record<string, { name: string; tagline: string; url: string }>
     tagline: 'Join Pi Network — Mine crypto on your smartphone. Referral: Ajataju.',
     url: 'https://minepi.com/Ajataju',
   },
+  'ads-network': {
+    name: 'ANTCPU ADS',
+    tagline: 'The Arena — Automated Marketing Network. Free trial. No contracts.',
+    url: 'https://antcpu-ads.vercel.app',
+  },
   test: {
     name: 'ANTCPU TEST',
     tagline: 'Arena Copilot — Test Environment.',
@@ -35,6 +40,20 @@ export async function generateMetadata(
     return {
       title: 'Brand Arena — ANTCPU ADS',
       description: 'Explore brand arenas on ANTCPU ADS.',
+      openGraph: {
+        title: 'Brand Arena — ANTCPU ADS',
+        description: 'Explore brand arenas on ANTCPU ADS.',
+        url: 'https://antcpu-ads.vercel.app',
+        siteName: 'ANTCPU ADS',
+        images: [{ url: 'https://antcpu-ads.vercel.app/og-image.jpg', width: 1200, height: 630, alt: 'ANTCPU ADS' }],
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: 'Brand Arena — ANTCPU ADS',
+        description: 'Explore brand arenas on ANTCPU ADS.',
+        images: ['https://antcpu-ads.vercel.app/og-image.jpg'],
+      },
     };
   }
 

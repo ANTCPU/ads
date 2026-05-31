@@ -86,6 +86,30 @@ const BRAND_CONFIG: Record<string, any> = {
       { slot: 'evening', text: 'Every picture tells a story 🌙\n\nAs a mother and grandmother, Amanda knows what moments matter most.\n\nLet her capture yours.\n\n→ antcpu.com/manda\n\n#photography #memories #portraits #storytelling #nc' },
     ],
   },
+  'ads-network': {
+    name: 'ANTCPU ADS',
+    edu: {
+      enabled: true,
+      cohort: 'branding-01',
+      classLabel: 'Brand Identity Design',
+      lessonRef: '07',
+      classUrl: 'https://antcpu.com/edu/classes/brand-identity-design/',
+      prevLesson: 'https://antcpu.com/edu/classes/brand-identity-design/lesson-06/',
+      nextLesson: 'https://antcpu.com/edu/classes/brand-identity-design/lesson-08/',
+    },
+    tagline: 'The Arena — Automated Marketing Network ⚡',
+    primary: '#0070f3',
+    accent: '#003580',
+    bg: '#020810',
+    url: 'https://antcpu.com/cloud/',
+    videos: ['/Video2.mp4', '/antcpuads.mp4'],
+    stats: [
+      { label: 'Active Ads', value: '10+' },
+      { label: 'Tiers', value: '4' },
+      { label: 'Antbots', value: '10' },
+      { label: 'Languages', value: '8' },
+    ],
+  },
   test: {
     name: 'ANTCPU TEST',
     tagline: 'Arena Copilot — Test Environment 🧪',
@@ -579,6 +603,378 @@ export default function ArenaClient() {
           </div>
         </div>
       )}
+
+
+      {/* ── PREMIUM VIDEO ADS — ads-network demo ── */}
+      {brandVideos.length > 0 && (
+        <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              🎬 Premium Video Ads
+            </div>
+            <div style={{ background: '#f0883e20', border: '1px solid #f0883e40', color: '#f0883e', borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.62rem', fontWeight: 700 }}>
+              DELUXE & CLOUD TIER
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+            {brandVideos.map((vid, vi) => (
+              <div key={vi} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #f0883e30', background: '#0a0a0a' }}>
+                <video
+                  src={vid}
+                  controls
+                  playsInline
+                  style={{ width: '100%', display: 'block', maxHeight: '200px', objectFit: 'cover' }}
+                />
+                <div style={{ padding: '0.75rem 1rem' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#fff', marginBottom: '0.2rem' }}>
+                    {vi === 0 ? 'ANTCPU ADS — Network Demo' : 'ANTCPU ADS — Arena Promo'}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#555' }}>
+                    Video ad · Weekend premium slot · Deluxe plan
+                  </div>
+                </div>
+                {/* Coming Soon tools overlay */}
+                <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid #1a1a1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '0.68rem', color: '#f0883e', fontWeight: 600 }}>🎬 Video Ad Creator</div>
+                  <div style={{ fontSize: '0.62rem', background: '#1a1a1a', border: '1px solid #333', color: '#555', borderRadius: '6px', padding: '0.2rem 0.5rem' }}>Coming Soon</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: '#333', marginTop: '0.75rem' }}>
+            Upload your own video ads with Deluxe plan · $79/month · <a href="https://antcpu.com/cloud/" style={{ color: '#f0883e', textDecoration: 'none' }}>Apply for Cloud Access →</a>
+          </div>
+        </div>
+      )}
+
+      {/* ── CAMPAIGN HUB ── */}
+      {slug === 'mapofpi' && (() => {
+        const REGIONS: Record<string,{flag:string;label:string;status:string;desc:string;color:string;territories:string[]}> = {
+          'North America': {
+            flag: '🌎', label: 'North America', status: 'active', color: '#2D6A4F',
+            desc: 'USA · Canada · Mexico',
+            countries: {
+              'USA': {
+                flag: '🇺🇸',
+                territories: ['Alabama','Alaska','Arizona','Arkansas','California','Colorado','Connecticut','Delaware','Florida','Georgia','Hawaii','Idaho','Illinois','Indiana','Iowa','Kansas','Kentucky','Louisiana','Maine','Maryland','Massachusetts','Michigan','Minnesota','Mississippi','Missouri','Montana','Nebraska','Nevada','New Hampshire','New Jersey','New Mexico','New York','North Carolina','North Dakota','Ohio','Oklahoma','Oregon','Pennsylvania','Rhode Island','South Carolina','South Dakota','Tennessee','Texas','Utah','Vermont','Virginia','Washington','West Virginia','Wisconsin','Wyoming'],
+              },
+              'Canada': {
+                flag: '🇨🇦',
+                territories: ['Alberta','British Columbia','Manitoba','New Brunswick','Newfoundland and Labrador','Northwest Territories','Nova Scotia','Nunavut','Ontario','Prince Edward Island','Quebec','Saskatchewan','Yukon'],
+              },
+              'Mexico': {
+                flag: '🇲🇽',
+                territories: ['Aguascalientes','Baja California','Baja California Sur','Campeche','Chiapas','Chihuahua','Coahuila','Colima','Durango','Guanajuato','Guerrero','Hidalgo','Jalisco','Mexico City','Mexico State','Michoacán','Morelos','Nayarit','Nuevo León','Oaxaca','Puebla','Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas','Tlaxcala','Veracruz','Yucatán','Zacatecas'],
+              },
+            },
+            territories: [],
+          },
+          'Africa': {
+            flag: '🌍', label: 'Africa', status: 'next', color: '#D4AF37',
+            desc: 'Nigeria · Ghana · Kenya · South Africa · Ethiopia + more',
+            territories: ['Egypt','Nigeria','Ghana','Kenya','South Africa','Ethiopia','Tanzania','Uganda','Rwanda','Cameroon','Senegal','Ivory Coast','Zimbabwe','Zambia','Mozambique','Angola','Morocco','Tunisia','Algeria','Libya'],
+          },
+          'UK': {
+            flag: '🇬🇧', label: 'UK', status: 'soon', color: '#003580',
+            desc: 'England · Scotland · Wales · Northern Ireland',
+            territories: ['England','Scotland','Wales','Northern Ireland'],
+          },
+          'India': {
+            flag: '🇮🇳', label: 'India', status: 'soon', color: '#FF9933',
+            desc: '28 states · 8 union territories',
+            territories: ['Maharashtra','Delhi','Karnataka','Tamil Nadu','Telangana','Gujarat','Rajasthan','Uttar Pradesh','West Bengal','Kerala','Punjab','Haryana','Bihar','Madhya Pradesh','Andhra Pradesh'],
+          },
+          'China': {
+            flag: '🇨🇳', label: 'China', status: 'soon', color: '#DE2910',
+            desc: 'Major provinces + cities',
+            territories: ['Beijing','Shanghai','Guangdong','Sichuan','Zhejiang','Jiangsu','Shandong','Henan','Hubei','Hunan'],
+          },
+          'South Korea': {
+            flag: '🇰🇷', label: 'South Korea', status: 'soon', color: '#003478',
+            desc: 'Seoul · Busan · Incheon + regions',
+            territories: ['Seoul','Busan','Incheon','Daegu','Daejeon','Gwangju','Ulsan','Gyeonggi','Gangwon','Jeju'],
+          },
+          'Japan': {
+            flag: '🇯🇵', label: 'Japan', status: 'soon', color: '#BC002D',
+            desc: 'Tokyo · Osaka · Kyoto + prefectures',
+            territories: ['Tokyo','Osaka','Kyoto','Hokkaido','Aichi','Fukuoka','Kanagawa','Saitama','Chiba','Hyogo'],
+          },
+          'Middle East': {
+            flag: '🕌', label: 'Middle East', status: 'soon', color: '#C8A951',
+            desc: 'UAE · Saudi Arabia · Qatar · Kuwait + more',
+            territories: ['UAE','Saudi Arabia','Qatar','Kuwait','Bahrain','Oman','Jordan','Lebanon','Egypt','Iraq'],
+          },
+        };
+
+        const STATUS_LABEL: Record<string,string> = { active: '🟢 Active', next: '🟡 Next', soon: '⚪ Soon' };
+
+        const region = REGIONS[activeRegion];
+
+        return (
+          <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
+            <div style={{ fontSize: '0.72rem', color: '#444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+              🌍 Regional Campaigns
+            </div>
+
+            {/* TAB BAR */}
+            <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.5rem', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
+              {Object.values(REGIONS).map(r => {
+                const isActive = r.label === activeRegion;
+                return (
+                  <button key={r.label} onClick={() => { setActiveRegion(r.label); setActiveTerr(''); }} style={{
+                    flexShrink: 0,
+                    background: isActive ? r.color : 'transparent',
+                    color: isActive ? '#fff' : '#666',
+                    border: '1px solid ' + (isActive ? r.color : '#e0e0e0'),
+                    borderRadius: '999px',
+                    padding: '0.4rem 0.9rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: r.status === 'active' || r.status === 'next' ? 'pointer' : 'default',
+                    whiteSpace: 'nowrap',
+                    opacity: r.status === 'soon' ? 0.5 : 1,
+                    transition: 'all 0.15s',
+                  }}>
+                    {r.flag} {r.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* REGION CARD */}
+            <div style={{ marginTop: '1rem', background: region.color + '08', border: '1px solid ' + region.color + '30', borderRadius: '14px', padding: '1.1rem 1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: region.color }}>{region.flag} {region.label} Campaign</div>
+                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: region.color, background: region.color + '15', border: '1px solid ' + region.color + '30', borderRadius: '999px', padding: '0.2rem 0.6rem' }}>{STATUS_LABEL[region.status]}</div>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#555', marginBottom: '1rem' }}>{region.desc}</div>
+
+              {/* COUNTRY SUB-SELECTOR — North America only */}
+              {(region as any).countries && (
+                <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                  {Object.entries((region as any).countries).map(([country, data]: any) => (
+                    <button key={country} onClick={() => { setActiveCountry(country); setActiveTerr(''); }} style={{
+                      background: activeCountry === country ? region.color : 'transparent',
+                      color: activeCountry === country ? '#fff' : region.color,
+                      border: '1px solid ' + region.color + '60',
+                      borderRadius: '999px',
+                      padding: '0.35rem 0.85rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {data.flag} {country}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* TERRITORY DROPDOWN */}
+              <select
+                value={activeTerr}
+                onChange={e => setActiveTerr(e.target.value)}
+                style={{ width: '100%', background: '#fff', border: '1px solid ' + region.color + '40', borderRadius: '8px', padding: '0.6rem 0.85rem', fontSize: '0.8rem', color: '#333', fontWeight: 600, outline: 'none', cursor: 'pointer', marginBottom: activeTerr ? '1rem' : '0' }}
+              >
+                <option value=''>— Select a territory —</option>
+                {((region as any).countries
+                  ? (region as any).countries[activeCountry]?.territories
+                  : region.territories
+                ).map((t: string) => <option key={t} value={t}>{t}</option>)}
+              </select>
+
+              {/* TERRITORY CARD */}
+              {activeTerr && (
+                <div style={{ background: '#fff', border: '1px solid ' + region.color + '30', borderRadius: '10px', padding: '1rem' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: region.color, marginBottom: '0.25rem' }}>{(region as any).countries ? (region as any).countries[activeCountry]?.flag : region.flag} {activeTerr}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.75rem' }}>Map of Pi · {region.label} Campaign</div>
+                  <div style={{ fontSize: '0.78rem', color: '#444', lineHeight: 1.6, marginBottom: '0.75rem', background: '#f9f9f9', borderRadius: '8px', padding: '0.75rem' }}>
+                    📍 Pi Pioneers in <strong>{activeTerr}</strong> — your territory is live on Map of Pi!<br/><br/>
+                    Find your region on the map, take a screenshot, and post it on Pi Fireside + social media.<br/><br/>
+                    → mapofpi.com<br/><br/>
+                    #mapofpi #pinetwork #{activeTerr.toLowerCase().replace(/ /g,'')} #picommerce
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => navigator.clipboard.writeText(`📍 Pi Pioneers in ${activeTerr} — your territory is live on Map of Pi!\n\nFind your region on the map, take a screenshot, and post it on Pi Fireside + social media.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #${activeTerr.toLowerCase().replace(/ /g,'')} #picommerce`)}
+                      style={{ background: region.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                      📋 Copy Post
+                    </button>
+                    <button onClick={() => { if(ads.length > 0) openShare(ads[0]); }}
+                      style={{ background: 'transparent', border: '1px solid ' + region.color, color: region.color, borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                      ↗ Share Ad
+                    </button>
+
+      {/* ── CONVERSION GATE — ads-network only ── */}
+      {slug === 'ads-network' && (
+        <div style={{ maxWidth: '860px', margin: '2.5rem auto 0', padding: '0 1.25rem' }}>
+          <div style={{ background: '#0a0a0a', border: '1px solid #0070f330', borderRadius: '16px', padding: '2rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.7rem', color: '#0070f3', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+              ⚡ Join the Arena
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', marginBottom: '0.5rem' }}>
+              Your brand. Live in minutes.
+            </div>
+            <div style={{ color: '#555', fontSize: '0.88rem', marginBottom: '2rem', maxWidth: '420px', margin: '0 auto 2rem' }}>
+              Start free for 3 days — then $9.99/month. No contracts. Cancel anytime.
+            </div>
+
+            {/* Three entry CTAs */}
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+
+              {/* Free Trial */}
+              <a href="/" style={{
+                background: '#0070f3', color: '#fff', borderRadius: '10px',
+                padding: '0.85rem 1.5rem', fontWeight: 700, fontSize: '0.88rem',
+                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem',
+              }}>
+                🟢 Start Free Trial →
+              </a>
+
+              {/* $9.99 Arena */}
+              <a href="/" style={{
+                background: '#fff', color: '#0a0a0a', borderRadius: '10px',
+                padding: '0.85rem 1.5rem', fontWeight: 700, fontSize: '0.88rem',
+                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                border: '2px solid #fff',
+              }}>
+                ⚡ Join Arena — $9.99/mo
+              </a>
+
+            </div>
+
+            {/* Coming Soon tiers */}
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[
+                { label: 'Pro — $27.99/mo', color: '#7928ca' },
+                { label: 'Deluxe — $79.99/mo', color: '#ff0080' },
+              ].map(t => (
+                <div key={t.label} style={{
+                  fontSize: '0.68rem', fontWeight: 700,
+                  background: t.color + '15', border: '1px solid ' + t.color + '40',
+                  color: t.color, borderRadius: '999px', padding: '0.25rem 0.85rem',
+                }}>
+                  {t.label} · Coming Soon
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '1.25rem', fontSize: '0.7rem', color: '#333' }}>
+              Already in the Arena?{' '}
+              <a href="/login" style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 600 }}>Sign in →</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EDU PANEL — student access only ── */}
+      {slug === 'ads-network' && (brand as any).edu?.enabled && user.trialStatus === 'student' && (
+        <div style={{ maxWidth: '860px', margin: '2rem auto 0', padding: '0 1.25rem' }}>
+          <div style={{
+            background: '#020810', border: '1px solid #4caf5040',
+            borderRadius: '16px', overflow: 'hidden',
+          }}>
+
+            {/* EDU Header */}
+            <div style={{
+              background: '#4caf5012', borderBottom: '1px solid #4caf5030',
+              padding: '1rem 1.5rem', display: 'flex', alignItems: 'center',
+              justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem',
+            }}>
+              <div>
+                <div style={{ fontSize: '0.65rem', color: '#4caf50', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+                  🎓 antcpu EDU · Student Lab
+                </div>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff' }}>
+                  {(brand as any).edu.classLabel} · Lesson {(brand as any).edu.lessonRef}
+                </div>
+              </div>
+              <div style={{
+                fontSize: '0.65rem', fontWeight: 700,
+                background: '#4caf5020', border: '1px solid #4caf5040',
+                color: '#4caf50', borderRadius: '999px', padding: '0.25rem 0.75rem',
+              }}>
+                {(brand as any).edu.cohort}
+              </div>
+            </div>
+
+            <div style={{ padding: '1.5rem' }}>
+
+              {/* Assignment */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ fontSize: '0.7rem', color: '#4caf50', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                  Your Assignment
+                </div>
+                <div style={{ color: '#aaa', fontSize: '0.88rem', lineHeight: 1.7, marginBottom: '1rem' }}>
+                  This is the live ANTCPU ADS Arena. Real traffic. Real impressions.
+                  Your task: submit your brand ad and watch it run in the network.
+                  Use the share tools above to promote it and earn your first points.
+                </div>
+                <a href="/create-ad" style={{
+                  display: 'inline-block', background: '#4caf50', color: '#000',
+                  borderRadius: '8px', padding: '0.65rem 1.5rem',
+                  fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none',
+                }}>
+                  Submit Your Ad →
+                </a>
+              </div>
+
+              {/* Student Pair */}
+              <div style={{
+                background: '#0a0a0a', border: '1px solid #1a1a1a',
+                borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '1.5rem',
+              }}>
+                <div style={{ fontSize: '0.7rem', color: '#4caf50', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                  Student Pair
+                </div>
+                <div style={{ color: '#555', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                  Working with a partner? Share your email with them to link your submissions.
+                </div>
+                <div style={{ fontSize: '0.78rem', color: '#888' }}>
+                  Your email: <strong style={{ color: '#4caf50' }}>{user.email || '—'}</strong>
+                </div>
+              </div>
+
+              {/* Lesson Navigation */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <a href={(brand as any).edu.prevLesson} style={{
+                  fontSize: '0.78rem', color: '#4caf50', textDecoration: 'none', fontWeight: 600,
+                }}>
+                  ← Lesson {String(Number((brand as any).edu.lessonRef) - 1).padStart(2,'0')}
+                </a>
+                <a href={(brand as any).edu.classUrl} style={{
+                  fontSize: '0.78rem', color: '#888', textDecoration: 'none',
+                  background: '#111', border: '1px solid #222', borderRadius: '6px',
+                  padding: '0.4rem 0.85rem',
+                }}>
+                  ↩ Back to Class
+                </a>
+                <a href={(brand as any).edu.nextLesson} style={{
+                  fontSize: '0.78rem', color: '#4caf50', textDecoration: 'none', fontWeight: 600,
+                }}>
+                  Lesson {String(Number((brand as any).edu.lessonRef) + 1).padStart(2,'0')} →
+                </a>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Weekly Schedule Panel — moving to popup, disabled for now */}
+
+      {/* Footer */}
+        <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '1rem' }}>
+          <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontWeight: 600, fontSize: '0.78rem' }}>← Back to The Arena</button>
+        </div>
+      </div>
       <ArenaFooter brand={brand.name} accent={brand.primary} />
     </div>
   );
