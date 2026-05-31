@@ -23,11 +23,6 @@ const TIER_CONFIG: Record<string, { color: string; label: string }> = {
   toptier:  { color: '#f0883e', label: 'Top Tier' },
 };
 
-const SAMPLE_ADS = [
-  { id: 'sample-1', brand: 'Map of Pi',          title: 'Discover Pi Commerce Near You 🗺️',  description: 'Find local sellers, leave reviews, and spend Pi in the real world. 2.1M+ users and growing.', url: 'https://mapofpi.com',           tier: 'featured', pinned: true,  category: 'Pi Commerce',  status: 'active', email: 'mapofpi@antcpu.com',      promo_code: 'mapofpi' },
-  { id: 'sample-2', brand: 'Amanda Photography', title: 'Stories Through a Lens 📸',          description: "A mother and grandmother capturing life's most beautiful moments. Family portraits, events, and memories.", url: 'https://antcpu.com/manda', tier: 'entry',    pinned: false, category: 'Photography',  status: 'active', email: 'mishoemanda@gmail.com',    promo_code: 'amanda' },
-  { id: 'sample-3', brand: 'Your Brand Here',    title: 'This Could Be Your Ad ✨',           description: 'Join the Arena. Launch your first ad in minutes. Free trial — no credit card required.',           url: 'https://antcpu-ads.vercel.app', tier: 'entry',    pinned: false, category: 'Promotion',    status: 'active', email: '',                         promo_code: null },
-];
 
 type Ad = { id: string; brand: string; title: string; url: string; description: string; category: string; status: string; tier: string; pinned: boolean; email: string; promo_code?: string | null; click_count?: number; share_count?: number; points?: number; };
 type User = { name: string; email: string; brand: string; trialStatus: string; };
@@ -168,7 +163,7 @@ export default function UserDashboard() {
   const firstName = user.name?.includes('@') ? user.brand || user.email.split('@')[0] : user.name?.split(' ')[0];
   const showOnboarding = !hasProfile || !myAd;
 
-  const feedAds = [...SAMPLE_ADS.filter(s => !arenaAds.find(a => a.email === s.email)), ...arenaAds];
+  const feedAds = arenaAds;
 
   return (
     <div style={{ background: '#f5f5f5', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
@@ -264,6 +259,7 @@ export default function UserDashboard() {
         {/* ARENA FEED */}
         <Card>
           <SectionHeader title="🏟 The Arena" sub="All active ads — click to visit, share to earn" />
+          <div style={{ textAlign: 'right', marginBottom: '0.75rem' }}><Pill label="View Full Arena →" onClick={() => router.push('/arena')} color={accent} /></div>
           {loading ? (
             <div style={{ color: '#888', fontSize: '0.85rem' }}>Loading arena...</div>
           ) : (
