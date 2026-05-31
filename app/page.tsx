@@ -1,4 +1,5 @@
 'use client';
+import VaultModal from './components/VaultModal';
 
 import React, { useState, useEffect } from 'react';
 import LanguageSwitcher from './components/LanguageSwitcher';
@@ -6,6 +7,7 @@ import LanguageSwitcher from './components/LanguageSwitcher';
 export default function SplashPage() {
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -251,7 +253,7 @@ export default function SplashPage() {
         </a>
         <div style={navLinksStyle}>
           <LanguageSwitcher />
-          <a href="/login" style={signInStyle} className="sign-in-link">Sign In</a>
+          <button onClick={() => setVaultOpen(true)} style={{...signInStyle, background: "none", border: "none", cursor: "pointer"}} className="sign-in-link">Sign In</button>
           <a href="/login#start" style={ctaButtonStyle} className="cta-btn">Start Free →</a>
         </div>
       </nav>
@@ -592,9 +594,7 @@ export default function SplashPage() {
               Start Free Trial →
             </a>
             <div style={{ marginTop: '20px' }}>
-              <a href="/login#signin" style={{ fontSize: '14px', color: muted, textDecoration: 'none' }} className="sign-in-link">
-                Already in the Arena? <span style={{ color: white, fontWeight: 600 }}>Sign In →</span>
-              </a>
+              <button onClick={() => setVaultOpen(true)} style={{ fontSize: '14px', color: muted, background: "none", border: "none", cursor: "pointer" }} className="sign-in-link">Already in the Arena? <span style={{ color: white, fontWeight: 600 }}>Sign In →</span></button>
             </div>
           </div>
         </section>
@@ -611,6 +611,9 @@ export default function SplashPage() {
         </footer>
 
       </div>
+    <>
+      <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} />
+    </>
     </>
   );
 }

@@ -6,6 +6,7 @@ import { setSessionCookie, clearSessionCookie } from '../lib/session';
 import { checkBrand, getVerificationToken } from '../lib/brandCheck';
 import { getLocation } from '../lib/location';
 import { MAPOFPI_KB } from '../clients/mapofpi/kb';
+import VaultModal from '../components/VaultModal';
 
 
 
@@ -173,52 +174,22 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
 
 // ── COMPONENTS ───────────────────────────────────────────────────────
 function SignInBox() {
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSignIn = async () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed) return;
-    setLoading(true);
-    setError('');
-
-    try {
-      const { data: profile } = await supabase.from('ad_profiles').select('name, email, brand').ilike('email', trimmed).maybeSingle();
-      let signupStatus: 'team' | 'trial' | 'pending' = 'trial';
-      let brandName = profile?.brand || '';
-
-      if (!profile) {
-        const { data: signup } = await supabase.from('ad_signups').select('brand_name, status').ilike('email', trimmed).maybeSingle();
-        if (!signup) {
-          setError(`No account found for ${email}. Please sign up above.`);
-          setLoading(false);
-          return;
-        }
-        signupStatus = signup.status || 'trial';
-        brandName = signup.brand_name;
-      }
-
-      const user = {
-        name: profile?.name || trimmed.split('@')[0],
-        email: trimmed,
-        brand: brandName,
-        trialStatus: profile ? 'trial' : signupStatus,
-      };
-
-      await handlePinAndRedirect(trimmed, new URLSearchParams(window.location.search).get('redirect'));
-    } catch {
-      setError('An error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [vaultOpen, setVaultOpen] = useState(false);
+  const redirect = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('redirect')
+    : null;
 
   return (
     <>
-      <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSignIn()} style={s.input} />
-      {error && <div style={{ color: '#ff4444', fontSize: '0.8rem', marginBottom: '0.75rem' }}>{error}</div>}
-      <button style={s.stepBtn} onClick={handleSignIn} disabled={loading || !email.trim()}>{loading ? 'Signing in...' : 'Sign In →'}</button>
+      <button style={s.stepBtn} onClick={() => setVaultOpen(true)}>
+        🔒 Sign In with Vault →
+      </button>
+      <VaultModal
+        open={vaultOpen}
+        onClose={() => setVaultOpen(false)}
+        onSuccess={() => {}}
+        redirectTo={redirect || undefined}
+      />
     </>
   );
 }
