@@ -102,11 +102,18 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
 
   if (norm === 'antcpu@gmail.com') {
     const pin = prompt('Enter admin PIN:');
-    if (pin !== process.env.NEXT_PUBLIC_ADMIN_PIN) return alert('Invalid PIN. Access denied.');
+    if (!pin) return;
+    const res = await fetch('/api/admin-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    if (!res.ok) return alert('Invalid PIN. Access denied.');
     const session = { email: norm, name: 'Antony Ciccone', brand: 'ANTCPU', trialStatus: 'team' };
-    document.cookie = `arena_session=${encodeURIComponent(JSON.stringify(session))}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
+    const encoded = encodeURIComponent(JSON.stringify(session));
+    document.cookie = `arena_session=${encoded}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
     localStorage.setItem('arena_user', JSON.stringify(session));
-    window.location.href = redirect || '/dashboard/antcpu';
+    window.location.href = redirect || '/dashboard/admin';
     return;
   }
 
@@ -128,8 +135,39 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
     return;
   }
 
-  const { data } = await supabase.from('ad_signups').select('pin').eq('email', norm).maybeSingle();
-  if (data?.pin && prompt('Enter your PIN:') !== data.pin) return alert('Invalid PIN.');
+  // Check if user has a PIN set — verify server-side
+  const pinCheck = await fetch('/api/user-auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: norm, pin: '__check__' }),
+  });
+  const pinData = await pinCheck.json();
+
+  if (pinData.error !== 'No PIN set') {
+    // User has a PIN — prompt and verify
+    const pin = prompt('Enter your PIN:');
+    if (!pin) return;
+    const verify = await fetch('/api/user-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: norm, pin }),
+    });
+    if (!verify.ok) return alert('Invalid PIN. Access denied.');
+    const { user } = await verify.json();
+    const session = { email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus };
+    const encoded = encodeURIComponent(JSON.stringify(session));
+    document.cookie = `arena_session=${encoded}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
+    localStorage.setItem('arena_user', JSON.stringify(session));
+    window.location.href = redirect || '/dashboard/user';
+    return;
+  }
+
+  // No PIN set — pass through, set session from Supabase data
+  const { data: userData } = await supabase.from('ad_signups').select('name, brand_name, status').eq('email', norm).maybeSingle();
+  const session = { email: norm, name: userData?.name || '', brand: userData?.brand_name || '', trialStatus: userData?.status || 'trial' };
+  const encoded = encodeURIComponent(JSON.stringify(session));
+  document.cookie = `arena_session=${encoded}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
+  localStorage.setItem('arena_user', JSON.stringify(session));
   window.location.href = redirect || '/dashboard/user';
 }
 
