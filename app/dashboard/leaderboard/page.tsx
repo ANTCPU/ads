@@ -29,6 +29,17 @@ type LeaderAd = {
 
 type User = { name: string; email: string; brand: string; trialStatus: string };
 
+
+const BRAND_COLORS: Record<string, string> = {
+  'Map of Pi':          '#7B2FBE',
+  'ANTCPU ADS':         '#f0883e',
+  'ANTCPU':             '#f0883e',
+  'ANTCPU EDU':         '#0070f3',
+  'ANTCPU CLOUD':       '#00ffcc',
+  'Amanda Photography': '#e91e8c',
+  'PiPioneersX':        '#FFD700',
+};
+
 export default function LeaderboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -154,7 +165,7 @@ export default function LeaderboardPage() {
                   display: 'flex', alignItems: 'center', gap: '1rem',
                   background: isMe ? `${accent}10` : '#111',
                   border: `1px solid ${isMe ? accent + '40' : '#1a1a1a'}`,
-                  borderLeft: `3px solid ${tier.color}`,
+                  borderLeft: `3px solid ${BRAND_COLORS[ad.brand] || tier.color}`,
                   borderRadius: '10px', padding: '0.9rem 1rem',
                   marginBottom: '0.5rem', cursor: 'pointer',
                   transition: 'border-color 0.15s',
@@ -168,7 +179,7 @@ export default function LeaderboardPage() {
                 {/* Brand + title */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: tier.color }}>{ad.brand}</span>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: BRAND_COLORS[ad.brand] || tier.color }}>{ad.brand}</span>
                     {ad.is_system && <span style={{ fontSize: '0.65rem', background: '#ffffff10', border: '1px solid #333', color: '#555', borderRadius: '4px', padding: '0.1rem 0.4rem' }}>SYSTEM</span>}
                     {isMe && <span style={{ fontSize: '0.65rem', background: `${accent}20`, border: `1px solid ${accent}40`, color: accent, borderRadius: '4px', padding: '0.1rem 0.4rem' }}>YOU</span>}
                     <span style={{ fontSize: '0.68rem', color: '#444' }}>{tier.label}</span>
@@ -182,6 +193,7 @@ export default function LeaderboardPage() {
                   <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '0.2rem' }}>
                     👆{ad.click_count || 0} ↗{ad.share_count || 0}
                   </div>
+                  <button onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(`https://antcpu-ads.vercel.app/arena#ad-${ad.id}`); }} style={{ marginTop: '0.4rem', fontSize: '0.68rem', background: 'transparent', border: '1px solid #222', borderRadius: '6px', color: '#555', padding: '2px 8px', cursor: 'pointer' }}>🔗 Share</button>
                 </div>
               </div>
             );
