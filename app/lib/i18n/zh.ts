@@ -16,6 +16,7 @@ export const zh: Record<string, string> = {
 
   // HERO
   hero_badge:               '自动化营销网络',
+  hero_welcome:             '欢迎来到',
   hero_title:               '欢迎来到竞技场。',
   hero_sub:                 '自动化营销系统的核心枢纽。',
   hero_trial:               '免费试用3天 — 之后每月$9.99。无合同。',

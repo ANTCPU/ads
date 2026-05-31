@@ -16,6 +16,7 @@ export const fr: Record<string, string> = {
 
   // HERO
   hero_badge:               'Reseau de Marketing Automatise',
+  hero_welcome:             'Bienvenue dans',
   hero_title:               'Bienvenue dans l Arena.',
   hero_sub:                 'Le hub central des systemes de marketing automatise.',
   hero_trial:               'Essai gratuit 3 jours — puis 9.99$/mois. Sans engagement.',

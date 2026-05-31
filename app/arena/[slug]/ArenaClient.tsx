@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import ArenaNav from '../../components/ArenaNav';
 import ArenaFooter from '../../components/ArenaFooter';
+import ModuleSlots from '../../components/ModuleSlots';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,15 +33,15 @@ const BRAND_CONFIG: Record<string, any> = {
     name: 'Map of Pi',
     primary: '#7B2FBE',
     bg: '#0a0a0a',
-    logo: '/og-image.jpg',
-    hero: '/og-image.jpg',
+    logo: '/brands/mapofpi/map-of-pi-logo.png',
+    site: 'https://mapofpi.com',
   },
-  'ads-network': {
+  antcpu: {
     name: 'ANTCPU ADS',
     primary: '#f0883e',
     bg: '#0a0a0a',
-    logo: '/og-image.jpg',
-    hero: '/og-image.jpg',
+    logo: '/brands/antcpu/adsnetwork.jpg',
+    site: 'https://antcpu.com',
   },
 };
 
@@ -95,8 +96,7 @@ export default function ArenaClient() {
 
         <div style={{ marginBottom: '2rem' }}>
           <button onClick={() => router.push('/')} style={{ fontSize: '0.75rem', color: '#444', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1rem' }}>Home</button>
-          {brand.logo && <img src={brand.logo} alt={brand.name} style={{ height: '48px', marginBottom: '1rem', display: 'block' }} />}
-          {brand.hero && <img src={brand.hero} alt={brand.name} style={{ width: '100%', borderRadius: '12px', marginBottom: '1rem' }} />}
+          {brand.logo && <img src={brand.logo} alt={brand.name} style={{ height: '72px', marginBottom: '1rem', display: 'block', borderRadius: '10px' }} />}
           <h1 style={{ color: brand.primary, fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>{brand.name} Arena</h1>
         </div>
 
@@ -116,6 +116,8 @@ export default function ArenaClient() {
             ))}
           </div>
         )}
+
+        <ModuleSlots slug={slug} />
 
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
           <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: 'none', color: brand.primary, cursor: 'pointer', fontSize: '0.8rem' }}>Back to Dashboard</button>

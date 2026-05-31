@@ -173,8 +173,8 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
 }
 
 // ── COMPONENTS ───────────────────────────────────────────────────────
-function SignInBox() {
-  const [vaultOpen, setVaultOpen] = useState(false);
+function SignInBox({ vaultOpen, setVaultOpen }: { vaultOpen: boolean; setVaultOpen: (v: boolean) => void }) {
+  // vaultOpen state managed by parent
   const redirect = typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('redirect')
     : null;
@@ -204,6 +204,7 @@ export default function Page() {
   }
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
+  const [vaultOpen, setVaultOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [brandCheckLoading, setBrandCheckLoading] = useState(false);
@@ -268,7 +269,8 @@ export default function Page() {
       <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
         <div style={{ maxWidth: '480px', width: '100%', textAlign: 'center' }}>
           <h1 style={s.h1}>You're in the Arena.</h1>
-          <button onClick={async () => handlePinAndRedirect(form.email, new URLSearchParams(window.location.search).get('redirect'))} style={s.ctaBtn}>Enter the Arena →</button>
+          <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} redirectTo={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') || undefined} />
+          <button onClick={() => setVaultOpen(true)} style={s.ctaBtn}>🔒 Enter the Arena →</button>
         </div>
       </div>
     );
@@ -344,7 +346,7 @@ export default function Page() {
         <div style={s.formCard}>
           <div style={s.formTitle}>Already in the Arena?</div>
           <p style={s.formSub}>Enter your email to resume your session dashboard configuration.</p>
-          <SignInBox />
+          <SignInBox vaultOpen={vaultOpen} setVaultOpen={setVaultOpen} />
         </div>
       </div>
 

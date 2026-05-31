@@ -1,36 +1,47 @@
+// ARCHIVED — replaced by dynamic locale wrapper
+// Language: pt
+// Preserved for translation reference.
+
+//
+//  page.tsx
+//  
+//
+//  Created by Joseph Antony Ciccone on 5/16/26.
+//
 'use client';
-import VaultModal from './components/VaultModal';
 
 import React, { useState, useEffect } from 'react';
-import { t, isRTL, Locale } from './lib/i18n/index';
-import LanguageSwitcher from './components/LanguageSwitcher';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { pt } from '../lib/i18n/pt';
 
-export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
+export default function PtPage() {
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [vaultOpen, setVaultOpen] = useState(false);
-  const rtl = isRTL(locale);
 
   useEffect(() => {
     setMounted(true);
+    document.documentElement.dir = 'rtl';
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      document.documentElement.dir = 'ltr';
+    };
   }, []);
 
   // ── TOKENS ──────────────────────────────────────────────────────
-  const bg        = '#0a0a0a';
-  const card      = '#111';
-  const border    = '#1a1a1a';
-  const border2   = '#222';
-  const blue      = '#0070f3';
-  const orange    = '#f0883e';
-  const purple    = '#7928ca';
-  const gold      = '#D4AF37';
-  const teal      = '#00ffcc';
-  const white     = '#fff';
-  const muted     = '#888';
-  const muted2    = '#555';
+  const bg      = '#0a0a0a';
+  const card    = '#111';
+  const border  = '#1a1a1a';
+  const border2 = '#222';
+  const blue    = '#0070f3';
+  const orange  = '#f0883e';
+  const purple  = '#7928ca';
+  const gold    = '#D4AF37';
+  const teal    = '#00ffcc';
+  const white   = '#fff';
+  const muted   = '#888';
+  const muted2  = '#555';
 
   // ── REUSABLE STYLE OBJECTS ───────────────────────────────────────
   const navStyle: React.CSSProperties = {
@@ -124,7 +135,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     lineHeight: 1.1,
   };
 
-  // ── KEYFRAMES via style tag ──────────────────────────────────────
   const keyframes = `
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(24px); }
@@ -133,10 +143,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50%       { opacity: 0.5; }
-    }
-    @keyframes scanline {
-      0%   { transform: translateY(-100%); }
-      100% { transform: translateY(100vh); }
     }
     @keyframes glow {
       0%, 100% { box-shadow: 0 0 20px rgba(0,112,243,0.3); }
@@ -150,104 +156,78 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   `;
 
   const stats = [
-    { value: 'Free', label: '3-Day Trial' },
-    { value: '$9.99', label: 'Per Month After' },
-    { value: '4', label: 'Ladder Levels' },
-    { value: '∞', label: 'Reach Potential' },
+    { value: pt.stat_free_val,  label: pt.stat_free_label },
+    { value: '\$9.99',           label: pt.stat_price_label },
+    { value: '4',               label: pt.stat_levels_label },
+    { value: '∞',               label: pt.stat_reach_label },
   ];
 
   const steps = [
-    { num: '01', title: 'Sign Up Free', desc: 'Get 3 days of full access. No credit card required.' },
-    { num: '02', title: 'Submit Your Ad', desc: 'Title, URL, description. 2 minutes to set up.' },
-    { num: '03', title: 'Go Live', desc: 'Your ad enters the network immediately.' },
-    { num: '04', title: 'Promote Your Ad', desc: 'Share, refer, and engage. Points track your promotion activity.' },
+    { num: '01', title: pt.step_01_title, desc: pt.step_01_desc },
+    { num: '02', title: pt.step_02_title, desc: pt.step_02_desc },
+    { num: '03', title: pt.step_03_title, desc: pt.step_03_desc },
+    { num: '04', title: pt.step_04_title, desc: pt.step_04_desc },
   ];
 
   const ladder = [
-    { tier: 'Entry',    color: teal,   pts: 'Start here', desc: 'Standard rotation across the network' },
-    { tier: 'Rising',   color: blue,   pts: '🔒 Paid',    desc: 'Higher priority + increased impressions' },
-    { tier: 'Featured', color: orange, pts: '🔒 Paid',    desc: 'Featured placement + cross-channel distribution' },
-    { tier: 'Top Tier', color: gold,   pts: '🔒 Paid',    desc: 'Full network + creator channel integrations' },
+    { tier: 'Entry',    color: teal,   pts: pt.ladder_entry_pts,    desc: pt.ladder_entry_desc },
+    { tier: 'Rising',   color: blue,   pts: pt.ladder_rising_pts,   desc: pt.ladder_rising_desc },
+    { tier: 'Featured', color: orange, pts: pt.ladder_featured_pts, desc: pt.ladder_featured_desc },
+    { tier: 'Top Tier', color: gold,   pts: pt.ladder_top_pts,      desc: pt.ladder_top_desc },
   ];
 
   const plans = [
     {
-      name: 'Trial',
-      price: 'Free',
-      period: '3 days',
-      badge: '',
+      name:     pt.plan_trial_name,
+      price:    pt.plan_trial_price,
+      period:   pt.plan_trial_period,
+      badge:    '',
       badgeColor: '',
-      color: teal,
-      features: [
-        'Text ad in Arena',
-        'Aria reviews your ad 🦋',
-        'Basic agent previews',
-        'Entry tier placement',
-      ],
-      cta: 'Start Free →',
+      color:    teal,
+      features: [pt.plan_trial_f1, pt.plan_trial_f2, pt.plan_trial_f3, pt.plan_trial_f4],
+      cta:      pt.plan_trial_cta,
       disabled: false,
     },
     {
-      name: 'Arena',
-      price: '$9.99',
-      period: '/mo',
-      badge: 'Most Popular',
+      name:     pt.plan_arena_name,
+      price:    pt.plan_arena_price,
+      period:   pt.plan_arena_period,
+      badge:    pt.plan_arena_badge,
       badgeColor: orange,
-      color: orange,
-      features: [
-        'Everything in Free',
-        'Entry tier · promote to earn points',
-        'Aria + Herald messages',
-        'Scout basic stats 🔍',
-        'Earn 1-use agent actions',
-        'Forge ad review ⚙️',
-      ],
-      cta: 'Start Free Trial →',
+      color:    orange,
+      features: [pt.plan_arena_f1, pt.plan_arena_f2, pt.plan_arena_f3, pt.plan_arena_f4, pt.plan_arena_f5, pt.plan_arena_f6],
+      cta:      pt.plan_arena_cta,
       disabled: false,
     },
     {
-      name: 'Pro',
-      price: '$27',
-      period: '/mo',
-      badge: 'Coming Soon',
+      name:     pt.plan_pro_name,
+      price:    pt.plan_pro_price,
+      period:   pt.plan_pro_period,
+      badge:    pt.plan_pro_badge,
       badgeColor: purple,
-      color: purple,
-      features: [
-        'Everything in Arena',
-        '🔒 Rising tier — coming soon',
-        'Full agent suite unlocked',
-        'Herald email digest 📣',
-        'Scout analytics dashboard',
-        'Ledger billing panel 💰',
-      ],
-      cta: 'Coming Soon',
+      color:    purple,
+      features: [pt.plan_pro_f1, pt.plan_pro_f2, pt.plan_pro_f3, pt.plan_pro_f4, pt.plan_pro_f5, pt.plan_pro_f6],
+      cta:      pt.plan_pro_cta,
       disabled: true,
     },
     {
-      name: 'Deluxe',
-      price: '$79',
-      period: '/mo',
-      badge: 'Coming Soon',
+      name:     pt.plan_deluxe_name,
+      price:    pt.plan_deluxe_price,
+      period:   pt.plan_deluxe_period,
+      badge:    pt.plan_deluxe_badge,
       badgeColor: gold,
-      color: gold,
-      features: [
-        'Everything in Pro',
-        '🔒 Featured tier — coming soon',
-        '10-antbot campaign',
-        'Custom agent brand voice',
-        'Vault account protection 🔒',
-        'Weekly performance reports',
-      ],
-      cta: 'Coming Soon',
+      color:    gold,
+      features: [pt.plan_deluxe_f1, pt.plan_deluxe_f2, pt.plan_deluxe_f3, pt.plan_deluxe_f4, pt.plan_deluxe_f5, pt.plan_deluxe_f6],
+      cta:      pt.plan_deluxe_cta,
       disabled: true,
     },
   ];
 
   return (
-    <div dir={rtl ? 'rtl' : 'ltr'}>
+    <>
       <style>{keyframes}</style>
 
-      {/* ── NAV ────────────────────────────────────────────────── */}
+      {/* NAV */}
       <nav style={navStyle}>
         <a href="/" style={logoStyle}>
           <span style={{ color: blue }}>⚡</span>
@@ -255,25 +235,22 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         </a>
         <div style={navLinksStyle}>
           <LanguageSwitcher />
-          <button onClick={() => setVaultOpen(true)} style={{...signInStyle, background: "none", border: "none", cursor: "pointer"}} className="sign-in-link">{t(locale, 'nav_signin')}</button>
-          <a href="/login#start" style={ctaButtonStyle} className="cta-btn">{t(locale, 'nav_start')} →</a>
+          <a href="/login" style={signInStyle} className="sign-in-link">{pt.nav_signin}</a>
+          <a href="/login#start" style={ctaButtonStyle} className="cta-btn">{pt.nav_start}</a>
         </div>
       </nav>
 
-      {/* ── PAGE WRAPPER ────────────────────────────────────────── */}
+      {/* PAGE WRAPPER */}
       <div style={{ background: bg, color: white, fontFamily: 'system-ui, -apple-system, sans-serif', minHeight: '100vh', paddingTop: '60px', overflowX: 'hidden' }}>
 
-        {/* ── HERO ─────────────────────────────────────────────── */}
+        {/* HERO */}
         <section style={{ position: 'relative', padding: 'clamp(80px, 12vw, 160px) 0 clamp(60px, 8vw, 100px)', textAlign: 'center', overflow: 'hidden' }}>
-          {/* decorative grid lines */}
           {[15, 30, 50, 70, 85].map((pct, i) => (
             <div key={i} style={{ ...gridLine, left: `${pct}%` }} />
           ))}
-          {/* radial glow */}
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 50% at 50% 0%, rgba(0,112,243,0.12) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
           <div style={{ ...sectionStyle, position: 'relative' }}>
-            {/* Badge */}
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               background: '#0070f312', border: `1px solid #0070f330`,
@@ -285,7 +262,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               animation: mounted ? 'fadeUp 0.6s ease forwards' : 'none',
             }}>
               <span style={{ animation: 'pulse 2s infinite' }}>⚡</span>
-              {t(locale, 'hero_badge')}
+              {pt.hero_badge}
             </div>
 
             <h1 style={{
@@ -301,10 +278,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               opacity: mounted ? 1 : 0,
               animation: mounted ? 'fadeUp 0.6s 0.1s ease forwards both' : 'none',
             }}>
-              {t(locale, 'hero_welcome')}<br />
-              <span style={{ background: `linear-gradient(135deg, ${blue}, ${teal})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                {t(locale, 'hero_title')}
-              </span>
+              {pt.hero_title}
             </h1>
 
             <p style={{
@@ -316,8 +290,8 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               opacity: mounted ? 1 : 0,
               animation: mounted ? 'fadeUp 0.6s 0.2s ease forwards both' : 'none',
             }}>
-              {t(locale, 'hero_sub')}<br />
-              {t(locale, 'hero_trial')}
+              {pt.hero_sub}<br />
+              <span style={{ color: white, fontWeight: 600 }}>{pt.hero_trial}</span>
             </p>
 
             <div style={{
@@ -325,39 +299,22 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               opacity: mounted ? 1 : 0,
               animation: mounted ? 'fadeUp 0.6s 0.3s ease forwards both' : 'none',
             }}>
-              <a
-                href="/login"
-                style={{ ...ctaButtonStyle, padding: '14px 28px', fontSize: '16px', animation: 'glow 3s infinite' }}
-                className="cta-btn"
-              >
-                {t(locale, 'hero_cta_primary')}
+              <a href="/login" style={{ ...ctaButtonStyle, padding: '14px 28px', fontSize: '16px', animation: 'glow 3s infinite' }} className="cta-btn">
+                {pt.hero_cta_primary}
               </a>
-              <a
-                href="/login"
-                style={{
-                  display: 'inline-block', padding: '14px 28px', fontSize: '16px',
-                  fontWeight: 600, color: muted, textDecoration: 'none',
-                  border: `1px solid ${border2}`, borderRadius: '8px',
-                  transition: 'color 0.2s, border-color 0.2s',
-                }}
-                className="sign-in-link"
-              >
-                {t(locale, 'nav_signin')}
+              <a href="/login" style={{ display: 'inline-block', padding: '14px 28px', fontSize: '16px', fontWeight: 600, color: muted, textDecoration: 'none', border: `1px solid ${border2}`, borderRadius: '8px', transition: 'color 0.2s, border-color 0.2s' }} className="sign-in-link">
+                {pt.hero_cta_secondary}
               </a>
             </div>
           </div>
         </section>
 
-        {/* ── STATS BAR ────────────────────────────────────────── */}
+        {/* STATS BAR */}
         <div style={{ borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, background: '#0d0d0d' }}>
           <div style={{ ...sectionStyle, padding: '0 clamp(16px, 5vw, 48px)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0' }}>
               {stats.map((s, i) => (
-                <div key={i} style={{
-                  padding: '28px 24px',
-                  textAlign: 'center',
-                  borderRight: i < stats.length - 1 ? `1px solid ${border}` : 'none',
-                }}>
+                <div key={i} style={{ padding: '28px 24px', textAlign: 'center', borderRight: i < stats.length - 1 ? `1px solid ${border}` : 'none' }}>
                   <div style={{ fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 900, letterSpacing: '-1px', color: white, marginBottom: '4px' }}>{s.value}</div>
                   <div style={{ fontSize: '12px', color: muted, letterSpacing: '1px', textTransform: 'uppercase', fontWeight: 600 }}>{s.label}</div>
                 </div>
@@ -366,44 +323,32 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </div>
         </div>
 
-        {/* ── FEATURED PARTNER CARD ─────────────────────────────── */}
+        {/* FEATURED PARTNER */}
         <section style={{ padding: 'clamp(60px, 8vw, 100px) 0' }}>
           <div style={sectionStyle}>
             <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <div style={sectionHeadStyle}>Featured Partner</div>
+              <div style={sectionHeadStyle}>{pt.partner_section_label}</div>
             </div>
-            <div style={{
-              background: card,
-              border: `1px solid ${gold}`,
-              borderRadius: '16px',
-              padding: 'clamp(28px, 4vw, 48px)',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: `0 0 60px rgba(212,175,55,0.12)`,
-            }}>
-              {/* gold glow corner */}
+            <div style={{ background: card, border: `1px solid ${gold}`, borderRadius: '16px', padding: 'clamp(28px, 4vw, 48px)', position: 'relative', overflow: 'hidden', boxShadow: `0 0 60px rgba(212,175,55,0.12)` }}>
               <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', background: 'radial-gradient(circle at top right, rgba(212,175,55,0.15), transparent 70%)', pointerEvents: 'none' }} />
-
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: '1 1 320px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                     <span style={{ fontSize: '32px' }}>🗺️</span>
                     <div>
                       <div style={{ fontSize: '22px', fontWeight: 800, color: white, letterSpacing: '-0.5px' }}>Map of Pi</div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: gold, letterSpacing: '2px', textTransform: 'uppercase' }}>Featured Partner</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: gold, letterSpacing: '2px', textTransform: 'uppercase' }}>{pt.partner_section_label}</div>
                     </div>
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: gold, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: gold, marginBottom: '16px' }}>
                     🏆 2024 Pi Commerce Hackathon Winner — Pi Network v1.8
                   </div>
-
-                  {/* Stats grid */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '20px' }}>
                     {[
-                      { v: '2.1M+', l: 'Registered Users' },
-                      { v: '148K', l: 'Sellers' },
-                      { v: '173K+', l: 'Transactions' },
-                      { v: '$0.17', l: 'Pi Price' },
+                      { v: '2.1M+', l: pt.partner_users_label },
+                      { v: '148K',  l: pt.partner_sellers_label },
+                      { v: '173K+', l: pt.partner_tx_label },
+                      { v: '\$0.17', l: pt.partner_price_label },
                     ].map((st, i) => (
                       <div key={i} style={{ background: '#161616', border: `1px solid #2a2a20`, borderRadius: '8px', padding: '10px 14px' }}>
                         <div style={{ fontSize: '18px', fontWeight: 800, color: gold }}>{st.v}</div>
@@ -411,17 +356,15 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                       </div>
                     ))}
                   </div>
-
                   <div style={{ background: '#0d1208', border: `1px solid #2a3a1a`, borderRadius: '10px', padding: '14px 18px', fontSize: '14px', color: '#a8d870', fontWeight: 600 }}>
-                    🤝 1 free month membership to ANTCPU ADS — Run a full 10-antbot campaign
+                    🤝 {pt.partner_affil}
                   </div>
                 </div>
-
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '160px' }}>
                   <a href="https://mapofpi.com" target="_blank" rel="noopener noreferrer"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: gold, color: '#0a0a0a', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: 800, textDecoration: 'none', justifyContent: 'center' }}
                     className="partner-link">
-                    Visit Map of Pi →
+                    {pt.partner_visit_cta}
                   </a>
                   <a href="https://youtube.com/@mapofpi" target="_blank" rel="noopener noreferrer"
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#1a1a1a', border: `1px solid #333`, color: white, borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, textDecoration: 'none', justifyContent: 'center' }}
@@ -434,45 +377,36 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </div>
         </section>
 
-        {/* ── HOW IT WORKS ─────────────────────────────────────── */}
+        {/* HOW IT WORKS */}
         <section style={{ padding: 'clamp(60px, 8vw, 100px) 0', borderTop: `1px solid ${border}` }}>
           <div style={sectionStyle}>
             <div style={{ textAlign: 'center', marginBottom: '56px' }}>
-              <div style={sectionHeadStyle}>How it works</div>
-              <h2 style={{ ...h2Style, marginBottom: 0 }}>Up and running in minutes.</h2>
+              <div style={sectionHeadStyle}>{pt.how_section_label}</div>
+              <h2 style={{ ...h2Style, marginBottom: 0 }}>{pt.how_title}</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1px', background: border }}>
               {steps.map((s, i) => (
                 <div key={i} style={{ background: bg, padding: 'clamp(24px, 3vw, 40px)', position: 'relative' }}>
-                  <div style={{ fontSize: '48px', fontWeight: 900, color: border2, letterSpacing: '-2px', lineHeight: 1, marginBottom: '16px', fontVariantNumeric: 'tabular-nums' }}>{s.num}</div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: white, marginBottom: '8px', letterSpacing: '-0.3px' }}>{s.title}</div>
+                  <div style={{ fontSize: '48px', fontWeight: 900, color: border2, letterSpacing: '-2px', lineHeight: 1, marginBottom: '16px' }}>{s.num}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: white, marginBottom: '8px' }}>{s.title}</div>
                   <div style={{ fontSize: '14px', color: muted, lineHeight: 1.6 }}>{s.desc}</div>
-                  {i < steps.length - 1 && (
-                    <div style={{ position: 'absolute', right: '-1px', top: '50%', transform: 'translateY(-50%)', width: '1px', height: '40%', background: `linear-gradient(to bottom, transparent, ${blue}44, transparent)`, display: 'none' }} />
-                  )}
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ── PROMOTION LADDER ──────────────────────────────────── */}
+        {/* PROMOTION LADDER */}
         <section style={{ padding: 'clamp(60px, 8vw, 100px) 0', borderTop: `1px solid ${border}` }}>
           <div style={sectionStyle}>
             <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-              <div style={sectionHeadStyle}>Promotion System</div>
-              <h2 style={h2Style}>The Ladder.</h2>
-              <p style={{ color: muted, fontSize: '15px', maxWidth: '460px', margin: '0 auto' }}>Tiers unlock with your plan. Points track how actively you promote your ad.</p>
+              <div style={sectionHeadStyle}>{pt.ladder_section_label}</div>
+              <h2 style={h2Style}>{pt.ladder_title}</h2>
+              <p style={{ color: muted, fontSize: '15px', maxWidth: '460px', margin: '0 auto' }}>{pt.ladder_sub}</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: border, borderRadius: '12px', overflow: 'hidden', border: `1px solid ${border}` }}>
               {ladder.map((row, i) => (
-                <div key={i} className="ladder-row" style={{
-                  background: card,
-                  padding: 'clamp(16px, 2vw, 24px) clamp(20px, 3vw, 36px)',
-                  display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                  transition: 'background 0.2s',
-                  borderBottom: i < ladder.length - 1 ? `1px solid ${border}` : 'none',
-                }}>
+                <div key={i} className="ladder-row" style={{ background: card, padding: 'clamp(16px, 2vw, 24px) clamp(20px, 3vw, 36px)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', transition: 'background 0.2s', borderBottom: i < ladder.length - 1 ? `1px solid ${border}` : 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: '1 1 200px' }}>
                     <div style={{ width: '3px', height: '36px', background: row.color, borderRadius: '2px', flexShrink: 0 }} />
                     <div>
@@ -480,17 +414,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                       <div style={{ fontSize: '13px', color: muted }}>{row.desc}</div>
                     </div>
                   </div>
-                  <div style={{
-                    background: `${row.color}18`,
-                    border: `1px solid ${row.color}44`,
-                    color: row.color,
-                    borderRadius: '100px',
-                    padding: '5px 14px',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    letterSpacing: '0.5px',
-                    whiteSpace: 'nowrap',
-                  }}>
+                  <div style={{ background: `${row.color}18`, border: `1px solid ${row.color}44`, color: row.color, borderRadius: '100px', padding: '5px 14px', fontSize: '12px', fontWeight: 800, whiteSpace: 'nowrap' }}>
                     {row.pts}
                   </div>
                 </div>
@@ -499,42 +423,22 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </div>
         </section>
 
-        {/* ── PRICING ───────────────────────────────────────────── */}
+        {/* PRICING */}
         <section style={{ padding: 'clamp(60px, 8vw, 100px) 0', borderTop: `1px solid ${border}` }}>
           <div style={sectionStyle}>
             <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-              <div style={sectionHeadStyle}>Pricing</div>
-              <h2 style={h2Style}>Simple, transparent pricing.</h2>
-              <p style={{ color: muted, fontSize: '15px' }}>Start free. No credit card. Cancel anytime.</p>
+              <div style={sectionHeadStyle}>{pt.pricing_section_label}</div>
+              <h2 style={h2Style}>{pt.pricing_title}</h2>
+              <p style={{ color: muted, fontSize: '15px' }}>{pt.pricing_sub}</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '16px' }}>
               {plans.map((plan, i) => (
-                <div
-                  key={i}
-                  className="pricing-card"
-                  style={{
-                    background: card,
-                    border: `1px solid ${plan.name === 'Arena' ? plan.color + '66' : border2}`,
-                    borderRadius: '14px',
-                    padding: 'clamp(20px, 2.5vw, 32px)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative',
-                    transition: 'border-color 0.2s, transform 0.2s',
-                    boxShadow: plan.name === 'Arena' ? `0 0 40px ${plan.color}22` : 'none',
-                  }}
-                >
+                <div key={i} className="pricing-card" style={{ background: card, border: `1px solid ${plan.name === pt.plan_arena_name ? plan.color + '66' : border2}`, borderRadius: '14px', padding: 'clamp(20px, 2.5vw, 32px)', display: 'flex', flexDirection: 'column', position: 'relative', transition: 'border-color 0.2s, transform 0.2s', boxShadow: plan.name === pt.plan_arena_name ? `0 0 40px ${plan.color}22` : 'none' }}>
                   {plan.badge && (
-                    <div style={{
-                      position: 'absolute', top: '-11px', left: '50%', transform: 'translateX(-50%)',
-                      background: plan.badgeColor, color: '#0a0a0a',
-                      borderRadius: '100px', padding: '3px 12px',
-                      fontSize: '11px', fontWeight: 800, letterSpacing: '0.5px', whiteSpace: 'nowrap',
-                    }}>
+                    <div style={{ position: 'absolute', top: '-11px', left: '50%', transform: 'translateX(-50%)', background: plan.badgeColor, color: '#0a0a0a', borderRadius: '100px', padding: '3px 12px', fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>
                       {plan.badge}
                     </div>
                   )}
-
                   <div style={{ marginBottom: '4px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 700, color: plan.color, letterSpacing: '1.5px', textTransform: 'uppercase' }}>{plan.name}</span>
                   </div>
@@ -543,7 +447,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                     <span style={{ fontSize: '14px', color: muted, fontWeight: 500 }}>{plan.period}</span>
                   </div>
                   <div style={{ height: '1px', background: border, margin: '16px 0' }} />
-
                   <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {plan.features.map((f, j) => (
                       <li key={j} style={{ fontSize: '13px', color: plan.disabled ? muted2 : '#ccc', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
@@ -552,25 +455,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                       </li>
                     ))}
                   </ul>
-
-                  <a
-                    href={plan.disabled ? undefined : '/login'}
-                    style={{
-                      display: 'block',
-                      textAlign: 'center',
-                      padding: '11px',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                      cursor: plan.disabled ? 'not-allowed' : 'pointer',
-                      background: plan.disabled ? '#1a1a1a' : plan.color,
-                      color: plan.disabled ? muted2 : (plan.color === gold ? '#0a0a0a' : white),
-                      border: plan.disabled ? `1px solid ${border}` : 'none',
-                      opacity: plan.disabled ? 0.7 : 1,
-                      transition: 'opacity 0.2s',
-                    }}
-                  >
+                  <a href={plan.disabled ? undefined : '/login'} style={{ display: 'block', textAlign: 'center', padding: '11px', borderRadius: '8px', fontSize: '13px', fontWeight: 700, textDecoration: 'none', cursor: plan.disabled ? 'not-allowed' : 'pointer', background: plan.disabled ? '#1a1a1a' : plan.color, color: plan.disabled ? muted2 : (plan.color === gold ? '#0a0a0a' : white), border: plan.disabled ? `1px solid ${border}` : 'none', opacity: plan.disabled ? 0.7 : 1, transition: 'opacity 0.2s' }}>
                     {plan.cta}
                   </a>
                 </div>
@@ -579,43 +464,36 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </div>
         </section>
 
-        {/* ── FINAL CTA ─────────────────────────────────────────── */}
+        {/* FINAL CTA */}
         <section style={{ padding: 'clamp(80px, 10vw, 140px) 0', borderTop: `1px solid ${border}`, position: 'relative', overflow: 'hidden', textAlign: 'center' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(0,112,243,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ ...sectionStyle, position: 'relative' }}>
-            <div style={sectionHeadStyle}>{t(locale, 'final_section_label')}</div>
-            <h2 style={{ ...h2Style, fontSize: 'clamp(36px, 5vw, 60px)' }}>{t(locale, 'final_title')}</h2>
-            <p style={{ color: muted, fontSize: '15px', marginBottom: '36px' }}>
-              {t(locale, 'final_sub')}
-            </p>
-            <a
-              href="/login"
-              style={{ ...ctaButtonStyle, padding: '16px 36px', fontSize: '18px', display: 'inline-block' }}
-              className="cta-btn"
-            >
-              {t(locale, 'final_cta')}
+            <div style={sectionHeadStyle}>{pt.final_section_label}</div>
+            <h2 style={{ ...h2Style, fontSize: 'clamp(36px, 5vw, 60px)' }}>{pt.final_title}</h2>
+            <p style={{ color: muted, fontSize: '15px', marginBottom: '36px' }}>{pt.final_sub}</p>
+            <a href="/login" style={{ ...ctaButtonStyle, padding: '16px 36px', fontSize: '18px', display: 'inline-block' }} className="cta-btn">
+              {pt.final_cta}
             </a>
             <div style={{ marginTop: '20px' }}>
-              <button onClick={() => setVaultOpen(true)} style={{ fontSize: '14px', color: muted, background: "none", border: "none", cursor: "pointer" }} className="sign-in-link">{t(locale, 'final_signin')}</button>
+              <a href="/login#signin" style={{ fontSize: '14px', color: muted, textDecoration: 'none' }} className="sign-in-link">
+                <span style={{ color: white, fontWeight: 600 }}>{pt.final_signin}</span>
+              </a>
             </div>
           </div>
         </section>
 
-        {/* ── FOOTER ────────────────────────────────────────────── */}
+        {/* FOOTER */}
         <footer style={{ borderTop: `1px solid #111`, padding: '24px clamp(16px, 5vw, 48px)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#333' }}>
             <span style={{ color: blue }}>⚡</span>
             <span>ANTCPU ADS</span>
           </div>
           <div style={{ fontSize: '12px', color: '#333' }}>
-            © 2026 ANTCPU ADS · All rights reserved
-          </div>
-        </footer>
+          {pt.footer_copy}
+        </div>
+      </footer>
 
-      </div>
-    <div dir={rtl ? 'rtl' : 'ltr'}>
-      <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} />
     </div>
-    </div>
-  );
+  </>
+);
 }

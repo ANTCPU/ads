@@ -1,3 +1,8 @@
+// ARCHIVED — merged into /arena/[slug]/ArenaClient.tsx
+// This file is preserved for history. Do not edit.
+// Last active: brand/[slug]/arena route (never linked externally)
+// Canonical route: /arena/[slug]
+// -------------------------------------------------------
 'use client';
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect } from 'react';

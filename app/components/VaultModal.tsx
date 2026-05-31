@@ -25,6 +25,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
   const [loading, setLoading] = useState(false);
   const [vaultMsg, setVaultMsg] = useState('Vault is standing by.');
   const [hasPinSet, setHasPinSet] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
   useEffect(() => {
     if (!open) { setStep('email'); setEmail(''); setPin(''); setError(''); }
@@ -197,20 +198,32 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
               {email}
             </div>
             {hasPinSet ? (
-              <input
-                autoFocus
-                type="password"
-                placeholder="Enter PIN"
-                value={pin}
-                onChange={e => setPin(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handlePin()}
-                style={{
-                  width: '100%', background: '#111', border: '1px solid #222',
-                  borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff',
-                  fontSize: '0.9rem', marginBottom: '0.75rem', boxSizing: 'border-box',
-                  outline: 'none', letterSpacing: '0.2em',
-                }}
-              />
+              <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                <input
+                  autoFocus
+                  type={showPin ? 'text' : 'password'}
+                  placeholder="Enter PIN"
+                  value={pin}
+                  onChange={e => setPin(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handlePin()}
+                  style={{
+                    width: '100%', background: '#111', border: '1px solid #222',
+                    borderRadius: '8px', padding: '0.75rem 2.75rem 0.75rem 1rem', color: '#fff',
+                    fontSize: '0.9rem', boxSizing: 'border-box', outline: 'none', letterSpacing: '0.2em',
+                  }}
+                />
+                <button
+                  onClick={() => setShowPin(v => !v)}
+                  style={{
+                    position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '1rem',
+                    padding: '0.25rem', lineHeight: 1,
+                  }}
+                  tabIndex={-1}
+                >
+                  {showPin ? '🙈' : '👁️'}
+                </button>
+              </div>
             ) : (
               <div style={{ fontSize: '0.8rem', color: '#555', marginBottom: '0.75rem', padding: '0.75rem', background: '#111', borderRadius: '8px', border: '1px solid #1a1a1a' }}>
                 No PIN set — Vault will secure your session automatically.

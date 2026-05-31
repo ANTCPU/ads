@@ -16,6 +16,7 @@ export const ar: Record<string, string> = {
 
   // HERO
   hero_badge:               'شبكة التسويق الآلي',
+  hero_welcome:             'مرحباً في',
   hero_title:               'مرحباً بك في الساحة.',
   hero_sub:                 'المركز الرئيسي لأنظمة التسويق الآلي.',
   hero_trial:               'جرّب مجاناً لمدة 3 أيام — ثم 9.99 دولار/شهر. بدون عقود.',

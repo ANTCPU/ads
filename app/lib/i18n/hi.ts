@@ -16,6 +16,7 @@ export const hi: Record<string, string> = {
 
   // HERO
   hero_badge:               'स्वचालित मार्केटिंग नेटवर्क',
+  hero_welcome:             'स्वागत है',
   hero_title:               'द एरेना में आपका स्वागत है।',
   hero_sub:                 'स्वचालित मार्केटिंग सिस्टम का केंद्रीय हब।',
   hero_trial:               '3 दिन मुफ्त आज़माएं — फिर $9.99/माह। कोई अनुबंध नहीं।',

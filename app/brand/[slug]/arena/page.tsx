@@ -1,3 +1,6 @@
+// ARCHIVED — canonical route is /arena/[slug]/page.tsx
+// Preserved for history.
+
 import { Metadata } from 'next';
 import ArenaClient from './ArenaClient';
 

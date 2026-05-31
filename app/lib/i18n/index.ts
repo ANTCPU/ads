@@ -4,6 +4,7 @@
 //
 //  Created by Joseph Antony Ciccone on 5/16/26.
 //
+import { en } from './en';
 import { ar } from './ar';
 import { zh } from './zh';
 import { es } from './es';
@@ -39,7 +40,7 @@ export const localeNames: Record<Locale, string> = {
 };
 
 export const translations: Record<Locale, Record<string, string>> = {
-  en: {},
+  en,
   ar,
   zh,
   es,
