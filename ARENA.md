@@ -141,29 +141,35 @@
 | Code | Status | Days |
 |------|--------|------|
 | MAPOFPI | team | 90 |
-| FREETRIAL | trial | 3 |
+| FREETRIAL | trial | 90|
+## 🏆 TIER SYSTEM
+| *Tier* | *Points* | *Price* |
+| ----- | ----- | ----- |
+| Entry | 0 | **FREE PROMO MODE (All accounts free until August 2026)** |
+| Rising | 100 | TBD |
+| Featured | 300 | Weekly competition win |
+| Top Tier | 750 | antcpu.com/cloud · invite only |
 
 ---
 
 ## 🚧 BUILD QUEUE
 
-### This batch
+## This batch
+- [ ] **FIX: Debug `ad_signups` Supabase count (Dashboard showing 0 users)**
 - [ ] /dashboard/leaderboard
 - [ ] Test mode banner on /dashboard/user
 - [ ] Wire approveAd() → Scout score API
+
+## Phase 2 — Scale & Optimization (Shifted for Free Promo Period)
+- [ ] Open signups validation & onboarding optimization
 - [ ] ad_profiles table + facebook + antcoin_wallet columns
 - [ ] ads click_count column
 
-### Phase 2 — Monetization
+## Phase 3 — Monetization (LAUNCHING AUGUST 2026)
 - [ ] PayPal integration
 - [ ] payments table
 - [ ] Trial expiry enforcement
 - [ ] Supabase Auth (replace localStorage)
-
-### Phase 3 — Tiers
-- [ ] Rising tier — Photography API (Amanda)
-- [ ] Featured tier — Video ad format
-- [ ] Top Tier — antcpu.com/cloud
 
 ### Phase 4 — Scale
 - [ ] Per-client antbot tasks (dynamic)
