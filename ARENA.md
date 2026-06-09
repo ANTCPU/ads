@@ -22,7 +22,7 @@
 |------|-------|-------|--------|------|
 | Antony Ciccone | antcpu@gmail.com | ANTCPU | team | MAPOFPI |
 | Mohamed Elshoshani | melshoshani@gmail.com | Map of Pi | team | MAPOFPI |
-| Amanda (team) | amanda@antcpu.com | Amanda Photography | team | MAPOFPI |
+| Andri | andri.postkast@gmail.com | Map of Pi | team | MAPOFPI |
 | Amanda Mishoe | Mishoemanda@gmail.com | Amanda Photography | arena | — |
 | Test User | test@antcpu.com | Test Brand | trial | FREETRIAL |
 
