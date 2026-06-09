@@ -49,9 +49,7 @@ export default function ArenaClient() {
   const router = useRouter();
   const params = useParams();
   const slug = (params?.slug as string || '').toLowerCase();
-  const brand = BRAND_CONFIG[slug];
-
-  const [ads, setAds] = useState<Ad[]>([]);
+  const brand = slug ? { name: slug, primary: slug === 'adsnetwork' ? '#e91e8c' : '#f0883e', bg: '#0a0a0a', logo: null, site: '#' } : null;const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>({ name: '', email: '', brand: '', trialStatus: 'trial' });
 
@@ -62,15 +60,24 @@ export default function ArenaClient() {
     else setLoading(false);
   }, [slug]);
 
-  async function fetchAds() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('brand', brand.name)
+  async function fetchAds () {
+    setLoading (true ) ;
+    // Translate the URL slug to match the official database brand string if it's your network brand
+    const queryBrand = slug === 'adsnetwork' || slug === 'antcpuads' ? 'ANTCPU ADS' : slug;
+
+    const {data } = await supabase
+      .from ('ads' )
+      .select ('*' )
+      .ilike ('brand' , queryBrand )
       .eq('status', 'active')
       .order('pinned', { ascending: false })
       .order('points', { ascending: false });
+    
+    if (data && data.length > 0) {
+      // Dynamically override the generic slug with the real database brand name formatting!
+      brand.name = data[0].brand;
+    }
+    
     setAds(data || []);
     setLoading(false);
   }
