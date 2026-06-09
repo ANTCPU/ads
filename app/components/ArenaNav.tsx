@@ -109,7 +109,7 @@ export default function ArenaNav({
   if (role === 'admin') {
     menuItems.push(
       { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
-      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena) },
+      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena') },
       { label: 'Brands',       icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
       { label: 'Ad Builder',   icon: '🏗', action: () => router.push('/dashboard/admin') },
       { label: 'Users',        icon: '👥', action: () => router.push('/dashboard/users') },
@@ -123,7 +123,7 @@ export default function ArenaNav({
   if (role === 'team') {
     menuItems.push(
       { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
-      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena) },
+      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena') },
       { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
