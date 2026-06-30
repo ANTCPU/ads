@@ -10,8 +10,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const agentClients = [
+const agentClientsDefault = [
   {
     id: 'mapofpi',
     name: MAPOFPI_KB.name,
@@ -43,6 +42,7 @@ const agentClients = [
     ],
   },
 ];
+
 
 const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
   entry:    { color: '#0070f3', label: 'Entry',    icon: '📝' },
@@ -83,8 +83,9 @@ export default function DashboardHome() {
   const [notifMsg,   setNotifMsg]     = useState('');
   const [notifSent,  setNotifSent]    = useState(false);
   const [notifErr,   setNotifErr]     = useState('');
-  const [sending,    setSending]      = useState(false);
-  const [allEmails,  setAllEmails]    = useState<string[]>([]);
+  const [sending,    setSending]      = useState(false);const [allEmails, setAllEmails] = useState<string[]>([]);
+const [agentClients, setAgentClients] = useState(agentClientsDefault);
+
 
   // Read user from localStorage with cookie fallback
   function getUserFromCookie(): { email: string; name: string; brand: string; trialStatus: string } | null {
@@ -95,31 +96,41 @@ export default function DashboardHome() {
     } catch { return null; }
   }
 
-  useEffect(() => {
+    useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     const u = stored ? (() => { try { return JSON.parse(stored); } catch { return null; } })() : getUserFromCookie();
     if (!u) { router.push('/login'); return; }
     if (u.email.trim().toLowerCase() !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
     setCurrentUser(u);
-    // Sync localStorage if we fell back to cookie
     if (!stored) localStorage.setItem('arena_user', JSON.stringify(u));
     fetchAds();
-    const { count: mapofpiDone } = await supabase
-  .from('ads')
-  .select('*', { count: 'exact', head: true })
-  .eq('status', 'active')
-  .ilike('brand', '%Map of Pi%');
 
-const { count: antcpuDone } = await supabase
-  .from('ads')
-  .select('*', { count: 'exact', head: true })
-  .eq('status', 'active')
-  .ilike('brand', '%ANTCPU%');
+    async function fetchCounts() {
+      const { count: mapofpiDone } = await supabase
+        .from('ads')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .ilike('brand', '%Map of Pi%');
+
+      const { count: antcpuDone } = await supabase
+        .from('ads')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .ilike('brand', '%ANTCPU%');
+
+      setAgentClients(prev => prev.map(c => ({
+        ...c,
+        done: c.id === 'mapofpi' ? (mapofpiDone || 0) : (antcpuDone || 0)
+      })));
+    }
+    fetchCounts();
+
     supabase.from('ad_signups').select('email', { count: 'exact', head: true })
       .then(({ count }) => setTotalUsers(count || 0));
     supabase.from('ad_signups').select('email').order('created_at', { ascending: false })
       .then(({ data }) => setAllEmails((data || []).map((r: any) => r.email)));
   }, []);
+
  setAgentClients(prev => prev.map(c => ({
   ...c,
   done: c.id === 'mapofpi' ? (mapofpiDone || 0) : (antcpuDone || 0)
