@@ -104,12 +104,26 @@ export default function DashboardHome() {
     // Sync localStorage if we fell back to cookie
     if (!stored) localStorage.setItem('arena_user', JSON.stringify(u));
     fetchAds();
+    const { count: mapofpiDone } = await supabase
+  .from('ads')
+  .select('*', { count: 'exact', head: true })
+  .eq('status', 'active')
+  .ilike('brand', '%Map of Pi%');
+
+const { count: antcpuDone } = await supabase
+  .from('ads')
+  .select('*', { count: 'exact', head: true })
+  .eq('status', 'active')
+  .ilike('brand', '%ANTCPU%');
     supabase.from('ad_signups').select('email', { count: 'exact', head: true })
       .then(({ count }) => setTotalUsers(count || 0));
     supabase.from('ad_signups').select('email').order('created_at', { ascending: false })
       .then(({ data }) => setAllEmails((data || []).map((r: any) => r.email)));
   }, []);
-
+ setAgentClients(prev => prev.map(c => ({
+  ...c,
+  done: c.id === 'mapofpi' ? (mapofpiDone || 0) : (antcpuDone || 0)
+})));
   async function fetchAds() {
     setLoadingAds(true);
     const { data } = await supabase
