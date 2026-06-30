@@ -14,7 +14,7 @@ export default function LeaderboardModule({ slug, supabase }: ModuleContext) {
     async function fetch() {
       const { data } = await supabase
         .from('ads')
-        .select('id, title, brand, points, tier, pinned')
+        .select('*')
         .eq('status', 'active')
         .order('points', { ascending: false })
         .limit(8);
