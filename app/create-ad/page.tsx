@@ -3,13 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../components/ArenaNav';
 import { createClient } from '@supabase/supabase-js';
+import { notifyDiscord } from '../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
 
 const AD_CATEGORIES = [
   'Brand Awareness', 'Product Launch', 'Content Promotion',
@@ -200,13 +199,14 @@ export default function CreateAdPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ad_id: existingAd.id }),
     }).catch(() => {});
-    fetch(DISCORD_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`,
-      }),
-    }).catch(() => {});
+    // handleEdit:
+notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+
+// handleReplace:
+notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+
+// handleSubmit:
+notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
     setLoading(false);
     setSubmitted(true);
   }
@@ -231,13 +231,14 @@ export default function CreateAdPage() {
       tier:         'entry',
     }]);
     if (!error) {
-      fetch(DISCORD_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`,
-        }),
-      }).catch(() => {});
+      // handleEdit:
+notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+
+// handleReplace:
+notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+
+// handleSubmit:
+notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
       setSubmitted(true);
     }
     setLoading(false);
@@ -261,13 +262,14 @@ export default function CreateAdPage() {
       tier:         'entry',
     }]);
     if (error) { setSubmitError(error.message); setLoading(false); return; }
-    fetch(DISCORD_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`,
-      }),
-    }).catch(() => {});
+  // handleEdit:
+notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+
+// handleReplace:
+notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+
+// handleSubmit:
+notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
     setLoading(false);
     setSubmitted(true);
   }
