@@ -172,6 +172,23 @@ export default function MapOfPiSplash() {
         <a href="/login?promo=MAPOFPI" style={{ ...s.ctaBtn, padding: '1.1rem 3rem', fontSize: '1.1rem' }}>
           Claim Your Country →
         </a>
+        <button onClick={() => {
+  navigator.clipboard.writeText('https://antcpu-ads.vercel.app/mapofpi?promo=MAPOFPI');
+}} style={{
+  display: 'inline-block',
+  background: 'transparent',
+  color: gold,
+  padding: '0.75rem 1.5rem',
+  borderRadius: '8px',
+  fontWeight: 600,
+  fontSize: '0.85rem',
+  border: `1px solid ${gold}40`,
+  cursor: 'pointer',
+  marginTop: '0.75rem',
+}}>
+  📋 Copy Referral Link
+</button>
+
         <div style={{ marginTop: '1.25rem' }}>
           <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: 'none', color: muted2, cursor: 'pointer', fontSize: '0.85rem' }}>
             Already in the Arena? Sign In →
