@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { notifyDiscord } from '../../../lib/discord';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
 
 export async function POST(req: NextRequest) {
   const { email, name, subject, message } = await req.json();
@@ -27,11 +27,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Ping Discord
-  await fetch(DISCORD_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: `📣 **Scout Notification Sent**\n**To:** ${email}\n**Subject:** ${subject}` }),
-  });
+ await notifyDiscord(`📣 **Scout Notification Sent**\n**To:** ${email}\n**Subject:** ${subject}`);
 
   const ok = emailRes.ok;
   return NextResponse.json({ ok, status: emailRes.status });
