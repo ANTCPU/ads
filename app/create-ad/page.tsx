@@ -200,13 +200,16 @@ export default function CreateAdPage() {
       body: JSON.stringify({ ad_id: existingAd.id }),
     }).catch(() => {});
     // handleEdit:
-notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+    notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+    setLoading(false);
+    setSubmitted(true);
 
 // handleReplace:
-notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+    notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+      setSubmitted(true);
 
 // handleSubmit:
-notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
+    notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
     setLoading(false);
     setSubmitted(true);
   }
@@ -232,16 +235,19 @@ notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.bra
     }]);
     if (!error) {
       // handleEdit:
-notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+    notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
+    setLoading(false);
+    setSubmitted(true);
 
 // handleReplace:
-notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+n    notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+      setSubmitted(true);
 
 // handleSubmit:
-notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
-      setSubmitted(true);
-    }
+    notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
     setLoading(false);
+    setSubmitted(true);
+
   }
 
   // ── NEW SUBMIT ────────────────────────────────────────────
@@ -263,15 +269,19 @@ notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.bra
     }]);
     if (error) { setSubmitError(error.message); setLoading(false); return; }
   // handleEdit:
-notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
-
-// handleReplace:
-notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
-
-// handleSubmit:
-notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
+    notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
     setLoading(false);
     setSubmitted(true);
+
+// handleReplace:
+    notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+      setSubmitted(true);
+
+// handleSubmit:
+    notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
+    setLoading(false);
+    setSubmitted(true);
+
   }
 
   // ── SUCCESS ───────────────────────────────────────────────
