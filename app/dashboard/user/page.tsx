@@ -229,7 +229,7 @@ export default function UserDashboard() {
               </div>
               <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: '0.75rem', lineHeight: 1.6 }}>{myAd.description}</div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <Pill label={adCopied ? '✅ Copied!' : '↗ Share My Ad'} onClick={copyMyAd} color={adCopied ? '#22c55e' : accent} />
+                <Pill label="↗ Share My Ad" onClick={copyMyAd} onClick={copyMyAd} color={adCopied ? '#22c55e' : accent} />
                 {myAd.promo_code && <Pill label="🏟 My Arena" onClick={() => router.push(`/arena/${myAd.promo_code}`)} color={accent} outline />}
                 <Pill label="✏️ Edit" onClick={() => router.push('/create-ad')} color="#888" outline />
               </div>
