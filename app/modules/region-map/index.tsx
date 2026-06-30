@@ -2,49 +2,22 @@
 import { useEffect, useState } from 'react';
 import { ModuleContext } from '../types';
 
-type RegionRow = {
-  country: string;
-  city: string;
-  region: string;
-};
-
 type RegionCount = {
   country: string;
   count: number;
 };
 
-export default function RegionalMapModule({ slug, supabase }: ModuleContext) {
+export default function RegionalMapModule({ slug }: ModuleContext) {
   const [regions, setRegions] = useState<RegionCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-  async function fetchRegions() {
-    const res = await fetch('/api/regions');
-    const { counts, total } = await res.json();
-    setRegions(counts || []);
-    setTotal(total || 0);
-    setLoading(false);
-  }
-  fetchRegions();
-}, [slug]);
-
-
-      if (!data) { setLoading(false); return; }
-
-      // Count by country
-      const counts: Record<string, number> = {};
-      data.forEach((row: { country: string }) => {
-        const c = row.country?.trim() || 'Unknown';
-        counts[c] = (counts[c] || 0) + 1;
-      });
-
-      const sorted = Object.entries(counts)
-        .map(([country, count]) => ({ country, count }))
-        .sort((a, b) => b.count - a.count);
-
-      setRegions(sorted);
-      setTotal(data.length);
+    async function fetchRegions() {
+      const res = await fetch('/api/regions');
+      const { counts, total } = await res.json();
+      setRegions(counts || []);
+      setTotal(total || 0);
       setLoading(false);
     }
     fetchRegions();
