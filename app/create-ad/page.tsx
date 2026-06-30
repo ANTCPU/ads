@@ -182,37 +182,74 @@ export default function CreateAdPage() {
     outline: 'none', fontFamily: 'inherit',
   };
 
-  // ── SAVE EDIT (update in place) ───────────────────────────
+    // ── SAVE EDIT (update in place) ───────────────────────────
   async function handleEdit() {
     if (!aria.ok || !existingAd) return;
     setLoading(true);
     await supabase.from('ads').update({
-      title:       form.title.trim(),
-      url:         form.url.trim(),
+      title: form.title.trim(),
+      url: form.url.trim(),
       description: form.description.trim(),
-      category:    form.category,
-      brand:       selectedBrand,
+      category: form.category,
+      brand: selectedBrand,
     }).eq('id', existingAd.id);
-    // Rescore after edit
     fetch('/api/scout/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ad_id: existingAd.id }),
     }).catch(() => {});
-    // handleEdit:
     notifyDiscord(`✏️ **Ad Edited**\n**Brand:** ${selectedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${user.email}`);
     setLoading(false);
     setSubmitted(true);
+  }
 
-// handleReplace:
-    notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
+  // ── REPLACE (archive old, submit new) ────────────────────
+  async function handleReplace() {
+    if (!aria.ok || !existingAd) return;
+    setLoading(true);
+    await supabase.from('ads').update({ status: 'archived' }).eq('id', existingAd.id);
+    const { error } = await supabase.from('ads').insert([{
+      email: user.email,
+      name: user.name,
+      brand: selectedBrand,
+      title: form.title.trim(),
+      url: form.url.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      status: 'pending_review',
+      trial_status: user.trialStatus,
+      tier: 'entry',
+    }]);
+    if (!error) {
+      notifyDiscord(`🔄 **Ad Replaced**\n**Brand:** ${selectedBrand}\n**New Title:** "${form.title.trim()}"\n**Email:** ${user.email}\n**Status:** pending_review`);
       setSubmitted(true);
+    }
+    setLoading(false);
+  }
 
-// handleSubmit:
+  // ── NEW SUBMIT ────────────────────────────────────────────
+  async function handleSubmit() {
+    if (!aria.ok) return;
+    setLoading(true);
+    setSubmitError('');
+    const { error } = await supabase.from('ads').insert([{
+      email: user.email,
+      name: user.name,
+      brand: selectedBrand || user.brand,
+      title: form.title.trim(),
+      url: form.url.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      status: 'pending_review',
+      trial_status: user.trialStatus,
+      tier: 'entry',
+    }]);
+    if (error) { setSubmitError(error.message); setLoading(false); return; }
     notifyDiscord(`🆕 **New Ad Submitted**\n**Brand:** ${selectedBrand || user.brand}\n**Title:** "${form.title.trim()}"\n**URL:** ${form.url.trim()}\n**Email:** ${user.email}\n**Status:** pending_review`);
     setLoading(false);
     setSubmitted(true);
   }
+
 
   // ── REPLACE (archive old, submit new) ────────────────────
   async function handleReplace() {
