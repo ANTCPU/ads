@@ -31,7 +31,7 @@ type User = { name: string; email: string; brand: string; trialStatus: string };
 
 
 const BRAND_COLORS: Record<string, string> = {
-  'Map of Pi':          '#7B2FBE',
+  'Map of Pi':          '#2E7D32',
   'ANTCPU ADS':         '#f0883e',
   'ANTCPU':             '#f0883e',
   'ANTCPU EDU':         '#0070f3',
@@ -69,8 +69,7 @@ export default function LeaderboardPage() {
       .order('points', { ascending: false })
       .order('click_count', { ascending: false });
 
-    const ranked = (data || []).map((ad, i) => ({ ...ad, rank_position: i + 1 }));
-    setAds(ranked);
+    const ranked = (data || []).sort((a, b) => (a.rank_position || 999) - (b.rank_position || 999));
 
     const mine = ranked.find(a => a.email === email);
     if (mine) setMyRank(mine.rank_position);
