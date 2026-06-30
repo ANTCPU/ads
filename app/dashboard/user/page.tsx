@@ -280,7 +280,7 @@ export default function UserDashboard() {
                     <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.75rem', lineHeight: 1.6 }}>{ad.description}</div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <Pill label={`→ ${ad.url.replace(/https?:\/\//, '').slice(0, 28)}`} onClick={() => window.open(ad.url, '_blank')} color={tier.color} />
-                      <Pill label="↗ Share My Ad" onClick={copyMyAd} onClick={() => { shareAd(ad); }} color={sharedId === ad.id ? '#22c55e' : '#888'} outline />
+                      <Pill label="↗ Share My Ad" onClick={() => { shareAd(ad); }} color={sharedId === ad.id ? '#22c55e' : '#888'} outline />
                     </div>
                   </div>
                 );
