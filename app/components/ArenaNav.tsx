@@ -20,18 +20,6 @@ type ArenaNavProps = {
   onDrawerOpen?: () => void;
 };
 
-const MAPOFPI_TEAM = [
-  'antcpu@gmail.com',
-  'melshoshani@gmail.com',
-  'andri.postkast@gmail.com',
-  'joosdup.pj@gmail.com',
-];
-
-const PHOTOGRAPHY_TEAM = [
-  'antcpu@gmail.com',
-  'mishoemanda@gmail.com',
-];
-
 export default function ArenaNav({
   role,
   userName = '',
