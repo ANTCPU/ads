@@ -116,7 +116,7 @@ export default function ArenaNav({
       { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
-    / Brand-specific dashboards — match user's brand against ALL_BRANDS, push dashboard if one exists
+    // Brand-specific dashboards — match user's brand against ALL_BRANDS, push dashboard if one exists
     const userBrandSlug = userBrand?.toLowerCase().trim();
     const matchedBrand = ALL_BRANDS.find(
       b => b.slug === userBrandSlug || b.label.toLowerCase() === userBrandSlug
