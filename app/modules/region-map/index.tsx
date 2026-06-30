@@ -19,11 +19,16 @@ export default function RegionalMapModule({ slug, supabase }: ModuleContext) {
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    async function fetchRegions() {
-      const { data } = await supabase
-        .from('ad_signups')
-        .select('country')
-        .not('country', 'is', null);
+  async function fetchRegions() {
+    const res = await fetch('/api/regions');
+    const { counts, total } = await res.json();
+    setRegions(counts || []);
+    setTotal(total || 0);
+    setLoading(false);
+  }
+  fetchRegions();
+}, [slug]);
+
 
       if (!data) { setLoading(false); return; }
 
