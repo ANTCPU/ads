@@ -89,6 +89,13 @@ export default function MapOfPiDashboard() {
               <Pill label="🏠 Hub" onClick={() => router.push('/dashboard/user')} color="#0a0a0a" outline />
               <Pill label="📢 Create Ad" onClick={() => router.push('/create-ad')} color="#2D6A4F" />
               <Pill label="🏟 Arena" onClick={() => router.push('/arena/mapofpi')} color="#2D6A4F" outline />
+              <Pill label="🏆 Country Champion" onClick={() => router.push('/mapofpi')} color="#D4AF37" />
+<Pill label="📋 Copy Champion Link" onClick={() => {
+  navigator.clipboard.writeText('https://antcpu-ads.vercel.app/mapofpi?promo=MAPOFPI');
+  setCopiedId(-1);
+  setTimeout(() => setCopiedId(null), 2500);
+}} color={copiedId === -1 ? '#22c55e' : '#D4AF37'} outline />
+
             </div>
           </div>
         </Card>
