@@ -33,7 +33,6 @@ export default function UserDashboard() {
   const [arenaAds, setArenaAds]       = useState<Ad[]>([]);
   const [referralCode, setReferralCode] = useState('');
   const [referralCopied, setReferralCopied] = useState(false);
-  const [adCopied, setAdCopied]       = useState(false);
   const [loading, setLoading]         = useState(true);
   const [hydrated, setHydrated]       = useState(false);
   const [sharedId, setSharedId]       = useState<string | null>(null);
@@ -91,7 +90,7 @@ export default function UserDashboard() {
       }).catch(() => {});
       // Discord milestone every 10 clicks
       if (newCount % 10 === 0) {
-        fetch(DISCORD_WEBHOOK, {
+        fetch(process.env.NEXT_PUBLIC_DISCORD_WEBHOOK || '', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -150,8 +149,6 @@ export default function UserDashboard() {
   function copyMyAd() {
     if (!myAd) return;
     shareAd(myAd);
-    setAdCopied(true);
-    setTimeout(() => setAdCopied(false), 2500);
   }
 
   if (!hydrated || !user) return null;
