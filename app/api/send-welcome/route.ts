@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { notifyDiscord } from '../../lib/discord';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
 
 export async function POST(req: NextRequest) {
   try {
@@ -94,13 +94,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
 
     // Discord notification
-    await fetch(DISCORD_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `📧 Welcome email sent to **${name}** (${email}) · ${brand} · ${isTeam ? '🔵 Team' : '🟢 Trial'}`,
-      }),
-    });
+    await notifyDiscord(`📧 Welcome email sent to **${name}** (${email}) · ${brand} · ${isTeam ? '🔵 Team' : '🟢 Trial'}`);
 
     return NextResponse.json({ sent: true });
   } catch (e: unknown) {
