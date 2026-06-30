@@ -10,13 +10,12 @@ import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
+import { notifyDiscord } from '../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
 
 type PendingAd = {
   id: string;
@@ -113,13 +112,7 @@ export default function AntcpuDashboard() {
     // Find ad details for Discord
     const ad = pendingAds.find(a => a.id === id);
     if (ad) {
-      fetch(DISCORD_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `✅ **Ad Approved**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Tier:** ${ad.tier}`,
-        }),
-      }).catch(() => {});
+    notifyDiscord(`✅ **Ad Approved**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Tier:** ${ad.tier}`);
     }
     await loadPending();
     setActionId(null);
@@ -132,13 +125,8 @@ export default function AntcpuDashboard() {
     const ad = pendingAds.find(a => a.id === id);
     if (ad) {
       const verdict = ariaVerdict(ad);
-      fetch(DISCORD_WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `❌ **Ad Rejected**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Aria:** ${verdict.note}`,
-        }),
-      }).catch(() => {});
+      notifyDiscord(`❌ **Ad Rejected**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Aria:** ${verdict.note}`);
+
     }
     await loadPending();
     setActionId(null);
