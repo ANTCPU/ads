@@ -30,7 +30,7 @@ export default function AboutPage() {
           <p style={{ fontSize: '1rem', color: '#666', maxWidth: '520px', margin: '0 auto 2rem', lineHeight: 1.7 }}>ANTCPU ADS is a competitive ad arena where brands grow through real engagement, promo codes, and community sharing — not just spend.</p>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={() => router.push('/login')} style={{ background: '#f0883e', border: 'none', borderRadius: '10px', padding: '0.85rem 2rem', cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: '#fff' }}>Start Free Trial →</button>
-            <button onClick={() => router.push('/arena/ads-network')} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '0.85rem 2rem', cursor: 'pointer', fontWeight: 600, fontSize: '1rem', color: '#0a0a0a' }}>View The Arena</button>
+            <button onClick={() => router.push('/arena')} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '0.85rem 2rem', cursor: 'pointer', fontWeight: 600, fontSize: '1rem', color: '#0a0a0a' }}>View The Arena</button>
           </div>
         </div>
 
@@ -84,7 +84,7 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-          <button onClick={() => router.push('/arena/ads-network')} style={{ background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '0.6rem 1.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#0a0a0a' }}>View The Arena →</button>
+          <button onClick={() => router.push('/arena')} style={{ background: '#f5f5f5', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '0.6rem 1.5rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', color: '#0a0a0a' }}>View The Arena →</button>
         </div>
 
         {/* PROMO CODES */}
@@ -111,7 +111,7 @@ export default function AboutPage() {
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f0883e', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>REWARDS</div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1rem' }}>Friendly competition. Real rewards.</h2>
           <p style={{ fontSize: '0.9rem', color: '#555', lineHeight: 1.7, marginBottom: '1rem' }}>The Arena leaderboard tracks every brand's performance. The more your ad gets clicked, shared, and referred — the higher you climb. Top performers get featured placement, recognition, and exclusive rewards as the system grows.</p>
-          <div style={{ display: 'inline-block', background: '#fff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>🏆 <span style={{ cursor: "pointer", color: "#f0883e", textDecoration: "underline" }} onClick={() => router.push('/dashboard/leaderboard')}>View Live Leaderboard →</span></div>
+          <div style={{ display: 'inline-block', background: '#fff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>🏆 <span style={{ cursor: "pointer", color: "#f0883e", textDecoration: "underline" }} onClick={() => router.push('/arena'))}>View Live Leaderboard →</span></div>
         </div>
 
         {/* CTA */}
@@ -123,10 +123,8 @@ export default function AboutPage() {
 
         {/* FOOTER */}
         <div style={{ textAlign: 'center', padding: '1rem 0', color: '#aaa', fontSize: '0.78rem', display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <span>⚡ ANTCPU ADS</span>
-          <a href="/tos" style={{ color: '#aaa', textDecoration: 'none' }}>Terms of Service</a>
-          <a href="/privacy" style={{ color: '#aaa', textDecoration: 'none' }}>Privacy Policy</a>
-          <a href="mailto:antcpu@gmail.com" style={{ color: '#aaa', textDecoration: 'none' }}>Contact</a>
+          <span>⚡ ANTCPU ADS</span> <a href="/tos">Terms of Service</a> <a href="/privacy">Privacy Policy</a> <a href="/arena">The Arena</a> <a href="mailto:antcpu@gmail.com">Contact</a>
+
         </div>
 
       </div>
