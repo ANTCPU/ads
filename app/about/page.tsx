@@ -111,7 +111,7 @@ export default function AboutPage() {
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#f0883e', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>REWARDS</div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1rem' }}>Friendly competition. Real rewards.</h2>
           <p style={{ fontSize: '0.9rem', color: '#555', lineHeight: 1.7, marginBottom: '1rem' }}>The Arena leaderboard tracks every brand's performance. The more your ad gets clicked, shared, and referred — the higher you climb. Top performers get featured placement, recognition, and exclusive rewards as the system grows.</p>
-          <div style={{ display: 'inline-block', background: '#fff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>🏆 <span style={{ cursor: "pointer", color: "#f0883e", textDecoration: "underline" }} onClick={() => router.push('/arena'))}>View Live Leaderboard →</span></div>
+          <div style={{ display: 'inline-block', background: '#fff', border: '1px solid #fed7aa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>🏆 <span style={{ cursor: "pointer", color: "#f0883e", textDecoration: "underline" }} onClick={() => router.push('/arena')}>View Live Leaderboard →</span></div>
         </div>
 
         {/* CTA */}
