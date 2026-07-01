@@ -7,6 +7,7 @@ import VideoFeedModule from './video-feed';
 import ScheduleModule from './schedule';
 import PostsModule from './posts';
 import ShareModule from './share';
+import ChatModule from './chat';
 
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   { id: 'create-ad',    label: '🚀 Advertise Here', desc: 'Create an ad in this arena',             component: CreateAdModule },
@@ -17,4 +18,5 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   { id: 'video-feed',   label: '🎬 Video Feed',     desc: 'Brand media ads',                        component: VideoFeedModule },
   { id: 'schedule',     label: '📅 Schedule',       desc: 'Ad activity by day of week',             component: ScheduleModule },
   { id: 'posts',        label: '📝 Posts',          desc: 'Brand posts and updates',                component: PostsModule },
+  { id: 'chat',         label: '🦋 Ask Aria', desc: 'Direct line to Aria — unlocks at 10pts', component: ChatModule },
 ];
