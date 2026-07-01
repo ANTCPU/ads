@@ -15,10 +15,16 @@ export default function CampaignHubModule({ slug, supabase }: ModuleContext) {
 
   useEffect(() => {
     async function fetch() {
+            const BRAND_MAP: Record<string, string> = {
+        mapofpi: 'Map of Pi', antcpu: 'ANTCPU ADS', adsnetwork: 'ANTCPU ADS',
+      };
+      const brandName = BRAND_MAP[slug] || slug;
       const { data } = await supabase
         .from('ads')
-        .select('tier, points, status')
+        .select('tier, points, status, brand')
+        .ilike('brand', `%${brandName}%`)
         .eq('status', 'active');
+
 
       if (!data) { setLoading(false); return; }
 
