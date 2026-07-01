@@ -38,19 +38,15 @@ const SLUG_ALIAS: Record<string, string> = {
   amanda:       'amanda',
   amandaphoto:  'amanda',
 };
-
-// Resolve slug → brand config
-const brandKey = SLUG_ALIAS[slug] || slug;
-const config = BRANDS[brandKey] || { name: slug, primary: '#f0883e' };
-
-
 const DEFAULT_SLOTS: (string | null)[] = ['region-map', null, null];
 
 export default function ArenaClient() {
   const router = useRouter();
   const params = useParams();
   const slug = (params?.slug as string || '').toLowerCase();
-  const config = BRAND_MAP[slug] || { name: slug, primary: '#f0883e' };
+  const brandKey = SLUG_ALIAS[slug] || slug;
+const config = BRANDS[brandKey] || { name: slug, primary: '#f0883e' };
+
 
   const [ads, setAds] = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
