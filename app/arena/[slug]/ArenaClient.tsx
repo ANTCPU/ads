@@ -19,11 +19,30 @@ type Ad = {
 };
 
 // Single source of truth — slug → brand display name + accent color
-const BRAND_MAP: Record<string, { name: string; primary: string; logo?: string; site?: string }> = {
-  mapofpi:  { name: 'Map of Pi',   primary: '#D4AF37', logo: '/brands/mapofpi/map-of-pi-logo.png', site: 'https://mapofpi.com' },
-  antcpu:   { name: 'ANTCPU ADS', primary: '#f0883e', logo: '/brands/antcpu/adsnetwork.jpg',       site: 'https://antcpu.com' },
-  adsnetwork: { name: 'ANTCPU ADS', primary: '#f0883e' },
+// ── BRAND REGISTRY — one entry per real brand ──────────────────
+const BRANDS: Record<string, { name: string; primary: string; logo?: string; site?: string }> = {
+  antcpu:      { name: 'ANTCPU ADS',        primary: '#f0883e', logo: '/brands/antcpu/adsnetwork.jpg',        site: 'https://antcpu.com' },
+  mapofpi:     { name: 'Map of Pi',          primary: '#D4AF37', logo: '/brands/mapofpi/map-of-pi-logo.png',   site: 'https://mapofpi.com' },
+  pipioneers:  { name: 'PiPioneersX',        primary: '#7928ca',                                               site: 'https://x.com/PiPioneersX' },
+  amanda:      { name: 'Amanda Photography', primary: '#ff0080',                                               site: 'https://antcpu.com/manda/' },
 };
+
+// ── SLUG ALIASES — any slug variant → canonical brand key ──────
+const SLUG_ALIAS: Record<string, string> = {
+  adsnetwork:   'antcpu',
+  antcpuads:    'antcpu',
+  'ads-network':'antcpu',
+  pipioneers:   'pipioneers',
+  pipioneersx:  'pipioneers',
+  mapofpi:      'mapofpi',
+  amanda:       'amanda',
+  amandaphoto:  'amanda',
+};
+
+// Resolve slug → brand config
+const brandKey = SLUG_ALIAS[slug] || slug;
+const config = BRANDS[brandKey] || { name: slug, primary: '#f0883e' };
+
 
 const DEFAULT_SLOTS: (string | null)[] = ['region-map', null, null];
 
