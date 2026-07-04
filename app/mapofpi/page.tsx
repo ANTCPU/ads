@@ -98,20 +98,21 @@ useEffect(() => {
         </div>
       </div>
 
-     {STATS_STATIC.map(x => (
-  <div key={x.l} style={{ textAlign: 'center' }}>
-    <div style={s.statVal}>{x.v}</div>
-    <div style={s.statLbl}>{x.l}</div>
-  </div>
-))}
-<div style={{ textAlign: 'center' }}>
-  <div style={s.statVal}>{piPrice}</div>
-  <div style={s.statLbl}>Pi Price</div>
-</div>
+           {STATS_STATIC.map(x => (
+        <div key={x.l} style={{ textAlign: 'center' }}>
+          <div style={s.statVal}>{x.v}</div>
+          <div style={s.statLbl}>{x.l}</div>
+        </div>
+      ))}
 
+      <div style={{ textAlign: 'center' }}>
+        <div style={s.statVal}>{piPrice}</div>
+        <div style={s.statLbl}>Pi Price</div>
       </div>
+    </div>
 
       {/* ── COUNTRY CHAMPION ── */}
+
       <div style={s.section}>
         <h2 style={s.h2}>What is a Country Champion?</h2>
         <p style={s.h2sub}>
