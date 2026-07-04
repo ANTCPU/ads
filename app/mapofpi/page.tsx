@@ -81,7 +81,7 @@ export default function MapOfPiSplash() {
         <h1 style={s.h1}>Your Country.<br />Your Arena.</h1>
         <p style={s.sub}>
           {MAPOFPI_KB.messaging.core}<br />
-          <span style={{ color: gold }}>90 days free</span> for Map of Pi team members &amp; Country Champions.
+          <span style={{ color: gold }}>90 days free </span> for Map of Pi team members &amp; Country Champions.
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <a href="/login?promo=MAPOFPI" style={s.ctaBtn}>Claim Your Country →</a>
@@ -198,7 +198,7 @@ export default function MapOfPiSplash() {
 
       {/* ── FOOTER ── */}
       <footer style={s.footer}>
-        © {new Date().getFullYear()} ANTCPU ADS · Powered by{' '}
+        © {new Date().getFullYear()} AD NETWORK · {' '}
         <span style={{ color: '#0070f3' }}>⚡ ANTCPU</span> × <span style={{ color: gold }}>🗺️ Map of Pi</span>
       </footer>
 
