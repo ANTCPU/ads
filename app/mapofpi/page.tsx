@@ -45,7 +45,7 @@ const STATS = [
 const CHAMPION_PERKS = [
   { icon: '🏴', text: 'Represent your country in the Arena' },
   { icon: '🤖', text: '10 antbots run your campaign automatically' },
-  { icon: '📣', text: 'Your ads reach the full ANTCPU network' },
+  { icon: '📣', text: 'Your ads reach the full AD network' },
   { icon: '🏆', text: 'Climb the leaderboard — top champion per country wins' },
   { icon: '🌐', text: 'Your brand goes global from day one' },
 ];
@@ -66,9 +66,9 @@ export default function MapOfPiSplash() {
       <nav style={s.nav}>
         <div style={s.logo}>
           <span style={{ color: '#0070f3' }}>⚡</span>
-          <span>ANTCPU ADS</span>
+          <span>AD NETWORK</span>
           <span style={{ color: muted2, fontWeight: 400 }}>×</span>
-          <span>🗺️ Map of Pi</span>
+          <span>Featuring: 🗺️ Map of Pi</span>
         </div>
         <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: `1px solid #333`, color: muted, borderRadius: '8px', padding: '0.5rem 1.1rem', cursor: 'pointer', fontSize: '0.85rem' }}>
           Sign In →
