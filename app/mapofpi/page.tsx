@@ -14,25 +14,25 @@ const muted = '#888';
 const muted2 = '#555';
 
 const s: Record<string, React.CSSProperties> = {
-  page:      { background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
-  nav:       { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: `1px solid ${border}` },
-  logo:      { fontWeight: 800, fontSize: '1rem', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '10px' },
-  badge:     { display: 'inline-block', background: '#1a2a1a', border: `1px solid ${green}40`, borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: gold, marginBottom: '1.5rem' },
-  hero:      { textAlign: 'center', padding: '4rem 1.25rem 2.5rem' },
-  h1:        { fontSize: 'clamp(2.2rem, 5vw, 4rem)', fontWeight: 800, lineHeight: 1.05, marginBottom: '1.2rem', background: `linear-gradient(135deg, ${white} 40%, ${gold})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
-  sub:       { color: muted, fontSize: '1.1rem', maxWidth: '540px', margin: '0 auto 2rem', lineHeight: 1.6 },
-  ctaBtn:    { display: 'inline-block', background: gold, color: '#0a0a0a', padding: '1rem 2.5rem', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '1rem', border: 'none', cursor: 'pointer', letterSpacing: '0.02em' },
+  page: { background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
+  nav: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: `1px solid ${border}` },
+  logo: { fontWeight: 800, fontSize: '1rem', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '10px' },
+  badge: { display: 'inline-block', background: '#1a2a1a', border: `1px solid ${green}40`, borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: gold, marginBottom: '1.5rem' },
+  hero: { textAlign: 'center', padding: '4rem 1.25rem 2.5rem' },
+  h1: { fontSize: 'clamp(2.2rem, 5vw, 4rem)', fontWeight: 800, lineHeight: 1.05, marginBottom: '1.2rem', background: `linear-gradient(135deg, ${white} 40%, ${gold})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' },
+  sub: { color: muted, fontSize: '1.1rem', maxWidth: '540px', margin: '0 auto 2rem', lineHeight: 1.6 },
+  ctaBtn: { display: 'inline-block', background: gold, color: '#0a0a0a', padding: '1rem 2.5rem', borderRadius: '8px', fontWeight: 700, textDecoration: 'none', fontSize: '1rem', border: 'none', cursor: 'pointer', letterSpacing: '0.02em' },
   ctaSecond: { display: 'inline-block', background: 'transparent', color: muted, padding: '0.85rem 1.5rem', borderRadius: '8px', fontWeight: 500, textDecoration: 'none', fontSize: '0.9rem', border: `1px solid #333`, cursor: 'pointer' },
-  statsBar:  { display: 'flex', justifyContent: 'center', gap: '3rem', padding: '2rem', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, flexWrap: 'wrap' },
-  statVal:   { fontSize: '2rem', fontWeight: 800, color: gold },
-  statLbl:   { fontSize: '0.72rem', color: muted2, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' },
-  section:   { maxWidth: '900px', margin: '0 auto', padding: '3.5rem 1.25rem' },
-  h2:        { fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 800, marginBottom: '0.75rem', color: white },
-  h2sub:     { color: muted, fontSize: '1rem', marginBottom: '2.5rem', lineHeight: 1.6 },
-  card:      { background: card, border: `1px solid ${border}`, borderRadius: '14px', padding: '1.75rem' },
+  statsBar: { display: 'flex', justifyContent: 'center', gap: '3rem', padding: '2rem', borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, flexWrap: 'wrap' },
+  statVal: { fontSize: '2rem', fontWeight: 800, color: gold },
+  statLbl: { fontSize: '0.72rem', color: muted2, textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '4px' },
+  section: { maxWidth: '900px', margin: '0 auto', padding: '3.5rem 1.25rem' },
+  h2: { fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 800, marginBottom: '0.75rem', color: white },
+  h2sub: { color: muted, fontSize: '1rem', marginBottom: '2.5rem', lineHeight: 1.6 },
+  card: { background: card, border: `1px solid ${border}`, borderRadius: '14px', padding: '1.75rem' },
   partnerCard: { background: '#0d1a0d', border: `1px solid ${green}30`, borderRadius: '16px', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' },
-  pill:      { display: 'inline-block', background: '#1a2a1a', border: `1px solid ${green}40`, borderRadius: '999px', padding: '0.2rem 0.75rem', fontSize: '0.72rem', color: green, marginRight: '6px', marginBottom: '6px' },
-  footer:    { textAlign: 'center', padding: '2rem', color: '#333', fontSize: '0.8rem', borderTop: `1px solid ${border}` },
+  pill: { display: 'inline-block', background: '#1a2a1a', border: `1px solid ${green}40`, borderRadius: '999px', padding: '0.2rem 0.75rem', fontSize: '0.72rem', color: green, marginRight: '6px', marginBottom: '6px' },
+  footer: { textAlign: 'center', padding: '2rem', color: '#333', fontSize: '0.8rem', borderTop: `1px solid ${border}` },
 };
 
 const STATS_STATIC = [
@@ -51,7 +51,7 @@ const CHAMPION_PERKS = [
 
 const HOW_IT_WORKS = [
   { n: '01', title: 'Claim Your Country', desc: 'Sign up free — 90 days included. No credit card.' },
-  { n: '02', title: 'Submit Your Ad',     desc: 'Title, URL, description. 2 minutes to set up.' },
+  { n: '02', title: 'Submit Your Ad', desc: 'Title, URL, description. 2 minutes to set up.' },
   { n: '03', title: 'Antbots Go to Work', desc: 'Automated promotion starts immediately across the network.' },
 ];
 
@@ -59,14 +59,14 @@ export default function MapOfPiSplash() {
   const [vaultOpen, setVaultOpen] = useState(false);
   const [piPrice, setPiPrice] = useState<string>('...');
 
-useEffect(() => {
-  fetch('/pi-price')
-    .then((res) => res.json())
-    .then((data) => {
-      const price = data['pi-network']?.usd;
-      if (price) setPiPrice(`$${price.toFixed(4)}`);
-    });
-}, []);
+  useEffect(() => {
+    fetch('/pi-price')
+      .then((res) => res.json())
+      .then((data) => {
+        const price = data['pi-network']?.usd;
+        if (price) setPiPrice(`$${price.toFixed(4)}`);
+      });
+  }, []);
 
   return (
     <div style={s.page}>
@@ -98,21 +98,21 @@ useEffect(() => {
         </div>
       </div>
 
-           {STATS_STATIC.map(x => (
-        <div key={x.l} style={{ textAlign: 'center' }}>
-          <div style={s.statVal}>{x.v}</div>
-          <div style={s.statLbl}>{x.l}</div>
+      {/* ── STATS BAR ── */}
+      <div style={s.statsBar}>
+        {STATS_STATIC.map(x => (
+          <div key={x.l} style={{ textAlign: 'center' }}>
+            <div style={s.statVal}>{x.v}</div>
+            <div style={s.statLbl}>{x.l}</div>
+          </div>
+        ))}
+        <div style={{ textAlign: 'center' }}>
+          <div style={s.statVal}>{piPrice}</div>
+          <div style={s.statLbl}>Pi Price</div>
         </div>
-      ))}
-
-      <div style={{ textAlign: 'center' }}>
-        <div style={s.statVal}>{piPrice}</div>
-        <div style={s.statLbl}>Pi Price</div>
       </div>
-    </div>
 
       {/* ── COUNTRY CHAMPION ── */}
-
       <div style={s.section}>
         <h2 style={s.h2}>What is a Country Champion?</h2>
         <p style={s.h2sub}>
@@ -186,22 +186,21 @@ useEffect(() => {
           Claim Your Country →
         </a>
         <button onClick={() => {
-  navigator.clipboard.writeText('https://antcpu-ads.vercel.app/mapofpi?promo=MAPOFPI');
-}} style={{
-  display: 'inline-block',
-  background: 'transparent',
-  color: gold,
-  padding: '0.75rem 1.5rem',
-  borderRadius: '8px',
-  fontWeight: 600,
-  fontSize: '0.85rem',
-  border: `1px solid ${gold}40`,
-  cursor: 'pointer',
-  marginTop: '0.75rem',
-}}>
-  📋 Copy Referral Link
-</button>
-
+          navigator.clipboard.writeText('https://antcpu-ads.vercel.app/mapofpi?promo=MAPOFPI');
+        }} style={{
+          display: 'inline-block',
+          background: 'transparent',
+          color: gold,
+          padding: '0.75rem 1.5rem',
+          borderRadius: '8px',
+          fontWeight: 600,
+          fontSize: '0.85rem',
+          border: `1px solid ${gold}40`,
+          cursor: 'pointer',
+          marginTop: '0.75rem',
+        }}>
+          📋 Copy Referral Link
+        </button>
         <div style={{ marginTop: '1.25rem' }}>
           <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: 'none', color: muted2, cursor: 'pointer', fontSize: '0.85rem' }}>
             Already in the Arena? Sign In →
@@ -216,6 +215,7 @@ useEffect(() => {
       </footer>
 
       <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} />
+
     </div>
   );
 }
