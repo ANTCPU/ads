@@ -1,4 +1,4 @@
-# ANTCPU ADS — Community Flag System
+# ADS Network — Community Flag System
 > Phase 3 · Build trigger: 50+ active ads in the Arena
 
 ---
@@ -67,4 +67,4 @@
 
 ---
 
-*Last updated: 2026-05-11 · antcpu workflow architect*
+*Last updated: 7-4-2026 · antcpu workflow architect*
