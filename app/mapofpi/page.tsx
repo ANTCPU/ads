@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MAPOFPI_KB } from '../clients/mapofpi/kb';
 import VaultModal from '../components/VaultModal';
 
@@ -35,11 +35,10 @@ const s: Record<string, React.CSSProperties> = {
   footer:    { textAlign: 'center', padding: '2rem', color: '#333', fontSize: '0.8rem', borderTop: `1px solid ${border}` },
 };
 
-const STATS = [
+const STATS_STATIC = [
   { v: '2.1M+', l: 'Registered Users' },
-  { v: '148K',  l: 'Sellers' },
+  { v: '148K', l: 'Sellers' },
   { v: '173K+', l: 'Transactions' },
-  { v: '$0.17', l: 'Pi Price' },
 ];
 
 const CHAMPION_PERKS = [
@@ -58,6 +57,16 @@ const HOW_IT_WORKS = [
 
 export default function MapOfPiSplash() {
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [piPrice, setPiPrice] = useState<string>('...');
+
+useEffect(() => {
+  fetch('/pi-price')
+    .then((res) => res.json())
+    .then((data) => {
+      const price = data['pi-network']?.usd;
+      if (price) setPiPrice(`$${price.toFixed(4)}`);
+    });
+}, []);
 
   return (
     <div style={s.page}>
@@ -89,14 +98,17 @@ export default function MapOfPiSplash() {
         </div>
       </div>
 
-      {/* ── STATS BAR ── */}
-      <div style={s.statsBar}>
-        {STATS.map(x => (
-          <div key={x.l} style={{ textAlign: 'center' }}>
-            <div style={s.statVal}>{x.v}</div>
-            <div style={s.statLbl}>{x.l}</div>
-          </div>
-        ))}
+     {STATS_STATIC.map(x => (
+  <div key={x.l} style={{ textAlign: 'center' }}>
+    <div style={s.statVal}>{x.v}</div>
+    <div style={s.statLbl}>{x.l}</div>
+  </div>
+))}
+<div style={{ textAlign: 'center' }}>
+  <div style={s.statVal}>{piPrice}</div>
+  <div style={s.statLbl}>Pi Price</div>
+</div>
+
       </div>
 
       {/* ── COUNTRY CHAMPION ── */}
