@@ -68,7 +68,7 @@ export default function MapOfPiSplash() {
           <span style={{ color: '#0070f3' }}>⚡</span>
           <span>AD NETWORK</span>
           <span style={{ color: muted2, fontWeight: 400 }}>×</span>
-          <span>Featuring: 🗺️ Map of Pi</span>
+          <span>🗺️ Map of Pi</span>
         </div>
         <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: `1px solid #333`, color: muted, borderRadius: '8px', padding: '0.5rem 1.1rem', cursor: 'pointer', fontSize: '0.85rem' }}>
           Sign In →
