@@ -1,83 +1,6 @@
-# ANTCPU ADS — ARENA LIBRARY
+# ADS — ARENA LIBRARY
 > Single source of truth. Updated: 2026-05-31 (end-of-month audit)
 > Maintained by: Antony Ciccone · antcpu@gmail.com
-
----
-
-## 🌐 KEY URLS
-
-| | URL |
-|-|-----|
-| Live | https://antcpu-ads.vercel.app |
-| Supabase | https://supabase.com/dashboard/project/yeadfwqjoyemcjshydgj |
-| Local | http://localhost:3001 |
-| Discord webhook | active — fires on every signup |
-| Resend | active — welcome email on every new signup |
-
----
-
-## 👥 USERS
-
-| Name | Email | Brand | Status | Code |
-|------|-------|-------|--------|------|
-| Antony Ciccone | antcpu@gmail.com | ANTCPU | team | MAPOFPI |
-| Mohamed Elshoshani | melshoshani@gmail.com | Map of Pi | team | MAPOFPI |
-| Andri | andri.postkast@gmail.com | Map of Pi | team | MAPOFPI |
-| Amanda Mishoe | Mishoemanda@gmail.com | Amanda Photography | arena | — |
-| Test User | test@antcpu.com | Test Brand | trial | FREETRIAL |
-
----
-
-## 🗄️ SUPABASE SCHEMA
-
-### ad_signups
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | gen_random_uuid() |
-| name | text | |
-| email | text | |
-| brand_name | text | |
-| website_url | text | |
-| ad_category | text | |
-| has_used_ad_service | boolean | default false |
-| previous_ad_service | text | |
-| promo_code | text | |
-| message | text | |
-| status | text | pending / trial / arena / team |
-| trial_days | integer | default 3 |
-| trial_expiry | text | |
-| country | text | from getLocation() |
-| city | text | from getLocation() |
-| region | text | from getLocation() |
-| ip | text | from getLocation() |
-| points | integer | default 0 |
-| created_at | timestamp | now() |
-
-### ads
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid | gen_random_uuid() |
-| email | text | |
-| name | text | |
-| brand | text | |
-| title | text | |
-| url | text | |
-| description | text | |
-| category | text | |
-| status | text | pending_review / active |
-| trial_status | text | |
-| tier | text | entry / rising / featured / top_tier |
-| pinned | boolean | default false |
-| promo_code | text | default FREETRIAL |
-| points | integer | default 0 |
-| created_at | timestamp | now() |
-
-### Missing — build next
-- ad_profiles: id, email, name, brand, bio, website, contact, facebook, antcoin_wallet
-- ad_clicks: id, ad_id, email, clicked_at, source
-- payments: id, email, paypal_order_id, plan, amount, status, created_at
-
----
 
 ## 🏆 TIER SYSTEM
 
@@ -93,37 +16,7 @@
 ## 🤖 AGENTS
 
 | Agent | Role | Status |
-|-------|------|--------|
-| Aria 🦋 | Ad reviewer | Active |
-| Scout 🔍 | Scoring + notifications | Built — /api/scout/* |
-| Herald 📣 | Weekly email digest | Phase 2 |
-| Forge ⚙️ | Ad builder assistant | Phase 2 |
-| Vault 🔒 | Account protection | Phase 2 |
-
----
-
-## 📄 PAGES
-
-| Route | Who | Status |
-|-------|-----|--------|
-| / | Everyone | ✅ |
-| /login | Signup + signin | ✅ |
-| /create-ad | Ad submission | ✅ |
-| /dashboard | Admin only | ✅ |
-| /dashboard/user | All users | ✅ |
-| /dashboard/users | Admin | ✅ |
-| /dashboard/agents | Admin | ✅ |
-| /dashboard/antcpu | ANTCPU antbot pod | ✅ |
-| /dashboard/mapofpi | Map of Pi antbot pod | ✅ |
-| /dashboard/new | Admin — new client | ✅ |
-| /dashboard/leaderboard | All users | ❌ Not built |
-| /profile/[id] | Public brand profile | ✅ |
-| /profile | Profile editor | ✅ |
-| /api/scout/score | Scout scoring | ✅ |
-| /api/scout/notify | Scout notifications | ✅ |
-| /api/send-welcome | Welcome email | ✅ |
-
----
+|---10---|--Y--|----Y---|
 
 ## 🔧 PIPELINE
 
@@ -142,53 +35,15 @@
 |------|--------|------|
 | MAPOFPI | team | 90 |
 | FREETRIAL | trial | 90|
-## 🏆 TIER SYSTEM
-| *Tier* | *Points* | *Price* |
-| ----- | ----- | ----- |
-| Entry | 0 | **FREE PROMO MODE (All accounts free until August 2026)** |
-| Rising | 100 | TBD |
-| Featured | 300 | Weekly competition win |
-| Top Tier | 750 | antcpu.com/cloud · invite only |
 
----
 
-## 🚧 BUILD QUEUE
-
-## This batch
-- [ ] **FIX: Debug `ad_signups` Supabase count (Dashboard showing 0 users)**
-- [ ] /dashboard/leaderboard
-- [ ] Test mode banner on /dashboard/user
-- [ ] Wire approveAd() → Scout score API
-
-## Phase 2 — Scale & Optimization (Shifted for Free Promo Period)
-- [ ] Open signups validation & onboarding optimization
-- [ ] ad_profiles table + facebook + antcoin_wallet columns
-- [ ] ads click_count column
-
-## Phase 3 — Monetization (LAUNCHING AUGUST 2026)
-- [ ] PayPal integration
-- [ ] payments table
-- [ ] Trial expiry enforcement
-- [ ] Supabase Auth (replace localStorage)
-
-### Phase 4 — Scale
+### Phase — Scale
 - [ ] Per-client antbot tasks (dynamic)
-- [ ] antcpu.com/cloud public leaderboard
+- [ ] antcpu.cloud public leaderboard
 - [ ] Invite link system
 - [ ] Approval queue per client
 
----
 
-## 🪙 ANTCOIN × ADS
-
-| Clicks | Reward |
-|--------|--------|
-| 10 | 5 testcoin + 24hr pin |
-| 25 | 15 testcoin + Rising upgrade offer |
-| 50 | 50 testcoin + 48hr feature slot |
-| 100 | 100 testcoin + Genesis node notification |
-
----
 
 ## 📋 RULES
 
@@ -199,7 +54,7 @@
 
 ---
 
-## 🌍 I18N — 8 LANGUAGE LAUNCH (2026-05-16)
+## 🌍 I18N —  LANGUAGE LAUNCH (2026-05-16)
 
 | Locale | URL | Status |
 |--------|-----|--------|
@@ -216,22 +71,3 @@
 - Switcher: `app/components/LanguageSwitcher.tsx`
 - Arabic uses `ar.ts` with `rtl: 'true'` flag — engine sets `dir="rtl"`
 - All 8 locales registered in `app/lib/i18n/index.ts`
-
----
-
-## 📧 PARTNER OUTREACH LOG
-
-| Date | To | Subject | Status |
-|------|----|---------|--------|
-| 2026-05-09 | melshoshani@gmail.com | Welcome to the Arena, Mohamed ⚡ | ✅ sent |
-| 2026-05-16 | melshoshani@gmail.com | الساحة الآن بالعربية — ANTCPU ADS is now in Arabic ⚡ | ✅ sent · ID: c6b948a3 |
-
----
-
-## 🎓 EDU STATUS (2026-05-16)
-
-- antcpu.com/edu — v1.0.1 · LIVE
-- 26 classes across 3 departments: CPU (10) · Art (9) · Music (7)
-- antcpu.com/edu/teach — teacher application form LIVE
-- antcpu.com/edu/classroom — NOT YET BUILT
-- All classes launching June 2026 · Live sessions starting July 2026
