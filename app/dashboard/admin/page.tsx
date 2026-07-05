@@ -29,8 +29,7 @@ const TIERS = [
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [hydrated, setHydrated] = useState(false);
-  const [stats, setStats] = useState({ users: 0, ads: 0, team: 3 });
+  const [hydrated, setHydrated] = useState(false);const [stats, setStats] = useState<{ lastSignup: string; ads: number; team: number }>({ lastSignup: '—', ads: 0, team: 3 });
   const [signups, setSignups] = useState<any[]>([]);
   const [form, setForm] = useState({ title: '', url: '', description: '', category: 'Brand Awareness', tier: 'entry', email: 'antcpu@gmail.com', brand: 'ANTCPU' });
   const [saving, setSaving] = useState(false);
@@ -51,16 +50,16 @@ export default function AdminDashboard() {
   }, []);
 
   async function loadData() {
-    const [{ count: userCount }, { count: adCount }, { data: recentSignups }, { data: recentClicks }] = await Promise.all([
-      supabase.from('ad_signups').select('*', { count: 'exact', head: true }),
-      supabase.from('ads').select('*', { count: 'exact', head: true }),
-      supabase.from('ad_signups').select('name, email, brand_name, status, created_at').order('created_at', { ascending: false }).limit(10),
-      supabase.from('ad_clicks').select('ad_id, email, source, created_at').order('created_at', { ascending: false }).limit(15),
-    ]);
-    setStats({ users: userCount || 0, ads: adCount || 0, team: 3 });
-    setSignups(recentSignups || []);
-    setClicks(recentClicks || []);
-  }
+  const [{ count: adCount }, { data: recentSignups }, { data: recentClicks }] = await Promise.all([
+    supabase.from('ads').select('*', { count: 'exact', head: true }),
+    supabase.from('ad_signups').select('name, email, brand_name, status, created_at').order('created_at', { ascending: false }).limit(10),
+    supabase.from('ad_clicks').select('ad_id, email, source, created_at').order('created_at', { ascending: false }).limit(15),
+  ]);
+  const lastSignup = recentSignups?.[0]?.brand_name || recentSignups?.[0]?.name || '—';
+  setStats({ lastSignup, ads: adCount || 0, team: 3 });
+  setSignups(recentSignups || []);
+  setClicks(recentClicks || []);
+}
 
   async function handleSubmitAd() {
     if (!form.title || !form.url || !form.description) return;
@@ -121,9 +120,10 @@ export default function AdminDashboard() {
           <SectionHeader title="📊 Quick Stats" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
             {[
-              { label: 'Total Signups', value: stats.users, icon: '👥', color: '#0070f3' },
-              { label: 'Active Ads',    value: stats.ads,   icon: '📢', color: '#f0883e' },
-              { label: 'Team Members',  value: stats.team,  icon: '⚡', color: '#7928ca' },
+{ label: 'Last Signup', value: stats.lastSignup, icon: '🕐', color: '#0070f3' },
+{ label: 'Active Ads', value: stats.ads, icon: '📢', color: '#f0883e' },
+{ label: 'Team Members', value: stats.team, icon: '⚡', color: '#7928ca' },
+      
             ].map(s => (
               <div key={s.label} style={{ background: '#fafafa', border: `1px solid ${s.color}20`, borderRadius: '12px', padding: '1.25rem', textAlign: 'center' }}>
                 <div style={{ fontSize: '1.5rem' }}>{s.icon}</div>
