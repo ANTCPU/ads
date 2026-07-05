@@ -6,6 +6,7 @@ import Card from '../../components/Card';
 import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
+import { notifyDiscord } from '../../lib/discord';
 import { createClient } from '@supabase/supabase-js';
 import ArenaFooter from '../../components/ArenaFooter';
 
@@ -289,9 +290,12 @@ export default function UserDashboard() {
           )}
         </Card>
 
-        <ArenaFooter />
-
       </div>
+     <ArenaFooter />
+    </div>
+  );
+}
+
     </div>
   );
 }
