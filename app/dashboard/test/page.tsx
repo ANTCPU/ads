@@ -23,14 +23,13 @@ export default function TestDashboard() {
   }
 
    useEffect(() => {
-    const stored = localStorage.getItem('arena_user');
-    if (!stored) { router.push('/'); return; }
-    try {
-      const u = JSON.parse(stored);
-      if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
-    } catch { router.push('/'); return; }
-    load();
-  }, []);
+  const stored = localStorage.getItem('arena_user');
+  if (!stored) { router.push('/'); return; }
+  try {
+    JSON.parse(stored);
+  } catch { router.push('/'); return; }
+  load();
+}, []);
 
   if (loading || !data) return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontFamily: 'system-ui' }}>
