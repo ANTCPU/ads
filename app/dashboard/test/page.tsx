@@ -1,6 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ArenaNav from '../../components/ArenaNav';
+import ArenaFooter from '../../components/ArenaFooter';
+import { clearSessionCookie } from '../../lib/session';
 
 export default function TestDashboard() {
   const router = useRouter();
@@ -19,7 +22,15 @@ export default function TestDashboard() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+   useEffect(() => {
+    const stored = localStorage.getItem('arena_user');
+    if (!stored) { router.push('/'); return; }
+    try {
+      const u = JSON.parse(stored);
+      if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
+    } catch { router.push('/'); return; }
+    load();
+  }, []);
 
   if (loading || !data) return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555', fontFamily: 'system-ui' }}>
@@ -132,11 +143,8 @@ export default function TestDashboard() {
             {JSON.stringify(data, null, 2)}
           </pre>
         </details>
-
-        <div style={{ textAlign: 'center', padding: '2rem 0', fontSize: '0.68rem', color: '#1a1a1a' }}>
-          ⚡ ANTCPU ADS · Arena Status · Step 1 of N
-        </div>
       </div>
+      <ArenaFooter />
     </div>
   );
 }
