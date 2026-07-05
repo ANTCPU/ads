@@ -103,17 +103,32 @@ export default function AdminDashboard() {
         <Card>
           <SectionHeader title="🗂 Quick Nav" />
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {[
-              { label: '🏟 Dashboard',   path: '/dashboard/user' },
-              { label: '👥 Users',       path: '/dashboard/users' },
-              { label: '🏆 Leaderboard', path: '/dashboard/leaderboard' },
-              { label: '🤖 Agents',      path: '/dashboard/agents' },
-              { label: '🗺️ Map of Pi',   path: '/dashboard/mapofpi' },
-              { label: '📸 Photography', path: '/dashboard/photography' },
-              { label: '📢 Create Ad',   path: '/create-ad' },
-            ].map(({ label, path }) => (
-              <Pill key={path} label={label} onClick={() => router.push(path)} color="#0a0a0a" outline />
-            ))}
+           {/* ── ARENA ── */}
+<p style={{ fontSize: '0.65rem', color: '#888', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0.5rem 0 0.4rem' }}>Arena</p>
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+  <Pill label="🏟 User Dashboard" onClick={() => router.push('/dashboard/user')} color="#0070f3" outline />
+  <Pill label="🏆 Leaderboard" onClick={() => router.push('/dashboard/leaderboard')} color="#0070f3" outline />
+  <Pill label="📢 Create Ad" onClick={() => router.push('/create-ad')} color="#0070f3" outline />
+</div>
+
+{/* ── ADMIN TOOLS ── */}
+<p style={{ fontSize: '0.65rem', color: '#888', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0.5rem 0 0.4rem' }}>Admin Tools</p>
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+  <Pill label="👥 Users" onClick={() => router.push('/dashboard/users')} color="#f0883e" outline />
+  <Pill label="🤖 Agents" onClick={() => router.push('/dashboard/agents')} color="#f0883e" outline />
+  <Pill label="🦋 Approval Queue" onClick={() => router.push('/dashboard/antcpu')} color="#f0883e" outline />
+  <Pill label="🧪 Arena Status" onClick={() => router.push('/dashboard/test')} color="#f0883e" outline />
+  <Pill label="➕ New Client" onClick={() => router.push('/dashboard/new')} color="#f0883e" outline />
+</div>
+
+{/* ── BRAND DASHBOARDS ── */}
+<p style={{ fontSize: '0.65rem', color: '#888', letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0.5rem 0 0.4rem' }}>Brand Dashboards</p>
+<div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+  <Pill label="🗺️ Map of Pi" onClick={() => router.push('/dashboard/mapofpi')} color="#D4AF37" outline />
+  <Pill label="📸 Photography" onClick={() => router.push('/dashboard/photography')} color="#e91e8c" outline />
+  <Pill label="⚡ ANTCPU" onClick={() => router.push('/dashboard/antcpu')} color="#7928ca" outline />
+</div>
+
           </div>
         </Card>
 
