@@ -8,6 +8,17 @@ import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 
+const [piPrice, setPiPrice] = useState('...');
+
+useEffect(() => {
+  fetch('/pi-price')
+    .then(r => r.json())
+    .then(data => {
+      const pi = data['pi-network']?.usd;
+      if (pi) setPiPrice(`$${pi.toFixed(4)}`);
+    }).catch(() => {});
+}, []);
+
 const TEAM = [
   { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',     role: 'Founder & Project Manager', icon: '🗺️' },
   { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com',    role: 'Marketing',                 icon: '📣' },
@@ -21,7 +32,7 @@ const POSTS = [
   { id: 4,  tag: '🗺️ Discovery', text: 'Did you know? 🗺️\n\nMap of Pi has 148K+ sellers listed worldwide.\n\nFind local Pi sellers, leave honest reviews, and help build a trusted Pi marketplace.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picommerce #sellers #crypto' },
   { id: 5,  tag: '📈 Growth',   text: '173,000+ completed Pi transactions 📈\n\nMap of Pi is not a concept — it is a working Pi commerce platform with real activity every day.\n\nJoin the movement.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #picommerce #growthhacking' },
   { id: 6,  tag: '🏆 Hackathon', text: '🏆 2024 Pi Commerce Hackathon Winner\n\nMap of Pi won the official Pi Network hackathon — recognized as the best Pi commerce platform in the ecosystem.\n\nBuilt by the community. For the community.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #hackathon #picommerce #crypto' },
-  { id: 7,  tag: '🚀 Pi Price',  text: 'Pi is at $0.17 and climbing 🚀\n\nAs Pi value grows, so does the Map of Pi marketplace.\n\n148K sellers ready to transact. 2.1M+ users ready to buy.\n\nThe Pi economy is just getting started.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #crypto #picommerce' },
+  { id: 7,  tag: '🚀 Pi Price', text: `Pi is at ${piPrice} and climbing 🚀\n\nAs Pi value grows, so does the Map of Pi marketplace.\n\n148K sellers ready to transact. 2.1M+ users ready to buy.\n\nThe Pi economy is just getting started.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #picoin #crypto #picommerce` },
   { id: 8,  tag: '🌍 Global',    text: 'Pi commerce is global 🌍\n\nMap of Pi connects Pi buyers and sellers across every continent.\n\nNo borders. No banks. Just Pi.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #globalcommerce #crypto #picommerce' },
   { id: 9,  tag: '⭐ Reviews',   text: 'Trust is everything in Pi commerce ⭐\n\nMap of Pi lets buyers leave verified reviews — so the best sellers rise to the top.\n\nBuild your reputation. Grow your Pi business.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #reviews #picommerce #trust' },
   { id: 10, tag: '📱 Mobile',    text: 'Pi commerce in your pocket 📱\n\nMap of Pi works on any device. Find sellers, complete transactions, and leave reviews — all from your phone.\n\nThe future of Pi commerce is mobile.\n\n→ mapofpi.com\n\n#mapofpi #pinetwork #mobile #picommerce #crypto' },
