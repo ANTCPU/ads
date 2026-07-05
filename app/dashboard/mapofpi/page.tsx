@@ -8,17 +8,19 @@ import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 
-const TEAM = [
-  { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',      role: 'Founder & Project Manager', icon: '🗺️' },
-  { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com',      role: 'Marketing',                 icon: '📣' },
-  { name: 'Andri Nael',         email: 'andri.postkast@gmail.com',   role: 'Marketing',                 icon: '📣' },
-];
-
 const ALLOWED = [
   'antcpu@gmail.com',
   'joosdup.pj@gmail.com',
   'melshoshani@gmail.com',
   'andri.postkast@gmail.com',
+  'officialbenuches@gmail.com',
+];
+
+const TEAM = [
+  { name: 'Philip Jennings',    email: 'joosdup.pj@gmail.com',      role: 'Founder & Project Manager', icon: '🗺️' },
+  { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com',      role: 'Marketing',                 icon: '📣' },
+  { name: 'Andri Nael',         email: 'andri.postkast@gmail.com',   role: 'Marketing',                 icon: '📣' },
+  { name: 'Mr Ben',             email: 'officialbenuches@gmail.com', role: 'Early Adopter',             icon: '🌍' },
 ];
 
 export default function MapOfPiDashboard() {
@@ -102,6 +104,7 @@ export default function MapOfPiDashboard() {
         </div>
 
         {/* TEAM */}
+        <SectionHeader title="👥 Team" sub="Map of Pi brand members" />
         {TEAM.map(m => (
           <Card key={m.email}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
