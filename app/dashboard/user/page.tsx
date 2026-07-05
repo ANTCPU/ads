@@ -6,8 +6,8 @@ import Card from '../../components/Card';
 import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
-import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
+import ArenaFooter from '../../components/ArenaFooter';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -289,7 +289,7 @@ export default function UserDashboard() {
           )}
         </Card>
 
-        <ArenaFooter accent={accent} />
+        <ArenaFooter />
 
       </div>
     </div>
