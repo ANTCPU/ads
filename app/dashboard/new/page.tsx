@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import ArenaFooter from '../../components/ArenaFooter';
+import { notifyDiscord } from '../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,19 +71,12 @@ export default function NewClient() {
     }
 
     // Fire Discord notification
-    try {
-      await fetch('/api/discord-notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `⚡ **New Client Added**
+       await notifyDiscord(`⚡ **New Client Added**
 **${form.name}** · ${form.url}
 Handle: ${form.handle}
 Promo: \`${code}\`
-Brief: ${form.brief || '—'}`,
-        }),
-      });
-    } catch {}
+Brief: ${form.brief || '—'}`);
+
 
     setDone(true);
     setSaving(false);
@@ -113,6 +108,7 @@ Brief: ${form.brief || '—'}`,
         {done ? '✓ Client saved — returning to dashboard...' : saving ? 'Saving...' : '+ Create Client'}
       </button>
       <div style={s.note}>Saved to Supabase · promo code auto-generated · Discord notified</div>
+      <ArenaFooter />
     </div>
   );
 }
