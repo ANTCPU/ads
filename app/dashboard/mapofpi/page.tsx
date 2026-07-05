@@ -83,7 +83,14 @@ export default function MapOfPiDashboard() {
 
   return (
     <div style={{ background: '#fff', color: '#0a0a0a', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-      <ArenaNav onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }} />
+    <ArenaNav
+    role={user.email === 'antcpu@gmail.com' ? 'admin' : 'team'}
+    userName={user.name}
+    userEmail={user.email}
+    userBrand={user.brand}
+    trialStatus="team"
+    onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}/>
+
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem 1.5rem' }}>
 
         {/* HEADER */}
