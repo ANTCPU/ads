@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
 import { createClient } from '@supabase/supabase-js';
+import ArenaFooter from '../../components/ArenaFooter';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -68,9 +69,11 @@ export default function AgentsPage() {
 
     // Build brand stats
     const BRAND_DEFS = [
-      { id: 'antcpu', name: 'ANTCPU', icon: '⚡', color: '#f0883e', desc: 'Automated marketing · Ad network · Agent pipeline', path: '/dashboard/antcpu', emails: ['antcpu@gmail.com'] },
-      { id: 'mapofpi', name: 'Map of Pi', icon: '🗺️', color: '#D4AF37', desc: 'Pi Network marketplace · 2.1M users · Real commerce', path: '/dashboard/mapofpi', emails: allSignups.filter((s: any) => s.promo_code === 'MAPOFPI').map((s: any) => s.email) },
-    ];
+  { id: 'antcpu', name: 'ANTCPU', icon: '⚡', color: '#f0883e', desc: 'Automated marketing · Ad network · Agent pipeline', path: '/dashboard/antcpu', emails: ['antcpu@gmail.com'] },
+  { id: 'mapofpi', name: 'Map of Pi', icon: '🗺️', color: '#D4AF37', desc: 'Pi Network marketplace · 2.1M users · Real commerce', path: '/dashboard/mapofpi', emails: allSignups.filter((s: any) => s.promo_code === 'MAPOFPI').map((s: any) => s.email) },
+  { id: 'photography', name: 'Amanda Photography', icon: '📸', color: '#e91e8c', desc: 'Portrait photography · Events · Thomasville NC', path: '/dashboard/photography', emails: ['mishoemanda@gmail.com'] },
+];
+
 
     const brandStats: BrandStats[] = BRAND_DEFS.map(b => {
       const brandAds = allAds.filter(a => b.emails.includes(a.email) || a.brand?.toLowerCase().includes(b.id === 'mapofpi' ? 'map' : 'antcpu'));
@@ -183,6 +186,7 @@ export default function AgentsPage() {
         </div>
 
       </div>
+      <ArenaFooter />
     </div>
   );
 }
