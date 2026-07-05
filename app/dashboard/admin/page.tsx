@@ -7,6 +7,7 @@ import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 import { createClient } from '@supabase/supabase-js';
+import ArenaFooter from '../../components/ArenaFooter';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -235,6 +236,7 @@ export default function AdminDashboard() {
         </div>
 
       </div>
+       <ArenaFooter />
     </div>
   );
 }
