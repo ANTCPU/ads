@@ -16,8 +16,6 @@ const supabase = createClient(
 
 const TEAM = [
   { name: 'Antony Ciccone',     email: 'antcpu@gmail.com',      brand: 'ANTCPU',      role: 'Admin', icon: '⚡' },
-  { name: 'Amanda Mishoe',      email: 'mishoemanda@gmail.com', brand: 'Photography', role: 'Team',  icon: '📸' },
-  { name: 'Mohamed Elshoshani', email: 'melshoshani@gmail.com', brand: 'MAP OF PI',   role: 'Team',  icon: '🗺️' },
 ];
 
 const CATEGORIES = ['Brand Awareness','Product Launch','Pi Commerce','Photography','Content Promotion','Service Offering','Event','Other'];
@@ -167,6 +165,14 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+            <div style={{ marginTop: '1rem', background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+  <div>
+    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0a0a0a' }}>⚡ Early Adopters</div>
+    <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px' }}>The first brands in the Arena</div>
+  </div>
+  <div style={{ fontWeight: 800, fontSize: '1.4rem', color: '#f0883e' }}>{signups.length}</div>
+</div>
+
           </div>
         </Card>
 
