@@ -126,7 +126,6 @@ export default function AdminDashboard() {
 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
   <Pill label="🗺️ Map of Pi" onClick={() => router.push('/dashboard/mapofpi')} color="#D4AF37" outline />
   <Pill label="📸 Photography" onClick={() => router.push('/dashboard/photography')} color="#e91e8c" outline />
-  <Pill label="⚡ ANTCPU" onClick={() => router.push('/dashboard/antcpu')} color="#7928ca" outline />
 </div>
 
           </div>
