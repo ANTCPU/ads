@@ -46,8 +46,10 @@ export default function UserDashboard() {
     if (!stored) { router.push('/'); return; }
     try {
       const u = JSON.parse(stored);
+      if (u.email === 'antcpu@gmail.com') { router.push('/dashboard/admin'); return; }
       setUser(u);
       fetchData(u.email);
+
       supabase.from('ad_profiles').select('bio').eq('email', u.email.trim().toLowerCase()).maybeSingle().then(({ data }) => { if (data?.bio) setHasProfile(true); });
       supabase.from('ad_signups').select('promo_code').eq('email', u.email.trim().toLowerCase()).maybeSingle().then(({ data }) => {
         setReferralCode(data?.promo_code || u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || '');
@@ -91,15 +93,7 @@ export default function UserDashboard() {
       }).catch(() => {});
       // Discord milestone every 10 clicks
       if (newCount % 10 === 0) {
-        fetch(process.env.NEXT_PUBLIC_DISCORD_WEBHOOK || '', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: `👆 **Click Milestone** — ${ad.brand} hit **${newCount} clicks**
-**Ad:** "${ad.title}"
-**Email:** ${ad.email}`,
-          }),
-        }).catch(() => {});
+      notifyDiscord(`👆 **Click Milestone** — ${ad.brand} hit **${newCount} clicks**\n**Ad:** "${ad.title}"\n**Email:** ${ad.email}`);
       }
     } catch {}
   }
@@ -137,13 +131,7 @@ export default function UserDashboard() {
           }).catch(() => {});
         });
       // Discord ping on share
-      fetch(process.env.NEXT_PUBLIC_DISCORD_WEBHOOK || '', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: `↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user?.email}\n**Shares:** ${newShares}\n**Native share:** ${shared}`,
-        }),
-      }).catch(() => {});
+      notifyDiscord(`↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user?.email}\n**Shares:** ${newShares}\n**Native share:** ${shared}`);
     }
   }
 
