@@ -7,6 +7,7 @@ import SectionHeader from '../../components/SectionHeader';
 import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 import { createClient } from '@supabase/supabase-js';
+import ArenaFooter from '../../components/ArenaFooter';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,11 +42,12 @@ export default function UsersPage() {
   }, []);
 
   async function fetchUsers() {
-    setLoading(true);
-    const { data, error } = await supabase.from('ad_signups').select('*').order('created_at', { ascending: false });
-    if (!error && data) setUsers(data as User[]);
-    setLoading(false);
-  }
+  setLoading(true);
+  const res = await fetch('/api/admin/users');
+  const json = await res.json();
+  if (json.users) setUsers(json.users as User[]);
+  setLoading(false);
+}
 
   async function sendNotify(u: User) {
     const msg = prompt(`Message to ${u.name || u.email}:`);
@@ -198,11 +200,12 @@ export default function UsersPage() {
           )}
         </Card>
 
-        <div style={{ textAlign: 'center', padding: '2rem 0', color: '#aaa', fontSize: '0.78rem' }}>
-          ⚡ ANTCPU ADS · <a href="mailto:antcpu@gmail.com" style={{ color: '#aaa' }}>antcpu@gmail.com</a>
-        </div>
-
       </div>
+     <ArenaFooter />
+    </div>
+  );
+}
+
     </div>
   );
 }
