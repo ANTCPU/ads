@@ -57,16 +57,19 @@ const HOW_IT_WORKS = [
 
 export default function MapOfPiSplash() {
   const [vaultOpen, setVaultOpen] = useState(false);
-  const [piPrice, setPiPrice] = useState<string>('...');
+  const [piPrice, setPiPrice] = useState('...');
+  const [xlmPrice, setXlmPrice] = useState('...');
 
-  useEffect(() => {
-    fetch('/pi-price')
-      .then((res) => res.json())
-      .then((data) => {
-        const price = data['pi-network']?.usd;
-        if (price) setPiPrice(`$${price.toFixed(4)}`);
-      });
-  }, []);
+useEffect(() => {
+  fetch('/pi-price')
+    .then((res) => res.json())
+    .then((data) => {
+      const pi = data['pi-network']?.usd;
+      const xlm = data['stellar']?.usd;
+      if (pi) setPiPrice(`$${pi.toFixed(4)}`);
+      if (xlm) setXlmPrice(`$${xlm.toFixed(4)}`);
+    }).catch(() => {});
+}, []);
 
   return (
     <div style={s.page}>
@@ -106,10 +109,12 @@ export default function MapOfPiSplash() {
             <div style={s.statLbl}>{x.l}</div>
           </div>
         ))}
-        <div style={{ textAlign: 'center' }}>
-          <div style={s.statVal}>{piPrice}</div>
-          <div style={s.statLbl}>Pi Price</div>
-        </div>
+      <div style={s.statVal}>{piPrice}</div>
+      <div style={s.statLbl}>Pi Price</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+      <div style={s.statVal}>{xlmPrice}</div>
+      <div style={s.statLbl}>XLM Price</div>
       </div>
 
       {/* ── COUNTRY CHAMPION ── */}
