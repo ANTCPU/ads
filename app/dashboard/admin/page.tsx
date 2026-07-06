@@ -63,7 +63,7 @@ export default function AdminDashboard() {
         trialStatus="team"
         onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
-      <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '2rem 1.5rem' }}>
 
         {/* HEADER */}
         <SectionHeader title="⚡ Admin Hub" sub="ANTCPU ADS — internal control center" />
