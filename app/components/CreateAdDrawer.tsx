@@ -65,7 +65,8 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
   const [form, setForm] = useState({ title: '', url: '', description: '', category: 'Brand Awareness' });
   const [submitted, setSubmitted] = useState(false);
   const [existingAd, setExistingAd] = useState<ExistingAd | null>(null);
-  const [mode, setMode] = useState<'view' | 'edit' | 'replace' | 'new'>('new');
+  const [tab, setTab] = useState<'my-ad' | 'new-ad'>('my-ad');
+  const [editMode, setEditMode] = useState<'edit' | 'replace'>('edit');
   const [selectedBrand, setSelectedBrand] = useState('');
   const [targetEmail, setTargetEmail] = useState('');
   const [targetBrand, setTargetBrand] = useState('');
@@ -86,7 +87,8 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     setSelectedBrand(user.brand || '');
     setTargetEmail('');
     setTargetBrand('');
-    checkExisting(isAdmin && targetEmail ? targetEmail : user.email);
+    setTab('my-ad');
+    checkExisting(user.email);
   }, [open]);
 
   async function checkExisting(email: string) {
@@ -99,22 +101,16 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
       .limit(1);
     if (data && data.length > 0) {
       setExistingAd(data[0]);
-      setMode('view');
     } else {
       setExistingAd(null);
-      setMode('new');
+      setTab('new-ad');
     }
   }
 
   function startEdit(ad: ExistingAd) {
     setForm({ title: ad.title, url: ad.url, description: ad.description, category: ad.category });
     setSelectedBrand(ad.brand);
-    setMode('edit');
-  }
-
-  function startReplace() {
-    setForm({ title: '', url: '', description: '', category: 'Brand Awareness' });
-    setMode('replace');
+    setEditMode('edit');
   }
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -166,8 +162,6 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     setLoading(false);
   }
 
-  const handleAction = mode === 'edit' ? handleEdit : mode === 'replace' ? handleReplace : handleSubmit;
-
   const inp: React.CSSProperties = {
     width: '100%', background: '#111', border: '1px solid #222',
     borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff',
@@ -175,158 +169,210 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     outline: 'none', fontFamily: 'inherit',
   };
 
+  const tabBtn = (active: boolean): React.CSSProperties => ({
+    flex: 1, padding: '0.65rem', border: 'none', cursor: 'pointer',
+    fontWeight: 700, fontSize: '0.85rem', borderRadius: '8px',
+    background: active ? accent : '#1a1a1a',
+    color: active ? '#fff' : '#555',
+    transition: 'all 0.15s',
+  });
+
   if (!open) return null;
 
   return (
     <>
       {/* OVERLAY */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          zIndex: 999, backdropFilter: 'blur(2px)',
-        }}
-      />
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+        zIndex: 999, backdropFilter: 'blur(2px)',
+      }} />
 
       {/* DRAWER */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0,
         maxHeight: '92vh', overflowY: 'auto',
         background: '#0a0a0a', borderRadius: '20px 20px 0 0',
-        zIndex: 1000, padding: '1.5rem 1.25rem 2rem',
+        zIndex: 1000, padding: '1.25rem 1.5rem 2.5rem',
         boxShadow: '0 -8px 40px rgba(0,0,0,0.5)',
       }}>
 
         {/* HANDLE + CLOSE */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-          <div style={{ width: '40px', height: '4px', background: '#333', borderRadius: '999px', margin: '0 auto' }} />
+          <div style={{ width: '40px', height: '4px', background: '#333', borderRadius: '999px' }} />
+          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#888' }}>📢 Ad Builder</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
         </div>
 
-        {/* SUBMITTED STATE */}
+        {/* SUBMITTED */}
         {submitted ? (
           <div style={{ textAlign: 'center', padding: '2rem 0' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🦋</div>
             <div style={{ fontWeight: 800, fontSize: '1.3rem', color: '#fff', marginBottom: '0.5rem' }}>
-              {mode === 'edit' ? 'Ad updated.' : isAdmin ? 'Ad is live.' : 'Aria has your ad.'}
+              {editMode === 'edit' ? 'Ad updated.' : isAdmin ? 'Ad is live.' : 'Aria has your ad.'}
             </div>
-            <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              {mode === 'edit' ? 'Your changes are live.' : isAdmin ? 'Ad published directly to the Arena.' : 'Usually live within a few hours.'}
+            <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+              {editMode === 'edit' ? 'Your changes are live.' : isAdmin ? 'Ad published directly to the Arena.' : 'Usually live within a few hours.'}
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#555' }}>{getPostingTip()}</div>
+            <div style={{ fontSize: '0.78rem', color: '#555', marginBottom: '1.5rem' }}>{getPostingTip()}</div>
             <button onClick={() => { setSubmitted(false); onClose(); if (onSuccess) onSuccess(); }}
-              style={{ marginTop: '1.5rem', background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem 2rem', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', width: '100%' }}>
+              style={{ background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem 2rem', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', width: '100%' }}>
               Back to the Arena →
             </button>
           </div>
-        ) : mode === 'view' && existingAd ? (
-          /* VIEW EXISTING AD */
-          <div>
-            <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '0.25rem' }}>🦋 Aria — Your Active Ad</div>
-            <div style={{ color: '#aaa', fontSize: '0.82rem', marginBottom: '1rem' }}>
-              {existingAd.click_count === 0 && existingAd.share_count === 0
-                ? `Your ad is live. ${getPostingTip()}`
-                : `👆 ${existingAd.click_count} clicks · ↗ ${existingAd.share_count} shares · ⚡ ${existingAd.points} pts`}
-            </div>
-            <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.25rem' }}>{existingAd.title}</div>
-              <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: '0.5rem' }}>{existingAd.description}</div>
-              <div style={{ fontSize: '0.72rem', color: '#555' }}>{existingAd.url}</div>
-            </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => startEdit(existingAd)}
-                style={{ flex: 1, background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
-                ✏️ Edit
-              </button>
-              <button onClick={startReplace}
-                style={{ flex: 1, background: 'none', border: `1px solid #333`, color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
-                🔄 Replace
-              </button>
-            </div>
-          </div>
         ) : (
-          /* CREATE / EDIT / REPLACE FORM */
-          <div>
-            {/* ARIA HEADER */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff', marginBottom: '0.25rem' }}>
-                {mode === 'edit' ? "Aria — Let's improve your ad" : "Hi, I'm Aria — I'll review your ad before it goes live."}
-              </div>
-              <div style={{ fontSize: '0.82rem', color: aria.ok ? '#22c55e' : '#f0883e', padding: '0.5rem 0.75rem', background: aria.ok ? '#052e16' : '#1a0a00', borderRadius: '8px' }}>
-                {aria.message}
-              </div>
+          <>
+            {/* TABS */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <button style={tabBtn(tab === 'my-ad')} onClick={() => setTab('my-ad')}>
+                ✏️ My Ad {existingAd ? '· Active' : '· None'}
+              </button>
+              <button style={tabBtn(tab === 'new-ad')} onClick={() => { setTab('new-ad'); setForm({ title: '', url: '', description: '', category: 'Brand Awareness' }); }}>
+                ➕ New Ad {isAdmin ? '· Any Brand' : ''}
+              </button>
             </div>
 
-            {/* ADMIN OVERRIDE */}
-            {isAdmin && (
-              <div style={{ background: '#1a0f00', border: '1px solid #f0883e40', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ Admin — Place Ad For User</div>
-                <input value={targetEmail} onChange={e => setTargetEmail(e.target.value)}
-                  placeholder="User email (leave blank to use your own)"
-                  style={{ ...inp, marginBottom: '0.5rem', border: '1px solid #f0883e40' }} />
-                <input value={targetBrand} onChange={e => setTargetBrand(e.target.value)}
-                  placeholder="Brand name (e.g. Mr Ben)"
-                  style={{ ...inp, marginBottom: 0, border: '1px solid #f0883e40' }} />
-                {targetEmail && <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '0.4rem' }}>Ad will be assigned to {targetEmail}</div>}
-              </div>
+            {/* ── TAB: MY AD ── */}
+            {tab === 'my-ad' && (
+              <>
+                {!existingAd ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: '#555' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
+                    <div style={{ fontSize: '0.9rem' }}>No active ad yet.</div>
+                    <button onClick={() => setTab('new-ad')}
+                      style={{ marginTop: '1rem', background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.75rem 1.5rem', fontWeight: 700, cursor: 'pointer' }}>
+                      Create Your First Ad →
+                    </button>
+                  </div>
+                ) : editMode === 'edit' && form.title === '' ? (
+                  /* VIEW EXISTING */
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '0.5rem' }}>🦋 Aria — Your Active Ad</div>
+                    <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.25rem' }}>{existingAd.title}</div>
+                      <div style={{ color: '#888', fontSize: '0.82rem', marginBottom: '0.5rem' }}>{existingAd.description}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#555', marginBottom: '0.75rem' }}>{existingAd.url}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#666' }}>
+                        👆 {existingAd.click_count || 0} clicks · ↗ {existingAd.share_count || 0} shares · ⚡ {existingAd.points || 0} pts
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button onClick={() => startEdit(existingAd)}
+                        style={{ flex: 1, background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+                        ✏️ Edit
+                      </button>
+                      <button onClick={() => { setEditMode('replace'); setForm({ title: '', url: '', description: '', category: 'Brand Awareness' }); }}
+                        style={{ flex: 1, background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+                        🔄 Replace
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* EDIT / REPLACE FORM */
+                  <div>
+                    <div style={{ fontSize: '0.72rem', color: accent, fontWeight: 700, marginBottom: '0.75rem' }}>
+                      {editMode === 'edit' ? '✏️ Editing your active ad — changes go live immediately' : '🔄 Replace — current ad archived · new ad goes to review'}
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: aria.ok ? '#22c55e' : '#f0883e', padding: '0.5rem 0.75rem', background: aria.ok ? '#052e16' : '#1a0a00', borderRadius: '8px', marginBottom: '1rem' }}>
+                      {aria.message}
+                    </div>
+                    <input value={form.title} onChange={e => set('title', e.target.value)}
+                      placeholder="Ad headline..."
+                      style={{ ...inp, borderColor: aria.field === 'title' ? '#f0883e60' : '#222' }} />
+                    <input value={form.url} onChange={e => set('url', e.target.value)}
+                      placeholder="https://yourbrand.com"
+                      style={{ ...inp, borderColor: aria.field === 'url' ? '#f0883e60' : '#222' }} />
+                    <textarea value={form.description} onChange={e => set('description', e.target.value)}
+                      placeholder="One sentence about your brand..."
+                      rows={3}
+                      style={{ ...inp, resize: 'vertical', borderColor: aria.field === 'description' ? '#f0883e60' : '#222' }} />
+                    <select value={form.category} onChange={e => set('category', e.target.value)}
+                      style={{ ...inp, marginBottom: '1.25rem' }}>
+                      {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button onClick={() => { setEditMode('edit'); setForm({ title: '', url: '', description: '', category: 'Brand Awareness' }); }}
+                        style={{ flex: 1, background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+                        ← Back
+                      </button>
+                      <button onClick={editMode === 'edit' ? handleEdit : handleReplace} disabled={!aria.ok || loading}
+                        style={{ flex: 2, background: aria.ok ? accent : '#222', border: 'none', color: aria.ok ? '#fff' : '#555', borderRadius: '8px', padding: '0.85rem', fontWeight: 800, fontSize: '0.95rem', cursor: aria.ok ? 'pointer' : 'not-allowed' }}>
+                        {loading ? 'Saving...' : editMode === 'edit' ? '✏️ Save Changes' : '🔄 Submit New Ad'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
-            {/* MULTI BRAND SELECTOR */}
-            {brands && (
-              <div style={{ marginBottom: '1rem' }}>
-                <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.5rem' }}>Which brand is this ad for?</div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {brands.map(b => (
-                    <button key={b.brand} onClick={() => setSelectedBrand(b.brand)} style={{
-                      flex: 1, padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem',
-                      background: selectedBrand === b.brand ? accent : '#111',
-                      border: `1px solid ${selectedBrand === b.brand ? accent : '#333'}`,
-                      color: selectedBrand === b.brand ? '#fff' : '#666',
-                    }}>{b.icon} {b.label}</button>
-                  ))}
+            {/* ── TAB: NEW AD ── */}
+            {tab === 'new-ad' && (
+              <div>
+                {/* ADMIN OVERRIDE */}
+                {isAdmin && (
+                  <div style={{ background: '#1a0f00', border: '1px solid #f0883e40', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ Admin — Place Ad For User</div>
+                    <input value={targetEmail} onChange={e => setTargetEmail(e.target.value)}
+                      placeholder="User email (leave blank to use your own)"
+                      style={{ ...inp, marginBottom: '0.5rem', border: '1px solid #f0883e40' }} />
+                    <input value={targetBrand} onChange={e => setTargetBrand(e.target.value)}
+                      placeholder="Brand name (e.g. Mr Ben)"
+                      style={{ ...inp, marginBottom: 0, border: '1px solid #f0883e40' }} />
+                    {targetEmail && <div style={{ fontSize: '0.72rem', color: '#888', marginTop: '0.4rem' }}>⚡ Ad will be assigned to {targetEmail}</div>}
+                  </div>
+                )}
+
+                {/* MULTI BRAND */}
+                {brands && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.5rem' }}>Which brand is this ad for?</div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {brands.map(b => (
+                        <button key={b.brand} onClick={() => setSelectedBrand(b.brand)} style={{
+                          flex: 1, padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem',
+                          background: selectedBrand === b.brand ? accent : '#111',
+                          border: `1px solid ${selectedBrand === b.brand ? accent : '#333'}`,
+                          color: selectedBrand === b.brand ? '#fff' : '#666',
+                        }}>{b.icon} {b.label}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ARIA */}
+                <div style={{ fontSize: '0.82rem', color: aria.ok ? '#22c55e' : '#f0883e', padding: '0.5rem 0.75rem', background: aria.ok ? '#052e16' : '#1a0a00', borderRadius: '8px', marginBottom: '1rem' }}>
+                  {aria.message}
                 </div>
+
+                <div style={{ fontSize: '0.72rem', color: '#555', marginBottom: '0.75rem' }}>
+                  {isAdmin ? '⚡ Admin — publishes directly to Arena' : '2 minutes to go live · Entry tier · free'}
+                </div>
+
+                <input value={form.title} onChange={e => set('title', e.target.value)}
+                  placeholder={`What does ${resolvedBrand || 'your brand'} offer?`}
+                  style={{ ...inp, borderColor: aria.field === 'title' || aria.field === 'seed' ? '#f0883e60' : '#222' }} />
+                <input value={form.url} onChange={e => set('url', e.target.value)}
+                  placeholder="https://yourbrand.com"
+                  style={{ ...inp, borderColor: aria.field === 'url' ? '#f0883e60' : '#222' }} />
+                <textarea value={form.description} onChange={e => set('description', e.target.value)}
+                  placeholder="One sentence about what makes your brand worth clicking..."
+                  rows={3}
+                  style={{ ...inp, resize: 'vertical', borderColor: aria.field === 'description' ? '#f0883e60' : '#222' }} />
+                <select value={form.category} onChange={e => set('category', e.target.value)}
+                  style={{ ...inp, marginBottom: '1.25rem' }}>
+                  {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+
+                <button onClick={handleSubmit} disabled={!aria.ok || loading}
+                  style={{
+                    width: '100%', padding: '1rem', borderRadius: '10px', border: 'none',
+                    background: aria.ok ? accent : '#222', color: aria.ok ? '#fff' : '#555',
+                    fontWeight: 800, fontSize: '1rem', cursor: aria.ok ? 'pointer' : 'not-allowed',
+                  }}>
+                  {loading ? 'Submitting...' : isAdmin ? '⚡ Publish Now' : '🚀 Submit to Arena'}
+                </button>
               </div>
             )}
-
-            {/* FORM HEADER */}
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem' }}>
-                {mode === 'edit' ? '✏️ Edit Your Ad' : mode === 'replace' ? '🔄 New Ad — Replace Current' : 'Create Your Ad'}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '2px' }}>
-                {mode === 'edit' ? 'Changes go live immediately' : mode === 'replace' ? 'Current ad archived · new ad goes to review' : isAdmin ? 'Admin — publishes directly to Arena' : '2 minutes to go live · Entry tier · free'}
-              </div>
-            </div>
-
-            {/* FIELDS */}
-            <input value={form.title} onChange={e => set('title', e.target.value)}
-              placeholder={`What does ${resolvedBrand || 'your brand'} offer?`}
-              style={{ ...inp, borderColor: aria.field === 'title' || aria.field === 'seed' ? '#f0883e60' : '#222' }} />
-            <input value={form.url} onChange={e => set('url', e.target.value)}
-              placeholder="https://yourbrand.com"
-              style={{ ...inp, borderColor: aria.field === 'url' ? '#f0883e60' : '#222' }} />
-            <textarea value={form.description} onChange={e => set('description', e.target.value)}
-              placeholder="One sentence about what makes your brand worth clicking..."
-              rows={3}
-              style={{ ...inp, resize: 'vertical', borderColor: aria.field === 'description' ? '#f0883e60' : '#222' }} />
-
-            {/* CATEGORY */}
-            <select value={form.category} onChange={e => set('category', e.target.value)}
-              style={{ ...inp, marginBottom: '1.25rem' }}>
-              {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-
-            {/* SUBMIT */}
-            <button onClick={handleAction} disabled={!aria.ok || loading}
-              style={{
-                width: '100%', padding: '1rem', borderRadius: '10px', border: 'none',
-                background: aria.ok ? accent : '#222', color: aria.ok ? '#fff' : '#555',
-                fontWeight: 800, fontSize: '1rem', cursor: aria.ok ? 'pointer' : 'not-allowed',
-                transition: 'background 0.2s',
-              }}>
-              {loading ? 'Submitting...' : mode === 'edit' ? '✏️ Save Changes' : mode === 'replace' ? '🔄 Submit New Ad' : isAdmin ? '⚡ Publish Now' : '🚀 Submit to Arena'}
-            </button>
-          </div>
+          </>
         )}
       </div>
     </>
