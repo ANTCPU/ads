@@ -353,7 +353,7 @@ export default function ArenaUniversalClient() {
                         whiteSpace: 'nowrap',
                       }}
                       onMouseEnter={e => { (e.currentTarget.style.color = white); (e.currentTarget.style.borderColor = '#333'); }}
-                      onMouseLeave={e => { (e.currentTarget.style.color = isToast && toast?.msg === 'Link copied!' ? '#00ff88' : muted; (e.currentTarget.style.borderColor = border); }}
+                      onMouseLeave={e => { (e.currentTarget.style.color = isToast && toast?.msg === 'Link copied!' ? '#00ff88' : muted); (e.currentTarget.style.borderColor = border); }}
                     >
                       {isToast && toast?.msg === 'Link copied!' ? '✓ Copied' : '🔗 Share'}
                     </button>
