@@ -79,17 +79,18 @@ export default function ArenaUniversalClient() {
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: (a.click_count || 0) + 1 } : a));
   }
 
-async function handleShare(ad: Ad) {
-    // Read the stored brand slug if it exists, clean it up for the URL, or fallback to general feed
-    const brandSlug = user?.brand ? user.brand.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-    const link = brandSlug ? `https://antcpu-ads.vercel.app/arena/${brandSlug}#ad-${ad.id}` : `https://antcpu-ads.vercel.app/arena#ad-${ad.id}`;
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch { }
-    showToast(ad.id, 'Link copied!');
-    await supabase.from('ads').update({ share_count: (ad.share_count || 0) + 1 }).eq('id', ad.id);
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: (a.share_count || 0) + 1 } : a));
+  async function handleShare(ad: Ad) {
+  // Use ad's own brand slug — short URL via /s/[id]
+  const shortId = ad.id.slice(0, 8);
+  const link = `https://antcpu-ads.vercel.app/s/${shortId}`;
+  try {
+    await navigator.clipboard.writeText(link);
+  } catch { }
+  showToast(ad.id, 'Link copied!');
+  await supabase.from('ads').update({ share_count: (ad.share_count || 0) + 1 }).eq('id', ad.id);
+  setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: (a.share_count || 0) + 1 } : a));
   }
+
 
   const isAdmin = user.email === 'antcpu@gmail.com';
   const isTeam = user.trialStatus === 'team';
