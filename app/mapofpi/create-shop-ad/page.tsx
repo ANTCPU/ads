@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { notifyDiscord } from '../../lib/discord';
 import { sanitizeDescription, containsUrl } from '../../lib/sanitize';
 import { getAriaLine } from '../../lib/ariaLines';
+import { tokens, inp, nextBtn, backBtn, macBtn } from '../../lib/shopAdStyles';
 import { buildPod } from '../../antbots/index';
 import { MAPOFPI_ICONS, MAPOFPI_COUNTRIES } from '../../clients/mapofpi/assets';
 import CountryPicker from '../../components/CountryPicker';
@@ -16,15 +17,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const green  = '#2E7D32';
-const gold   = '#D4AF37';
-const bg     = '#0a0a0a';
-const card   = '#111';
-const border = '#1a1a1a';
-const white  = '#fff';
-const muted  = '#888';
-const muted2 = '#444';
-
+const { green, gold, bg, card, border, white, muted, muted2 } = tokens;
 type Step = 1 | 2 | 3 | 4 | 5;
 
 export default function CreateShopAdPage() {
@@ -86,8 +79,8 @@ export default function CreateShopAdPage() {
     setLaunching(true);
     setStep(5);
 
-    const sel      = MAPOFPI_COUNTRIES.find(c => c.code === country);
-    const icon     = MAPOFPI_ICONS.find(i => i.slug === shopType);
+    const sel       = MAPOFPI_COUNTRIES.find(c => c.code === country);
+    const icon      = MAPOFPI_ICONS.find(i => i.slug === shopType);
     const cleanDesc = sanitizeDescription(description);
 
     const pod = buildPod({
@@ -113,13 +106,13 @@ export default function CreateShopAdPage() {
 
     if (inserted?.id) {
       try {
-  await supabase.from('antbot_pods').insert([{
-    ad_id: inserted.id, email: user.email || 'mapofpi@champion.app',
-    brand: 'Map of Pi', country: sel?.name || '', language,
-    pod_json: JSON.stringify(pod.map(b => ({ id: b.id, channel: b.channel, task: b.task }))),
-  }]);
-} catch {}
-
+        await supabase.from('antbot_pods').insert([{
+          ad_id: inserted.id, email: user.email || 'mapofpi@champion.app',
+          brand: 'Map of Pi', country: sel?.name || '', language,
+          pod_json: JSON.stringify(pod.map(b => ({ id: b.id, channel: b.channel, task: b.task }))),
+        }]);
+      } catch {}
+    }
 
     notifyDiscord(`🗺️ **New Country Champion**\n**Shop:** ${shopName}\n**Type:** ${icon?.label}\n**Country:** ${sel?.flag} ${sel?.name}\n**Language:** ${language}\n**Email:** ${user.email || 'anonymous'}`);
 
@@ -142,28 +135,7 @@ export default function CreateShopAdPage() {
   const selectedIcon    = MAPOFPI_ICONS.find(i => i.slug === shopType);
   const selectedCountry = MAPOFPI_COUNTRIES.find(c => c.code === country);
   const canAdvance      = [shopType !== '', shopName.trim().length >= 2, country !== '', description.trim().length >= 10];
-
-  const inp: React.CSSProperties = {
-    width: '100%', background: card, border: `1px solid ${border}`,
-    borderRadius: '10px', padding: '0.85rem 1rem', color: white,
-    fontSize: '0.95rem', outline: 'none', fontFamily: 'system-ui, sans-serif', boxSizing: 'border-box',
-  };
-  const nextBtn = (on: boolean): React.CSSProperties => ({
-    width: '100%', padding: '1rem', borderRadius: '12px', border: 'none',
-    background: on ? gold : muted2, color: on ? '#0a0a0a' : muted,
-    fontWeight: 800, fontSize: '1rem', cursor: on ? 'pointer' : 'not-allowed',
-    transition: 'background 0.2s', marginTop: '1.5rem',
-  });
-  const backBtn: React.CSSProperties = {
-    ...nextBtn(true), background: muted2, color: muted,
-    flex: '0 0 auto', width: 'auto', padding: '1rem 1.5rem', marginTop: 0,
-  };
-  const macBtn: React.CSSProperties = {
-    background: 'none', border: `1px solid ${green}40`, borderRadius: '8px',
-    color: green, fontSize: '0.72rem', padding: '0.3rem 0.7rem',
-    cursor: 'pointer', fontWeight: 600,
-  };
-  const STEP_LABELS = ['Pick your shop type', 'Name your shop', 'Choose your country', 'Describe your shop', 'Launching your campaign'];
+  const STEP_LABELS     = ['Pick your shop type', 'Name your shop', 'Choose your country', 'Describe your shop', 'Launching your campaign'];
 
   return (
     <div style={{ background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
@@ -256,13 +228,9 @@ export default function CreateShopAdPage() {
               <h2 style={{ fontWeight: 800, fontSize: '1.3rem', margin: 0 }}>Describe your shop</h2>
               <button style={macBtn} onClick={() => { setMacField('description'); setMacOpen(true); }}>💬 Ask M.A.C.</button>
             </div>
-
-            {/* Aria hint */}
             <div style={{ marginBottom: '0.75rem' }}>
               {loadingHint ? (
-                <div style={{ fontSize: '0.78rem', color: green, padding: '0.5rem 0.75rem', background: `${green}10`, borderRadius: '8px' }}>
-                  🦋 Aria is writing a suggestion...
-                </div>
+                <div style={{ fontSize: '0.78rem', color: green, padding: '0.5rem 0.75rem', background: `${green}10`, borderRadius: '8px' }}>🦋 Aria is writing a suggestion...</div>
               ) : descHint ? (
                 <div onClick={() => setDescription(descHint)} style={{ fontSize: '0.78rem', color: green, padding: '0.5rem 0.75rem', background: `${green}10`, border: `1px solid ${green}30`, borderRadius: '8px', cursor: 'pointer' }}>
                   🦋 Aria suggests: <em>&ldquo;{descHint}&rdquo;</em> <span style={{ color: muted }}>tap to use</span>
@@ -273,23 +241,13 @@ export default function CreateShopAdPage() {
                 </button>
               )}
             </div>
-
-            <textarea
-              style={{ ...inp, resize: 'vertical', minHeight: '100px' } as React.CSSProperties}
-              placeholder="Tell people what makes your shop worth visiting..."
-              value={description}
-              onChange={e => handleDescChange(e.target.value)}
-              maxLength={120}
-              autoFocus
-            />
+            <textarea style={{ ...inp, resize: 'vertical', minHeight: '100px' } as React.CSSProperties} placeholder="Tell people what makes your shop worth visiting..." value={description} onChange={e => handleDescChange(e.target.value)} maxLength={120} autoFocus />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem' }}>
               <div style={{ fontSize: '0.68rem', color: urlWarning ? '#f0883e' : muted2 }}>
                 {urlWarning ? '⚠️ Links removed automatically — plain words only' : '💡 No links or URLs allowed'}
               </div>
               <div style={{ fontSize: '0.72rem', color: muted }}>{description.length}/120</div>
             </div>
-
-            {/* Live preview */}
             {shopName && shopType && (
               <div style={{ marginTop: '1.25rem', background: '#0d1a0d', border: `1px solid ${green}30`, borderRadius: '14px', padding: '1.25rem' }}>
                 <div style={{ fontSize: '0.65rem', color: green, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Ad Preview</div>
@@ -304,7 +262,6 @@ export default function CreateShopAdPage() {
                 <div style={{ marginTop: '0.75rem', fontSize: '0.7rem', color: muted2 }}>🗺️ Map of Pi · Entry Tier · 10 antbots ready</div>
               </div>
             )}
-
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
               <button style={backBtn} onClick={() => setStep(3)}>← Back</button>
               <button style={{ ...nextBtn(canAdvance[3]), flex: 1, marginTop: 0 }} onClick={() => canAdvance[3] && handleLaunch()}>🚀 Launch Campaign →</button>
@@ -324,15 +281,12 @@ export default function CreateShopAdPage() {
                 Building your pod for {selectedCountry?.flag} {selectedCountry?.name} · {language.toUpperCase()}
               </div>
             )}
-
             <AntbotLaunchGrid activeBot={activeBot} launched={launched} launching={launching} accentColor={green} />
-
             {ariaMsg && (
               <div style={{ background: `${green}15`, border: `1px solid ${green}40`, borderRadius: '14px', padding: '1.25rem', marginBottom: '1.5rem', fontSize: '0.9rem', color: '#ccc', lineHeight: 1.6, textAlign: 'left' }}>
                 {ariaMsg}
               </div>
             )}
-
             {launched && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <a href="/mapofpi/icons/arena" style={{ display: 'block', background: green, color: white, padding: '1rem', borderRadius: '12px', fontWeight: 800, textDecoration: 'none', fontSize: '1rem' }}>
@@ -351,9 +305,7 @@ export default function CreateShopAdPage() {
       </div>
 
       <MacChatOverlay open={macOpen} onClose={() => setMacOpen(false)} fieldContext={macField} language={language} brandContext="Map of Pi" />
-
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-}
 }
