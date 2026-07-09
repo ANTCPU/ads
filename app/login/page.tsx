@@ -150,7 +150,7 @@ export default function Page() {
         </button>
       </nav>
 
-      {/* HERO */}
+            {/* HERO */}
       <div style={{ textAlign: 'center', padding: '3.5rem 1.25rem 2rem' }}>
         <div style={{ display: 'inline-block', background: '#111', border: `1px solid ${accent}30`, borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: gold, marginBottom: '1.5rem' }}>
           {brand.badgeText}
@@ -158,7 +158,7 @@ export default function Page() {
         <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, marginBottom: '1.2rem', background: `linear-gradient(135deg, ${white} 40%, ${gold})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           {brand.headline}<br />{brand.headlineSub}
         </h1>
-        <p style={{ color: muted, fontSize: '1.1rem', maxWidth: '520px', margin: '0 auto 2rem', lineHeight: 1.6 }}>
+        <p style={{ color: muted, fontSize: '1.1rem', maxWidth: '520px', margin: '0 auto', lineHeight: 1.6 }}>
           {brand.subText}
         </p>
       </div>
@@ -180,8 +180,6 @@ export default function Page() {
       {/* FORM CARD */}
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 1.25rem 2rem' }}>
         <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem' }}>
-
-          {/* BRAND FLOW — single email → redirect */}
           {isBrand ? (
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.5rem' }}>{brand.ctaLabel}</div>
@@ -193,9 +191,7 @@ export default function Page() {
               </button>
               <div style={{ fontSize: '0.72rem', color: muted2, textAlign: 'center', marginTop: '0.75rem' }}>{brand.trialLabel}</div>
             </div>
-
           ) : (
-            /* DEFAULT FLOW — 3-step form */
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.5rem' }}>Start Free</div>
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
