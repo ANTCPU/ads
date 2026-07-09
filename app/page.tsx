@@ -12,7 +12,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   const [piPrice, setPiPrice] = useState('...');
   const rtl = isRTL(locale);
 
-  scroll handler:
 useEffect(() => {
   setMounted(true);
   fetch('/pi-price').then(r => r.json()).then(d => {
