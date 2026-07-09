@@ -1,70 +1,72 @@
-# ADS Network — Community Flag System
-> Phase 3 · Build trigger: 50+ active ads in the Arena
+# ADS Network - Community Standards
+
+> The Arena is built on trust. This document describes how the community self-governs.
 
 ---
 
-## Role Structure
+## The Principle
 
-| Role  | Who                  | Permissions                              |
-|-------|----------------------|------------------------------------------|
-| Admin | antcpu@gmail.com     | Full control — approve, reject, manage   |
-| Mod   | Assigned by admin    | Flag button visible · anonymous to users |
-| User  | Everyone else        | Browse, create ads, refer others         |
+The Arena is a points-driven meritocracy. Ads rise and fall based on engagement — not on who paid more or who complained louder. The community flag system exists for one purpose only: **removing genuinely inappropriate content.**
+
+It is not a competitive tool. It is not a way to suppress rivals. It is a last resort.
 
 ---
 
-## Flag Flow
+## Roles
 
-1. **Mod** sees inappropriate ad → hits 🚩 Flag button
-2. **System** emails admin + ad creator with warning
-3. **Ad** enters `flagged` status — still visible, marked with warning
-4. **Ad creator** has 72 hours to respond or fix
-5. **No response** → community vote opens to all active users
-6. **Vote passes** (threshold TBD) → ad deleted automatically
-7. **Vote fails** → ad restored to `active`
+| Role | Who | What they can do |
+|------|-----|-----------------|
+| Admin | ANTCPU team | Full control — approve, reject, manage all content |
+| Moderator | Assigned by admin | Flag inappropriate ads · anonymous to other users |
+| Member | Everyone | Browse, create ads, refer others, vote on flagged content |
 
----
-
-## Rules
-
-- Flag system is for **inappropriate content only**
-- NOT a performance tool — ads sort themselves by points naturally
-- Mods are anonymous to other users
-- Admin sees full flagged queue in /dashboard
-- Mods see flagged queue + flag button on arena cards
-- Users see nothing — clean experience
+Moderators are anonymous. Their identity is never revealed to other members.
 
 ---
 
-## What Needs Building (Phase 3)
+## The Flag Flow
 
-- [ ] `ad_signups.role` column — admin / mod / user
-- [ ] `ads.flagged_count` column
-- [ ] `ads` status — add `flagged` to enum
-- [ ] Flag button on arena cards (mod role only)
-- [ ] Flagged queue in /dashboard admin view
-- [ ] Email notification on flag → Resend → admin + creator
-- [ ] 72hr warning timer on flagged ads
-- [ ] Community vote UI — simple yes/no per active user
-- [ ] Auto-delete on vote pass
-- [ ] Mod assignment in /dashboard/users admin panel
+When a moderator flags an ad:
 
----
+1. **Flag** — Moderator hits 🚩 on an ad card
+2. **Warning** — System notifies the ad creator · 72-hour response window opens
+3. **Response** — Creator edits or responds within 72 hours → ad restored
+4. **No response** → Community vote opens to all active members
+5. **Vote passes** → Ad removed automatically
+6. **Vote fails** → Ad restored to active
 
-## Trigger Condition
-
-> Do not build until 50+ active ads exist in the Arena.
-> Community self-governance only works with real volume.
+The threshold for vote passage is set by the admin and may change as the community grows.
 
 ---
 
-## Notes
+## What Gets Flagged
 
-- Mods get a subtle badge in ArenaNav (visible only to them)
-- Test account (test@antcpu.com) will be used to simulate mod flow
-- Phase 2 copilot (test account) guides new brands onboarding
-- Phase 3 community flag builds on top of Phase 2 user base
+Flaggable content:
+- Spam or misleading claims
+- Inappropriate or offensive material
+- Impersonation of another brand
+- Content that violates platform terms
+
+Not flaggable:
+- Ads you personally dislike
+- Competitor ads
+- Ads with low points or poor performance
 
 ---
 
-*Last updated: 7-4-2026 · antcpu workflow architect*
+## Phase 3
+
+The community flag system is a **Phase 3 feature.** It will not be built until the Arena has sufficient volume to make community governance meaningful.
+
+When Phase 3 opens, moderator applications will be announced here.
+
+---
+
+## The Standard
+
+> Build something worth advertising. Represent your brand with integrity.
+> The Arena rewards consistency, not shortcuts.
+
+---
+
+*Last updated: July 2026 · ANTCPU*
