@@ -1,20 +1,20 @@
 // ============================================================
 // lib/sanitize.ts — Field sanitizers
 // Reusable across: create-shop-ad, login, CreateAdDrawer,
-//                  any future form that accepts user text
+// any future form that accepts user text
 // ============================================================
 
 /**
  * Strips URLs, bare domains, and @handles from free-text fields.
  * Used on description fields where links are not allowed.
+ * NOTE: does NOT trim — call on blur, not on every keystroke.
  */
 export function sanitizeDescription(raw: string): string {
   return raw
     .replace(/https?:\/\/[^\s]+/gi, '')
     .replace(/\b(?:www\.)?[\w-]+\.[a-z]{2,}(?:\/[^\s]*)?\b/gi, '')
     .replace(/@[\w.]+/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+    .replace(/\s{2,}/g, ' ');
 }
 
 /**
@@ -26,9 +26,18 @@ export function containsUrl(raw: string): boolean {
 }
 
 /**
- * Strips leading/trailing whitespace and collapses internal spaces.
- * Safe to run on any field.
+ * Collapses multiple spaces into one.
+ * Safe to run on every keystroke — does NOT trim edges.
+ * Call .trim() separately on submit only.
  */
 export function sanitizeText(raw: string): string {
+  return raw.replace(/\s{2,}/g, ' ');
+}
+
+/**
+ * Final submit sanitizer — trim + collapse spaces.
+ * Call this on form submit, not on keystroke.
+ */
+export function sanitizeOnSubmit(raw: string): string {
   return raw.replace(/\s{2,}/g, ' ').trim();
 }
