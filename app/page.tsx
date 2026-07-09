@@ -371,64 +371,47 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* ── FEATURED PARTNER CARD ─────────────────────────────── */}
-        <section style={{ padding: 'clamp(60px, 8vw, 100px) 0' }}>
+                {/* ── FEATURED PARTNER CARD ─────────────────────────────── */}
+        <section style={{ padding: 'clamp(60px, 8vw, 100px) 0', position: 'relative' }}>
           <div style={sectionStyle}>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-              <div style={sectionHeadStyle}>Featured Partner</div>
-            </div>
-            <div style={{
-              background: card,
-              border: `1px solid ${gold}`,
-              borderRadius: '16px',
-              padding: 'clamp(28px, 4vw, 48px)',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: `0 0 60px rgba(212,175,55,0.12)`,
-            }}>
+            <div style={{ fontSize: 'clamp(11px, 1.2vw, 12px)', fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: muted2, marginBottom: '16px' }}>Featured Partner</div>
+            <div style={{ background: '#0d1a0d', border: `1px solid ${gold}30`, borderRadius: '20px', padding: 'clamp(24px, 4vw, 48px)', position: 'relative', overflow: 'hidden' }}>
               {/* gold glow corner */}
-              <div style={{ position: 'absolute', top: 0, right: 0, width: '200px', height: '200px', background: 'radial-gradient(circle at top right, rgba(212,175,55,0.15), transparent 70%)', pointerEvents: 'none' }} />
-
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: '1 1 320px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '32px' }}>🗺️</span>
-                    <div>
-                      <div style={{ fontSize: '22px', fontWeight: 800, color: white, letterSpacing: '-0.5px' }}>Map of Pi</div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: gold, letterSpacing: '2px', textTransform: 'uppercase' }}>Featured Partner</div>
-                    </div>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: '300px', height: '300px', background: `radial-gradient(circle at top right, ${gold}15, transparent 70%)`, pointerEvents: 'none' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ fontSize: '48px' }}>🗺️</div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '22px', color: white }}>Map of Pi</div>
+                  <div style={{ color: gold, fontSize: '13px', fontWeight: 600 }}>Featured Partner</div>
+                </div>
+              </div>
+              <div style={{ color: muted, fontSize: '14px', marginBottom: '24px' }}>🏆 2024 Pi Commerce Hackathon Winner — Pi Network v1.8</div>
+              {/* Stats grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+                {[
+                  { v: '2.1M+', l: 'Registered Users' },
+                  { v: '148K', l: 'Sellers' },
+                  { v: '173K+', l: 'Transactions' },
+                  { v: piPrice, l: 'Pi Price' },
+                ].map((st, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: gold }}>{st.v}</div>
+                    <div style={{ fontSize: '11px', color: muted2, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{st.l}</div>
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: gold, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    🏆 2024 Pi Commerce Hackathon Winner — Pi Network v1.8
-                  </div>
-
-                  {/* Stats grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                    {[
-                      { v: '2.1M+', l: 'Registered Users' },
-                      { v: '148K', l: 'Sellers' },
-                      { v: '173K+', l: 'Transactions' },
-                      { v: piPrice, l: 'Pi Price' },
-                    ].map((st, i) => (
-                      <div key={i} style={{ background: '#161616', border: `1px solid #2a2a20`, borderRadius: '8px', padding: '10px 14px' }}>
-                        <div style={{ fontSize: '18px', fontWeight: 800, color: gold }}>{st.v}</div>
-                        <div style={{ fontSize: '11px', color: muted, marginTop: '2px' }}>{st.l}</div>
-                      </div>
-                    ))}
-                  </div>
-                 <div style={{ background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: gold, lineHeight: 1.5 }}>
-  🏆 <strong>Country Champion Program</strong> — 90 days free · 10 antbots · Represent your country in the Arena
-</div>
-<div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-  <a href="/mapofpi" className="partner-link" style={{ background: gold, color: '#0a0a0a', padding: '10px 20px', borderRadius: '8px', fontWeight: 800, textDecoration: 'none', fontSize: '14px' }}>🗺️ Claim Your Country →</a>
-  <a href="/mapofpi/icons/arena" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>View Champions →</a>
-  <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>▶ YouTube</a>
-</div>
-                  
+                ))}
+              </div>
+              <div style={{ background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: gold, lineHeight: 1.5 }}>
+                🏆 <strong>Country Champion Program</strong> — 90 days free · 10 antbots · Represent your country in the Arena
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <a href="/mapofpi" className="partner-link" style={{ background: gold, color: '#0a0a0a', padding: '10px 20px', borderRadius: '8px', fontWeight: 800, textDecoration: 'none', fontSize: '14px' }}>🗺️ Claim Your Country →</a>
+                <a href="/mapofpi/icons/arena" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>View Champions →</a>
+                <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>▶ YouTube</a>
               </div>
             </div>
           </div>
         </section>
+
 
         {/* ── HOW IT WORKS ─────────────────────────────────────── */}
         <section style={{ padding: 'clamp(60px, 8vw, 100px) 0', borderTop: `1px solid ${border}` }}>
