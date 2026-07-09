@@ -104,7 +104,14 @@ export default function ArenaUniversalClient() {
 
   return (
     <div style={{ background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-      <ArenaNav />
+      <ArenaNav
+  role={user.trialStatus === 'team' ? 'team' : user.email === 'antcpu@gmail.com' ? 'admin' : 'user'}
+  userName={user.name}
+  userEmail={user.email}
+  userBrand={user.brand}
+  trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+/>
+
 
       {/* ── PREVIEW MODAL — FIX: all references use `preview` not undefined `ad`/`color`/`isToast` ── */}
       {preview && (() => {
