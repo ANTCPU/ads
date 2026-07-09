@@ -9,14 +9,20 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [piPrice, setPiPrice] = useState('...');
   const rtl = isRTL(locale);
 
-  useEffect(() => {
-    setMounted(true);
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  scroll handler:
+useEffect(() => {
+  setMounted(true);
+  fetch('/pi-price').then(r => r.json()).then(d => {
+    const pi = d['pi-network']?.usd;
+    if (pi) setPiPrice(`$${pi.toFixed(4)}`);
+  }).catch(() => {});
+  const handleScroll = () => setScrolled(window.scrollY > 20);
+  window.addEventListener('scroll', handleScroll);
+  return () => window.removeEventListener('scroll', handleScroll);
+}, []);
 
   // ── TOKENS ──────────────────────────────────────────────────────
   const bg        = '#0a0a0a';
@@ -403,7 +409,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                       { v: '2.1M+', l: 'Registered Users' },
                       { v: '148K', l: 'Sellers' },
                       { v: '173K+', l: 'Transactions' },
-                      { v: '$0.17', l: 'Pi Price' },
+                      { v: piPrice, l: 'Pi Price' },
                     ].map((st, i) => (
                       <div key={i} style={{ background: '#161616', border: `1px solid #2a2a20`, borderRadius: '8px', padding: '10px 14px' }}>
                         <div style={{ fontSize: '18px', fontWeight: 800, color: gold }}>{st.v}</div>
@@ -412,23 +418,20 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                     ))}
                   </div>
 
-                  <div style={{ background: '#0d1208', border: `1px solid #2a3a1a`, borderRadius: '10px', padding: '14px 18px', fontSize: '14px', color: '#a8d870', fontWeight: 600 }}>
-                    🤝 1 free month membership to ANTCPU ADS — Run a full 10-antbot campaign
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '160px' }}>
-                  <a href="https://mapofpi.com" target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: gold, color: '#0a0a0a', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: 800, textDecoration: 'none', justifyContent: 'center' }}
-                    className="partner-link">
-                    Visit Map of Pi →
-                  </a>
-                  <a href="https://youtube.com/@mapofpi" target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#1a1a1a', border: `1px solid #333`, color: white, borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: 700, textDecoration: 'none', justifyContent: 'center' }}
-                    className="partner-link">
-                    ▶ YouTube
-                  </a>
-                </div>
+                  <div style={{ background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: gold, lineHeight: 1.5 }}>
+  🏆 <strong>Country Champion Program</strong> — 90 days free · 10 antbots · Represent your country in the Arena
+</div>
+<div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+  <a href="/mapofpi" className="partner-link" style={{ background: gold, color: '#0a0a0a', padding: '10px 20px', borderRadius: '8px', fontWeight: 800, textDecoration: 'none', fontSize: '14px' }}>
+    🗺️ Claim Your Country →
+  </a>
+  <a href="/mapofpi/icons/arena" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>
+    View Champions →
+  </a>
+  <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>
+    ▶ YouTube
+  </a>
+</div>
               </div>
             </div>
           </div>
