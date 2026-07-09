@@ -112,12 +112,14 @@ export default function CreateShopAdPage() {
     }]).select('id').single();
 
     if (inserted?.id) {
-      await supabase.from('antbot_pods').insert([{
-        ad_id: inserted.id, email: user.email || 'mapofpi@champion.app',
-        brand: 'Map of Pi', country: sel?.name || '', language,
-        pod_json: JSON.stringify(pod.map(b => ({ id: b.id, channel: b.channel, task: b.task }))),
-      }]).catch(() => {});
-    }
+      try {
+  await supabase.from('antbot_pods').insert([{
+    ad_id: inserted.id, email: user.email || 'mapofpi@champion.app',
+    brand: 'Map of Pi', country: sel?.name || '', language,
+    pod_json: JSON.stringify(pod.map(b => ({ id: b.id, channel: b.channel, task: b.task }))),
+  }]);
+} catch {}
+
 
     notifyDiscord(`🗺️ **New Country Champion**\n**Shop:** ${shopName}\n**Type:** ${icon?.label}\n**Country:** ${sel?.flag} ${sel?.name}\n**Language:** ${language}\n**Email:** ${user.email || 'anonymous'}`);
 
