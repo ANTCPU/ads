@@ -98,7 +98,7 @@ export default function CreateShopAdPage() {
       title:        `${icon?.emoji} ${shopName} — ${sel?.flag} ${sel?.name}`,
       description:  cleanDesc,
       category:     icon?.label || 'General Shop',
-      status:       'pending_review',
+      status:       'active',
       trial_status: 'team',
       tier:         'entry',
       image_url:    null,
@@ -124,6 +124,13 @@ export default function CreateShopAdPage() {
     setAriaMsg(getAriaLine(language));
     setLaunching(false);
     setLaunched(true);
+    localStorage.setItem('arena_user', JSON.stringify({
+  ...user,
+  name: user.name || shopName,
+  brand: 'Map of Pi',
+  trialStatus: 'team',
+}));
+
   }
 
   function resetAll() {
