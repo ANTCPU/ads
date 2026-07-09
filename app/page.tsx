@@ -416,21 +416,15 @@ useEffect(() => {
                       </div>
                     ))}
                   </div>
-
-                  <div style={{ background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: gold, lineHeight: 1.5 }}>
+                 <div style={{ background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', fontSize: '13px', color: gold, lineHeight: 1.5 }}>
   🏆 <strong>Country Champion Program</strong> — 90 days free · 10 antbots · Represent your country in the Arena
 </div>
 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-  <a href="/mapofpi" className="partner-link" style={{ background: gold, color: '#0a0a0a', padding: '10px 20px', borderRadius: '8px', fontWeight: 800, textDecoration: 'none', fontSize: '14px' }}>
-    🗺️ Claim Your Country →
-  </a>
-  <a href="/mapofpi/icons/arena" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>
-    View Champions →
-  </a>
-  <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>
-    ▶ YouTube
-  </a>
+  <a href="/mapofpi" className="partner-link" style={{ background: gold, color: '#0a0a0a', padding: '10px 20px', borderRadius: '8px', fontWeight: 800, textDecoration: 'none', fontSize: '14px' }}>🗺️ Claim Your Country →</a>
+  <a href="/mapofpi/icons/arena" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>View Champions →</a>
+  <a href="https://youtube.com/@mapofpi" target="_blank" rel="noreferrer" className="partner-link" style={{ background: 'transparent', color: muted, padding: '10px 16px', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '13px', border: `1px solid ${border2}` }}>▶ YouTube</a>
 </div>
+                  
               </div>
             </div>
           </div>
