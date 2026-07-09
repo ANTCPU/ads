@@ -1,54 +1,34 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { setSessionCookie } from '../lib/session';
 import { getLocation } from '../lib/location';
-import { MAPOFPI_KB } from '../clients/mapofpi/kb';
+import { getBrandConfig } from '../lib/brandConfig';
+import { tokens } from '../lib/shopAdStyles';
+import { sanitizeText } from '../lib/sanitize';
 import VaultModal from '../components/VaultModal';
 
-// ── TRIAL CONFIG ─────────────────────────────────────────────
-type AdSignup = { email: string; brand_name: string; status: 'team' | 'trial' | 'pending' | 'student' | 'arena'; };
-const TEAM_CODE  = 'MAPOFPI';
-const FREE_CODE  = 'FREETRIAL';
-const TEAM_DAYS  = 90;
-const TRIAL_DAYS = 3;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! );
 const AD_CATEGORIES = ['Brand Awareness', 'Product Launch', 'Content Promotion', 'Service Offering', 'Event', 'Other'];
+const { bg, card, border, white, muted, muted2 } = tokens;
 
-// ── SHARED STYLES ───────────────────────────────────────────────────
-const s: Record<string, React.CSSProperties> = {
-  page: { background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
-  nav: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a', position: 'relative' },
-  logo: { fontWeight: 700, fontSize: '1.1rem', letterSpacing: '0.05em' },
-  hero: { textAlign: 'center', padding: '3rem 1.25rem 2rem' },
-  badge: { display: 'inline-block', background: '#111', border: '1px solid #222', borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: '#0070f3', marginBottom: '1.5rem' },
-  h1: { fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, marginBottom: '1.2rem' },
-  sub: { color: '#888', fontSize: '1.1rem', maxWidth: '520px', margin: '0 auto 2rem' },
-  ctaBtn: { display: 'inline-block', background: '#0070f3', color: '#fff', padding: '0.85rem 2rem', borderRadius: '8px', fontWeight: 600, textDecoration: 'none', fontSize: '1rem', border: 'none', cursor: 'pointer' },
-  statsBar: { display: 'flex', justifyContent: 'center', gap: '3rem', padding: '2rem', borderTop: '1px solid #111', borderBottom: '1px solid #111', flexWrap: 'wrap' },
-  statVal: { fontSize: '2rem', fontWeight: 800, color: '#0070f3' },
-  statLbl: { fontSize: '0.75rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em' },
-  section: { maxWidth: '900px', margin: '0 auto', padding: '2.5rem 1.25rem' },
-  formWrap: { maxWidth: '560px', margin: '0 auto', padding: '2rem 1.25rem' },
-  formCard: { background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', padding: '2.5rem' },
-  formTitle: { fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' },
-  formSub: { color: '#666', fontSize: '0.9rem', marginBottom: '2rem' },
-  label: { display: 'block', fontSize: '0.8rem', color: '#888', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' },
-  input: { width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.9rem 1rem', color: '#fff', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.2rem' },
-  select: { width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.9rem 1rem', color: '#fff', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.2rem' },
-  textarea: { width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.75rem 1rem', color: '#fff', fontSize: '0.95rem', boxSizing: 'border-box', marginBottom: '1.2rem', minHeight: '100px', resize: 'vertical' },
-  stepBtn: { width: '100%', background: '#0070f3', color: '#fff', border: 'none', borderRadius: '8px', padding: '1rem', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' },
-  stepBtnTeam: { width: '100%', background: '#7928ca', color: '#fff', border: 'none', borderRadius: '8px', padding: '1rem', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' },
-  backBtn: { background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '0.85rem', marginBottom: '1rem', padding: 0 },
-  steps: { display: 'flex', gap: '0.5rem', marginBottom: '2rem' },
-  footer: { textAlign: 'center', padding: '2rem', color: '#333', fontSize: '0.8rem', borderTop: '1px solid #111' }
+// ── Shared input style ────────────────────────────────────────
+const inp: React.CSSProperties = {
+  width: '100%', background: bg, border: `1px solid #222`,
+  borderRadius: '8px', padding: '0.9rem 1rem', color: white,
+  fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.2rem',
 };
 
-// ── UTILITIES  ────────────────────────────────────────────────────────
-function resolveStatus(promo: string): 'team' | 'trial' | 'pending' { return promo.trim().toUpperCase() === TEAM_CODE ? 'team' : 'trial'; }
-function getTrialDays(status: 'team' | 'trial' | 'pending'): number { return status === 'team' ? TEAM_DAYS : TRIAL_DAYS; }
-function getTrialExpiry(status: 'team' | 'trial' | 'pending'): string { const d = new Date(); d.setDate(d.getDate() + getTrialDays(status)); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
+// ── Trial helpers ─────────────────────────────────────────────
+function getTrialExpiry(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
 
 async function handlePinAndRedirect(email: string, redirect: string | null) {
   const norm = email.trim().toLowerCase();
@@ -64,10 +44,8 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
     window.location.href = redirect || '/dashboard/admin';
     return;
   }
-
   const pinCheck = await fetch('/api/user-auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: norm, pin: '__check__' }) });
   const pinData = await pinCheck.json();
-  
   if (pinData.error !== 'No PIN set') {
     const pin = prompt('Enter your PIN:');
     if (!pin) return;
@@ -81,7 +59,6 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
     window.location.href = redirect || '/dashboard/user';
     return;
   }
-
   const { data: userData } = await supabase.from('ad_signups').select('name, brand_name, status').eq('email', norm).maybeSingle();
   const session = { email: norm, name: userData?.name || '', brand: userData?.brand_name || '', trialStatus: userData?.status || 'trial' };
   const encoded = encodeURIComponent(JSON.stringify(session));
@@ -90,103 +67,189 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
   window.location.href = redirect || '/dashboard/user';
 }
 
-function SignInBox({ vaultOpen, setVaultOpen }: { vaultOpen: boolean; setVaultOpen: (v: boolean) => void }) {
-  const redirect = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('redirect') : null;
-  return (<>
-    <button style={s.stepBtn} onClick={() => setVaultOpen(true)}> 🔒 Sign In with Vault → </button>
-    <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} redirectTo={redirect || undefined} />
-  </>);
-}
-
 export default function Page() {
-  const [hydrated, setHydrated] = useState(false);
-  const [step, setStep] = useState(0);
+  const [hydrated,  setHydrated]  = useState(false);
+  const [promo,     setPromo]     = useState('');
+  const [step,      setStep]      = useState(0);
   const [vaultOpen, setVaultOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [showShare, setShowShare] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', brand_name: '', website_url: '', ad_category: '', message: '', promo_code: '' });
+  const [loading,   setLoading]   = useState(false);
+  const [email,     setEmail]     = useState('');
+  const [form,      setForm]      = useState({ name: '', email: '', brand_name: '', ad_category: '', message: '' });
 
   useEffect(() => {
-    fetch('/api/doorbell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }) }).catch(() => {});
-    
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref');
-    const urlPromo = params.get('promo');
-    
-    if (urlPromo) setForm(f => ({ ...f, promo_code: urlPromo.toUpperCase() }));
-    else if (ref) setForm(f => ({ ...f, promo_code: ref.toUpperCase() }));
-    
+    fetch('/api/doorbell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/login', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }) }).catch(() => {});
+    const params  = new URLSearchParams(window.location.search);
+    const urlPromo = params.get('promo') || params.get('ref') || '';
+    setPromo(urlPromo.toUpperCase());
     setHydrated(true);
   }, []);
 
   if (!hydrated) return null;
 
-  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
-  const liveStatus = resolveStatus(form.promo_code);
+  const brand   = getBrandConfig(promo);
+  const accent  = brand.accentColor;
+  const gold    = brand.goldColor;
+  const isBrand = promo !== '' && promo !== 'FREETRIAL';
+  const set     = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
-  const handleSubmit = async () => {
+  // ── Brand CTA handler (MAPOFPI etc) ──────────────────────────
+  async function handleBrandCTA() {
+    if (!email.trim()) return;
     setLoading(true);
-    const status = resolveStatus(form.promo_code);
-    const loc = await getLocation();
+    const norm = email.trim().toLowerCase();
+    const loc  = await getLocation();
+    const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', norm).maybeSingle();
+    if (!existing) {
+      await supabase.from('ad_signups').insert([{
+        email: norm, name: '', brand_name: brand.name,
+        status: 'team', trial_days: brand.trialDays,
+        trial_expiry: getTrialExpiry(brand.trialDays),
+        promo_code: promo, country: loc.country, city: loc.city,
+        region: loc.region, ip: loc.ip,
+      }]);
+    }
+    localStorage.setItem('arena_user', JSON.stringify({ name: '', email: norm, brand: brand.name, trialStatus: 'team' }));
+    setLoading(false);
+    window.location.href = brand.ctaHref;
+  }
+
+  // ── Default 3-step submit ─────────────────────────────────────
+  async function handleSubmit() {
+    setLoading(true);
+    const status   = 'trial';
+    const loc      = await getLocation();
     const emailNorm = form.email.trim().toLowerCase();
-    
     const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', emailNorm).maybeSingle();
-    
     if (existing) {
       await supabase.from('ad_signups').update({ name: form.name, country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }).eq('email', emailNorm);
     } else {
-      await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status, trial_days: getTrialDays(status), trial_expiry: getTrialExpiry(status), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
+      await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status, trial_days: 3, trial_expiry: getTrialExpiry(3), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
     }
-    
     localStorage.setItem('arena_user', JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: status }));
-    setShowShare(true);
     setLoading(false);
-  };
+    window.location.href = '/arena';
+  }
+
+  const btnStyle = (on: boolean): React.CSSProperties => ({
+    width: '100%', background: on ? accent : muted2, color: on ? white : muted,
+    border: 'none', borderRadius: '8px', padding: '1rem', fontWeight: 700,
+    fontSize: '1rem', cursor: on ? 'pointer' : 'not-allowed', marginTop: '0.5rem',
+    transition: 'background 0.2s',
+  });
 
   return (
-    <div style={s.page}>
-      <nav style={s.nav}><span style={s.logo}>⚡ ANTCPU ADS</span></nav>
-      <div style={s.hero}>
-        <div style={s.badge}>⚡ Deployment Status: Active</div>
-        <h1 style={s.h1}>Welcome to<br />The Arena.</h1>
-        <p style={s.sub}>Automated marketing infrastructure. 3 days free, then $9.99/mo.</p>
+    <div style={{ background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
+
+      {/* NAV */}
+      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: `1px solid ${border}` }}>
+        <span style={{ fontWeight: 800, fontSize: '1rem' }}>
+          <span style={{ color: accent }}>{brand.logoEmoji}</span> {brand.name}
+        </span>
+        <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: `1px solid #333`, color: muted, borderRadius: '8px', padding: '0.5rem 1.1rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+          Sign In →
+        </button>
+      </nav>
+
+      {/* HERO */}
+      <div style={{ textAlign: 'center', padding: '3.5rem 1.25rem 2rem' }}>
+        <div style={{ display: 'inline-block', background: '#111', border: `1px solid ${accent}30`, borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: gold, marginBottom: '1.5rem' }}>
+          {brand.badgeText}
+        </div>
+        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, marginBottom: '1.2rem', background: `linear-gradient(135deg, ${white} 40%, ${gold})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          {brand.headline}<br />{brand.headlineSub}
+        </h1>
+        <p style={{ color: muted, fontSize: '1.1rem', maxWidth: '520px', margin: '0 auto 2rem', lineHeight: 1.6 }}>
+          {brand.subText}
+        </p>
       </div>
 
-      <div id="start" style={s.formWrap}>
-        <div style={s.formCard}>
-          <div style={s.formTitle}>Start Free</div>
-          <div style={s.steps}>{[0, 1, 2].map(i => <div key={i} style={{ flex: 1, height: '3px', background: step >= i ? '#0070f3' : '#222' }} />)}</div>
-          {step === 0 && (<div>
-            <label style={s.label}>Your Name</label><input style={s.input} value={form.name} onChange={e => set('name', e.target.value)} />
-            <label style={s.label}>Email Address</label><input style={s.input} type="email" value={form.email} onChange={e => set('email', e.target.value)} />
-            <label style={s.label}>Brand Name</label><input style={s.input} value={form.brand_name} onChange={e => set('brand_name', e.target.value)} />
-            <button style={s.stepBtn} onClick={() => setStep(1)} disabled={!form.name || !form.email || !form.brand_name}>Next →</button>
-          </div>)}
-          {step === 1 && (<div>
-            <button style={s.backBtn} onClick={() => setStep(0)}>← Back</button>
-            <label style={s.label}>Ad Category</label>
-            <select style={s.select} value={form.ad_category} onChange={e => set('ad_category', e.target.value)}>
-              <option value="">Select category</option>
-              {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <button style={s.stepBtn} onClick={() => setStep(2)} disabled={!form.ad_category}>Next →</button>
-          </div>)}
-          {step === 2 && (<div>
-            <button style={s.backBtn} onClick={() => setStep(1)}>← Back</button>
-            <label style={s.label}>Message</label><textarea style={s.textarea} value={form.message} onChange={e => set('message', e.target.value)} />
-            <button style={liveStatus === 'team' ? s.stepBtnTeam : s.stepBtn} onClick={handleSubmit}>{loading ? 'Configuring...' : 'Start Free Trial →'}</button>
-          </div>)}
+      {/* ANTHEM EMBED — brand only */}
+      {isBrand && brand.youtubeId && (
+        <div style={{ maxWidth: '560px', margin: '0 auto 2rem', padding: '0 1.25rem' }}>
+          <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '14px', overflow: 'hidden', border: `1px solid ${accent}30` }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${brand.youtubeId}?autoplay=0&rel=0`}
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+
+      {/* FORM CARD */}
+      <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 1.25rem 2rem' }}>
+        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem' }}>
+
+          {/* BRAND FLOW — single email → redirect */}
+          {isBrand ? (
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.5rem' }}>{brand.ctaLabel}</div>
+              <div style={{ color: muted, fontSize: '0.85rem', marginBottom: '1.5rem' }}>{brand.trialLabel}</div>
+              <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Your Email</label>
+              <input style={inp} type="email" placeholder="you@email.com" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
+              <button style={btnStyle(!!email.trim())} onClick={handleBrandCTA} disabled={!email.trim() || loading}>
+                {loading ? 'Setting up...' : brand.ctaLabel}
+              </button>
+              <div style={{ fontSize: '0.72rem', color: muted2, textAlign: 'center', marginTop: '0.75rem' }}>{brand.trialLabel}</div>
+            </div>
+
+          ) : (
+            /* DEFAULT FLOW — 3-step form */
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.5rem' }}>Start Free</div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                {[0, 1, 2].map(i => <div key={i} style={{ flex: 1, height: '3px', background: step >= i ? accent : '#222', borderRadius: '2px' }} />)}
+              </div>
+              {step === 0 && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Your Name</label>
+                  <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} />
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Email Address</label>
+                  <input style={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} />
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Brand Name</label>
+                  <input style={inp} value={form.brand_name} onChange={e => set('brand_name', sanitizeText(e.target.value))} />
+                  <button style={btnStyle(!!(form.name && form.email && form.brand_name))} onClick={() => form.name && form.email && form.brand_name && setStep(1)}>Next →</button>
+                </div>
+              )}
+              {step === 1 && (
+                <div>
+                  <button onClick={() => setStep(0)} style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '0.85rem', marginBottom: '1rem', padding: 0 }}>← Back</button>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ad Category</label>
+                  <select style={{ ...inp, marginBottom: '1.2rem' }} value={form.ad_category} onChange={e => set('ad_category', e.target.value)}>
+                    <option value="">Select category</option>
+                    {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <button style={btnStyle(!!form.ad_category)} onClick={() => form.ad_category && setStep(2)}>Next →</button>
+                </div>
+              )}
+              {step === 2 && (
+                <div>
+                  <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '0.85rem', marginBottom: '1rem', padding: 0 }}>← Back</button>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Message</label>
+                  <textarea style={{ ...inp, minHeight: '100px', resize: 'vertical' } as React.CSSProperties} value={form.message} onChange={e => set('message', e.target.value)} />
+                  <button style={btnStyle(true)} onClick={handleSubmit}>{loading ? 'Configuring...' : 'Start Free Trial →'}</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* SIGN IN */}
+        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem', marginTop: '1rem' }}>
+          <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.4rem' }}>Already in the Arena?</div>
+          <p style={{ color: muted, fontSize: '0.85rem', marginBottom: '1.25rem' }}>Sign in to resume your session.</p>
+          <button style={{ ...btnStyle(true), background: '#1a1a1a', border: `1px solid ${border}` }} onClick={() => setVaultOpen(true)}>
+            🔒 Sign In with Vault →
+          </button>
         </div>
       </div>
 
-      <div id="signin" style={s.formWrap}>
-        <div style={s.formCard}>
-          <div style={s.formTitle}>Already in the Arena?</div>
-          <p style={s.formSub}>Enter your email to resume your session dashboard configuration.</p>
-          <SignInBox vaultOpen={vaultOpen} setVaultOpen={setVaultOpen} />
-        </div>
-      </div>
-      <footer style={s.footer}>© {new Date().getFullYear()} ANTCPU · antcpu@gmail.com</footer>
+      <footer style={{ textAlign: 'center', padding: '2rem', color: '#333', fontSize: '0.8rem', borderTop: `1px solid ${border}` }}>
+        © {new Date().getFullYear()} ANTCPU · {brand.trialLabel}
+      </footer>
+
+      <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} />
     </div>
   );
 }
