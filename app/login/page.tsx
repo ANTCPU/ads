@@ -16,14 +16,12 @@ const supabase = createClient(
 const AD_CATEGORIES = ['Brand Awareness', 'Product Launch', 'Content Promotion', 'Service Offering', 'Event', 'Other'];
 const { bg, card, border, white, muted, muted2 } = tokens;
 
-// ── Shared input style ────────────────────────────────────────
 const inp: React.CSSProperties = {
-  width: '100%', background: bg, border: `1px solid #222`,
+  width: '100%', background: bg, border: '1px solid #222',
   borderRadius: '8px', padding: '0.9rem 1rem', color: white,
   fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.2rem',
 };
 
-// ── Trial helpers ─────────────────────────────────────────────
 function getTrialExpiry(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
@@ -78,21 +76,19 @@ export default function Page() {
 
   useEffect(() => {
     fetch('/api/doorbell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/login', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }) }).catch(() => {});
-    const params  = new URLSearchParams(window.location.search);
-    const urlPromo = params.get('promo') || params.get('ref') || '';
-    setPromo(urlPromo.toUpperCase());
+    const params = new URLSearchParams(window.location.search);
+    setPromo((params.get('promo') || params.get('ref') || '').toUpperCase());
     setHydrated(true);
   }, []);
 
   if (!hydrated) return null;
 
-  const brand   = getBrandConfig(promo);
-  const accent  = brand.accentColor;
-  const gold    = brand.goldColor;
+  const brand  = getBrandConfig(promo);
+  const accent = brand.accentColor;
+  const gold   = brand.goldColor;
   const isBrand = promo !== '' && promo !== 'FREETRIAL';
-  const set     = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
-  // ── Brand CTA handler (MAPOFPI etc) ──────────────────────────
   async function handleBrandCTA() {
     if (!email.trim()) return;
     setLoading(true);
@@ -113,29 +109,32 @@ export default function Page() {
     window.location.href = brand.ctaHref;
   }
 
-  // ── Default 3-step submit ─────────────────────────────────────
   async function handleSubmit() {
     setLoading(true);
-    const status   = 'trial';
-    const loc      = await getLocation();
+    const loc       = await getLocation();
     const emailNorm = form.email.trim().toLowerCase();
     const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', emailNorm).maybeSingle();
     if (existing) {
       await supabase.from('ad_signups').update({ name: form.name, country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }).eq('email', emailNorm);
     } else {
-      await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status, trial_days: 3, trial_expiry: getTrialExpiry(3), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
+      await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status: 'trial', trial_days: 3, trial_expiry: getTrialExpiry(3), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
     }
-    localStorage.setItem('arena_user', JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: status }));
+    localStorage.setItem('arena_user', JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }));
     setLoading(false);
     window.location.href = '/arena';
   }
 
-  const btnStyle = (on: boolean): React.CSSProperties => ({
+  const btn = (on: boolean): React.CSSProperties => ({
     width: '100%', background: on ? accent : muted2, color: on ? white : muted,
     border: 'none', borderRadius: '8px', padding: '1rem', fontWeight: 700,
     fontSize: '1rem', cursor: on ? 'pointer' : 'not-allowed', marginTop: '0.5rem',
     transition: 'background 0.2s',
   });
+
+  const lbl: React.CSSProperties = {
+    display: 'block', fontSize: '0.75rem', color: muted,
+    marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em',
+  };
 
   return (
     <div style={{ background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
@@ -145,12 +144,12 @@ export default function Page() {
         <span style={{ fontWeight: 800, fontSize: '1rem' }}>
           <span style={{ color: accent }}>{brand.logoEmoji}</span> {brand.name}
         </span>
-        <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: `1px solid #333`, color: muted, borderRadius: '8px', padding: '0.5rem 1.1rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+        <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: '1px solid #333', color: muted, borderRadius: '8px', padding: '0.5rem 1.1rem', cursor: 'pointer', fontSize: '0.85rem' }}>
           Sign In →
         </button>
       </nav>
 
-            {/* HERO */}
+      {/* HERO */}
       <div style={{ textAlign: 'center', padding: '3.5rem 1.25rem 2rem' }}>
         <div style={{ display: 'inline-block', background: '#111', border: `1px solid ${accent}30`, borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: gold, marginBottom: '1.5rem' }}>
           {brand.badgeText}
@@ -163,68 +162,63 @@ export default function Page() {
         </p>
       </div>
 
-      {/* ANTHEM EMBED — brand only */}
+      {/* ANTHEM — brand only */}
       {isBrand && brand.youtubeId && (
         <div style={{ maxWidth: '560px', margin: '0 auto 2rem', padding: '0 1.25rem' }}>
           <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '14px', overflow: 'hidden', border: `1px solid ${accent}30` }}>
-            <iframe
-              src={`https://www.youtube.com/embed/${brand.youtubeId}?autoplay=0&rel=0`}
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+            <iframe src={`https://www.youtube.com/embed/${brand.youtubeId}?autoplay=0&rel=0`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
           </div>
         </div>
       )}
 
-      {/* FORM CARD */}
+      {/* FORM */}
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 1.25rem 2rem' }}>
-        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem' }}>
+        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem', marginBottom: '1rem' }}>
           {isBrand ? (
             <div>
               <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.5rem' }}>{brand.ctaLabel}</div>
               <div style={{ color: muted, fontSize: '0.85rem', marginBottom: '1.5rem' }}>{brand.trialLabel}</div>
-              <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Your Email</label>
+              <label style={lbl}>Your Email</label>
               <input style={inp} type="email" placeholder="you@email.com" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
-              <button style={btnStyle(!!email.trim())} onClick={handleBrandCTA} disabled={!email.trim() || loading}>
+              <button style={btn(!!email.trim())} onClick={handleBrandCTA} disabled={!email.trim() || loading}>
                 {loading ? 'Setting up...' : brand.ctaLabel}
               </button>
               <div style={{ fontSize: '0.72rem', color: muted2, textAlign: 'center', marginTop: '0.75rem' }}>{brand.trialLabel}</div>
             </div>
           ) : (
             <div>
-              <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.5rem' }}>Start Free</div>
+              <div style={{ fontWeight: 700, fontSize: '1.3rem', marginBottom: '1rem' }}>Start Free</div>
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
                 {[0, 1, 2].map(i => <div key={i} style={{ flex: 1, height: '3px', background: step >= i ? accent : '#222', borderRadius: '2px' }} />)}
               </div>
               {step === 0 && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Your Name</label>
+                  <label style={lbl}>Your Name</label>
                   <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} />
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Email Address</label>
+                  <label style={lbl}>Email Address</label>
                   <input style={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} />
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Brand Name</label>
+                  <label style={lbl}>Brand Name</label>
                   <input style={inp} value={form.brand_name} onChange={e => set('brand_name', sanitizeText(e.target.value))} />
-                  <button style={btnStyle(!!(form.name && form.email && form.brand_name))} onClick={() => form.name && form.email && form.brand_name && setStep(1)}>Next →</button>
+                  <button style={btn(!!(form.name && form.email && form.brand_name))} onClick={() => form.name && form.email && form.brand_name && setStep(1)}>Next →</button>
                 </div>
               )}
               {step === 1 && (
                 <div>
                   <button onClick={() => setStep(0)} style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '0.85rem', marginBottom: '1rem', padding: 0 }}>← Back</button>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ad Category</label>
-                  <select style={{ ...inp, marginBottom: '1.2rem' }} value={form.ad_category} onChange={e => set('ad_category', e.target.value)}>
+                  <label style={lbl}>Ad Category</label>
+                  <select style={{ ...inp }} value={form.ad_category} onChange={e => set('ad_category', e.target.value)}>
                     <option value="">Select category</option>
                     {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <button style={btnStyle(!!form.ad_category)} onClick={() => form.ad_category && setStep(2)}>Next →</button>
+                  <button style={btn(!!form.ad_category)} onClick={() => form.ad_category && setStep(2)}>Next →</button>
                 </div>
               )}
               {step === 2 && (
                 <div>
                   <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '0.85rem', marginBottom: '1rem', padding: 0 }}>← Back</button>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: muted, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Message</label>
+                  <label style={lbl}>Message</label>
                   <textarea style={{ ...inp, minHeight: '100px', resize: 'vertical' } as React.CSSProperties} value={form.message} onChange={e => set('message', e.target.value)} />
-                  <button style={btnStyle(true)} onClick={handleSubmit}>{loading ? 'Configuring...' : 'Start Free Trial →'}</button>
+                  <button style={btn(true)} onClick={handleSubmit}>{loading ? 'Configuring...' : 'Start Free Trial →'}</button>
                 </div>
               )}
             </div>
@@ -232,10 +226,10 @@ export default function Page() {
         </div>
 
         {/* SIGN IN */}
-        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem', marginTop: '1rem' }}>
+        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '2rem' }}>
           <div style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.4rem' }}>Already in the Arena?</div>
           <p style={{ color: muted, fontSize: '0.85rem', marginBottom: '1.25rem' }}>Sign in to resume your session.</p>
-          <button style={{ ...btnStyle(true), background: '#1a1a1a', border: `1px solid ${border}` }} onClick={() => setVaultOpen(true)}>
+          <button style={{ ...btn(true), background: '#1a1a1a', border: `1px solid ${border}` }} onClick={() => setVaultOpen(true)}>
             🔒 Sign In with Vault →
           </button>
         </div>
