@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MAPOFPI_KB } from '../clients/mapofpi/kb';
+import { MAPOFPI_VIDEOS } from '../clients/mapofpi/assets';
 import VaultModal from '../components/VaultModal';
 
 const green  = '#2E7D32';
@@ -56,6 +57,74 @@ const HOW_IT_WORKS = [
   { n: '02', title: 'Build Your Shop Ad',    desc: 'Pick your icon, name your shop, choose your country. 2 minutes.' },
   { n: '03', title: 'Antbots Go to Work',    desc: 'Automated promotion starts immediately across the network.' },
 ];
+
+function VideoCarousel() {
+  const [tab, setTab] = useState<'anthem' | 'team' | 'howto' | 'community'>('team');
+  const filtered = MAPOFPI_VIDEOS.filter(v => v.type === tab);
+
+  const tabs: { key: typeof tab; label: string }[] = [
+    { key: 'team',      label: '👥 Team'      },
+    { key: 'howto',     label: '📖 How-To'    },
+    { key: 'anthem',    label: '🎵 Anthem'    },
+    { key: 'community', label: '🌍 Community' },
+  ];
+
+  return (
+    <div style={{ borderTop: `1px solid ${border}`, padding: '3rem 1.25rem' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ fontSize: '0.65rem', color: green, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem', textAlign: 'center' }}>
+          📺 Map of Pi Videos
+        </div>
+        <h2 style={{ fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 800, color: white, textAlign: 'center', marginBottom: '1.5rem' }}>
+          Meet the team. Learn the platform.
+        </h2>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{
+              background:   tab === t.key ? `${green}22` : '#111',
+              border:       `1px solid ${tab === t.key ? green : border}`,
+              borderRadius: '999px', padding: '0.4rem 1rem',
+              fontSize:     '0.78rem', color: tab === t.key ? green : muted,
+              fontWeight:   tab === t.key ? 700 : 400, cursor: 'pointer',
+              transition:   'all 0.15s',
+            }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scroll row */}
+        <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+          {filtered.map(v => (
+            <a
+              key={v.id}
+              href={`https://youtube.com/watch?v=${v.id}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ flexShrink: 0, width: '220px', textDecoration: 'none' }}
+            >
+              <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${border}`, marginBottom: '0.5rem' }}>
+                <img
+                  src={`https://img.youtube.com/vi/${v.id}/mqdefault.jpg`}
+                  alt={v.title}
+                  style={{ width: '100%', display: 'block' }}
+                />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)' }}>
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: green, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem' }}>▶</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.78rem', color: white, fontWeight: 600, lineHeight: 1.3 }}>{v.title}</div>
+              {v.featured && <div style={{ fontSize: '0.65rem', color: gold, marginTop: '0.2rem' }}>★ Featured</div>}
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 export default function MapOfPiSplash() {
   const [vaultOpen, setVaultOpen] = useState(false);
@@ -170,6 +239,24 @@ export default function MapOfPiSplash() {
           </div>
         </div>
       </div>
+      {/* ── ANTHEM ── */}
+<div style={{ ...s.section, borderTop: `1px solid ${border}`, textAlign: 'center' }}>
+  <div style={{ fontSize: '0.65rem', color: green, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+    🎵 Map of Pi Anthem
+  </div>
+  <h2 style={{ ...s.h2, textAlign: 'center', marginBottom: '1.5rem' }}>The sound of Pi commerce.</h2>
+  <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '16px', overflow: 'hidden', border: `1px solid ${green}40`, maxWidth: '680px', margin: '0 auto' }}>
+    <iframe
+      src="https://www.youtube.com/embed/PNoY1ffzciI?rel=0"
+      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+    />
+  </div>
+</div>
+
+{/* ── VIDEO CAROUSEL ── */}
+<VideoCarousel />
 
       {/* ── FINAL CTA ── */}
       <div style={{ ...s.section, textAlign: 'center', borderTop: `1px solid ${border}` }}>
