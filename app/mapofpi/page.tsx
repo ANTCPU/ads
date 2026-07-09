@@ -99,7 +99,7 @@ export default function MapOfPiSplash() {
           <span style={{ color: gold }}>90 days free </span>for Map of Pi team members &amp; Country Champions.
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="/login?promo=MAPOFPI" style={s.ctaBtn}>Claim Your Country →</a>
+          <a href="/mapofpi/create-shop-ad" style={s.ctaBtn}>Claim Your Country →</a>
           <button onClick={() => setVaultOpen(true)} style={s.ctaSecond}>Already in the Arena?</button>
         </div>
       </div>
@@ -175,9 +175,9 @@ export default function MapOfPiSplash() {
       <div style={{ ...s.section, textAlign: 'center', borderTop: `1px solid ${border}` }}>
         <h2 style={{ ...s.h2, fontSize: 'clamp(1.8rem, 4vw, 2.8rem)' }}>Your country is waiting.</h2>
         <p style={{ color: muted, marginBottom: '2rem', fontSize: '0.95rem' }}>90 days free · No credit card · Cancel anytime</p>
-        <a href="/login?promo=MAPOFPI" style={{ ...s.ctaBtn, padding: '1.1rem 3rem', fontSize: '1.1rem' }}>Claim Your Country →</a>
+        <a href="/mapofpi/create-shop-ad" style={{ ...s.ctaBtn, padding: '1.1rem 3rem', fontSize: '1.1rem' }}>Claim Your Country →</a>
         <div style={{ marginTop: '0.75rem' }}>
-          <button onClick={() => { navigator.clipboard.writeText('https://antcpu-ads.vercel.app/mapofpi?promo=MAPOFPI'); }}
+          <button onClick={() => { navigator.clipboard.writeText('https://antcpu-ads.vercel.app/mapofpi/create-shop-ad'); }}
             style={{ display: 'inline-block', background: 'transparent', color: gold, padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 600, fontSize: '0.85rem', border: `1px solid ${gold}40`, cursor: 'pointer' }}>
             📋 Copy Referral Link
           </button>
