@@ -108,6 +108,23 @@ export default function Page() {
     setLoading(false);
     window.location.href = brand.ctaHref;
   }
+if (!existing) {
+  fetch('/api/send-welcome', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: '',
+      email: norm,
+      brand: brand.name,
+      trialStatus: 'team',
+    }),
+  }).catch(() => {});
+
+  supabase.from('ad_signups')
+    .update({ welcome_email_sent_at: new Date().toISOString() })
+    .eq('email', norm)
+    .then(() => {});
+}
 
   async function handleSubmit() {
     setLoading(true);
@@ -123,6 +140,25 @@ export default function Page() {
     setLoading(false);
     window.location.href = '/arena';
   }
+// Fire welcome email — new signups only
+if (!existing) {
+  fetch('/api/send-welcome', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: form.name,
+      email: emailNorm,
+      brand: form.brand_name,
+      trialStatus: 'trial',
+    }),
+  }).catch(() => {});
+
+  // Mark sent in DB (fire and forget)
+  supabase.from('ad_signups')
+    .update({ welcome_email_sent_at: new Date().toISOString() })
+    .eq('email', emailNorm)
+    .then(() => {});
+}
 
   const btn = (on: boolean): React.CSSProperties => ({
     width: '100%', background: on ? accent : muted2, color: on ? white : muted,
