@@ -1,5 +1,4 @@
 'use client';
-// cache-bust: 2026-07-10
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
