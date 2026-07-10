@@ -104,10 +104,53 @@ export default function Page() {
         region: loc.region, ip: loc.ip,
       }]);
     }
-    localStorage.setItem('arena_user', JSON.stringify({ name: '', email: norm, brand: brand.name, trialStatus: 'team' }));
-    setLoading(false);
-    window.location.href = brand.ctaHref;
+    async function handleBrandCTA() {
+  if (!email.trim()) return;
+  setLoading(true);
+  const norm = email.trim().toLowerCase();
+  const loc = await getLocation();
+  const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', norm).maybeSingle();
+  if (!existing) {
+    await supabase.from('ad_signups').insert([{
+      email: norm, name: '', brand_name: brand.name,
+      status: 'team', trial_days: brand.trialDays,
+      trial_expiry: getTrialExpiry(brand.trialDays),
+      promo_code: promo, country: loc.country, city: loc.city,
+      region: loc.region, ip: loc.ip,
+    }]);
+    fetch('/api/send-welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: '', email: norm, brand: brand.name, trialStatus: 'team' }),
+    }).catch(() => {});
+    supabase.from('ad_signups')
+      .update({ welcome_email_sent_at: new Date().toISOString() })
+      .eq('email', norm).then(() => {});
   }
+  lasync function handleSubmit() {
+  setLoading(true);
+  const loc = await getLocation();
+  const emailNorm = form.email.trim().toLowerCase();
+  const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', emailNorm).maybeSingle();
+  if (existing) {
+    await supabase.from('ad_signups').update({ name: form.name, country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }).eq('email', emailNorm);
+  } else {
+    await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status: 'trial', trial_days: 3, trial_expiry: getTrialExpiry(3), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
+    fetch('/api/send-welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }),
+    }).catch(() => {});
+    supabase.from('ad_signups')
+      .update({ welcome_email_sent_at: new Date().toISOString() })
+      .eq('email', emailNorm).then(() => {});
+  }
+  localStorage.setItem('arena_user', JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }));
+  setLoading(false);
+  window.location.href = '/arena';
+}
+
+
 if (!existing) {
   fetch('/api/send-welcome', {
     method: 'POST',
