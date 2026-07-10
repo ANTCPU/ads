@@ -20,9 +20,9 @@ type User = {
   status: 'team' | 'trial' | 'pending'; trial_expiry: string;
   country: string; city: string; region: string; ip: string; created_at: string;
   welcome_email_sent_at: string | null;
-is_country_champion: boolean;
-champion_since: string | null;
-points: number;
+  is_country_champion: boolean;
+  champion_since: string | null;
+  points: number;
 };
 
 export default function UsersPage() {
@@ -46,12 +46,12 @@ export default function UsersPage() {
   }, []);
 
   async function fetchUsers() {
-  setLoading(true);
-  const res = await fetch('/api/admin/users');
-  const json = await res.json();
-  if (json.users) setUsers(json.users as User[]);
-  setLoading(false);
-}
+    setLoading(true);
+    const res = await fetch('/api/admin/users');
+    const json = await res.json();
+    if (json.users) setUsers(json.users as User[]);
+    setLoading(false);
+  }
 
   async function sendNotify(u: User) {
     const msg = prompt(`Message to ${u.name || u.email}:`);
@@ -63,19 +63,37 @@ export default function UsersPage() {
     });
     alert(res.ok ? `✅ Sent to ${u.email}` : '❌ Failed — check Resend');
   }
-async function sendWelcome(u: User) {
-  const res = await fetch('/api/send-welcome', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: u.name, email: u.email, brand: u.brand_name, trialStatus: u.status }),
-  });
-  if (res.ok) {
-    // Update local state immediately
+
+  async function sendWelcome(u: User) {
+    const res = await fetch('/api/send-welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: u.name, email: u.email, brand: u.brand_name, trialStatus: u.status }),
+    });
+    if (res.ok) {
+      setUsers(prev => prev.map(x =>
+        x.email === u.email ? { ...x, welcome_email_sent_at: new Date().toISOString() } : x
+      ));
+    }
+  }
+
+  async function toggleChampion(u: User) {
+    const newVal = !u.is_country_champion;
+    await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: u.email,
+        is_country_champion: newVal,
+        champion_since: newVal ? new Date().toISOString() : null,
+      }),
+    });
     setUsers(prev => prev.map(x =>
-      x.email === u.email ? { ...x, welcome_email_sent_at: new Date().toISOString() } : x
+      x.email === u.email
+        ? { ...x, is_country_champion: newVal, champion_since: newVal ? new Date().toISOString() : null }
+        : x
     ));
   }
-}
 
   function viewAsUser(u: User) {
     localStorage.setItem('arena_prev_admin', 'true');
@@ -111,7 +129,6 @@ async function sendWelcome(u: User) {
     <div style={{ background: '#f5f5f5', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
       <ArenaNav role="admin" userName="Antony Ciccone" userEmail="antcpu@gmail.com" userBrand="ANTCPU" trialStatus="team"
         onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }} />
-
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '2rem 1.25rem' }}>
 
         <div style={{ marginBottom: '1.75rem' }}>
@@ -122,8 +139,8 @@ async function sendWelcome(u: User) {
         {/* QUICK NAV */}
         <Card>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <Pill label="⚡ Admin Hub"    onClick={() => router.push('/dashboard/admin')} color="#f0883e" />
-            <Pill label="🏟 Dashboard"   onClick={() => router.push('/dashboard')}  color="#0a0a0a" outline />
+            <Pill label="⚡ Admin Hub" onClick={() => router.push('/dashboard/admin')} color="#f0883e" />
+            <Pill label="🏟 Dashboard" onClick={() => router.push('/dashboard')} color="#0a0a0a" outline />
             <Pill label="🏆 Leaderboard" onClick={() => router.push('/dashboard/leaderboard')} color="#0a0a0a" outline />
           </div>
         </Card>
@@ -133,9 +150,9 @@ async function sendWelcome(u: User) {
           <SectionHeader title="📊 User Stats" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
             {[
-              { label: 'Total',   value: counts.all,     color: '#0070f3' },
-              { label: 'Team',    value: counts.team,    color: '#7928ca' },
-              { label: 'Trial',   value: counts.trial,   color: '#22c55e' },
+              { label: 'Total', value: counts.all, color: '#0070f3' },
+              { label: 'Team', value: counts.team, color: '#7928ca' },
+              { label: 'Trial', value: counts.trial, color: '#22c55e' },
               { label: 'Pending', value: counts.pending, color: '#f0883e' },
             ].map(s => (
               <div key={s.label} style={{ background: '#fafafa', border: `1px solid ${s.color}20`, borderRadius: '10px', padding: '1rem', textAlign: 'center' }}>
@@ -150,12 +167,12 @@ async function sendWelcome(u: User) {
         <Card>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             {(['all', 'team', 'trial', 'pending'] as const).map(f => (
-              <Pill key={f} label={f === 'all' ? `All (${counts.all})` : f === 'team' ? `🔵 Team (${counts.team})` : f === 'trial' ? `🟢 Trial (${counts.trial})` : `🟡 Pending (${counts.pending})`}
+              <Pill key={f}
+                label={f === 'all' ? `All (${counts.all})` : f === 'team' ? `🔵 Team (${counts.team})` : f === 'trial' ? `🟢 Trial (${counts.trial})` : `🟡 Pending (${counts.pending})`}
                 onClick={() => setFilter(f)} color={filter === f ? '#f0883e' : '#888'} outline={filter !== f} />
             ))}
           </div>
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
+          <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, email, brand, country..."
             style={{ width: '100%', background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.88rem', color: '#0a0a0a', outline: 'none', boxSizing: 'border-box' }}
           />
@@ -173,18 +190,37 @@ async function sendWelcome(u: User) {
               {filtered.map((u, i) => {
                 const key = u.email + i;
                 const isOpen = expanded === key;
+                const trialActive = u.trial_expiry ? new Date(u.trial_expiry) > new Date() : true;
                 return (
                   <div key={key} style={{ background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '10px', overflow: 'hidden' }}>
+
                     {/* ROW */}
                     <div onClick={() => setExpanded(isOpen ? null : key)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', cursor: 'pointer', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+
+                        {/* STATUS DOTS */}
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <span
+                            title={`Account: ${u.status}`}
+                            style={{ width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0, background: u.status === 'team' ? '#7928ca' : u.status === 'trial' ? '#22c55e' : '#f0883e' }} />
+                          <span
+                            title={trialActive ? 'Trial active' : 'Trial expired'}
+                            style={{ width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0, background: trialActive ? '#22c55e' : '#ef4444' }} />
+                          <span
+                            title={u.welcome_email_sent_at ? `Email sent ${new Date(u.welcome_email_sent_at).toLocaleDateString()}` : 'Welcome email not sent — click to send'}
+                            onClick={e => { e.stopPropagation(); if (!u.welcome_email_sent_at) sendWelcome(u); }}
+                            style={{ width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0, background: u.welcome_email_sent_at ? '#0070f3' : '#ef4444', cursor: u.welcome_email_sent_at ? 'default' : 'pointer' }} />
+                        </div>
+
                         <div>
                           <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0a0a0a' }}>{u.name || '—'}</div>
                           <div style={{ fontSize: '0.72rem', color: '#888' }}>{u.email}</div>
                         </div>
                         {u.brand_name && <span style={{ fontSize: '0.72rem', background: '#f0f7ff', color: '#0070f3', border: '1px solid #bfdbfe', borderRadius: '999px', padding: '0.1rem 0.5rem', fontWeight: 600 }}>{u.brand_name}</span>}
+                        {u.is_country_champion && <span style={{ fontSize: '0.68rem', color: '#D4AF37', fontWeight: 700 }}>🏆</span>}
                         {u.promo_code && <span style={{ fontSize: '0.68rem', background: '#fafafa', color: '#888', border: '1px solid #e5e5e5', borderRadius: '999px', padding: '0.1rem 0.5rem' }}>{u.promo_code}</span>}
                       </div>
+
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={statusStyle(u.status)}>{u.status === 'team' ? '🔵 Team' : u.status === 'trial' ? '🟢 Trial' : '🟡 Pending'}</span>
                         <span style={{ fontSize: '0.72rem', color: '#aaa' }}>{new Date(u.created_at).toLocaleDateString()}</span>
@@ -196,16 +232,40 @@ async function sendWelcome(u: User) {
                     {isOpen && (
                       <div style={{ borderTop: '1px solid #e5e5e5', padding: '1rem', background: '#fff' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-                          {u.website_url    && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>WEBSITE</div><a href={u.website_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#0070f3' }}>{u.website_url}</a></div>}
-                          {u.ad_category    && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>CATEGORY</div><div style={{ fontSize: '0.78rem', color: '#0a0a0a' }}>{u.ad_category}</div></div>}
-                          {u.trial_expiry   && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>EXPIRES</div><div style={{ fontSize: '0.78rem', color: '#0a0a0a' }}>{u.trial_expiry}</div></div>}
+                          {u.website_url && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>WEBSITE</div><a href={u.website_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.78rem', color: '#0070f3' }}>{u.website_url}</a></div>}
+                          {u.ad_category && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>CATEGORY</div><div style={{ fontSize: '0.78rem', color: '#0a0a0a' }}>{u.ad_category}</div></div>}
+                          {u.trial_expiry && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>EXPIRES</div><div style={{ fontSize: '0.78rem', color: '#0a0a0a' }}>{u.trial_expiry}</div></div>}
                           {(u.city || u.country) && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>LOCATION</div><div style={{ fontSize: '0.78rem', color: '#0a0a0a' }}>📍 {[u.city, u.country].filter(Boolean).join(', ')}</div></div>}
-                          {u.message        && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>MESSAGE</div><div style={{ fontSize: '0.78rem', color: '#555', fontStyle: 'italic' }}>"{u.message}"</div></div>}
-                          {u.ip             && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>IP</div><div style={{ fontSize: '0.78rem', color: '#aaa' }}>{u.ip}</div></div>}
+                          {u.message && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>MESSAGE</div><div style={{ fontSize: '0.78rem', color: '#555', fontStyle: 'italic' }}>&quot;{u.message}&quot;</div></div>}
+                          {u.ip && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>IP</div><div style={{ fontSize: '0.78rem', color: '#aaa' }}>{u.ip}</div></div>}
+                          {u.points > 0 && <div><div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>POINTS</div><div style={{ fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>⚡ {u.points}</div></div>}
                         </div>
+
+                        {/* CHAMPION TOGGLE */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, letterSpacing: '0.08em' }}>COUNTRY CHAMPION</span>
+                          <button
+                            onClick={e => { e.stopPropagation(); toggleChampion(u); }}
+                            style={{
+                              background: u.is_country_champion ? '#D4AF3715' : 'transparent',
+                              border: `1px solid ${u.is_country_champion ? '#D4AF37' : '#e5e5e5'}`,
+                              color: u.is_country_champion ? '#D4AF37' : '#888',
+                              borderRadius: '999px', padding: '0.15rem 0.65rem',
+                              fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                            }}
+                          >
+                            {u.is_country_champion ? '🏆 Champion' : '+ Set Champion'}
+                          </button>
+                          {u.country && <span style={{ fontSize: '0.72rem', color: '#888' }}>📍 {u.country}</span>}
+                          {u.is_country_champion && u.champion_since && (
+                            <span style={{ fontSize: '0.68rem', color: '#D4AF37' }}>since {new Date(u.champion_since).toLocaleDateString()}</span>
+                          )}
+                        </div>
+
+                        {/* ACTIONS */}
                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           <Pill label="👤 Profile" onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)} color="#f0883e" />
-                          <Pill label="📣 Notify"  onClick={() => sendNotify(u)} color="#7928ca" />
+                          <Pill label="📣 Notify" onClick={() => sendNotify(u)} color="#7928ca" />
                           <Pill label="👁 View Arena" onClick={() => viewAsUser(u)} color="#0070f3" />
                         </div>
                       </div>
@@ -216,9 +276,8 @@ async function sendWelcome(u: User) {
             </div>
           )}
         </Card>
-
       </div>
-     <ArenaFooter />
+      <ArenaFooter />
     </div>
   );
 }
