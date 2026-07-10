@@ -15,3 +15,13 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ users: data || [] });
 }
+export async function PATCH(req: NextRequest) {
+  const { email, ...updates } = await req.json();
+  if (!email) return NextResponse.json({ error: 'email required' }, { status: 400 });
+  const { error } = await supabase
+    .from('ad_signups')
+    .update(updates)
+    .eq('email', email);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
