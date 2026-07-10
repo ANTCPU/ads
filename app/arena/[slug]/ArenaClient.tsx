@@ -263,12 +263,11 @@ export default function ArenaClient() {
 
         {/* Module slots */}
         <ModuleSlots
-          slots={slots}
-          onSave={saveModules}
-          brandSlug={slug}
-          userEmail={user.email}
-          accentColor={config.primary}
-        />
+  slots={slots}
+  onSave={saveModules}
+  context={{ slug, email: user.email, accentColor: config.primary }}
+/>
+
 
         {/* Ads */}
         {loading ? (
