@@ -19,6 +19,10 @@ type User = {
   ad_category: string; promo_code: string; message: string;
   status: 'team' | 'trial' | 'pending'; trial_expiry: string;
   country: string; city: string; region: string; ip: string; created_at: string;
+  welcome_email_sent_at: string | null;
+is_country_champion: boolean;
+champion_since: string | null;
+points: number;
 };
 
 export default function UsersPage() {
@@ -59,6 +63,19 @@ export default function UsersPage() {
     });
     alert(res.ok ? `✅ Sent to ${u.email}` : '❌ Failed — check Resend');
   }
+async function sendWelcome(u: User) {
+  const res = await fetch('/api/send-welcome', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: u.name, email: u.email, brand: u.brand_name, trialStatus: u.status }),
+  });
+  if (res.ok) {
+    // Update local state immediately
+    setUsers(prev => prev.map(x =>
+      x.email === u.email ? { ...x, welcome_email_sent_at: new Date().toISOString() } : x
+    ));
+  }
+}
 
   function viewAsUser(u: User) {
     localStorage.setItem('arena_prev_admin', 'true');
