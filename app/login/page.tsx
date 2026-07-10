@@ -66,13 +66,13 @@ async function handlePinAndRedirect(email: string, redirect: string | null) {
 }
 
 export default function Page() {
-  const [hydrated,  setHydrated]  = useState(false);
-  const [promo,     setPromo]     = useState('');
-  const [step,      setStep]      = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+  const [promo, setPromo] = useState('');
+  const [step, setStep] = useState(0);
   const [vaultOpen, setVaultOpen] = useState(false);
-  const [loading,   setLoading]   = useState(false);
-  const [email,     setEmail]     = useState('');
-  const [form,      setForm]      = useState({ name: '', email: '', brand_name: '', ad_category: '', message: '' });
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [form, setForm] = useState({ name: '', email: '', brand_name: '', ad_category: '', message: '' });
 
   useEffect(() => {
     fetch('/api/doorbell', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: '/login', ref: document.referrer || 'direct', ts: new Date().toISOString(), ua: navigator.userAgent }) }).catch(() => {});
@@ -83,9 +83,9 @@ export default function Page() {
 
   if (!hydrated) return null;
 
-  const brand  = getBrandConfig(promo);
+  const brand = getBrandConfig(promo);
   const accent = brand.accentColor;
-  const gold   = brand.goldColor;
+  const gold = brand.goldColor;
   const isBrand = promo !== '' && promo !== 'FREETRIAL';
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -93,7 +93,7 @@ export default function Page() {
     if (!email.trim()) return;
     setLoading(true);
     const norm = email.trim().toLowerCase();
-    const loc  = await getLocation();
+    const loc = await getLocation();
     const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', norm).maybeSingle();
     if (!existing) {
       await supabase.from('ad_signups').insert([{
@@ -103,105 +103,42 @@ export default function Page() {
         promo_code: promo, country: loc.country, city: loc.city,
         region: loc.region, ip: loc.ip,
       }]);
+      fetch('/api/send-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '', email: norm, brand: brand.name, trialStatus: 'team' }),
+      }).catch(() => {});
+      supabase.from('ad_signups')
+        .update({ welcome_email_sent_at: new Date().toISOString() })
+        .eq('email', norm).then(() => {});
     }
-    async function handleBrandCTA() {
-  if (!email.trim()) return;
-  setLoading(true);
-  const norm = email.trim().toLowerCase();
-  const loc = await getLocation();
-  const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', norm).maybeSingle();
-  if (!existing) {
-    await supabase.from('ad_signups').insert([{
-      email: norm, name: '', brand_name: brand.name,
-      status: 'team', trial_days: brand.trialDays,
-      trial_expiry: getTrialExpiry(brand.trialDays),
-      promo_code: promo, country: loc.country, city: loc.city,
-      region: loc.region, ip: loc.ip,
-    }]);
-    fetch('/api/send-welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: '', email: norm, brand: brand.name, trialStatus: 'team' }),
-    }).catch(() => {});
-    supabase.from('ad_signups')
-      .update({ welcome_email_sent_at: new Date().toISOString() })
-      .eq('email', norm).then(() => {});
+    localStorage.setItem('arena_user', JSON.stringify({ name: '', email: norm, brand: brand.name, trialStatus: 'team' }));
+    setLoading(false);
+    window.location.href = brand.ctaHref;
   }
-  lasync function handleSubmit() {
-  setLoading(true);
-  const loc = await getLocation();
-  const emailNorm = form.email.trim().toLowerCase();
-  const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', emailNorm).maybeSingle();
-  if (existing) {
-    await supabase.from('ad_signups').update({ name: form.name, country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }).eq('email', emailNorm);
-  } else {
-    await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status: 'trial', trial_days: 3, trial_expiry: getTrialExpiry(3), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
-    fetch('/api/send-welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }),
-    }).catch(() => {});
-    supabase.from('ad_signups')
-      .update({ welcome_email_sent_at: new Date().toISOString() })
-      .eq('email', emailNorm).then(() => {});
-  }
-  localStorage.setItem('arena_user', JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }));
-  setLoading(false);
-  window.location.href = '/arena';
-}
-
-
-if (!existing) {
-  fetch('/api/send-welcome', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: '',
-      email: norm,
-      brand: brand.name,
-      trialStatus: 'team',
-    }),
-  }).catch(() => {});
-
-  supabase.from('ad_signups')
-    .update({ welcome_email_sent_at: new Date().toISOString() })
-    .eq('email', norm)
-    .then(() => {});
-}
 
   async function handleSubmit() {
     setLoading(true);
-    const loc       = await getLocation();
+    const loc = await getLocation();
     const emailNorm = form.email.trim().toLowerCase();
     const { data: existing } = await supabase.from('ad_signups').select('email').eq('email', emailNorm).maybeSingle();
     if (existing) {
       await supabase.from('ad_signups').update({ name: form.name, country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }).eq('email', emailNorm);
     } else {
       await supabase.from('ad_signups').insert([{ ...form, email: emailNorm, status: 'trial', trial_days: 3, trial_expiry: getTrialExpiry(3), country: loc.country, city: loc.city, region: loc.region, ip: loc.ip }]);
+      fetch('/api/send-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }),
+      }).catch(() => {});
+      supabase.from('ad_signups')
+        .update({ welcome_email_sent_at: new Date().toISOString() })
+        .eq('email', emailNorm).then(() => {});
     }
     localStorage.setItem('arena_user', JSON.stringify({ name: form.name, email: emailNorm, brand: form.brand_name, trialStatus: 'trial' }));
     setLoading(false);
     window.location.href = '/arena';
   }
-// Fire welcome email — new signups only
-if (!existing) {
-  fetch('/api/send-welcome', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: form.name,
-      email: emailNorm,
-      brand: form.brand_name,
-      trialStatus: 'trial',
-    }),
-  }).catch(() => {});
-
-  // Mark sent in DB (fire and forget)
-  supabase.from('ad_signups')
-    .update({ welcome_email_sent_at: new Date().toISOString() })
-    .eq('email', emailNorm)
-    .then(() => {});
-}
 
   const btn = (on: boolean): React.CSSProperties => ({
     width: '100%', background: on ? accent : muted2, color: on ? white : muted,
@@ -217,11 +154,10 @@ if (!existing) {
 
   return (
     <div style={{ background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-
       {/* NAV */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem 2rem', borderBottom: `1px solid ${border}` }}>
         <span style={{ fontWeight: 800, fontSize: '1rem' }}>
-          <span style={{ color: accent }}>{brand.logoEmoji}</span> {brand.name}
+          <span style={{ color: accent }}>{brand.logoEmoji}</span>{brand.name}
         </span>
         <button onClick={() => setVaultOpen(true)} style={{ background: 'none', border: '1px solid #333', color: muted, borderRadius: '8px', padding: '0.5rem 1.1rem', cursor: 'pointer', fontSize: '0.85rem' }}>
           Sign In →
@@ -233,22 +169,11 @@ if (!existing) {
         <div style={{ display: 'inline-block', background: '#111', border: `1px solid ${accent}30`, borderRadius: '999px', padding: '0.3rem 1rem', fontSize: '0.75rem', color: gold, marginBottom: '1.5rem' }}>
           {brand.badgeText}
         </div>
-        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, lineHeight: 1.1, marginBottom: '1.2rem', background: `linear-gradient(135deg, ${white} 40%, ${gold})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          {brand.headline}<br />{brand.headlineSub}
+        <h1 style={{ fontSize: 'clamp(1.8rem, 5vw, 3rem)', fontWeight: 800, lineHeight: 1.15, marginBottom: '1rem' }}>
+          {brand.headline}<br /><span style={{ color: accent }}>{brand.headlineSub}</span>
         </h1>
-        <p style={{ color: muted, fontSize: '1.1rem', maxWidth: '520px', margin: '0 auto', lineHeight: 1.6 }}>
-          {brand.subText}
-        </p>
+        <p style={{ color: muted, fontSize: '1rem', maxWidth: '480px', margin: '0 auto 2rem' }}>{brand.subText}</p>
       </div>
-
-      {/* ANTHEM — brand only */}
-      {isBrand && brand.youtubeId && (
-        <div style={{ maxWidth: '560px', margin: '0 auto 2rem', padding: '0 1.25rem' }}>
-          <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: '14px', overflow: 'hidden', border: `1px solid ${accent}30` }}>
-            <iframe src={`https://www.youtube.com/embed/${brand.youtubeId}?autoplay=0&rel=0`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-          </div>
-        </div>
-      )}
 
       {/* FORM */}
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '0 1.25rem 2rem' }}>
