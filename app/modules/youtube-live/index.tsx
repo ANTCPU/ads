@@ -58,8 +58,8 @@ async function saveConfig(slug: string, email: string, channel: ChannelConfig) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function YouTubeLiveModule({ context }: { context: ModuleContext }) {
-  const { slug, user } = context;
+export default function YouTubeLiveModule({ slug, user }: ModuleContext) {
+
 
   // — state
   const [channel, setChannel]     = useState<ChannelConfig | null>(null);
