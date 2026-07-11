@@ -69,7 +69,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
   const [pin, setPin]             = useState('');
   const [error, setError]         = useState('');
   const [loading, setLoading]     = useState(false);
-  const [vaultMsg, setVaultMsg]   = useState(VAULT_MSGS[0]);
+  const [vaultMsg, setVaultMsg] = useState<string>(VAULT_MSGS[0]);
   const [hasPinSet, setHasPinSet] = useState(false);
   const [isSuper, setIsSuper]     = useState(false);
   const [showPin, setShowPin]     = useState(false);
