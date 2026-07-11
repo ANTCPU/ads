@@ -2,101 +2,133 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { notifyDiscord } from '../../lib/discord';
 
+// ─── Clients ──────────────────────────────────────────────────────────────────
+
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function dashboardUrl(role: string, email: string): string {
+  if (role === 'super' || email === 'antcpu@gmail.com') return 'https://antcpu-ads.vercel.app/dashboard/admin';
+  if (role === 'admin') return 'https://antcpu-ads.vercel.app/dashboard/users';
+  return 'https://antcpu-ads.vercel.app/dashboard/user';
+}
+
+// ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, brand, trialStatus } = await req.json();
+    const { name, email, brand, trialStatus, role = 'user' } = await req.json();
     const firstName = name?.split(' ')[0] || 'there';
-    const isTeam = trialStatus === 'team';
-    const days = isTeam ? 90 : 3;
+    const isTeam    = trialStatus === 'team';
+    const days      = isTeam ? 90 : 3;
+    const myDash    = dashboardUrl(role, email);
+
+    const steps = [
+      { n: '01', title: 'Create Your First Ad',  desc: 'Title, URL, description. 2 minutes. Go live immediately.',                                    href: 'https://antcpu-ads.vercel.app/create-ad' },
+      { n: '02', title: 'Share It Everywhere',   desc: 'Use the ↗ Share button on your ad card. Pre-written post ready for every platform.',          href: myDash },
+      { n: '03', title: 'Climb the Ladder',      desc: 'Entry → Rising → Featured → Top Tier. Engagement earns you higher placement automatically.', href: 'https://antcpu-ads.vercel.app/arena' },
+    ];
 
     const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="background:#0a0a0a;color:#fff;font-family:system-ui,sans-serif;margin:0;padding:0;">
-  <div style="max-width:600px;margin:0 auto;padding:2rem;">
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+      <body style="margin:0;padding:0;background:#0a0a0a;font-family:system-ui,sans-serif;color:#fff">
+        <div style="max-width:560px;margin:0 auto;padding:2rem 1.5rem">
 
-    <!-- Header -->
-    <div style="text-align:center;padding:2rem 0 1.5rem;">
-      <div style="font-size:2rem;margin-bottom:0.5rem;">⚡</div>
-      <div style="font-weight:800;font-size:1.4rem;letter-spacing:0.05em;">ANTCPU ADS</div>
-      <div style="color:#555;font-size:0.8rem;margin-top:0.25rem;">The Arena · v0.5</div>
-    </div>
-
-    <!-- Welcome -->
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:2rem;margin-bottom:1.5rem;">
-      <div style="font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;">Welcome to the Arena, ${firstName}. ⚡</div>
-      <div style="color:#666;font-size:0.95rem;line-height:1.7;margin-bottom:1rem;">
-        ${brand} is now live in the ANTCPU ADS network. You have <strong style="color:#0070f3">${days} days</strong> of ${isTeam ? 'team' : 'free trial'} access — full features, no limits.
-      </div>
-      <a href="https://antcpu-ads.vercel.app/dashboard/user" style="display:inline-block;background:#0070f3;color:#fff;padding:0.75rem 1.75rem;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.95rem;">Enter the Arena →</a>
-    </div>
-
-    <!-- Getting Started -->
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:2rem;margin-bottom:1.5rem;">
-      <div style="font-size:0.65rem;color:#555;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:1.25rem;">Get Started in 3 Steps</div>
-      ${[
-        { n:'01', title:'Create Your First Ad', desc:'Title, URL, description. 2 minutes. Go live immediately.', href:'https://antcpu-ads.vercel.app/create-ad' },
-        { n:'02', title:'Share It Everywhere', desc:'Use the ↗ Share button on your ad card. Pre-written post ready to copy for every platform.', href:'https://antcpu-ads.vercel.app/dashboard/user' },
-        { n:'03', title:'Climb the Ladder', desc:'Entry → Rising → Featured → Top Tier. Engagement earns you higher placement automatically.', href:'https://antcpu-ads.vercel.app/#ladder' },
-      ].map(s => `
-        <div style="display:flex;gap:1rem;margin-bottom:1.25rem;align-items:flex-start;">
-          <div style="font-size:1.5rem;font-weight:800;color:#0070f3;min-width:2.5rem;">${s.n}</div>
-          <div>
-            <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.2rem;">${s.title}</div>
-            <div style="color:#666;font-size:0.82rem;line-height:1.6;margin-bottom:0.4rem;">${s.desc}</div>
-            <a href="${s.href}" style="color:#0070f3;font-size:0.78rem;font-weight:600;text-decoration:none;">Go →</a>
+          <!-- Header -->
+          <div style="text-align:center;margin-bottom:2rem">
+            <div style="font-size:1.5rem;font-weight:800;color:#f0883e">⚡ ANTCPU ADS</div>
+            <div style="font-size:0.72rem;color:#555;margin-top:0.25rem;letter-spacing:0.1em;text-transform:uppercase">The Arena · v0.5</div>
           </div>
+
+          <!-- Hero -->
+          <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:2rem;margin-bottom:1.5rem;text-align:center">
+            <div style="font-size:1.4rem;font-weight:800;margin-bottom:0.5rem">Welcome to the Arena, ${firstName}. ⚡</div>
+            <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
+              <strong style="color:#fff">${brand}</strong> is now live in the ANTCPU ADS network.<br>
+              You have <strong style="color:#f0883e">${days} days</strong> of ${isTeam ? 'team' : 'free trial'} access — full features, no limits.
+            </div>
+            <a href="${myDash}" style="display:inline-block;background:#f0883e;color:#000;text-decoration:none;font-weight:800;font-size:1rem;padding:0.85rem 2rem;border-radius:10px">
+              Enter the Arena →
+            </a>
+          </div>
+
+          <!-- Steps -->
+          <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+            <div style="font-size:0.7rem;color:#555;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem">Get Started in 3 Steps</div>
+            ${steps.map(s => `
+              <div style="display:flex;gap:1rem;padding:0.75rem 0;border-bottom:1px solid #1a1a1a">
+                <div style="font-size:0.7rem;font-weight:800;color:#f0883e;min-width:24px;padding-top:2px">${s.n}</div>
+                <div style="flex:1">
+                  <div style="font-weight:700;font-size:0.88rem;margin-bottom:0.2rem">${s.title}</div>
+                  <div style="font-size:0.78rem;color:#555;line-height:1.5">${s.desc}</div>
+                </div>
+                <a href="${s.href}" style="font-size:0.75rem;color:#f0883e;text-decoration:none;font-weight:700;white-space:nowrap;padding-top:2px">Go →</a>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Featured ad -->
+          <div style="background:#111;border:1px solid #D4AF3730;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+            <div style="font-size:0.7rem;color:#555;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">⚡ Featured Ad — Share This</div>
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem">
+              <span style="font-size:1.5rem">🗺️</span>
+              <div>
+                <div style="font-weight:800">Map of Pi</div>
+                <div style="font-size:0.72rem;color:#D4AF37">Featured Partner</div>
+              </div>
+            </div>
+            <div style="font-size:0.82rem;color:#aaa;margin-bottom:0.75rem">The world's most used crypto global marketplace. 2.1M+ users · 148K sellers · Free to use.</div>
+            <div style="font-size:0.75rem;color:#555;margin-bottom:1rem">
+              ✓ 2.1M+ registered users<br>
+              ✓ 148,000 sellers<br>
+              ✓ 173,000+ completed transactions<br><br>
+              #mapofpi #pinetwork #picommerce #antcpuads
+            </div>
+            <a href="https://mapofpi.com/" style="display:inline-block;background:#D4AF37;color:#000;text-decoration:none;font-weight:700;font-size:0.85rem;padding:0.6rem 1.25rem;border-radius:8px">Visit Map of Pi →</a>
+          </div>
+
+          <!-- Tip -->
+          <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+            <div style="font-size:0.7rem;color:#555;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem">💡 Quick Tip</div>
+            <div style="font-size:0.88rem;color:#aaa;line-height:1.6">Your first share is your most powerful. The Arena grows when members share each other's ads. Every share earns points. Points climb the ladder. The ladder earns reach.</div>
+          </div>
+
+          <!-- Status badge -->
+          <div style="text-align:center;margin-bottom:1.5rem">
+            <span style="background:${isTeam ? '#7928ca15' : '#0070f315'};color:${isTeam ? '#7928ca' : '#0070f3'};border:1px solid ${isTeam ? '#7928ca30' : '#0070f330'};border-radius:999px;padding:0.3rem 1rem;font-size:0.75rem;font-weight:700">
+              ${isTeam ? '🔵 Team Member — Unlimited' : '🟢 3-Day Free Trial Active'}
+            </span>
+          </div>
+
+          <!-- Footer -->
+          <div style="text-align:center;font-size:0.72rem;color:#333;border-top:1px solid #1a1a1a;padding-top:1rem">
+            ⚡ ANTCPU ADS · <a href="mailto:ads@antcpu.io" style="color:#555">ads@antcpu.io</a> · <a href="https://antcpu-ads.vercel.app" style="color:#555">antcpu-ads.vercel.app</a><br>
+            <a href="https://discord.gg/antcpu" style="color:#555">Join our Discord →</a>
+          </div>
+
         </div>
-      `).join('')}
-    </div>
+      </body>
+      </html>
+    `;
 
-    <!-- Featured Ad to Share -->
-    <div style="background:#111;border:1px solid #D4AF3730;border-radius:16px;padding:2rem;margin-bottom:1.5rem;position:relative;overflow:hidden;">
-      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#2E7D32,#D4AF37);"></div>
-      <div style="font-size:0.65rem;color:#D4AF37;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:1rem;">⚡ Featured Ad — Share This</div>
-      <div style="font-weight:800;font-size:1.1rem;margin-bottom:0.3rem;">🗺️ Map of Pi</div>
-      <div style="color:#666;font-size:0.85rem;line-height:1.6;margin-bottom:1rem;">The world's most used crypto global marketplace. 2.1M+ users · 148K sellers · Free to use.</div>
-      <div style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:10px;padding:1rem;font-size:0.82rem;color:#888;line-height:1.7;margin-bottom:1rem;font-family:monospace;">
-        Map of Pi is the world's most used crypto global marketplace on your smartphone.&#10;&#10;✓ 2.1M+ registered users&#10;✓ 148,000 sellers&#10;✓ 173,000+ completed transactions&#10;&#10;Free to use. International. No bank account required.&#10;&#10;→ mapofpi.com&#10;&#10;#mapofpi #pinetwork #picommerce #antcpuads
-      </div>
-      <a href="https://mapofpi.com" style="display:inline-block;background:#2E7D32;color:#fff;padding:0.6rem 1.25rem;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.85rem;">Visit Map of Pi →</a>
-    </div>
-
-    <!-- Quick Tip -->
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;">
-      <div style="font-size:0.65rem;color:#555;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.75rem;">💡 Quick Tip</div>
-      <div style="font-size:0.95rem;font-weight:600;margin-bottom:0.4rem;">Your first share is your most powerful.</div>
-      <div style="color:#666;font-size:0.85rem;line-height:1.6;">The Arena grows when members share each other's ads. Every share earns points. Points climb the ladder. The ladder earns reach.</div>
-    </div>
-
-    <!-- Footer -->
-    <div style="text-align:center;color:#333;font-size:0.75rem;padding:1.5rem 0;">
-      ⚡ ANTCPU ADS · <a href="mailto:ads@antcpu.io" style="color:#333;">ads@antcpu.io</a> · <a href="https://antcpu-ads.vercel.app" style="color:#333;">antcpu-ads.vercel.app</a>
-      <br><br>
-      <a href="https://discord.gg/antcpu" style="color:#5865F2;font-weight:600;text-decoration:none;">Join our Discord →</a>
-    </div>
-
-  </div>
-</body>
-</html>`;
-
-    // Send via Resend
     const { error } = await resend.emails.send({
-      from: 'ANTCPU ADS <ads@antcpu.io>',
-      to: email,
+      from:    'ANTCPU ADS <ads@antcpu.io>',
+      to:      email,
       subject: `⚡ Welcome to the Arena, ${firstName} — you're live`,
       html,
     });
 
     if (error) throw error;
 
-    // Discord notification
-    await notifyDiscord(`📧 Welcome email sent to **${name}** (${email}) · ${brand} · ${isTeam ? '🔵 Team' : '🟢 Trial'}`);
+    await notifyDiscord(
+      `📧 Welcome email sent to **${name}** (${email}) · ${brand} · ${isTeam ? '🔵 Team' : '🟢 Trial'} · role: ${role}`
+    );
 
     return NextResponse.json({ sent: true });
+
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'unknown error';
     return NextResponse.json({ error: message }, { status: 500 });
