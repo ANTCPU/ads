@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   const { data } = await supabase
     .from('ad_signups')
-    .select('pin, name, brand_name, status')
+    .select('pin, name, brand_name, status, role')
     .eq('email', email.trim().toLowerCase())
     .maybeSingle();
 
@@ -23,10 +23,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     user: {
-      email: email.trim().toLowerCase(),
-      name: data.name || '',
-      brand: data.brand_name || '',
-      trialStatus: data.status || 'trial',
+      email:       email.trim().toLowerCase(),
+      name:        data.name       || '',
+      brand:       data.brand_name || '',
+      trialStatus: data.status     || 'trial',
+      role:        data.role       || 'user',
     }
   });
 }
