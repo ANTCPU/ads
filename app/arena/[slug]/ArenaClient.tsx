@@ -211,9 +211,15 @@ export default function ArenaClient() {
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
 
       {/* Nav */}
-      <ArenaNav
-        onSignOut={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
-      />
+     <ArenaNav
+  role={isSuper ? 'admin' : user.role === 'admin' ? 'admin' : 'user'}
+  userName={user.name}
+  userEmail={user.email}
+  userBrand={user.brand}
+  trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+  onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
+/>
+
 
       {/* Share modal */}
       {shareAd && (
