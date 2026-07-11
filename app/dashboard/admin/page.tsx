@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import ArenaNav        from '../../components/ArenaNav';
-import ArenaFooter     from '../../components/ArenaFooter';
-import ModuleSlots     from '../../components/ModuleSlots';
-import CreateAdDrawer  from '../../components/CreateAdDrawer';
+import ArenaNav       from '../../components/ArenaNav';
+import ArenaFooter    from '../../components/ArenaFooter';
+import CreateAdDrawer from '../../components/CreateAdDrawer';
 import { clearSessionCookie } from '../../lib/session';
 import { MODULE_REGISTRY } from '../../modules/index';
 
@@ -46,13 +45,9 @@ type SessionUser = {
   role?:       string;
 };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+type Ad = Record<string, any>;
 
-const BRAND_DASHBOARDS = [
-  { label: '🗺️ Map of Pi',          path: '/dashboard/mapofpi' },
-  { label: '📸 Amanda Photography', path: '/dashboard/photography' },
-  { label: '⚡ ANTCPU',             path: '/dashboard/antcpu' },
-];
+// ─── Nav config — add new links here only ─────────────────────────────────────
 
 const QUICK_LINKS = [
   { label: '👥 All Users',   path: '/dashboard/users' },
@@ -62,24 +57,49 @@ const QUICK_LINKS = [
   { label: '📊 Test',        path: '/dashboard/test' },
 ];
 
-// All module slots — super admin sees every module
-const ALL_MODULE_IDS = MODULE_REGISTRY.map(m => m.id);
+const BRAND_DASHBOARDS = [
+  { label: '🗺️ Map of Pi',          path: '/dashboard/mapofpi' },
+  { label: '📸 Amanda Photography', path: '/dashboard/photography' },
+  { label: '⚡ ANTCPU',             path: '/dashboard/antcpu' },
+];
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const S = {
+  card:    { background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem' } as React.CSSProperties,
+  label:   { fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '0.75rem' },
+  pill:    (active: boolean): React.CSSProperties => ({
+    background:   active ? '#f0883e' : 'transparent',
+    border:       `1px solid ${active ? '#f0883e' : '#222'}`,
+    color:        active ? '#000' : '#555',
+    borderRadius: '999px',
+    padding:      '0.25rem 0.75rem',
+    fontSize:     '0.72rem',
+    fontWeight:   700,
+    cursor:       'pointer',
+    transition:   'all 0.15s',
+  }),
+  navBtn:  { background: 'transparent', border: '1px solid #222', color: '#aaa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 } as React.CSSProperties,
+  input:   { flex: 1, minWidth: '200px', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.6rem 1rem', color: '#fff', fontSize: '0.85rem', outline: 'none' } as React.CSSProperties,
+};
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
   const router = useRouter();
 
-  const [hydrated, setHydrated]   = useState(false);
-  const [user, setUser]           = useState<SessionUser>({ email: '', name: '', brand: '', trialStatus: 'team' });
-  const [stats, setStats]         = useState({ lastSignup: '—', ads: 0, signups: 0 });
-  const [signups, setSignups]     = useState<Signup[]>([]);
-  const [clicks, setClicks]       = useState<Click[]>([]);
-  const [ads, setAds]             = useState<any[]>([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('');
-  const [assigning, setAssigning] = useState(false);
-  const [assignMsg, setAssignMsg] = useState('');
+  // — state
+  const [hydrated, setHydrated]       = useState(false);
+  const [user, setUser]               = useState<SessionUser>({ email: '', name: '', brand: '', trialStatus: 'team' });
+  const [stats, setStats]             = useState({ lastSignup: '—', ads: 0, signups: 0 });
+  const [signups, setSignups]         = useState<Signup[]>([]);
+  const [clicks, setClicks]           = useState<Click[]>([]);
+  const [ads, setAds]                 = useState<Ad[]>([]);
+  const [drawerOpen, setDrawerOpen]   = useState(false);
+  const [adminEmail, setAdminEmail]   = useState('');
+  const [assigning, setAssigning]     = useState(false);
+  const [assignMsg, setAssignMsg]     = useState('');
+  const [activeModule, setActiveModule] = useState<string>(MODULE_REGISTRY[0]?.id || '');
 
   // — auth guard: super only
   useEffect(() => {
@@ -95,6 +115,7 @@ export default function AdminDashboard() {
     loadData();
   }, []);
 
+  // — load all data in parallel
   async function loadData() {
     const [
       { count: adCount },
@@ -117,14 +138,18 @@ export default function AdminDashboard() {
         .order('points', { ascending: false }),
     ]);
 
-    const lastSignup = recentSignups?.[0]?.brand_name || recentSignups?.[0]?.name || '—';
-    setStats({ lastSignup, ads: adCount || 0, signups: recentSignups?.length || 0 });
+    setStats({
+      lastSignup: recentSignups?.[0]?.brand_name || recentSignups?.[0]?.name || '—',
+      ads:        adCount        || 0,
+      signups:    recentSignups?.length || 0,
+    });
     setSignups(recentSignups || []);
-    setClicks(recentClicks || []);
-    setAds(allAds || []);
+    setClicks(recentClicks   || []);
+    setAds(allAds            || []);
   }
 
-  async function assignAdmin(email: string, grant: boolean) {
+  // — assign / revoke role
+  async function assignRole(email: string, grant: boolean) {
     if (!email.trim()) return;
     setAssigning(true);
     setAssignMsg('');
@@ -133,17 +158,19 @@ export default function AdminDashboard() {
       .from('ad_signups')
       .update({ role: grant ? 'admin' : 'user' })
       .eq('email', norm);
-    if (error) {
-      setAssignMsg(`❌ ${error.message}`);
-    } else {
-      setAssignMsg(grant ? `✅ ${norm} is now an admin` : `✅ ${norm} role reset to user`);
-      setAdminEmail('');
-      loadData();
-    }
+    setAssignMsg(error
+      ? `❌ ${error.message}`
+      : grant ? `✅ ${norm} is now an admin` : `✅ ${norm} role reset to user`
+    );
+    if (!error) { setAdminEmail(''); loadData(); }
     setAssigning(false);
   }
 
   if (!hydrated) return null;
+
+  // — active module component
+  const activeDef = MODULE_REGISTRY.find(m => m.id === activeModule);
+  const ActiveComponent = activeDef?.component || null;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -162,96 +189,103 @@ export default function AdminDashboard() {
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1rem 4rem' }}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ fontWeight: 800, fontSize: '1.4rem', color: '#f0883e' }}>⚡ Super Admin</div>
-          <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.25rem' }}>
-            Full system access · {user.email}
-          </div>
+          <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.25rem' }}>Full system access · {user.email}</div>
         </div>
 
-        {/* Stats */}
+        {/* ── Stats ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '2rem' }}>
           {[
             { label: 'Last Signup',   value: stats.lastSignup, color: '#0070f3' },
             { label: 'Active Ads',    value: stats.ads,        color: '#f0883e' },
             { label: 'Total Signups', value: stats.signups,    color: '#7928ca' },
           ].map(s => (
-            <div key={s.label} style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1rem' }}>
+            <div key={s.label} style={S.card}>
               <div style={{ fontSize: '1.2rem', fontWeight: 800, color: s.color }}>{s.value}</div>
               <div style={{ fontSize: '0.68rem', color: '#555', marginTop: '0.2rem' }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Quick links */}
+        {/* ── Quick links ── */}
         <div style={{ marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Quick Links</div>
+          <div style={S.label}>Quick Links</div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {QUICK_LINKS.map(l => (
-              <button key={l.path} onClick={() => router.push(l.path)} style={{ background: 'transparent', border: '1px solid #222', color: '#aaa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
-                {l.label}
-              </button>
+              <button key={l.path} onClick={() => router.push(l.path)} style={S.navBtn}>{l.label}</button>
             ))}
-            <button onClick={() => setDrawerOpen(true)} style={{ background: '#f0883e', border: 'none', color: '#000', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 700 }}>
+            <button onClick={() => setDrawerOpen(true)} style={{ ...S.navBtn, background: '#f0883e', border: 'none', color: '#000', fontWeight: 700 }}>
               📢 Create Ad
             </button>
           </div>
         </div>
 
-        {/* Brand dashboards */}
+        {/* ── Brand dashboards ── */}
         <div style={{ marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Brand Dashboards</div>
+          <div style={S.label}>Brand Dashboards</div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {BRAND_DASHBOARDS.map(b => (
-              <button key={b.path} onClick={() => router.push(b.path)} style={{ background: 'transparent', border: '1px solid #222', color: '#aaa', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
-                {b.label}
-              </button>
+              <button key={b.path} onClick={() => router.push(b.path)} style={S.navBtn}>{b.label}</button>
             ))}
           </div>
         </div>
 
-        {/* ── Module preview — all modules, isSuper = true ── */}
+        {/* ── Module tabs ── */}
         <div style={{ marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>
-            Arena Modules — Full Admin View
+          <div style={S.label}>Arena Modules</div>
+
+          {/* Tab pills — one per module */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            {MODULE_REGISTRY.map(mod => (
+              <button
+                key={mod.id}
+                onClick={() => setActiveModule(mod.id)}
+                style={S.pill(activeModule === mod.id)}
+              >
+                {mod.label}
+              </button>
+            ))}
           </div>
-          <ModuleSlots
-            slots={ALL_MODULE_IDS}
-            onSave={() => {}}
-            context={{
-              slug:     'antcpu',
-              user:     { email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus },
-              ads,
-              supabase,
-              isSuper:  true,
-            }}
-          />
+
+          {/* Active module — only one renders at a time */}
+          {ActiveComponent && (
+            <div style={S.card}>
+              <ActiveComponent
+                slug="antcpu"
+                user={{ email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus }}
+                ads={ads}
+                supabase={supabase}
+                isSuper={true}
+              />
+            </div>
+          )}
         </div>
 
-        {/* Assign admin role */}
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Assign / Revoke Admin</div>
+        {/* ── Assign / revoke role ── */}
+        <div style={{ ...S.card, marginBottom: '2rem' }}>
+          <div style={S.label}>Assign / Revoke Role</div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <input
               value={adminEmail}
               onChange={e => setAdminEmail(e.target.value)}
               placeholder="user@email.com"
-              style={{ flex: 1, minWidth: '200px', background: '#0a0a0a', border: '1px solid #222', borderRadius: '8px', padding: '0.6rem 1rem', color: '#fff', fontSize: '0.85rem', outline: 'none' }}
+              style={S.input}
             />
-            <button onClick={() => assignAdmin(adminEmail, true)} disabled={assigning || !adminEmail.trim()} style={{ background: '#0070f3', border: 'none', color: '#fff', borderRadius: '8px', padding: '0.6rem 1.25rem', fontSize: '0.82rem', cursor: assigning ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+            <button onClick={() => assignRole(adminEmail, true)} disabled={assigning || !adminEmail.trim()} style={{ background: '#0070f3', border: 'none', color: '#fff', borderRadius: '8px', padding: '0.6rem 1.25rem', fontSize: '0.82rem', cursor: assigning ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
               Grant Admin
             </button>
-            <button onClick={() => assignAdmin(adminEmail, false)} disabled={assigning || !adminEmail.trim()} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', padding: '0.6rem 1.25rem', fontSize: '0.82rem', cursor: assigning ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
+            <button onClick={() => assignRole(adminEmail, false)} disabled={assigning || !adminEmail.trim()} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '8px', padding: '0.6rem 1.25rem', fontSize: '0.82rem', cursor: assigning ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
               Revoke
             </button>
           </div>
           {assignMsg && <div style={{ fontSize: '0.78rem', color: '#aaa', marginTop: '0.5rem' }}>{assignMsg}</div>}
         </div>
 
-        {/* Current admins */}
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Current Admins</div>
+        {/* ── Current admins ── */}
+        <div style={{ ...S.card, marginBottom: '2rem' }}>
+          <div style={S.label}>Current Admins</div>
           {signups.filter(s => s.role === 'admin' || s.role === 'super').map(s => (
             <div key={s.email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #1a1a1a' }}>
               <div>
@@ -265,9 +299,9 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Recent signups */}
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Recent Signups</div>
+        {/* ── Recent signups ── */}
+        <div style={{ ...S.card, marginBottom: '2rem' }}>
+          <div style={S.label}>Recent Signups</div>
           {signups.map(s => (
             <div key={s.email} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid #1a1a1a' }}>
               <div>
@@ -282,9 +316,9 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Recent clicks */}
-        <div style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Recent Clicks</div>
+        {/* ── Recent clicks ── */}
+        <div style={S.card}>
+          <div style={S.label}>Recent Clicks</div>
           {clicks.map((c, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid #1a1a1a' }}>
               <div style={{ fontSize: '0.75rem', color: '#aaa' }}>{c.email}</div>
