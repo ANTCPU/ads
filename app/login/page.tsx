@@ -85,9 +85,10 @@ async function fetchRole(email: string): Promise<string> {
 
 async function handlePinAndRedirect(email: string, redirect: string | null) {
   const norm = email.trim().toLowerCase();
-
+  
+  const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
   // — super admin path
-  if (norm === 'antcpu@gmail.com') {
+  if (SUPER_EMAIL && norm === SUPER_EMAIL) {
     const pin = prompt('Enter admin PIN:');
     if (!pin) return;
     const res = await fetch('/api/admin-auth', {
