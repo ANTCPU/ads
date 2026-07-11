@@ -7,6 +7,8 @@ import ArenaFooter    from '../../components/ArenaFooter';
 import CreateAdDrawer from '../../components/CreateAdDrawer';
 import { clearSessionCookie } from '../../lib/session';
 import { MODULE_REGISTRY } from '../../modules/index';
+import type { Ad } from '../../modules/types';
+
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +47,6 @@ type SessionUser = {
   role?:       string;
 };
 
-type Ad = Record<string, any>;
 
 // ─── Nav config — add new links here only ─────────────────────────────────────
 
