@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { notifyDiscord } from '../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-const DISCORD_WEBHOOK = 'https://discord.com/api/webhooks/1495909060170616884/5RthXmjPurDkhjpXkM_iQGa11-Gl-WnjGeRp-gq79piX5od5frIPqT1L-tGb-t-W06e7';
 
 const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
   entry:    { color: '#0070f3', label: 'Entry',    icon: '📝' },
@@ -57,34 +56,27 @@ export default function ProfileClient() {
   }, [id]);
 
   async function shareProfile() {
-    if (!profile) return;
-    const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
-    const text = `Check out ${profile.brand} on ANTCPU ADS ⚡\n\n${profile.bio || ''}\n\n→ ${url}\n\n#antcpuads #marketing #ads`;
+  if (!profile) return;
+  const url  = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
+  const text = `Check out ${profile.brand} on ANTCPU ADS ⚡\n\n${profile.bio || ''}\n\n→ ${url}\n\n#antcpuads #marketing #ads`;
 
-    // Fire Discord notification
-    fetch(DISCORD_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: `🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}\n**Email:** ${profile.email}`,
-      }),
-    }).catch(() => {});
+  // — notify discord (fire and forget)
+  notifyDiscord(`🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}\n**Email:** ${profile.email}`);
 
-    // Native share on mobile, clipboard fallback on desktop
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title: `${profile.brand} — ANTCPU ADS`, text, url });
-        setProfileCopied(true);
-        setTimeout(() => setProfileCopied(false), 2500);
-        return;
-      } catch {}
-    }
-    // Clipboard fallback
-    navigator.clipboard.writeText(text).then(() => {
+  // — native share on mobile, clipboard fallback on desktop
+  if (typeof navigator !== 'undefined' && navigator.share) {
+    try {
+      await navigator.share({ title: `${profile.brand} — ANTCPU ADS`, text, url });
       setProfileCopied(true);
       setTimeout(() => setProfileCopied(false), 2500);
-    });
+      return;
+    } catch {}
   }
+  navigator.clipboard.writeText(text).then(() => {
+    setProfileCopied(true);
+    setTimeout(() => setProfileCopied(false), 2500);
+  });
+}
 
   async function fetchProfile() {
     setLoading(true);
