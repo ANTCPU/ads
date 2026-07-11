@@ -6,11 +6,13 @@ const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 type VaultStep = 'email' | 'pin' | 'success' | 'error';
 
 type VaultUser = {
-  email: string;
-  name: string;
-  brand: string;
+  email:       string;
+  name:        string;
+  brand:       string;
   trialStatus: string;
+  role?:       string;
 };
+
 
 type Props = {
   open: boolean;
@@ -82,58 +84,63 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
   }
 
   async function handlePin() {
-    const norm = email.trim().toLowerCase();
-    setLoading(true);
-    setError('');
-    setVaultMsg(VAULT_MSGS[1]);
+  const norm = email.trim().toLowerCase();
+  setLoading(true);
+  setError('');
+  setVaultMsg(VAULT_MSGS[1]);
 
-    try {
-      let session: VaultUser;
+  try {
+    let session: VaultUser & { role?: string };
 
-      if (SUPER_EMAIL && norm === SUPER_EMAIL) {
-      const res = await fetch('/api/admin-auth', ...
+    if (SUPER_EMAIL && norm === SUPER_EMAIL) {
+      const res = await fetch('/api/admin-auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ pin }),
+      });
+      if (!res.ok) { setError('Invalid PIN. Access denied.'); setLoading(false); return; }
       session = { email: norm, name: 'Antony Ciccone', brand: 'ANTCPU', trialStatus: 'team', role: 'super' };
 
-        if (!res.ok) { setError('Invalid PIN. Access denied.'); setLoading(false); return; }
-        session = { email: norm, name: 'Antony Ciccone', brand: 'ANTCPU', trialStatus: 'team' };
-      } else if (hasPinSet) {
-        const res = await fetch('/api/user-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: norm, pin }),
-        });
-        if (!res.ok) { setError('Invalid PIN. Access denied.'); setLoading(false); return; }
-        const { user } = await res.json();
-        session = user;
-      } else {
-        // No PIN — fetch from Supabase directly
-        const res = await fetch('/api/user-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: norm, pin: '__check__' }),
-        });
-        const data = await res.json();
-        session = { email: norm, name: data.name || '', brand: data.brand || '', trialStatus: data.status || 'trial' };
-      }
+    } else if (hasPinSet) {
+      const res = await fetch('/api/user-auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: norm, pin }),
+      });
+      if (!res.ok) { setError('Invalid PIN. Access denied.'); setLoading(false); return; }
+      const { user } = await res.json();
+      session = user;
 
-      // Set cookie + localStorage
-      const encoded = encodeURIComponent(JSON.stringify(session));
-      document.cookie = `arena_session=${encoded}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
-      localStorage.setItem('arena_user', JSON.stringify(session));
-
-      setVaultMsg('Session secured. Welcome back.');
-      setStep('success');
-      setTimeout(() => {
-        onSuccess(session);
-        const isSuper = SUPER_EMAIL && norm === SUPER_EMAIL;
-        const dest = redirectTo || (isSuper ? '/dashboard/admin' : '/dashboard/user');
-        window.location.href = dest;
-      }, 1200);
-    } catch {
-      setError('Vault error. Try again.');
+    } else {
+      const res = await fetch('/api/user-auth', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: norm, pin: '__check__' }),
+      });
+      const data = await res.json();
+      session = { email: norm, name: data.name || '', brand: data.brand || '', trialStatus: data.status || 'trial' };
     }
-    setLoading(false);
+
+    // — write session to cookie + localStorage
+    const encoded = encodeURIComponent(JSON.stringify(session));
+    document.cookie = `arena_session=${encoded}; path=/; expires=${new Date(Date.now() + 90 * 864e5).toUTCString()}; SameSite=Lax`;
+    localStorage.setItem('arena_user', JSON.stringify(session));
+
+    setVaultMsg('Session secured. Welcome back.');
+    setStep('success');
+    setTimeout(() => {
+      onSuccess(session as VaultUser);
+      const isSuper = SUPER_EMAIL && norm === SUPER_EMAIL;
+      const dest = redirectTo || (isSuper ? '/dashboard/admin' : '/dashboard/user');
+      window.location.href = dest;
+    }, 1200);
+
+  } catch {
+    setError('Vault error. Try again.');
   }
+  setLoading(false);
+}
+
 
   if (!open) return null;
 
