@@ -1,6 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 
+const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
+
 type VaultStep = 'email' | 'pin' | 'success' | 'error';
 
 type VaultUser = {
@@ -46,7 +48,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     setVaultMsg(VAULT_MSGS[0]);
 
     try {
-      if (norm === 'antcpu@gmail.com') {
+     if (SUPER_EMAIL && norm === SUPER_EMAIL) {
         setHasPinSet(true);
         setStep('pin');
         setVaultMsg('Admin access detected. Enter your PIN.');
@@ -88,12 +90,10 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     try {
       let session: VaultUser;
 
-      if (norm === 'antcpu@gmail.com') {
-        const res = await fetch('/api/admin-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin }),
-        });
+      if (SUPER_EMAIL && norm === SUPER_EMAIL) {
+      const res = await fetch('/api/admin-auth', ...
+      session = { email: norm, name: 'Antony Ciccone', brand: 'ANTCPU', trialStatus: 'team', role: 'super' };
+
         if (!res.ok) { setError('Invalid PIN. Access denied.'); setLoading(false); return; }
         session = { email: norm, name: 'Antony Ciccone', brand: 'ANTCPU', trialStatus: 'team' };
       } else if (hasPinSet) {
@@ -125,7 +125,8 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
       setStep('success');
       setTimeout(() => {
         onSuccess(session);
-        const dest = redirectTo || (norm === 'antcpu@gmail.com' ? '/dashboard/admin' : '/dashboard/user');
+        const isSuper = SUPER_EMAIL && norm === SUPER_EMAIL;
+        const dest = redirectTo || (isSuper ? '/dashboard/admin' : '/dashboard/user');
         window.location.href = dest;
       }, 1200);
     } catch {
