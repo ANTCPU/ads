@@ -23,6 +23,7 @@ const TIME_WINDOWS = [
   '3:00 PM – 4:00 PM',
   '4:00 PM – 5:00 PM',
 ];
+const BOOKING_WEBHOOK = process.env.NEXT_PUBLIC_DISCORD_BOOKING_WEBHOOK!;
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
