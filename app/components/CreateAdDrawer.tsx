@@ -15,12 +15,8 @@ const AD_CATEGORIES = [
 
 const SEED_PHRASES = ['coming in hot', 'antcpu ad network', 'antcpu-ads.vercel.app'];
 
-const MULTI_BRAND: Record<string, { label: string; icon: string; brand: string }[]> = {
-  'andri.postkast@gmail.com': [
-    { label: 'Map of Pi', icon: '🗺️', brand: 'Map of Pi' },
-    { label: 'PiPioneersX', icon: '⚡', brand: 'PiPioneersX' },
-  ],
-};
+const MULTI_BRAND: Record<string, { label: string; icon: string; brand: string }[]> = {};
+
 
 function ariaCheck(title: string, url: string, description: string) {
   const combined = `${title} ${description}`.toLowerCase();
@@ -71,7 +67,8 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
   const [targetEmail, setTargetEmail] = useState('');
   const [targetBrand, setTargetBrand] = useState('');
 
-  const isAdmin = user.email === 'antcpu@gmail.com';
+  const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
+  const isAdmin = !!(SUPER_EMAIL && user.email === SUPER_EMAIL) || user.trialStatus === 'team';
   const isTeam = user.trialStatus === 'team';
   const accent = isAdmin ? '#f0883e' : isTeam ? '#7928ca' : '#0070f3';
   const brands = MULTI_BRAND[user.email] || null;
