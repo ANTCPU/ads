@@ -10,7 +10,7 @@ import Pill from '../../components/Pill';
 import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
-import { notifyDiscord } from '../../lib/discord';
+import { notifyDiscord, DC } from '../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -111,26 +111,46 @@ export default function AntcpuDashboard() {
     }).catch(() => {});
     // Find ad details for Discord
     const ad = pendingAds.find(a => a.id === id);
-    if (ad) {
-    notifyDiscord(`✅ **Ad Approved**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Tier:** ${ad.tier}`);
-    }
-    await loadPending();
-    setActionId(null);
-  }
+if (ad) {
+  notifyDiscord('', 'ad_approved', {
+    title: '✅ Ad Approved',
+    color: DC.green,
+    fields: [
+      { name: 'Brand',    value: ad.brand,    inline: true },
+      { name: 'Tier',     value: ad.tier,     inline: true },
+      { name: 'Category', value: ad.category, inline: true },
+      { name: 'Title',    value: ad.title,    inline: false },
+      { name: 'Email',    value: ad.email,    inline: false },
+    ],
+    footer: 'Aria reviewed · approved by admin',
+    timestamp: true,
+  });
+}
+
 
   async function rejectAd(id: string) {
     setActionId(id);
     await supabase.from('ads').update({ status: 'rejected' }).eq('id', id);
     // Discord notification with Aria verdict
     const ad = pendingAds.find(a => a.id === id);
-    if (ad) {
-      const verdict = ariaVerdict(ad);
-      notifyDiscord(`❌ **Ad Rejected**\n**Brand:** ${ad.brand}\n**Title:** "${ad.title}"\n**Email:** ${ad.email}\n**Aria:** ${verdict.note}`);
+if (ad) {
+  const verdict = ariaVerdict(ad);
+  notifyDiscord('', 'ad_rejected', {
+    title: '❌ Ad Rejected',
+    color: DC.red,
+    fields: [
+      { name: 'Brand',    value: ad.brand,     inline: true },
+      { name: 'Tier',     value: ad.tier,      inline: true },
+      { name: 'Category', value: ad.category,  inline: true },
+      { name: 'Title',    value: ad.title,     inline: false },
+      { name: 'Email',    value: ad.email,     inline: false },
+      { name: '🦋 Aria',  value: verdict.note, inline: false },
+    ],
+    footer: 'ANTCPU ADS · Aria Review',
+    timestamp: true,
+  });
+}
 
-    }
-    await loadPending();
-    setActionId(null);
-  }
 
   function copyPost(text: string, id: number) {
     navigator.clipboard.writeText(text).then(() => {
