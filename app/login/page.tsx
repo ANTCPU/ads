@@ -67,18 +67,22 @@ function fireWelcomeEmail(name: string, email: string, brand: string, trialStatu
 }
 
 // Build session cookie + localStorage — single source of truth for all login paths
-function persistSession(session: SessionUser, redirect: string | null) {
-  const encoded = encodeURIComponent(JSON.stringify(session));
-  const days = session.trialStatus === 'team' || session.role === 'super' ? 90 : 3;
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `arena_session=${encoded}; path=/; expires=${expires}; SameSite=Lax`;
+async function persistSession(session: SessionUser, redirect: string | null) {
+  // Set HttpOnly cookie server-side — not readable by JS, survives mobile Safari
+  await fetch('/api/session/set', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(session),
+  });
+  // Keep localStorage as UI cache only — for instant name/brand display
   localStorage.setItem('arena_user', JSON.stringify(session));
   window.location.href = redirect || (
-    session.role === 'super'  ? '/dashboard/admin' :
-    session.role === 'admin'  ? '/dashboard/users' :
+    session.role === 'super' ? '/dashboard/admin' :
+    session.role === 'admin' ? '/dashboard/users' :
     '/dashboard/user'
   );
 }
+
 
 // Fetch role from ad_signups — defaults to 'user' if not found
 async function fetchRole(email: string): Promise<string> {
@@ -193,33 +197,33 @@ export default function Page() {
 
     try {
       if (pinTarget.mode === 'super') {
-        const res = await fetch('/api/admin-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin: pinInput }),
-        });
-        if (!res.ok) {
-          setPinError('Invalid PIN. Access denied.');
-          setPinLoading(false);
-          return;
-        }
-        // ✅ Fetch profile from DB — no hardcoded name/brand anywhere
-        const { data: profile } = await supabase
-          .from('ad_signups')
-          .select('name, brand_name, status')
-          .eq('email', pinTarget.email)
-          .maybeSingle();
+        const res = await fetch('/api/user-auth', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email: pinTarget.email, pin: pinInput }),
+});
+if (!res.ok) {
+  setPinError('Invalid PIN. Access denied.');
+  setPinLoading(false);
+  return;
+}
+const { data: profile } = await supabase
+  .from('ad_signups')
+  .select('name, brand_name, status')
+  .eq('email', pinTarget.email)
+  .maybeSingle();
 
-        persistSession(
-          {
-            email: pinTarget.email,
-            name: profile?.name || '',
-            brand: profile?.brand_name || '',
-            trialStatus: profile?.status || 'team',
-            role: 'super',
-          },
-          pinTarget.redirect
-        );
+await persistSession(
+  {
+    email: pinTarget.email,
+    name: profile?.name || '',
+    brand: profile?.brand_name || '',
+    trialStatus: profile?.status || 'team',
+    role: 'super',
+  },
+  pinTarget.redirect
+);
+
 
       } else {
         const res = await fetch('/api/user-auth', {
