@@ -5,13 +5,6 @@ import ArenaNav from '../../components/ArenaNav';
 import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 
-// ─── Supabase ─────────────────────────────────────────────────────────────────
-
-// Note: admin/users API route handles all reads + patches
-// We do not call supabase directly from this page
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type User = {
   email: string;
   name: string;
@@ -34,58 +27,65 @@ type User = {
   welcome_email_sent_at: string | null;
 };
 
-type Filter = 'all' | 'team' | 'trial' | 'pending';
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function statusColor(status: string): string {
-  if (status === 'team') return '#7928ca';
-  if (status === 'trial') return '#22c55e';
-  return '#f0883e';
-}
+type Filter = 'all' | 'team' | 'trial' | 'pending' | 'champions';
 
 function statusLabel(status: string): string {
-  if (status === 'team') return '🔵 Team';
+  if (status === 'team')  return '🔵 Team';
   if (status === 'trial') return '🟢 Trial';
   return '🟡 Pending';
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+const S = {
+  page:      { background: '#0a0a0a', color: '#fff', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' } as React.CSSProperties,
+  wrap:      { maxWidth: '720px', margin: '0 auto', padding: '1.5rem 1rem' } as React.CSSProperties,
+  card:      { background: '#111', border: '1px solid #1a1a1a', borderRadius: '12px', marginBottom: '0.5rem', overflow: 'hidden' } as React.CSSProperties,
+  label:     { fontSize: '0.62rem', color: '#555', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: '0.25rem' },
+  pill:      (active: boolean): React.CSSProperties => ({
+    padding: '0.35rem 0.9rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600,
+    cursor: 'pointer', border: '1px solid',
+    background: active ? '#f0883e' : 'transparent',
+    color: active ? '#000' : '#555',
+    borderColor: active ? '#f0883e' : '#333',
+    transition: 'all 0.15s',
+  }),
+  btn:       (bg: string, color = '#fff'): React.CSSProperties => ({
+    background: bg, border: 'none', color, borderRadius: '8px',
+    padding: '0.4rem 0.85rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+  }),
+  champCard: { background: '#111', border: '1px solid #D4AF3740', borderLeft: '3px solid #D4AF37', borderRadius: '10px', padding: '1rem 1.25rem', marginBottom: '0.5rem' } as React.CSSProperties,
+};
 
 export default function UsersPage() {
   const router = useRouter();
 
-  // — state
-  const [hydrated, setHydrated]   = useState(false);
-  const [users, setUsers]         = useState<User[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
-  const [filter, setFilter]       = useState<Filter>('all');
-  const [expanded, setExpanded]   = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const [users,    setUsers]    = useState<User[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState('');
+  const [filter,   setFilter]   = useState<Filter>('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  // — auth guard: super + admin only
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     if (!stored) { router.push('/'); return; }
     try {
       const u = JSON.parse(stored);
-      const allowed = u.email === 'antcpu@gmail.com' || u.role === 'super' || u.role === 'admin';
-      if (!allowed) { router.push('/dashboard/user'); return; }
+      if (u.role !== 'super' && u.role !== 'admin') {
+        router.push('/dashboard/user'); return;
+      }
     } catch { router.push('/'); return; }
     setHydrated(true);
     fetchUsers();
   }, []);
 
-  // — fetch all users via admin API
   async function fetchUsers() {
     setLoading(true);
-    const res = await fetch('/api/admin/users');
+    const res  = await fetch('/api/admin/users');
     const json = await res.json();
     if (json.users) setUsers(json.users as User[]);
     setLoading(false);
   }
 
-  // — send welcome email (fires and updates local state on success)
   async function sendWelcome(u: User) {
     const res = await fetch('/api/send-welcome', {
       method: 'POST',
@@ -99,7 +99,20 @@ export default function UsersPage() {
     }
   }
 
-  // — send custom notify via scout
+  async function sendChampionEmail(u: User) {
+    const res = await fetch('/api/send-module', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'champion', name: u.name, email: u.email,
+        brand: u.brand_name, trialStatus: u.status,
+        shopName: u.brand_name, country: u.country,
+        flag: '', adId: null, category: u.ad_category,
+      }),
+    });
+    alert(res.ok ? `✅ Champion email sent to ${u.email}` : '❌ Failed — check Resend');
+  }
+
   async function sendNotify(u: User) {
     const msg = prompt(`Message to ${u.name || u.email}:`);
     if (!msg) return;
@@ -111,7 +124,6 @@ export default function UsersPage() {
     alert(res.ok ? `✅ Sent to ${u.email}` : '❌ Failed — check Resend');
   }
 
-  // — toggle country champion status via admin PATCH
   async function toggleChampion(u: User) {
     const newVal = !u.is_country_champion;
     await fetch('/api/admin/users', {
@@ -130,25 +142,29 @@ export default function UsersPage() {
     ));
   }
 
-  // — impersonate user (admin view-as)
-  function viewAsUser(u: User) {
-    localStorage.setItem('arena_prev_admin', 'true');
-    localStorage.setItem('arena_user', JSON.stringify({
-      name: u.name || u.email,
-      email: u.email,
-      brand: u.brand_name || '',
-      trialStatus: u.status || 'trial',
+  async function viewAsUser(u: User) {
+    const session = {
+      name: u.name || u.email, email: u.email,
+      brand: u.brand_name || '', trialStatus: u.status || 'trial',
       role: u.role || 'user',
-    }));
-    document.cookie = `arena_session=${encodeURIComponent(u.email)}; path=/; max-age=86400`;
+    };
+    await fetch('/api/session/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(session),
+    });
+    localStorage.setItem('arena_prev_admin', 'true');
+    localStorage.setItem('arena_user', JSON.stringify(session));
     router.push('/dashboard');
   }
 
   if (!hydrated) return null;
 
-  // — derived lists
   const filtered = users.filter(u => {
-    const matchFilter = filter === 'all' || u.status === filter;
+    const matchFilter =
+      filter === 'all'       ? true :
+      filter === 'champions' ? u.is_country_champion :
+      u.status === filter;
     const q = search.toLowerCase();
     const matchSearch = !q
       || u.email?.toLowerCase().includes(q)
@@ -159,51 +175,37 @@ export default function UsersPage() {
   });
 
   const counts = {
-    all:     users.length,
-    team:    users.filter(u => u.status === 'team').length,
-    trial:   users.filter(u => u.status === 'trial').length,
-    pending: users.filter(u => u.status === 'pending').length,
+    all:       users.length,
+    team:      users.filter(u => u.status === 'team').length,
+    trial:     users.filter(u => u.status === 'trial').length,
+    pending:   users.filter(u => u.status === 'pending').length,
+    champions: users.filter(u => u.is_country_champion).length,
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
-
   return (
-    <div style={{ background: '#f5f5f5', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={S.page}>
 
-      {/* Nav */}
       <ArenaNav
         role="admin"
-        userName="Antony Ciccone"
-        userEmail="antcpu@gmail.com"
-        userBrand="ANTCPU"
-        trialStatus="team"
-        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
+        onLogout={async () => { await clearSessionCookie(); router.push('/'); }}
       />
 
-      <div style={{ maxWidth: '860px', margin: '0 auto', padding: '2rem 1.25rem' }}>
+      <div style={S.wrap}>
 
-        {/* Header */}
-        <div style={{ marginBottom: '1.75rem' }}>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0a0a0a' }}>👥 Arena Users</div>
-          <div style={{ fontSize: '0.85rem', color: '#888', marginTop: '0.25rem' }}>
-            {users.length} total · click row to expand
-          </div>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>👥 Arena Users</div>
+          <div style={{ fontSize: '0.78rem', color: '#555' }}>{users.length} total · click row to expand</div>
         </div>
 
         {/* Filter tabs */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {(['all', 'team', 'trial', 'pending'] as Filter[]).map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{
-              padding: '0.4rem 1rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 600,
-              cursor: 'pointer', border: '1px solid',
-              background: filter === f ? '#0a0a0a' : '#fff',
-              color: filter === f ? '#fff' : '#888',
-              borderColor: filter === f ? '#0a0a0a' : '#e5e5e5',
-            }}>
-              {f === 'all'     ? `All (${counts.all})`
-              : f === 'team'   ? `🔵 Team (${counts.team})`
-              : f === 'trial'  ? `🟢 Trial (${counts.trial})`
-              : `🟡 Pending (${counts.pending})`}
+          {(['all', 'team', 'trial', 'pending', 'champions'] as Filter[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={S.pill(filter === f)}>
+              {f === 'all'       ? `All (${counts.all})` :
+               f === 'team'      ? `🔵 Team (${counts.team})` :
+               f === 'trial'     ? `🟢 Trial (${counts.trial})` :
+               f === 'champions' ? `🏆 Champions (${counts.champions})` :
+                                   `🟡 Pending (${counts.pending})`}
             </button>
           ))}
         </div>
@@ -214,130 +216,112 @@ export default function UsersPage() {
           onChange={e => setSearch(e.target.value)}
           placeholder="Search name, email, brand, country..."
           style={{
-            width: '100%', background: '#fff', border: '1px solid #e5e5e5',
+            width: '100%', background: '#111', border: '1px solid #222',
             borderRadius: '8px', padding: '0.75rem 1rem', fontSize: '0.88rem',
-            color: '#0a0a0a', outline: 'none', boxSizing: 'border-box', marginBottom: '1.25rem',
+            color: '#fff', outline: 'none', boxSizing: 'border-box', marginBottom: '1.25rem',
           }}
         />
 
-        {/* User list */}
+        {/* Content */}
         {loading ? (
-          <div style={{ color: '#888' }}>Loading...</div>
+          <div style={{ color: '#555', padding: '2rem', textAlign: 'center' }}>Loading...</div>
         ) : filtered.length === 0 ? (
-          <div style={{ color: '#888' }}>No users found.</div>
+          <div style={{ color: '#555', padding: '2rem', textAlign: 'center' }}>No users found.</div>
+
+        ) : filter === 'champions' ? (
+          // ── Champions column ──────────────────────────────────────────────
+          <div>
+            <div style={{ ...S.label, marginBottom: '1rem' }}>{counts.champions} Active Champions</div>
+            {filtered.map((u, i) => (
+              <div key={u.email + i} style={S.champCard}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+
+                  <div style={{ flex: 1, minWidth: '160px' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#D4AF37', marginBottom: '0.2rem' }}>
+                      🏆 {u.name || u.brand_name || u.email}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '0.2rem' }}>{u.email}</div>
+                    {u.brand_name && <div style={{ fontSize: '0.72rem', color: '#aaa' }}>{u.brand_name}</div>}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '140px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                    {u.country && <div style={{ fontSize: '0.78rem', color: '#aaa' }}>📍 {[u.city, u.country].filter(Boolean).join(', ')}</div>}
+                    {u.ad_category && <div style={{ fontSize: '0.72rem', color: '#555' }}>{u.ad_category}</div>}
+                    {u.champion_since && <div style={{ fontSize: '0.68rem', color: '#555' }}>since {new Date(u.champion_since).toLocaleDateString()}</div>}
+                    {u.points > 0 && <div style={{ fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>⚡ {u.points} pts</div>}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: u.welcome_email_sent_at ? '#0070f3' : '#ef4444' }} />
+                      <span style={{ fontSize: '0.65rem', color: '#555' }}>{u.welcome_email_sent_at ? 'Welcome sent' : 'No welcome'}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                      <button onClick={() => sendChampionEmail(u)} style={S.btn('#D4AF37', '#000')}>📧 Champion Email</button>
+                      <button onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)} style={S.btn('#f0883e')}>👤 Profile</button>
+                      <button onClick={() => toggleChampion(u)} style={{ ...S.btn('transparent', '#ef4444'), border: '1px solid #ef4444' }}>Remove</button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            ))}
+          </div>
+
         ) : (
+          // ── Standard rows ─────────────────────────────────────────────────
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {filtered.map((u, i) => {
-              const key = u.email + i;
+              const key    = u.email + i;
               const isOpen = expanded === key;
               return (
-                <div key={key} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: '10px', overflow: 'hidden' }}>
-
-                  {/* ── Row ── */}
+                <div key={key} style={S.card}>
                   <div
                     onClick={() => setExpanded(isOpen ? null : key)}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', cursor: 'pointer', flexWrap: 'wrap', gap: '0.5rem' }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-
-                      {/* Status dots */}
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        {/* Blue/red dot = welcome email sent or not — click to send */}
-                        <span
-                          title={u.welcome_email_sent_at ? 'Welcome email sent' : 'Click to send welcome email'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', flex: 1 }}>
+                      <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                        <div
                           onClick={e => { e.stopPropagation(); if (!u.welcome_email_sent_at) sendWelcome(u); }}
-                          style={{ width: 9, height: 9, borderRadius: '50%', display: 'inline-block', flexShrink: 0, background: u.welcome_email_sent_at ? '#0070f3' : '#ef4444', cursor: u.welcome_email_sent_at ? 'default' : 'pointer' }}
+                          title={u.welcome_email_sent_at ? 'Welcome sent' : 'Click to send welcome'}
+                          style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: u.welcome_email_sent_at ? '#0070f3' : '#ef4444', cursor: u.welcome_email_sent_at ? 'default' : 'pointer' }}
                         />
                         {u.is_country_champion && <span style={{ fontSize: '0.7rem' }}>🏆</span>}
                       </div>
-
-                      {/* Name + email */}
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0a0a0a' }}>{u.name || '—'}</div>
-                        <div style={{ fontSize: '0.72rem', color: '#888' }}>{u.email}</div>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>{u.name || '—'}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#555' }}>{u.email}</div>
                       </div>
-
-                      {/* Brand + promo pills */}
-                      {u.brand_name && (
-                        <span style={{ fontSize: '0.72rem', background: '#f0f7ff', color: '#0070f3', border: '1px solid #bfdbfe', borderRadius: '999px', padding: '0.1rem 0.5rem', fontWeight: 600 }}>
-                          {u.brand_name}
-                        </span>
-                      )}
-                      {u.promo_code && (
-                        <span style={{ fontSize: '0.68rem', color: '#888', border: '1px solid #e5e5e5', borderRadius: '999px', padding: '0.1rem 0.5rem' }}>
-                          {u.promo_code}
-                        </span>
-                      )}
+                      {u.brand_name && <span style={{ background: '#1a1a1a', border: '1px solid #222', color: '#aaa', borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.68rem' }}>{u.brand_name}</span>}
+                      {u.promo_code && <span style={{ background: '#1a1a1a', border: '1px solid #222', color: '#555', borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.68rem', fontFamily: 'monospace' }}>{u.promo_code}</span>}
                     </div>
-
-                    {/* Right side: status + date + chevron */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{
-                        fontSize: '0.68rem', fontWeight: 700, borderRadius: '999px', padding: '0.15rem 0.6rem',
-                        background: `${statusColor(u.status)}15`,
-                        color: statusColor(u.status),
-                        border: `1px solid ${statusColor(u.status)}40`,
-                      }}>
-                        {statusLabel(u.status)}
-                      </span>
-                      <span style={{ fontSize: '0.72rem', color: '#aaa' }}>{new Date(u.created_at).toLocaleDateString()}</span>
-                      <span style={{ color: '#aaa', fontSize: '0.8rem' }}>{isOpen ? '▲' : '▼'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#555' }}>
+                      <span>{statusLabel(u.status)}</span>
+                      <span>{new Date(u.created_at).toLocaleDateString()}</span>
+                      <span>{isOpen ? '▲' : '▼'}</span>
                     </div>
                   </div>
 
-                  {/* ── Expanded detail panel ── */}
                   {isOpen && (
-                    <div style={{ borderTop: '1px solid #e5e5e5', padding: '1rem', background: '#fafafa' }}>
-
-                      {/* Detail grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-                        {u.country && (
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>LOCATION</div>
-                            <div style={{ fontSize: '0.78rem' }}>📍 {[u.city, u.country].filter(Boolean).join(', ')}</div>
-                          </div>
-                        )}
-                        {u.trial_expiry && (
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>EXPIRES</div>
-                            <div style={{ fontSize: '0.78rem' }}>{u.trial_expiry}</div>
-                          </div>
-                        )}
-                        {u.ad_category && (
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>CATEGORY</div>
-                            <div style={{ fontSize: '0.78rem' }}>{u.ad_category}</div>
-                          </div>
-                        )}
-                        {u.points > 0 && (
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>POINTS</div>
-                            <div style={{ fontSize: '0.78rem', color: '#f0883e', fontWeight: 700 }}>⚡ {u.points}</div>
-                          </div>
-                        )}
-                        {u.message && (
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>MESSAGE</div>
-                            <div style={{ fontSize: '0.78rem', color: '#555', fontStyle: 'italic' }}>&quot;{u.message}&quot;</div>
-                          </div>
-                        )}
-                        {u.ip && (
-                          <div>
-                            <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700, marginBottom: '0.2rem' }}>IP</div>
-                            <div style={{ fontSize: '0.78rem', color: '#aaa' }}>{u.ip}</div>
-                          </div>
-                        )}
+                    <div style={{ borderTop: '1px solid #1a1a1a', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        {u.country    && <div><div style={S.label}>Location</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>📍 {[u.city, u.country].filter(Boolean).join(', ')}</div></div>}
+                        {u.trial_expiry && <div><div style={S.label}>Expires</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>{u.trial_expiry}</div></div>}
+                        {u.ad_category && <div><div style={S.label}>Category</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>{u.ad_category}</div></div>}
+                        {u.points > 0  && <div><div style={S.label}>Points</div><div style={{ fontSize: '0.82rem', color: '#f0883e', fontWeight: 700 }}>⚡ {u.points}</div></div>}
+                        {u.message     && <div style={{ width: '100%' }}><div style={S.label}>Message</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>"{u.message}"</div></div>}
+                        {u.ip          && <div><div style={S.label}>IP</div><div style={{ fontSize: '0.75rem', color: '#555', fontFamily: 'monospace' }}>{u.ip}</div></div>}
                       </div>
 
-                      {/* Champion toggle */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700 }}>COUNTRY CHAMPION</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <div style={S.label}>Country Champion</div>
                         <button
                           onClick={e => { e.stopPropagation(); toggleChampion(u); }}
                           style={{
                             background: u.is_country_champion ? '#D4AF3715' : 'transparent',
-                            border: `1px solid ${u.is_country_champion ? '#D4AF37' : '#e5e5e5'}`,
-                            color: u.is_country_champion ? '#D4AF37' : '#888',
+                            border: `1px solid ${u.is_country_champion ? '#D4AF37' : '#333'}`,
+                            color: u.is_country_champion ? '#D4AF37' : '#555',
                             borderRadius: '999px', padding: '0.15rem 0.65rem',
                             fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
                           }}
@@ -345,31 +329,18 @@ export default function UsersPage() {
                           {u.is_country_champion ? '🏆 Champion' : '+ Set Champion'}
                         </button>
                         {u.is_country_champion && u.champion_since && (
-                          <span style={{ fontSize: '0.68rem', color: '#D4AF37' }}>
-                            since {new Date(u.champion_since).toLocaleDateString()}
-                          </span>
+                          <span style={{ fontSize: '0.68rem', color: '#555' }}>since {new Date(u.champion_since).toLocaleDateString()}</span>
                         )}
                       </div>
 
-                      {/* Actions */}
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <button onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)}
-                          style={{ background: '#f0883e', border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
-                          👤 Profile
-                        </button>
-                        <button onClick={() => sendNotify(u)}
-                          style={{ background: '#7928ca', border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
-                          📣 Notify
-                        </button>
-                        <button onClick={() => viewAsUser(u)}
-                          style={{ background: '#0070f3', border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
-                          👁 View as User
-                        </button>
+                        <button onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)} style={S.btn('#f0883e')}>👤 Profile</button>
+                        {u.is_country_champion && <button onClick={() => sendChampionEmail(u)} style={S.btn('#D4AF37', '#000')}>📧 Champion Email</button>}
+                        <button onClick={() => sendNotify(u)} style={S.btn('#7928ca')}>📣 Notify</button>
+                        <button onClick={() => viewAsUser(u)} style={S.btn('#0070f3')}>👁 View as User</button>
                       </div>
-
                     </div>
                   )}
-
                 </div>
               );
             })}
@@ -377,10 +348,7 @@ export default function UsersPage() {
         )}
 
       </div>
-
-      {/* Footer */}
       <ArenaFooter />
-
     </div>
   );
 }
