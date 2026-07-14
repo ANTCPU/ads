@@ -18,10 +18,10 @@ const supabase = createClient(
 );
 
 const { green, gold, bg, card, border, white, muted, muted2 } = tokens;
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
 export default function CreateShopAdPage() {
-  const [step,        setStep]        = useState<Step>(1);
+  const [step, setStep] = useState<Step>(0);
   const [shopType,    setShopType]    = useState('');
   const [shopName,    setShopName]    = useState('');
   const [country,     setCountry]     = useState('');
@@ -107,7 +107,7 @@ export default function CreateShopAdPage() {
     if (inserted?.id) {
       try {
         await supabase.from('antbot_pods').insert([{
-          ad_id: inserted.id, email: user.email || 'mapofpi@champion.app',
+          ad_id: inserted.id, email: user.email || 'unknown@mapofpi',
           brand: 'Map of Pi', country: sel?.name || '', language,
           pod_json: JSON.stringify(pod.map(b => ({ id: b.id, channel: b.channel, task: b.task }))),
         }]);
@@ -142,7 +142,7 @@ export default function CreateShopAdPage() {
   const selectedIcon    = MAPOFPI_ICONS.find(i => i.slug === shopType);
   const selectedCountry = MAPOFPI_COUNTRIES.find(c => c.code === country);
   const canAdvance      = [shopType !== '', shopName.trim().length >= 2, country !== '', description.trim().length >= 10];
-  const STEP_LABELS     = ['Pick your shop type', 'Name your shop', 'Choose your country', 'Describe your shop', 'Launching your campaign'];
+  const STEP_LABELS = ['Your details', 'Pick your shop type', 'Name your shop', 'Choose your country', 'Describe your shop', 'Launching your campaign'];
 
   return (
     <div style={{ background: bg, color: white, fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
@@ -159,15 +159,55 @@ export default function CreateShopAdPage() {
 
       {/* PROGRESS */}
       <div style={{ height: '3px', background: muted2 }}>
-        <div style={{ height: '100%', background: `linear-gradient(90deg, ${green}, ${gold})`, width: `${(step / 5) * 100}%`, transition: 'width 0.4s ease' }} />
+        <div style={{ height: '100%', background: `linear-gradient(90deg, ${green}, ${gold})`, width: `${((step + 1) / 6) * 100}%`, transition: 'width 0.4s ease' }} />
       </div>
-      <div style={{ textAlign: 'center', padding: '1.5rem 1.25rem 0.5rem' }}>
-        <div style={{ fontSize: '0.65rem', color: green, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>Step {step} of 5</div>
-        <div style={{ fontSize: '0.8rem', color: muted }}>{STEP_LABELS[step - 1]}</div>
-      </div>
+      <div style={{ fontSize: '0.65rem', color: green, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+  Step {step + 1} of 6
+</div>
+<div style={{ fontSize: '0.8rem', color: muted }}>{STEP_LABELS[step]}</div>
 
       <div style={{ maxWidth: '520px', margin: '1.5rem auto', padding: '0 1.25rem 4rem' }}>
 
+        {/* STEP 0 — EMAIL GATE */}
+{step === 0 && (
+  <div>
+    <h2 style={{ fontWeight: 800, fontSize: '1.3rem', marginBottom: '0.5rem' }}>Who's claiming this country?</h2>
+    <p style={{ color: muted, fontSize: '0.88rem', marginBottom: '1.5rem' }}>We'll send your campaign confirmation here.</p>
+    <div style={{ marginBottom: '1rem' }}>
+      <label style={{ fontSize: '0.75rem', color: muted, display: 'block', marginBottom: '0.4rem' }}>Your Name</label>
+      <input
+        style={inp}
+        placeholder="e.g. Antony"
+        value={user.name}
+        onChange={e => setUser(u => ({ ...u, name: e.target.value }))}
+        autoFocus
+      />
+    </div>
+    <div style={{ marginBottom: '1.5rem' }}>
+      <label style={{ fontSize: '0.75rem', color: muted, display: 'block', marginBottom: '0.4rem' }}>Your Email</label>
+      <input
+        style={inp}
+        type="email"
+        placeholder="you@example.com"
+        value={user.email}
+        onChange={e => setUser(u => ({ ...u, email: e.target.value }))}
+      />
+    </div>
+    <button
+      style={{ ...nextBtn(user.name.trim().length >= 2 && user.email.includes('@')), width: '100%' }}
+      onClick={() => {
+        if (user.name.trim().length >= 2 && user.email.includes('@')) {
+          localStorage.setItem('arena_user', JSON.stringify(user));
+          setStep(1);
+        }
+      }}
+    >
+      Continue →
+    </button>
+  </div>
+)}
+
+        
         {/* STEP 1 — ICON PICKER */}
         {step === 1 && (
           <div>
