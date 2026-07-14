@@ -154,9 +154,9 @@ export async function POST(req: NextRequest) {
 
     // ─── Champion welcome ─────────────────────────────────────────────────────
     if (type === 'champion') {
-      if (!adId || !country || !flag) {
-        return NextResponse.json({ error: 'champion requires adId, country, flag' }, { status: 400 });
-      }
+      if (!country) {
+  return NextResponse.json({ error: 'champion requires country' }, { status: 400 });
+}
 
       const html = championHtml({
         firstName,
