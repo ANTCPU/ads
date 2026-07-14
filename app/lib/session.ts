@@ -1,13 +1,15 @@
-// Sets arena_session cookie on login, clears on logout
+// ─── Session helpers ──────────────────────────────────────────────────────────
+// arena_session cookie is now HttpOnly — set server-side via /api/session/set.
+// clearSessionCookie() calls the server to clear it + wipes localStorage cache.
+// setSessionCookie() is retired — kept as no-op for any legacy callers.
+// ─────────────────────────────────────────────────────────────────────────────
 
-export function setSessionCookie(user: { email: string; name: string; brand: string; trialStatus: string }) {
-  const val = encodeURIComponent(JSON.stringify(user));
-  // 90 days for team, 3 days for trial
-  const days = user.trialStatus === 'team' ? 90 : 3;
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `arena_session=${val}; path=/; expires=${expires}; SameSite=Lax`;
+export async function clearSessionCookie(): Promise<void> {
+  await fetch('/api/session/clear', { method: 'POST' }).catch(() => {});
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('arena_user');
+  }
 }
 
-export function clearSessionCookie() {
-  document.cookie = 'arena_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
-}
+// Legacy — no longer writes cookie directly. Cookie set via /api/session/set.
+export function setSessionCookie(_user?: unknown): void {}
