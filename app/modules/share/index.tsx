@@ -10,8 +10,11 @@ export default function ShareModule({ slug, user, ads, isSuper }: ModuleContext)
   const [copied, setCopied]     = useState<string | null>(null);
   const [shareCount, setShareCount] = useState(0);
 
-  const arenaUrl    = `https://antcpu-ads.vercel.app/arena/${slug}`;
-  const topAd       = ads[0] || null;
+  const topAd    = ads[0] || null;
+  const arenaUrl = topAd
+  ? `https://antcpu-ads.vercel.app/s/${topAd.id.slice(0, 8)}`
+  : `https://antcpu-ads.vercel.app/arena/${slug}`;
+
   const totalShares = ads.reduce((sum, a) => sum + (a.share_count || 0), 0);
   const totalClicks = ads.reduce((sum, a) => sum + (a.click_count || 0), 0);
   const totalPoints = ads.reduce((sum, a) => sum + (a.points     || 0), 0);
