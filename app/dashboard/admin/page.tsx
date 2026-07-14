@@ -106,7 +106,6 @@ export default function AdminDashboard() {
       if (!stored) { router.push('/'); return; }
       const u: SessionUser = JSON.parse(stored);
       if (u.role !== 'super') { router.push('/dashboard/user'); return; }
-      if (!isSuper) { router.push('/dashboard/user'); return; }
       setUser(u);
     } catch { router.push('/'); return; }
     setHydrated(true);
