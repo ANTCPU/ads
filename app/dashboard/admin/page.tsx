@@ -17,9 +17,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// ─── Env ──────────────────────────────────────────────────────────────────────
-
-const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,7 +105,7 @@ export default function AdminDashboard() {
       const stored = localStorage.getItem('arena_user');
       if (!stored) { router.push('/'); return; }
       const u: SessionUser = JSON.parse(stored);
-      const isSuper = u.role === 'super' || (!!SUPER_EMAIL && u.email === SUPER_EMAIL);
+      if (u.role !== 'super') { router.push('/dashboard/user'); return; }
       if (!isSuper) { router.push('/dashboard/user'); return; }
       setUser(u);
     } catch { router.push('/'); return; }
