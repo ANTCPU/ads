@@ -342,6 +342,21 @@ export default function CreateShopAdPage() {
                 <a href="/arena" style={{ display: 'block', background: 'transparent', color: muted, padding: '0.85rem', borderRadius: '12px', fontWeight: 600, textDecoration: 'none', fontSize: '0.9rem', border: `1px solid ${border}` }}>
                   View the full Arena →
                 </a>
+                <a href="/login"
+                 style={{
+                 display: 'block',
+                 background: 'transparent',
+                 color: gold,
+                 padding: '0.85rem',
+                 borderRadius: '12px',
+                 fontWeight: 700,
+                 textDecoration: 'none',
+                 fontSize: '0.9rem',
+                 border: `1px solid ${gold}40`,
+                 textAlign: 'center',
+                  }}
+                  > ⚡ Set up your dashboard →
+                 </a>
                 <button onClick={resetAll} style={{ background: 'none', border: 'none', color: muted2, cursor: 'pointer', fontSize: '0.8rem', padding: '0.5rem' }}>
                   + Create another shop ad
                 </button>
