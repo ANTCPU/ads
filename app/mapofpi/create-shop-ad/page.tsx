@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { notifyDiscord } from '../../lib/discord';
+import { notifyDiscord, DC } from '../../lib/discord';
 import { sanitizeDescription, containsUrl } from '../../lib/sanitize';
 import { getAriaLine } from '../../lib/ariaLines';
 import { tokens, inp, nextBtn, backBtn, macBtn } from '../../lib/shopAdStyles';
@@ -92,7 +92,7 @@ export default function CreateShopAdPage() {
     });
 
     const { data: inserted } = await supabase.from('ads').insert([{
-      email:        user.email || 'mapofpi@champion.app',
+      email:        user.email || 'ghost@mapofpi.invalid',
       name:         user.name  || shopName,
       brand:        'Map of Pi',
       title:        `${icon?.emoji} ${shopName} — ${sel?.flag} ${sel?.name}`,
@@ -114,7 +114,19 @@ export default function CreateShopAdPage() {
       } catch {}
     }
 
-    notifyDiscord(`🗺️ **New Country Champion**\n**Shop:** ${shopName}\n**Type:** ${icon?.label}\n**Country:** ${sel?.flag} ${sel?.name}\n**Language:** ${language}\n**Email:** ${user.email || 'anonymous'}`);
+    notifyDiscord('', 'new_champion', {
+  title: '🗺️ New Country Champion',
+  color: DC.gold,
+  fields: [
+    { name: 'Shop',     value: shopName,                        inline: true },
+    { name: 'Type',     value: icon?.label || 'General Shop',  inline: true },
+    { name: 'Country',  value: `${sel?.flag} ${sel?.name}`,    inline: true },
+    { name: 'Language', value: language.toUpperCase(),         inline: true },
+    { name: 'Email',    value: user.email || 'unknown',        inline: false },
+  ],
+  footer: 'ANTCPU ADS · Country Champions',
+  timestamp: true,
+});
 
     for (let i = 0; i < 10; i++) {
       setActiveBot(i);
