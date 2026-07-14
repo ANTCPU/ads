@@ -15,7 +15,8 @@ const PROTECTED = [
 ];
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
+
   const { pathname, hostname } = req.nextUrl;
 
   // Allow Vercel preview deployments through
