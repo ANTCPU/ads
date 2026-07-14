@@ -59,4 +59,102 @@ function championHtml(p: {
         <div style="font-size:1.2rem">${e}</div>
         <div style="font-weight:700;font-size:0.82rem;color:${c}">${l}</div>
         <div style="font-size:0.72rem;color:#555">${d}</div>
-      </div>`
+      </div>`).join('')}
+    </div>
+    <div class="label">How to Earn Points</div>
+    ${[['⚡ +5','Share your shop link','Every share earns 5 points. WhatsApp, Telegram, X, Instagram — anywhere.'],['👆 +3','Get people to click','Every click on your shop earns 3 points. The more people visit, the faster you rise.'],['📌 +50','Get pinned by admin','Top performing shops get pinned to the top of the Arena — 50 bonus points and maximum visibility.']].map(([pts,title,desc])=>`
+    <div class="step">
+      <div style="background:#f0883e20;border:1px solid #f0883e40;color:#f0883e;border-radius:8px;padding:0.4rem 0.6rem;font-weight:800;font-size:0.8rem;white-space:nowrap">${pts}</div>
+      <div class="step-body"><div class="title">${title}</div><div class="desc">${desc}</div></div>
+    </div>`).join('')}
+    <div style="background:#111;border:1px solid #222;border-radius:10px;padding:1rem;margin:1.5rem 0">
+      <div class="label">Your Shop Link — Share This</div>
+      <div style="font-family:monospace;font-size:0.85rem;color:#22c55e;word-break:break-all;margin-bottom:0.75rem">${p.shareLink}</div>
+      <a href="${p.shareLink}" style="display:block;background:#22c55e;color:#000;text-align:center;padding:0.75rem;border-radius:8px;font-weight:700;text-decoration:none">↗ Share Your Shop Now</a>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-bottom:2rem">
+      <a href="${p.lbLink}" style="flex:1;background:#111;border:1px solid #222;color:#fff;text-align:center;padding:0.75rem;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.85rem">🏆 Leaderboard</a>
+      <a href="${p.dashLink}" style="flex:1;background:#111;border:1px solid #222;color:#fff;text-align:center;padding:0.75rem;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.85rem">⚡ Dashboard</a>
+    </div>
+    <div class="footer">
+      ANTCPU ADS · <a href="https://antcpu-ads.vercel.app">antcpu-ads.vercel.app</a><br>
+      You're receiving this because you claimed a country on Map of Pi Arena.
+    </div>
+  </div>
+  </body></html>`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const {
+      type,
+      name, email, brand, trialStatus, role = 'user',
+      shopName, country, flag, adId, category,
+    } = await req.json();
+
+    if (!email || !type) {
+      return NextResponse.json({ error: 'email and type required' }, { status: 400 });
+    }
+
+    const firstName    = name?.split(' ')[0] || 'there';
+    const isTeam       = trialStatus === 'team';
+    const days         = isTeam ? 90 : 3;
+    const shareLink    = adId
+      ? `https://antcpu-ads.vercel.app/s/${String(adId).slice(0, 8)}`
+      : 'https://antcpu-ads.vercel.app/mapofpi/icons/arena';
+
+    // ─── Champion welcome ─────────────────────────────────────────────────────
+    if (type === 'champion') {
+      if (!country) {
+        return NextResponse.json({ error: 'champion requires country' }, { status: 400 });
+      }
+
+      // Auto-derive flag if not passed
+      const resolvedFlag = flag || COUNTRY_FLAGS[country] || '🌍';
+
+      const html = championHtml({
+        firstName,
+        shopName:  shopName || brand,
+        country,
+        flag:      resolvedFlag,
+        shareLink,
+        arenaLink: 'https://antcpu-ads.vercel.app/mapofpi/icons/arena',
+        lbLink:    'https://antcpu-ads.vercel.app/dashboard/leaderboard',
+        dashLink:  'https://antcpu-ads.vercel.app/dashboard/user',
+        isTeam,
+        days,
+      });
+
+      const { error } = await resend.emails.send({
+        from:    'ANTCPU ADS <arena@antcpu.com>',
+        to:      email,
+        subject: `🗺️ ${firstName}, your shop is live — start earning points`,
+        html,
+      });
+      if (error) throw error;
+
+      notifyDiscord('', 'new_signup', {
+        title:  '📧 Champion Welcome Sent',
+        color:  DC.gold,
+        fields: [
+          { name: 'Name',     value: name || '—',                    inline: true  },
+          { name: 'Country',  value: `${resolvedFlag} ${country}`,   inline: true  },
+          { name: 'Shop',     value: shopName || brand || '—',       inline: false },
+          { name: 'Email',    value: email,                          inline: false },
+          { name: 'Category', value: category || '—',                inline: true  },
+          { name: 'Link',     value: shareLink,                      inline: false },
+        ],
+        footer:    'ANTCPU ADS · Email Module',
+        timestamp: true,
+      });
+
+      return NextResponse.json({ sent: true, type: 'champion' });
+    }
+
+    return NextResponse.json({ error: `unknown type: ${type}` }, { status: 400 });
+
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
