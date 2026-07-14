@@ -167,9 +167,14 @@ export default function AntcpuDashboard() {
   return (
     <div style={{ background: '#fff', minHeight: '100vh', color: '#0a0a0a' }}>
       <ArenaNav
-        user={{ name: user.name, email: user.email, brand: user.brand, trialStatus: user.trialStatus, role: user.role }}
-        onSignOut={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
-      />
+  role="admin"
+  userName={user.name}
+  userEmail={user.email}
+  userBrand={user.brand}
+  trialStatus="team"
+  onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
+/>
+
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
         <AdminBar />
 
