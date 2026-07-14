@@ -387,6 +387,57 @@ export default function ProfileClient() {
 
           </div>
         </div>
+        {/* ── Arena Guide card ── */}
+<div style={{
+  maxWidth: '680px',
+  margin: '2rem auto 0',
+  padding: '0 1rem 2rem',
+}}>
+  <div style={{
+    background: '#111318',
+    border: '1px solid #2a2d35',
+    borderLeft: '3px solid #0070f3',
+    boxShadow: '0 0 20px rgba(0,112,243,0.08)',
+    borderRadius: '12px',
+    padding: '1.25rem 1.5rem',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '1rem',
+  }}>
+    <div>
+      <div style={{ fontSize: '0.65rem', color: '#0070f3', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
+        ◈ &nbsp; Arena Guide
+      </div>
+      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#e0e0e0', marginBottom: '0.3rem', lineHeight: 1.3 }}>
+        Easy guide to place ads, share them<br />
+        and find others like {profile.brand || profile.name}.
+      </div>
+      <div style={{ fontSize: '0.75rem', color: '#555' }}>
+        The Arena is open. Your brand could be here.
+      </div>
+    </div>
+    <button
+      onClick={() => router.push('/guide?ref=profile')}
+      style={{
+        background: '#0070f3',
+        border: 'none',
+        color: '#fff',
+        borderRadius: '9px',
+        padding: '0.7rem 1.25rem',
+        fontWeight: 800,
+        fontSize: '0.85rem',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        boxShadow: '0 4px 16px rgba(0,112,243,0.25)',
+      }}
+    >
+      ⚡ Arena Guide →
+    </button>
+  </div>
+</div>
+
       </div>
     </div>
   );
