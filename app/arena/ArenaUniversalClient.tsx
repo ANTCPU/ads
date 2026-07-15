@@ -437,7 +437,7 @@ export default function ArenaUniversalClient() {
                   )}
 
                   {/* Rank badge */}
-                  {ad.rank_position && ad.rank_position <= 3 && (
+                  {ad.rank_position && ad.rank_position >= 1 && ad.rank_position <= 3 && (
                     <div style={{ position: 'absolute', top: '0.6rem', left: '0.6rem', fontSize: '1.1rem' }}>
                       {ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}
                     </div>
