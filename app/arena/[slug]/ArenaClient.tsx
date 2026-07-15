@@ -577,13 +577,22 @@ export default function ArenaClient() {
 
         {/* Module slots */}
         <ModuleSlots
-          slug={slug}
-          slots={slots}
-          ads={ads}
-          isSuper={isSuper}
-          onSave={saveModules}
-          brandColor={config.primary}
-        />
+  slots={slots}
+  onSave={saveModules}
+  context={{
+    slug,
+    user: {
+      email:       user.email,
+      name:        user.name,
+      brand:       user.brand,
+      trialStatus: user.trialStatus,
+    },
+    ads,
+    supabase,
+    isSuper,
+  }}
+/>
+
 
         {/* Ads */}
         {loading ? (
