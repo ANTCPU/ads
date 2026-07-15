@@ -15,17 +15,99 @@ const BASE_CSS = `
   .footer a{color:#555}
 `;
 
-// ─── Flag lookup — auto-derive when not passed ────────────────────────────────
+// ─── Flag lookup — matches MAPOFPI_COUNTRIES in assets.ts ─────────────────────
 const COUNTRY_FLAGS: Record<string, string> = {
-  'Nigeria': '🇳🇬', 'United States': '🇺🇸', 'United Kingdom': '🇬🇧',
-  'Finland': '🇫🇮', 'Saudi Arabia': '🇸🇦', 'Egypt': '🇪🇬',
-  'Ghana': '🇬🇭', 'Kenya': '🇰🇪', 'South Africa': '🇿🇦',
-  'India': '🇮🇳', 'Philippines': '🇵🇭', 'Indonesia': '🇮🇩',
-  'Germany': '🇩🇪', 'France': '🇫🇷', 'Brazil': '🇧🇷',
-  'Canada': '🇨🇦', 'Australia': '🇦🇺', 'Japan': '🇯🇵',
-  'China': '🇨🇳', 'Mexico': '🇲🇽', 'Argentina': '🇦🇷',
-  'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Vietnam': '🇻🇳',
-  'Ethiopia': '🇪🇹', 'Tanzania': '🇹🇿', 'Uganda': '🇺🇬',
+  // ── Africa ──────────────────────────────────────────
+  'Nigeria':       '🇳🇬',
+  'Ghana':         '🇬🇭',
+  'Kenya':         '🇰🇪',
+  'South Africa':  '🇿🇦',
+  'Ethiopia':      '🇪🇹',
+  'Tanzania':      '🇹🇿',
+  'Uganda':        '🇺🇬',
+  'Cameroon':      '🇨🇲',
+  'Senegal':       '🇸🇳',
+  'Ivory Coast':   '🇨🇮',
+  'Zimbabwe':      '🇿🇼',
+  'Zambia':        '🇿🇲',
+  'Rwanda':        '🇷🇼',
+  'Morocco':       '🇲🇦',
+  'Algeria':       '🇩🇿',
+  'Tunisia':       '🇹🇳',
+  'Egypt':         '🇪🇬',
+  'Mozambique':    '🇲🇿',
+  'DR Congo':      '🇨🇩',
+  'Togo':          '🇹🇬',
+  'Benin':         '🇧🇯',
+  'Sierra Leone':  '🇸🇱',
+  'Liberia':       '🇱🇷',
+  // ── Middle East ─────────────────────────────────────
+  'Saudi Arabia':  '🇸🇦',
+  'UAE':           '🇦🇪',
+  'Israel':        '🇮🇱',
+  // ── Asia ────────────────────────────────────────────
+  'India':         '🇮🇳',
+  'Pakistan':      '🇵🇰',
+  'Bangladesh':    '🇧🇩',
+  'Sri Lanka':     '🇱🇰',
+  'Nepal':         '🇳🇵',
+  'China':         '🇨🇳',
+  'Japan':         '🇯🇵',
+  'South Korea':   '🇰🇷',
+  'Hong Kong':     '🇭🇰',
+  'Taiwan':        '🇹🇼',
+  'Singapore':     '🇸🇬',
+  'Malaysia':      '🇲🇾',
+  'Indonesia':     '🇮🇩',
+  'Philippines':   '🇵🇭',
+  'Vietnam':       '🇻🇳',
+  'Thailand':      '🇹🇭',
+  'Myanmar':       '🇲🇲',
+  'Cambodia':      '🇰🇭',
+  'Laos':          '🇱🇦',
+  // ── Oceania ─────────────────────────────────────────
+  'Australia':     '🇦🇺',
+  'New Zealand':   '🇳🇿',
+  // ── Europe ──────────────────────────────────────────
+  'United Kingdom': '🇬🇧',
+  'Germany':        '🇩🇪',
+  'France':         '🇫🇷',
+  'Spain':          '🇪🇸',
+  'Italy':          '🇮🇹',
+  'Netherlands':    '🇳🇱',
+  'Portugal':       '🇵🇹',
+  'Greece':         '🇬🇷',
+  'Sweden':         '🇸🇪',
+  'Norway':         '🇳🇴',
+  'Denmark':        '🇩🇰',
+  'Finland':        '🇫🇮',
+  'Switzerland':    '🇨🇭',
+  'Austria':        '🇦🇹',
+  'Belgium':        '🇧🇪',
+  'Poland':         '🇵🇱',
+  'Czech Republic': '🇨🇿',
+  'Hungary':        '🇭🇺',
+  'Romania':        '🇷🇴',
+  'Bulgaria':       '🇧🇬',
+  'Serbia':         '🇷🇸',
+  'Croatia':        '🇭🇷',
+  'Slovakia':       '🇸🇰',
+  'Turkey':         '🇹🇷',
+  // ── Americas ────────────────────────────────────────
+  'United States':  '🇺🇸',
+  'Canada':         '🇨🇦',
+  'Mexico':         '🇲🇽',
+  'Brazil':         '🇧🇷',
+  'Argentina':      '🇦🇷',
+  'Colombia':       '🇨🇴',
+  'Venezuela':      '🇻🇪',
+  'Peru':           '🇵🇪',
+  'Chile':          '🇨🇱',
+  'Ecuador':        '🇪🇨',
+  'Bolivia':        '🇧🇴',
+  'Honduras':       '🇭🇳',
+  'Guatemala':      '🇬🇹',
+  'El Salvador':    '🇸🇻',
 };
 
 function championHtml(p: {
@@ -35,53 +117,124 @@ function championHtml(p: {
   flag: string;
   shareLink: string;
   arenaLink: string;
+  championsLink: string;
   lbLink: string;
   dashLink: string;
   isTeam: boolean;
   days: number;
 }): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${BASE_CSS}</style></head><body>
-  <div class="wrap">
-    <div class="label">🗺️ Country Champion · ${p.flag} ${p.country}</div>
-    <h1 style="font-size:1.4rem;font-weight:800;margin:0 0 0.5rem">You're live, ${p.firstName}. ⚡</h1>
-    <p style="color:#aaa;font-size:0.9rem;line-height:1.6;margin:0 0 1.5rem">
-      <strong style="color:#fff">${p.shopName}</strong> is now representing
-      <strong style="color:#fff">${p.flag} ${p.country}</strong> in the Map of Pi Arena.
-      Your 10 antbots are deployed. Now it's time to climb.
-    </p>
-    <a href="${p.arenaLink}" style="display:block;background:#22c55e;color:#000;text-align:center;padding:0.9rem;border-radius:10px;font-weight:700;text-decoration:none;margin-bottom:2rem">
-      View Your Shop in the Arena →
-    </a>
-    <div class="label">The Tier Ladder — Where You're Headed</div>
-    <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap">
-      ${[['🟢','Entry','You are here','#22c55e'],['🔵','Rising','100 pts','#0070f3'],['🟣','Featured','300 pts','#7928ca'],['🟠','Top Tier','750 pts','#f0883e']].map(([e,l,d,c])=>`
-      <div style="flex:1;min-width:100px;background:#111;border:1px solid ${c}40;border-radius:10px;padding:0.75rem;text-align:center">
-        <div style="font-size:1.2rem">${e}</div>
-        <div style="font-weight:700;font-size:0.82rem;color:${c}">${l}</div>
-        <div style="font-size:0.72rem;color:#555">${d}</div>
-      </div>`).join('')}
+  const tierRows = [
+    ['🟢', 'Entry',    'You are here',  '#22c55e'],
+    ['🔵', 'Rising',   '100 pts',       '#0070f3'],
+    ['🟣', 'Featured', '300 pts',       '#7928ca'],
+    ['🟠', 'Top Tier', '750 pts',       '#f0883e'],
+  ].map(([e, l, d, c]) => `
+    <tr>
+      <td style="padding:.5rem .75rem;font-size:1rem">${e}</td>
+      <td style="padding:.5rem .75rem;font-weight:700;color:${c};font-size:.85rem">${l}</td>
+      <td style="padding:.5rem .75rem;color:#888;font-size:.8rem">${d}</td>
+    </tr>
+  `).join('');
+
+  const pointRows = [
+    ['⚡ +5',  'Share your shop link',       'Every share earns 5 points. WhatsApp, Telegram, X, Instagram — anywhere.'],
+    ['👆 +3',  'Get people to click',        'Every click on your shop earns 3 points. The more people visit, the faster you rise.'],
+    ['😊 +2',  'Earn likes',                 'Visitors can like your ad directly in the Arena. Each like adds 2 points.'],
+    ['⚡ +5',  'Get boosted',                'Visitors can boost your ad once per session — instant +5 points per boost.'],
+    ['🔥 +1',  'Reactions — Hot, Watching, Interesting', 'Quick one-tap reactions from visitors each add 1 point to your score.'],
+    ['📌 +50', 'Get pinned by admin',        'Top performing shops get pinned to the top of the Arena — 50 bonus points and maximum visibility.'],
+  ].map(([pts, title, desc]) => `
+    <div style="display:flex;gap:.85rem;align-items:flex-start;margin-bottom:1.1rem">
+      <div style="background:#1a1a1a;border-radius:8px;padding:.4rem .65rem;font-size:.78rem;font-weight:800;color:#D4AF37;white-space:nowrap;min-width:52px;text-align:center">${pts}</div>
+      <div>
+        <div style="font-weight:700;font-size:.85rem;margin-bottom:.15rem">${title}</div>
+        <div style="font-size:.78rem;color:#888;line-height:1.5">${desc}</div>
+      </div>
     </div>
-    <div class="label">How to Earn Points</div>
-    ${[['⚡ +5','Share your shop link','Every share earns 5 points. WhatsApp, Telegram, X, Instagram — anywhere.'],['👆 +3','Get people to click','Every click on your shop earns 3 points. The more people visit, the faster you rise.'],['📌 +50','Get pinned by admin','Top performing shops get pinned to the top of the Arena — 50 bonus points and maximum visibility.']].map(([pts,title,desc])=>`
-    <div class="step">
-      <div style="background:#f0883e20;border:1px solid #f0883e40;color:#f0883e;border-radius:8px;padding:0.4rem 0.6rem;font-weight:800;font-size:0.8rem;white-space:nowrap">${pts}</div>
-      <div class="step-body"><div class="title">${title}</div><div class="desc">${desc}</div></div>
-    </div>`).join('')}
-    <div style="background:#111;border:1px solid #222;border-radius:10px;padding:1rem;margin:1.5rem 0">
-      <div class="label">Your Shop Link — Share This</div>
-      <div style="font-family:monospace;font-size:0.85rem;color:#22c55e;word-break:break-all;margin-bottom:0.75rem">${p.shareLink}</div>
-      <a href="${p.shareLink}" style="display:block;background:#22c55e;color:#000;text-align:center;padding:0.75rem;border-radius:8px;font-weight:700;text-decoration:none">↗ Share Your Shop Now</a>
-    </div>
-    <div style="display:flex;gap:0.75rem;margin-bottom:2rem">
-      <a href="${p.lbLink}" style="flex:1;background:#111;border:1px solid #222;color:#fff;text-align:center;padding:0.75rem;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.85rem">🏆 Leaderboard</a>
-      <a href="${p.dashLink}" style="flex:1;background:#111;border:1px solid #222;color:#fff;text-align:center;padding:0.75rem;border-radius:8px;font-weight:700;text-decoration:none;font-size:0.85rem">⚡ Dashboard</a>
-    </div>
-    <div class="footer">
-      ANTCPU ADS · <a href="https://antcpu-ads.vercel.app">antcpu-ads.vercel.app</a><br>
-      You're receiving this because you claimed a country on Map of Pi Arena.
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>${BASE_CSS}</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div style="text-align:center;padding:1.5rem 0 1rem">
+    <div style="font-size:2rem;margin-bottom:.4rem">🗺️</div>
+    <div style="font-size:.7rem;color:#555;font-weight:700;letter-spacing:.12em;text-transform:uppercase">
+      Country Champion · ${p.flag} ${p.country}
     </div>
   </div>
-  </body></html>`;
+
+  <!-- Hero -->
+  <div style="background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:1.5rem;margin-bottom:1.25rem;text-align:center">
+    <div style="font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:.4rem">
+      You're live, ${p.firstName}. ⚡
+    </div>
+    <div style="font-size:.88rem;color:#aaa;line-height:1.6">
+      <strong style="color:#D4AF37">${p.shopName}</strong> is now representing<br/>
+      <strong style="color:#D4AF37">${p.flag} ${p.country}</strong> in the Map of Pi Arena.<br/>
+      Your 10 antbots are deployed. Now it's time to climb.
+    </div>
+    <a href="${p.arenaLink}" style="display:inline-block;margin-top:1.1rem;background:#D4AF37;color:#000;font-weight:800;font-size:.88rem;padding:.7rem 1.75rem;border-radius:10px;text-decoration:none">
+      View Your Shop in the Arena →
+    </a>
+  </div>
+
+  <!-- Tier ladder -->
+  <div style="background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:1.25rem;margin-bottom:1.25rem">
+    <div class="label">The Tier Ladder — Where You're Headed</div>
+    <table style="width:100%;border-collapse:collapse">
+      ${tierRows}
+    </table>
+  </div>
+
+  <!-- How to earn points -->
+  <div style="background:#111;border:1px solid #1a1a1a;border-radius:14px;padding:1.25rem;margin-bottom:1.25rem">
+    <div class="label">How to Earn Points</div>
+    ${pointRows}
+  </div>
+
+  <!-- Share link -->
+  <div style="background:#111;border:1px solid #D4AF3730;border-radius:14px;padding:1.25rem;margin-bottom:1.25rem;text-align:center">
+    <div class="label">Your Shop Link — Share This</div>
+    <div style="font-size:.82rem;color:#D4AF37;word-break:break-all;margin-bottom:.85rem;font-family:monospace">
+      ${p.shareLink}
+    </div>
+    <a href="${p.shareLink}" style="display:inline-block;background:#D4AF37;color:#000;font-weight:800;font-size:.85rem;padding:.65rem 1.5rem;border-radius:8px;text-decoration:none">
+      ↗ Share Your Shop Now
+    </a>
+  </div>
+
+  <!-- Nav links -->
+  <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.5rem">
+    <a href="${p.championsLink}" style="background:#D4AF3715;border:1px solid #D4AF3740;color:#D4AF37;border-radius:8px;padding:.5rem 1rem;font-size:.78rem;font-weight:700;text-decoration:none">
+      🏆 Champions Board
+    </a>
+    <a href="${p.lbLink}" style="background:#0070f315;border:1px solid #0070f340;color:#0070f3;border-radius:8px;padding:.5rem 1rem;font-size:.78rem;font-weight:700;text-decoration:none">
+      📊 Leaderboard
+    </a>
+    <a href="${p.dashLink}" style="background:#f0883e15;border:1px solid #f0883e40;color:#f0883e;border-radius:8px;padding:.5rem 1rem;font-size:.78rem;font-weight:700;text-decoration:none">
+      ⚡ Dashboard
+    </a>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    ANTCPU ADS · Automated Marketing Network<br/>
+    <a href="https://antcpu-ads.vercel.app">antcpu-ads.vercel.app</a> ·
+    <a href="https://antcpu-ads.vercel.app/privacy">Privacy</a> ·
+    <a href="https://antcpu-ads.vercel.app/tos">Terms</a>
+  </div>
+
+</div>
+</body>
+</html>`;
 }
 
 export async function POST(req: NextRequest) {
@@ -103,30 +256,30 @@ export async function POST(req: NextRequest) {
       ? `https://antcpu-ads.vercel.app/s/${String(adId).slice(0, 8)}`
       : 'https://antcpu-ads.vercel.app/mapofpi/icons/arena';
 
-    // ─── Champion welcome ─────────────────────────────────────────────────────
+    // ─── Champion welcome ───────────────────────────────────────────────────
     if (type === 'champion') {
       if (!country) {
         return NextResponse.json({ error: 'champion requires country' }, { status: 400 });
       }
 
-      // Auto-derive flag if not passed
       const resolvedFlag = flag || COUNTRY_FLAGS[country] || '🌍';
 
       const html = championHtml({
         firstName,
-        shopName:  shopName || brand,
+        shopName:      shopName || brand,
         country,
-        flag:      resolvedFlag,
+        flag:          resolvedFlag,
         shareLink,
-        arenaLink: 'https://antcpu-ads.vercel.app/mapofpi/icons/arena',
-        lbLink:    'https://antcpu-ads.vercel.app/dashboard/leaderboard',
-        dashLink:  'https://antcpu-ads.vercel.app/dashboard/user',
+        arenaLink:     'https://antcpu-ads.vercel.app/mapofpi/icons/arena',
+        championsLink: 'https://antcpu-ads.vercel.app/champions',
+        lbLink:        'https://antcpu-ads.vercel.app/dashboard/leaderboard',
+        dashLink:      'https://antcpu-ads.vercel.app/dashboard/user',
         isTeam,
         days,
       });
 
       const { error } = await resend.emails.send({
-        from:    'ANTCPU ADS <arena@antcpu.com>',
+        from:    'ANTCPU ADS <noreply@antcpu.com>',
         to:      email,
         subject: `🗺️ ${firstName}, your shop is live — start earning points`,
         html,
@@ -137,12 +290,12 @@ export async function POST(req: NextRequest) {
         title:  '📧 Champion Welcome Sent',
         color:  DC.gold,
         fields: [
-          { name: 'Name',     value: name || '—',                    inline: true  },
-          { name: 'Country',  value: `${resolvedFlag} ${country}`,   inline: true  },
-          { name: 'Shop',     value: shopName || brand || '—',       inline: false },
-          { name: 'Email',    value: email,                          inline: false },
-          { name: 'Category', value: category || '—',                inline: true  },
-          { name: 'Link',     value: shareLink,                      inline: false },
+          { name: 'Name',     value: name || '—',              inline: true  },
+          { name: 'Country',  value: `${resolvedFlag} ${country}`, inline: true  },
+          { name: 'Shop',     value: shopName || brand || '—', inline: false },
+          { name: 'Email',    value: email,                    inline: false },
+          { name: 'Category', value: category || '—',          inline: true  },
+          { name: 'Link',     value: shareLink,                inline: false },
         ],
         footer:    'ANTCPU ADS · Email Module',
         timestamp: true,
