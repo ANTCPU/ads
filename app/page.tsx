@@ -494,7 +494,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
       </div>
 
-      <VaultModal isOpen={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} />
+      <VaultModal open={vaultOpen} onClose={() => setVaultOpen(false)} onSuccess={() => {}} />
 
     </div>
   );
