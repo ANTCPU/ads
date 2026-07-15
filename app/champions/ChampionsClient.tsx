@@ -284,10 +284,14 @@ export default function ChampionsClient() {
 
       {/* Nav */}
       <ArenaNav
-        user={user}
-        dashboardHref={dashboardHref}
-        onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
-      />
+  role={(user.role as 'admin' | 'team' | 'user' | 'mod') || 'user'}
+  userName={user.name}
+  userEmail={user.email}
+  userBrand={user.brand}
+  trialStatus={(user.trialStatus as 'team' | 'trial' | 'pending') || 'trial'}
+  onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
+/>
+
 
       {/* Share modal */}
       {shareAd && (
