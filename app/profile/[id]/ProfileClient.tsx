@@ -76,14 +76,24 @@ function FavIcon({ url, socialKey }: { url: string; socialKey: string }) {
   );
 }
 
-function getYouTubeEmbedUrl(url: string): string | null {
-  if (!url) return null;
-  const handle = url.match(/@([\w-]+)/)?.[1];
-  if (handle) return `https://www.youtube.com/embed/live_stream?channel=${handle}&autoplay=0`;
-  const channelId = url.match(/channel\/([\w-]+)/)?.[1];
-  if (channelId) return `https://www.youtube.com/embed/live_stream?channel=${channelId}&autoplay=0`;
-  return null;
+const ARENA_FALLBACK_VIDEO = 'PNoY1ffzciI';
+
+function getYouTubeEmbedUrl(url: string): string {
+  if (url) {
+    // Direct video ID or watch URL
+    const watchId = url.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1];
+    if (watchId) return `https://www.youtube.com/embed/${watchId}?autoplay=0&rel=0`;
+    // Channel @handle — embed latest uploads playlist
+    const handle = url.match(/@([\w-]+)/)?.[1];
+    if (handle) return `https://www.youtube.com/embed?listType=user_uploads&list=${handle}&autoplay=0`;
+    // Channel ID
+    const channelId = url.match(/channel\/([\w-]+)/)?.[1];
+    if (channelId) return `https://www.youtube.com/embed?listType=user_uploads&list=${channelId}&autoplay=0`;
+  }
+  // No YouTube URL set — fall back to arena video
+  return `https://www.youtube.com/embed/${ARENA_FALLBACK_VIDEO}?autoplay=0&rel=0`;
 }
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -164,7 +174,19 @@ export default function ProfileClient() {
 
   const topTier  = TIER_CONFIG[ads[0]?.tier] || TIER_CONFIG.entry;
   const tier     = previewAd ? (TIER_CONFIG[previewAd.tier] || TIER_CONFIG.entry) : topTier;
-  const ytEmbed  = getYouTubeEmbedUrl(profile.youtube || '');
+ {/* YouTube — always shows, falls back to arena video */}
+<div>
+  <div style={lbl}>▶ {profile.youtube ? 'YouTube' : '▶ Arena Video'}</div>
+  <iframe
+    src={getYouTubeEmbedUrl(profile.youtube || '')}
+    width="100%"
+    height="200"
+    style={{ borderRadius: '10px', border: 'none', marginTop: '0.5rem' }}
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+    allowFullScreen
+  />
+</div>
+
 
   // shared styles
   const card: React.CSSProperties = { background: tokens.card, border: `1px solid ${tokens.border}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '0.75rem' };
