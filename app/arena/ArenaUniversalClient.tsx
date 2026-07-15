@@ -125,7 +125,11 @@ export default function ArenaUniversalClient() {
 
   // — track click via tracking framework
   async function handleClick(ad: Ad) {
-    window.open(ad.url, '_blank', 'noopener,noreferrer');
+  if (!ad.url || ad.url.trim() === '') {
+    router.push('/guide?ref=champion-ad');
+    return;
+  }
+  window.open(ad.url, '_blank', 'noopener,noreferrer');
     showToast(ad.id, 'Clicked!');
     const newCount = await trackClick(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, click_count: ad.click_count },
