@@ -201,7 +201,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           ⚡ ANTCPU ADS
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <LanguageSwitcher locale={locale} />
+          <LanguageSwitcher />
           <a href="/arena"      className="nav-link" style={{ color: muted2, textDecoration: 'none', fontSize: '14px', fontWeight: 500, padding: '8px 12px' }}>Arena</a>
           <a href="/guide"      className="nav-link" style={{ color: muted2, textDecoration: 'none', fontSize: '14px', fontWeight: 500, padding: '8px 12px' }}>Guide</a>
           <a href="/champions"  className="nav-link" style={{ color: muted2, textDecoration: 'none', fontSize: '14px', fontWeight: 500, padding: '8px 12px' }}>Champions</a>
