@@ -113,7 +113,21 @@ export default function CreateShopAdPage() {
         }]);
       } catch {}
     }
+    // ← INSERT HERE — register champion in ad_signups
+    await supabase.from('ad_signups').upsert([{
+      email:               user.email || 'ghost@mapofpi.invalid',
+      name:                user.name  || shopName,
+      brand_name:          'Map of Pi',
+      status:              'team',
+      role:                'user',
+      trial_days:          90,
+      promo_code:          'MAPOFPI',
+      is_country_champion: true,
+      champion_since:      new Date().toISOString(),
+      country:             sel?.name || '',
+    }], { onConflict: 'email' });
 
+    notifyDiscord('', 'new_champion', {
     notifyDiscord('', 'new_champion', {
   title: '🗺️ New Country Champion',
   color: DC.gold,
