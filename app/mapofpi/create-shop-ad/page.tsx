@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { notifyDiscord, DC } from '../../lib/discord';
 import { sanitizeDescription, containsUrl } from '../../lib/sanitize';
 import { getAriaLine } from '../../lib/ariaLines';
 import { tokens, inp, nextBtn, backBtn, macBtn } from '../../lib/shopAdStyles';
