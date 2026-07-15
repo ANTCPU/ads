@@ -127,19 +127,23 @@ export default function CreateShopAdPage() {
       country:             sel?.name || '',
     }], { onConflict: 'email' });
 
-    notifyDiscord('', 'new_champion', {
-  title: '🗺️ New Country Champion',
-  color: DC.gold,
-  fields: [
-    { name: 'Shop',     value: shopName,                        inline: true },
-    { name: 'Type',     value: icon?.label || 'General Shop',  inline: true },
-    { name: 'Country',  value: `${sel?.flag} ${sel?.name}`,    inline: true },
-    { name: 'Language', value: language.toUpperCase(),         inline: true },
-    { name: 'Email',    value: user.email || 'unknown',        inline: false },
-  ],
-  footer: 'ANTCPU ADS · Country Champions',
-  timestamp: true,
-});
+    fetch('/api/send-module', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type:        'champion',
+    name:        user.name  || shopName,
+    email:       user.email || 'ghost@mapofpi.invalid',
+    brand:       'Map of Pi',
+    trialStatus: 'team',
+    shopName,
+    country:     sel?.name || '',
+    flag:        sel?.flag || '',
+    adId:        inserted?.id || null,
+    category:    icon?.label || 'General Shop',
+  }),
+}).catch(() => {});
+
 
     for (let i = 0; i < 10; i++) {
       setActiveBot(i);
