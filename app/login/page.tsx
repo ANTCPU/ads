@@ -327,7 +327,7 @@ await persistSession(
     const role = await fetchRole(emailNorm);
     persistSession(
       { email: emailNorm, name: form.name, brand: form.brand_name, trialStatus: 'trial', role },
-      '/dashboard/user''
+      '/dashboard/user'
     );
     setLoading(false);
   }
