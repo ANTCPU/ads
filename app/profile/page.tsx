@@ -181,7 +181,9 @@ export default function ProfilePage() {
   const langName = LANGUAGES.find(l => l.code === form.preferred_locale)?.name || 'English';
   {/* YouTube — always shows, falls back to arena video */}
 <div>
-  <div style={lbl}>▶ {profile.youtube ? 'YouTube' : '▶ Arena Video'}</div>
+  <div style={{ fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', marginBottom: '0.75rem' }}>
+  ▶ {form.youtube ? 'YouTube' : 'Arena Video'}
+</div>
   <iframe
     src={getYouTubeEmbedUrl(profile.youtube || '')}
     width="100%"
