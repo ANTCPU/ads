@@ -176,7 +176,9 @@ export default function ProfileClient() {
   const tier     = previewAd ? (TIER_CONFIG[previewAd.tier] || TIER_CONFIG.entry) : topTier;
  {/* YouTube — always shows, falls back to arena video */}
 <div>
-  <div style={lbl}>▶ {profile.youtube ? 'YouTube' : '▶ Arena Video'}</div>
+  <div style={{ fontSize: '0.65rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+  ▶ {profile.youtube ? 'YouTube' : 'Arena Video'}
+</div>
   <iframe
     src={getYouTubeEmbedUrl(profile.youtube || '')}
     width="100%"
