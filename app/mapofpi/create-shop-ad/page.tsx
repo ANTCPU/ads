@@ -113,7 +113,7 @@ export default function CreateShopAdPage() {
         }]);
       } catch {}
     }
-    // ← INSERT HERE — register champion in ad_signups
+    // register champion in ad_signups
     await supabase.from('ad_signups').upsert([{
       email:               user.email || 'ghost@mapofpi.invalid',
       name:                user.name  || shopName,
@@ -127,7 +127,6 @@ export default function CreateShopAdPage() {
       country:             sel?.name || '',
     }], { onConflict: 'email' });
 
-    notifyDiscord('', 'new_champion', {
     notifyDiscord('', 'new_champion', {
   title: '🗺️ New Country Champion',
   color: DC.gold,
