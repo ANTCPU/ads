@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Country Champions — Map of Pi,
+    title: 'Country Champions — Map of Pi',
     description: 'See which brands are leading their countries in the Arena. One champion per nation. Updated live.',
     images: ['https://antcpu-ads.vercel.app/og-image.jpg'],
   },
