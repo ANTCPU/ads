@@ -292,13 +292,19 @@ export default function ProfileClient() {
                 {profile.contact && <div style={{ fontSize: '0.78rem', color: '#555' }}>📬 {profile.contact}</div>}
 
                 {/* YouTube live embed in About tab */}
-                {ytEmbed && (
-                  <div style={{ marginTop: '1rem', borderRadius: '10px', overflow: 'hidden' }}>
-                    <div style={{ ...lbl, marginBottom: '0.5rem' }}>▶ YouTube Live</div>
-                    <iframe src={ytEmbed} width="100%" height="200" style={{ display: 'block', border: 'none', borderRadius: '8px' }}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-                  </div>
-                )}
+                {/* YouTube — always shows, falls back to arena video */}
+<div>
+  <div style={lbl}>▶ {profile.youtube ? 'YouTube' : '▶ Arena Video'}</div>
+  <iframe
+    src={getYouTubeEmbedUrl(profile.youtube || '')}
+    width="100%"
+    height="200"
+    style={{ borderRadius: '10px', border: 'none', marginTop: '0.5rem' }}
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+    allowFullScreen
+  />
+</div>
+
               </div>
             )}
 
