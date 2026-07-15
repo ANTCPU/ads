@@ -185,7 +185,7 @@ export default function ProfilePage() {
   ▶ {form.youtube ? 'YouTube' : 'Arena Video'}
 </div>
   <iframe
-    src={getYouTubeEmbedUrl(profile.youtube || '')}
+    src={getYouTubeEmbedUrl(form.youtube || '')}
     width="100%"
     height="200"
     style={{ borderRadius: '10px', border: 'none', marginTop: '0.5rem' }}
