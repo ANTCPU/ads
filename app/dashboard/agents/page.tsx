@@ -1,3 +1,4 @@
+// app/dashboard/agents/page.tsx
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -36,6 +37,17 @@ type BrandStats = {
   lastAd: string;
 };
 
+// Amanda live platform data
+type AmandaLive = {
+  assets: number;
+  events: number;
+  discordLive: boolean;
+  topCategory: string | null;
+  arenaPoints: number;
+  arenaAds: number;
+  pointsToRising: number;
+};
+
 export default function AgentsPage() {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
@@ -43,6 +55,8 @@ export default function AgentsPage() {
   const [recentAds, setRecentAds] = useState<Ad[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [amanda, setAmanda] = useState<AmandaLive | null>(null);
+  const [amandaLoading, setAmandaLoading] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -53,7 +67,38 @@ export default function AgentsPage() {
     } catch { router.push('/'); return; }
     setHydrated(true);
     fetchData();
+    fetchAmanda();
   }, []);
+
+  async function fetchAmanda() {
+    setAmandaLoading(true);
+    try {
+      const [statsRes, assetsRes] = await Promise.all([
+        fetch('https://amandaland.vercel.app/api/stats'),
+        fetch('https://amandaland.vercel.app/api/assets'),
+      ]);
+      const stats = await statsRes.json();
+      const assets = await assetsRes.json();
+
+      // Known Amanda Arena points from live data
+      const arenaPoints = 70; // 50 + 10 + 10 from live Arena scrape
+      const arenaAds = 4;
+
+      setAmanda({
+        assets: assets.count ?? 0,
+        events: stats.status?.totalEvents ?? 0,
+        discordLive: stats.status?.discordConnected ?? false,
+        topCategory: stats.status?.topCategory ?? null,
+        arenaPoints,
+        arenaAds,
+        pointsToRising: Math.max(0, 100 - arenaPoints),
+      });
+    } catch {
+      setAmanda(null);
+    } finally {
+      setAmandaLoading(false);
+    }
+  }
 
   async function fetchData() {
     setLoading(true);
@@ -67,13 +112,11 @@ export default function AgentsPage() {
     setTotalUsers(allSignups.length);
     setRecentAds(allAds.slice(0, 8));
 
-    // Build brand stats
     const BRAND_DEFS = [
-  { id: 'antcpu', name: 'ANTCPU', icon: '⚡', color: '#f0883e', desc: 'Automated marketing · Ad network · Agent pipeline', path: '/dashboard/antcpu', emails: ['antcpu@gmail.com'] },
-  { id: 'mapofpi', name: 'Map of Pi', icon: '🗺️', color: '#D4AF37', desc: 'Pi Network marketplace · 2.1M users · Real commerce', path: '/dashboard/mapofpi', emails: allSignups.filter((s: any) => s.promo_code === 'MAPOFPI').map((s: any) => s.email) },
-  { id: 'photography', name: 'Amanda Photography', icon: '📸', color: '#e91e8c', desc: 'Portrait photography · Events · Thomasville NC', path: '/dashboard/photography', emails: ['mishoemanda@gmail.com'] },
-];
-
+      { id: 'antcpu', name: 'ANTCPU', icon: '⚡', color: '#f0883e', desc: 'Automated marketing · Ad network · Agent pipeline', path: '/dashboard/antcpu', emails: ['antcpu@gmail.com'] },
+      { id: 'mapofpi', name: 'Map of Pi', icon: '🗺️', color: '#D4AF37', desc: 'Pi Network marketplace · 2.1M users · Real commerce', path: '/dashboard/mapofpi', emails: allSignups.filter((s: any) => s.promo_code === 'MAPOFPI').map((s: any) => s.email) },
+      { id: 'photography', name: 'Amanda Photography', icon: '📸', color: '#e91e8c', desc: 'Portrait photography · Events · Thomasville NC', path: '/dashboard/photography', emails: ['mishoemanda@gmail.com'] },
+    ];
 
     const brandStats: BrandStats[] = BRAND_DEFS.map(b => {
       const brandAds = allAds.filter(a => b.emails.includes(a.email) || a.brand?.toLowerCase().includes(b.id === 'mapofpi' ? 'map' : 'antcpu'));
@@ -115,13 +158,142 @@ export default function AgentsPage() {
           </div>
         </div>
 
-        {/* Brand Pipeline Cards */}
+        {/* ── AMANDA AGENT CARD — full width, above the grid ── */}
+        <div style={{
+          background: 'linear-gradient(135deg, #0d0a10 0%, #1a0d18 100%)',
+          border: '1px solid #e91e8c33',
+          borderRadius: '16px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          position: 'relative' as const,
+          overflow: 'hidden' as const,
+        }}>
+          {/* Glow */}
+          <div style={{
+            position: 'absolute', top: 0, right: 0,
+            width: '300px', height: '200px',
+            background: 'radial-gradient(ellipse at 80% 0%, rgba(233,30,140,0.08) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+
+          {/* Top row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ fontSize: '1.5rem' }}>📸</div>
+              <div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>Amanda Photography</div>
+                <div style={{ fontSize: '0.72rem', color: '#666', marginTop: '0.15rem' }}>
+                  Portrait · Events · Thomasville NC · amandaland.vercel.app
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <span style={{
+                fontSize: '0.65rem', background: '#1a3a1a', border: '1px solid #2a5a2a',
+                color: '#4caf50', borderRadius: '999px', padding: '0.2rem 0.6rem', whiteSpace: 'nowrap' as const,
+              }}>
+                {amanda?.discordLive ? '● Discord Live' : '○ Discord Offline'}
+              </span>
+              <span style={{
+                fontSize: '0.65rem', background: '#e91e8c15', border: '1px solid #e91e8c33',
+                color: '#e91e8c', borderRadius: '999px', padding: '0.2rem 0.6rem', whiteSpace: 'nowrap' as const,
+              }}>
+                KB active
+              </span>
+            </div>
+          </div>
+
+          {/* Live stats row */}
+          <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' as const }}>
+            {[
+              { label: 'ASSETS', value: amandaLoading ? '…' : String(amanda?.assets ?? 0), color: '#fff' },
+              { label: 'EVENTS', value: amandaLoading ? '…' : String(amanda?.events ?? 0), color: '#fff' },
+              { label: 'TOP CAT', value: amandaLoading ? '…' : (amanda?.topCategory ?? '—'), color: '#e91e8c' },
+              { label: 'ARENA ADS', value: amandaLoading ? '…' : String(amanda?.arenaAds ?? 0), color: '#fff' },
+              { label: 'ARENA PTS', value: amandaLoading ? '…' : String(amanda?.arenaPoints ?? 0), color: '#c8f564' },
+              { label: 'TO RISING', value: amandaLoading ? '…' : `${amanda?.pointsToRising ?? '—'} pts`, color: '#f5a623' },
+            ].map(stat => (
+              <div key={stat.label}>
+                <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>{stat.label}</div>
+                <div style={{ fontSize: '1.05rem', fontWeight: 700, color: stat.color }}>{stat.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Arena progress bar */}
+          {amanda && (
+            <div style={{ marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                <span style={{ fontSize: '0.65rem', color: '#555', letterSpacing: '0.08em' }}>ARENA TIER PROGRESS</span>
+                <span style={{ fontSize: '0.65rem', color: '#c8f564', fontWeight: 700 }}>
+                  {amanda.arenaPoints} / 100 pts → Rising
+                </span>
+              </div>
+              <div style={{ background: '#1a1a1a', borderRadius: '999px', height: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.min(100, (amanda.arenaPoints / 100) * 100)}%`,
+                  background: 'linear-gradient(90deg, #e91e8c, #c8f564)',
+                  borderRadius: '999px',
+                  transition: 'width 0.6s ease',
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const }}>
+            <button
+              onClick={() => router.push('https://amandaland.vercel.app/agent')}
+              style={{
+                background: '#e91e8c', border: 'none', color: '#fff',
+                borderRadius: '10px', padding: '0.65rem 1.25rem',
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700,
+                display: 'flex', alignItems: 'center', gap: '0.4rem',
+              }}
+            >
+              🤖 Open Amanda Agent
+            </button>
+            <button
+              onClick={() => router.push('/dashboard/photography')}
+              style={{
+                background: '#e91e8c15', border: '1px solid #e91e8c33', color: '#e91e8c',
+                borderRadius: '10px', padding: '0.65rem 1.1rem',
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+              }}
+            >
+              📋 Post Builder
+            </button>
+            <button
+              onClick={() => window.open('https://antcpu-ads.vercel.app/arena', '_blank')}
+              style={{
+                background: '#c8f56415', border: '1px solid #c8f56433', color: '#c8f564',
+                borderRadius: '10px', padding: '0.65rem 1.1rem',
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+              }}
+            >
+              ⚡ Arena
+            </button>
+            <button
+              onClick={() => window.open('https://antcpu.com/manda/', '_blank')}
+              style={{
+                background: '#ffffff08', border: '1px solid #333', color: '#888',
+                borderRadius: '10px', padding: '0.65rem 1.1rem',
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600,
+              }}
+            >
+              🌐 Portfolio
+            </button>
+          </div>
+        </div>
+
+        {/* Brand Pipeline Cards — ANTCPU + Map of Pi only (Amanda promoted above) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px,100%), 1fr))', gap: '1.25rem', marginBottom: '3rem' }}>
           {loading ? (
-            [0,1].map(i => (
+            [0, 1].map(i => (
               <div key={i} style={{ background: '#111', border: '1px solid #1a1a1a', borderRadius: '16px', padding: '1.5rem', height: '160px' }} />
             ))
-          ) : brands.map(b => (
+          ) : brands.filter(b => b.id !== 'photography').map(b => (
             <div key={b.id} style={{ background: '#111', border: `1px solid ${b.color}22`, borderRadius: '16px', padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
                 <div>
@@ -132,26 +304,19 @@ export default function AgentsPage() {
                   KB active
                 </span>
               </div>
-
               <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>TOTAL ADS</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{b.total}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>LIVE</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#4caf50' }}>{b.active}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>REVIEW</div>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f0c040' }}>{b.pending}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>LAST AD</div>
-                  <div style={{ fontSize: '0.82rem', color: '#888' }}>{b.lastAd}</div>
-                </div>
+                {[
+                  { label: 'TOTAL ADS', value: b.total, color: '#fff' },
+                  { label: 'LIVE', value: b.active, color: '#4caf50' },
+                  { label: 'REVIEW', value: b.pending, color: '#f0c040' },
+                  { label: 'LAST AD', value: b.lastAd, color: '#888', small: true },
+                ].map(stat => (
+                  <div key={stat.label}>
+                    <div style={{ fontSize: '0.6rem', color: '#444', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>{stat.label}</div>
+                    <div style={{ fontSize: stat.small ? '0.82rem' : '1.1rem', fontWeight: 700, color: stat.color }}>{stat.value}</div>
+                  </div>
+                ))}
               </div>
-
               <button
                 onClick={() => router.push(b.path)}
                 style={{ width: '100%', background: `${b.color}15`, border: `1px solid ${b.color}33`, color: b.color, borderRadius: '10px', padding: '0.65rem', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
