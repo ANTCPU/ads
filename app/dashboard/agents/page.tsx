@@ -244,7 +244,7 @@ export default function AgentsPage() {
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' as const }}>
             <button
-              onClick={() => router.push('https://amandaland.vercel.app/agent')}
+              onClick={() => window.open('https://amandaland.vercel.app/agent', '_blank')}
               style={{
                 background: '#e91e8c', border: 'none', color: '#fff',
                 borderRadius: '10px', padding: '0.65rem 1.25rem',
