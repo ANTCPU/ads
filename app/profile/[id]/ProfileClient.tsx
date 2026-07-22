@@ -11,7 +11,6 @@ const supabase = createClient(
 );
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 type Profile = {
   email: string; name: string; brand: string;
   bio: string; website: string; contact: string;
@@ -19,7 +18,6 @@ type Profile = {
   tiktok?: string; youtube?: string; linkedin?: string;
   discord?: string; telegram?: string; antcoin_wallet?: string;
 };
-
 type Ad = {
   id: string; title: string; url: string; description: string;
   category: string; status: string; tier: string;
@@ -28,7 +26,6 @@ type Ad = {
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
 const TIER_CONFIG: Record<string, { color: string; label: string }> = {
   entry:    { color: '#0070f3', label: 'Entry' },
   rising:   { color: '#7928ca', label: 'Rising' },
@@ -47,29 +44,29 @@ const SOCIAL_DOMAINS: Record<string, string> = {
 };
 
 const CONNECT_SOCIALS: { key: keyof Profile; label: string }[] = [
-  { key: 'website',   label: 'Website' },
-  { key: 'twitter',   label: 'Twitter / X' },
-  { key: 'instagram', label: 'Instagram' },
-  { key: 'facebook',  label: 'Facebook' },
-  { key: 'tiktok',    label: 'TikTok' },
-  { key: 'youtube',   label: 'YouTube' },
-  { key: 'linkedin',  label: 'LinkedIn' },
-  { key: 'discord',   label: 'Discord' },
-  { key: 'telegram',  label: 'Telegram' },
+  { key: 'website',  label: 'Website' },
+  { key: 'twitter',  label: 'Twitter / X' },
+  { key: 'instagram',label: 'Instagram' },
+  { key: 'facebook', label: 'Facebook' },
+  { key: 'tiktok',   label: 'TikTok' },
+  { key: 'youtube',  label: 'YouTube' },
+  { key: 'linkedin', label: 'LinkedIn' },
+  { key: 'discord',  label: 'Discord' },
+  { key: 'telegram', label: 'Telegram' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function FavIcon({ url, socialKey }: { url: string; socialKey: string }) {
   const domain = socialKey === 'website'
     ? (() => { try { return new URL(url).hostname; } catch { return 'globe'; } })()
     : SOCIAL_DOMAINS[socialKey];
-  return <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} width={16} height={16} style={{ borderRadius: 3 }} alt="" />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} alt="" width={16} height={16} style={{ borderRadius: 3 }} />;
 }
 
-const ARENA_FALLBACK_VIDEO = 'PNoY1ffzciI';
+const FALLBACK_VIDEO = 'PNoY1ffzciI';
 
-function getYouTubeEmbedUrl(url: string): string {
+function getYouTubeEmbedUrl(url?: string): string {
   if (url) {
     const watchId = url.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1];
     if (watchId) return `https://www.youtube.com/embed/${watchId}?autoplay=0&rel=0`;
@@ -78,23 +75,32 @@ function getYouTubeEmbedUrl(url: string): string {
     const channelId = url.match(/channel\/([\w-]+)/)?.[1];
     if (channelId) return `https://www.youtube.com/embed?listType=user_uploads&list=${channelId}&autoplay=0`;
   }
-  return `https://www.youtube.com/embed/${ARENA_FALLBACK_VIDEO}?autoplay=0&rel=0`;
+  return `https://www.youtube.com/embed/${FALLBACK_VIDEO}?autoplay=0&rel=0`;
+}
+
+function buildShareText(profile: Profile): string {
+  const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
+  const hashtags = profile.brand === 'Map of Pi'
+    ? '#mapofpi #marketing #ads #profile'
+    : '#antcpuads #marketing #ads #profile';
+  return `Check out ${profile.brand} -> PROFILES\n${profile.bio || ''}\n→ ${url}\n${hashtags}`;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-
 export default function ProfileClient() {
-  const router  = useRouter();
-  const params  = useParams();
-  const id      = decodeURIComponent(params.id as string);
+  const router = useRouter();
+  const params = useParams();
+  const id = decodeURIComponent(params.id as string);
 
   const [profile,       setProfile]       = useState<Profile | null>(null);
-  const [profileCopied, setProfileCopied] = useState(false);
   const [ads,           setAds]           = useState<Ad[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [isOwn,         setIsOwn]         = useState(false);
   const [activeTab,     setActiveTab]     = useState<Tab>('About');
   const [previewAd,     setPreviewAd]     = useState<Ad | null>(null);
+  const [shareOpen,     setShareOpen]     = useState(false);
+  const [shareText,     setShareText]     = useState('');
+  const [copied,        setCopied]        = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -112,7 +118,7 @@ export default function ProfileClient() {
     let { data: prof } = await supabase.from('ad_profiles').select('*').eq('email', id).single();
     if (!prof) {
       const { data: all } = await supabase.from('ad_profiles').select('*');
-      prof = all?.find((p: any) => p.brand?.toLowerCase().replace(/\s+/g, '-') === id) || null;
+      prof = all?.find((p: Profile) => p.brand?.toLowerCase().replace(/\s+/g, '-') === id) || null;
     }
     if (prof) {
       setProfile(prof);
@@ -126,81 +132,89 @@ export default function ProfileClient() {
     setLoading(false);
   }
 
-  async function shareProfile() {
+  function openShare() {
     if (!profile) return;
-    const url  = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
-    const text = `Check out ${profile.brand} on ANTCPU ADS ⚡\n\n${profile.bio || ''}\n\n→ ${url}\n\n#antcpuads #marketing #ads`;
-    notifyDiscord(`🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}\n**Email:** ${profile.email}`);
+    setShareText(buildShareText(profile));
+    setShareOpen(true);
+  }
+
+  async function executeShare() {
+    if (!profile) return;
+    const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
+    notifyDiscord(`🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}`);
     if (typeof navigator !== 'undefined' && navigator.share) {
-      try { await navigator.share({ title: `${profile.brand} — ANTCPU ADS`, text, url }); setProfileCopied(true); setTimeout(() => setProfileCopied(false), 2500); return; } catch {}
+      try {
+        await navigator.share({ title: `${profile.brand} — ANTCPU ADS`, text: shareText, url });
+        setCopied(true); setTimeout(() => setCopied(false), 2500);
+        setShareOpen(false); return;
+      } catch {}
     }
-    navigator.clipboard.writeText(text).then(() => { setProfileCopied(true); setTimeout(() => setProfileCopied(false), 2500); });
+    navigator.clipboard.writeText(shareText).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2500);
+      setShareOpen(false);
+    });
   }
 
   // ─── Loading / not found ──────────────────────────────────────────────────
-
   if (loading) return (
-    <div style={{ background: tokens.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: '#555', fontSize: '0.85rem' }}>Loading profile...</div>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+      Loading profile...
     </div>
   );
 
   if (!profile) return (
-    <div style={{ background: tokens.bg, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#555', gap: '1rem' }}>
       <div style={{ fontSize: '2rem' }}>👤</div>
-      <div style={{ fontWeight: 700, color: '#fff' }}>Profile not found</div>
-      <div style={{ fontSize: '0.82rem', color: '#555' }}>This advertiser hasn't set up their profile yet.</div>
-      <button onClick={() => router.push('/dashboard/user')} style={{ background: 'none', border: '1px solid #333', color: '#888', borderRadius: '8px', padding: '0.6rem 1.4rem', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+      <div style={{ fontWeight: 700 }}>Profile not found</div>
+      <div style={{ fontSize: '0.82rem' }}>This advertiser hasn't set up their profile yet.</div>
+      <button onClick={() => router.push('/arena')}
+        style={{ background: 'none', border: '1px solid #333', color: '#888', borderRadius: '8px', padding: '0.6rem 1.4rem', cursor: 'pointer', fontSize: '0.85rem' }}>
         ← Back to Arena
       </button>
     </div>
   );
 
   // ─── Derived ──────────────────────────────────────────────────────────────
-
   const topTier = TIER_CONFIG[ads[0]?.tier] || TIER_CONFIG.entry;
   const tier    = previewAd ? (TIER_CONFIG[previewAd.tier] || TIER_CONFIG.entry) : topTier;
 
   // ─── Styles ───────────────────────────────────────────────────────────────
-
   const card: React.CSSProperties = { background: tokens.card, border: `1px solid ${tokens.border}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '0.75rem' };
   const lbl:  React.CSSProperties = { fontSize: '0.65rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' };
   const pill  = (color: string): React.CSSProperties => ({ background: `${color}15`, border: `1px solid ${color}40`, color, borderRadius: '999px', padding: '0.15rem 0.6rem', fontSize: '0.68rem', fontWeight: 700 });
 
   // ─── Render ───────────────────────────────────────────────────────────────
-
   return (
-    <div style={{ background: tokens.bg, color: '#fff', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#e8eaf0', fontFamily: 'system-ui, sans-serif' }}>
 
       {/* Nav */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', borderBottom: `1px solid ${tokens.border}` }}>
-        <span style={{ fontWeight: 800, fontSize: '1rem' }}>⚡ ANTCPU ADS</span>
-        <button onClick={() => router.push('/arena')} style={{ background: 'none', border: `1px solid #222`, color: '#555', borderRadius: '8px', padding: '0.4rem 0.9rem', fontSize: '0.78rem', cursor: 'pointer' }}>
+      <div style={{ borderBottom: '1px solid #1a1a1a', padding: '0 1.25rem', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(12px)', zIndex: 50 }}>
+        <span style={{ fontWeight: 800, fontSize: '0.82rem', letterSpacing: '0.1em' }}>⚡ ANTCPU ADS</span>
+        <button onClick={() => router.push('/arena')}
+          style={{ background: 'none', border: '1px solid #222', color: '#555', borderRadius: '8px', padding: '0.4rem 0.9rem', fontSize: '0.78rem', cursor: 'pointer' }}>
           🏟 Arena
         </button>
       </div>
 
       {/* Two-column layout */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 1rem', display: 'grid', gridTemplateColumns: 'minmax(240px,320px) 1fr', gap: '1.5rem', alignItems: 'start' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1.5rem 1.25rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,2fr)', gap: '1.25rem' }}>
 
         {/* ── LEFT ── */}
         <div>
-          <div style={lbl}>Ad Preview</div>
+          <div style={{ ...lbl }}>Ad Preview</div>
 
           {/* Ad card */}
-          <div
-            onClick={() => previewAd && window.open(previewAd.url, '_blank')}
-            style={{ background: tokens.card, border: `1px solid ${tier.color}33`, borderRadius: '14px', padding: '1.5rem', minHeight: '180px', cursor: previewAd ? 'pointer' : 'default', marginBottom: '1rem' }}
-          >
+          <div onClick={() => previewAd && window.open(previewAd.url, '_blank')}
+            style={{ background: tokens.card, border: `1px solid ${tier.color}33`, borderRadius: '14px', padding: '1.5rem', minHeight: '180px', cursor: previewAd ? 'pointer' : 'default', marginBottom: '1rem' }}>
             {previewAd ? (
               <>
-                <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color }}>{profile.brand}</span>
-                  <span style={pill(tier.color)}>{tier.label.toUpperCase()}</span>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  <span style={pill(tier.color)}>{profile.brand}</span>
+                  <span style={pill('#555')}>{tier.label.toUpperCase()}</span>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.4rem' }}>{previewAd.title}</div>
-                <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '0.75rem' }}>{previewAd.description}</div>
-                <div style={{ fontSize: '0.72rem', color: '#555' }}>{previewAd.url} →</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.5rem', lineHeight: 1.4 }}>{previewAd.title}</div>
+                <div style={{ fontSize: '0.78rem', color: '#888', lineHeight: 1.6, marginBottom: '0.75rem' }}>{previewAd.description}</div>
+                <div style={{ fontSize: '0.72rem', color: tier.color }}>{previewAd.url} →</div>
               </>
             ) : (
               <div style={{ color: '#555', fontSize: '0.85rem' }}>No ads yet.</div>
@@ -208,20 +222,22 @@ export default function ProfileClient() {
           </div>
 
           {/* Brand identity */}
-          <div style={card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-              <div style={{ fontWeight: 800, fontSize: '1rem' }}>{profile.brand || profile.name}</div>
-              <button onClick={shareProfile} style={{ background: 'none', border: `1px solid ${topTier.color}40`, color: topTier.color, borderRadius: '8px', padding: '0.3rem 0.75rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>
-                {profileCopied ? '✓ Shared' : '↗ Share'}
+          <div style={{ ...card }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <span style={{ fontWeight: 800, fontSize: '1rem' }}>{profile.brand || profile.name}</span>
+              <button onClick={openShare}
+                style={{ background: topTier.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.35rem 0.85rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
+                {copied ? '✓ Copied' : '↗ Share'}
               </button>
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#555', marginBottom: '0.4rem' }}>{profile.name}</div>
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '0.4rem' }}>{profile.name}</div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={pill(topTier.color)}>{topTier.label.toUpperCase()}</span>
-              <span style={{ fontSize: '0.72rem', color: '#555', alignSelf: 'center' }}>{ads.length} AD{ads.length !== 1 ? 'S' : ''}</span>
+              <span style={pill('#555')}>{ads.length} AD{ads.length !== 1 ? 'S' : ''}</span>
             </div>
             {isOwn && (
-              <button onClick={() => router.push('/profile')} style={{ width: '100%', marginTop: '0.75rem', background: topTier.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => router.push('/profile')}
+                style={{ width: '100%', marginTop: '0.75rem', background: topTier.color, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.5rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
                 ✏️ Edit Profile
               </button>
             )}
@@ -230,17 +246,11 @@ export default function ProfileClient() {
 
         {/* ── RIGHT ── */}
         <div>
-
           {/* Tab bar */}
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             {TABS.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                background: activeTab === tab ? topTier.color : tokens.card,
-                border: activeTab === tab ? 'none' : `1px solid ${tokens.border}`,
-                color: activeTab === tab ? '#fff' : '#555',
-                borderRadius: '8px', padding: '0.4rem 1rem',
-                cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
-              }}>
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                style={{ background: activeTab === tab ? topTier.color : tokens.card, border: activeTab === tab ? 'none' : `1px solid ${tokens.border}`, color: activeTab === tab ? '#fff' : '#555', borderRadius: '8px', padding: '0.4rem 1rem', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}>
                 {tab}
               </button>
             ))}
@@ -250,53 +260,52 @@ export default function ProfileClient() {
           {activeTab === 'About' && (
             <div style={card}>
               <div style={lbl}>About</div>
-              <div style={{ fontSize: '0.85rem', color: '#aaa', marginBottom: '1rem', lineHeight: 1.6 }}>
-                {profile.bio || <span style={{ color: '#555' }}>No bio yet.</span>}
+              <p style={{ fontSize: '0.85rem', color: '#aaa', lineHeight: 1.7, margin: '0 0 1rem' }}>{profile.bio || 'No bio yet.'}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                {profile.website && (
+                  <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#aaa', textDecoration: 'none', fontSize: '0.82rem' }}>
+                    <FavIcon url={profile.website} socialKey="website" />
+                    {profile.website.replace(/https?:\/\//, '')}
+                  </a>
+                )}
+                {profile.contact && (
+                  <a href={profile.contact.startsWith('http') ? profile.contact : `https://${profile.contact}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#aaa', textDecoration: 'none', fontSize: '0.82rem' }}>
+                    📬 {profile.contact}
+                  </a>
+                )}
               </div>
-              {profile.website && (
-                <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#aaa', fontSize: '0.82rem', textDecoration: 'none', marginBottom: '0.5rem' }}>
-                  <FavIcon url={profile.website} socialKey="website" />
-                  {profile.website.replace(/https?:\/\//, '')}
-                </a>
-              )}
-              {profile.contact && (
-                <div style={{ fontSize: '0.82rem', color: '#555' }}>📬 {profile.contact}</div>
-              )}
-
-              {/* YouTube — always shows, falls back to arena video */}
-              <div style={{ marginTop: '1.25rem' }}>
-                <div style={lbl}>▶ {profile.youtube ? 'YouTube' : 'Arena Video'}</div>
-                <iframe
-                  src={getYouTubeEmbedUrl(profile.youtube || '')}
-                  width="100%"
-                  height="200"
-                  style={{ borderRadius: '10px', border: 'none' }}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-                  allowFullScreen
-                />
-              </div>
+              {/* YouTube */}
+              <div style={lbl}>▶ {profile.youtube ? 'YouTube' : 'Arena Video'}</div>
+              <iframe
+                src={getYouTubeEmbedUrl(profile.youtube)}
+                style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: '10px' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
             </div>
           )}
 
           {/* ── Ads ── */}
           {activeTab === 'Ads' && (
-            <div>
+            <div style={card}>
+              <div style={lbl}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</div>
               {ads.length === 0 ? (
-                <div style={{ ...card, color: '#555', fontSize: '0.85rem' }}>No ads yet.</div>
-              ) : ads.map(ad => {
-                const t = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
-                return (
-                  <div key={ad.id} onClick={() => setPreviewAd(ad)} style={{ ...card, cursor: 'pointer', borderLeft: `3px solid ${t.color}`, marginBottom: '0.5rem' }}>
-                    <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
-                      <span style={pill(t.color)}>{t.label}</span>
-                      {ad.pinned && <span style={pill('#f0883e')}>📌 PINNED</span>}
-                      {ad.points && ad.points > 0 && <span style={{ fontSize: '0.72rem', color: '#f0883e' }}>⚡ {ad.points} pts</span>}
-                    </div>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.25rem' }}>{ad.title}</div>
-                    <div style={{ fontSize: '0.78rem', color: '#555' }}>{ad.description}</div>
+                <div style={{ color: '#555', fontSize: '0.85rem' }}>No ads yet.</div>
+              ) : ads.map(ad => (
+                <div key={ad.id} onClick={() => setPreviewAd(ad)}
+                  style={{ padding: '0.75rem', borderRadius: '10px', border: `1px solid ${previewAd?.id === ad.id ? topTier.color + '60' : tokens.border}`, marginBottom: '0.5rem', cursor: 'pointer', background: previewAd?.id === ad.id ? `${topTier.color}08` : 'transparent' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.25rem' }}>{ad.title}</div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <span style={pill(TIER_CONFIG[ad.tier]?.color || '#555')}>{ad.tier}</span>
+                    <span style={pill('#555')}>{ad.category}</span>
+                    {(ad.points || 0) > 0 && <span style={pill('#D4AF37')}>⚡ {ad.points} pts</span>}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
 
@@ -304,40 +313,36 @@ export default function ProfileClient() {
           {activeTab === 'Performance' && (
             <div style={card}>
               <div style={lbl}>Performance</div>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                {[
-                  { label: 'Total Ads',    value: ads.length },
-                  { label: 'Total Points', value: ads.reduce((s, a) => s + (a.points || 0), 0) },
-                  { label: 'Total Clicks', value: ads.reduce((s, a) => s + (a.click_count || 0), 0) },
-                  { label: 'Total Shares', value: ads.reduce((s, a) => s + (a.share_count || 0), 0) },
-                ].map(s => (
-                  <div key={s.label} style={{ background: tokens.bg, border: `1px solid ${tokens.border}`, borderRadius: '10px', padding: '0.75rem 1rem', minWidth: '80px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '1.1rem', color: topTier.color }}>{s.value}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#555', marginTop: '0.2rem' }}>{s.label}</div>
-                  </div>
-                ))}
-              </div>
+              {ads.length === 0 ? (
+                <div style={{ color: '#555', fontSize: '0.85rem' }}>No data yet.</div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  {[
+                    { label: 'Total Points', value: ads.reduce((s, a) => s + (a.points || 0), 0), color: '#D4AF37' },
+                    { label: 'Total Clicks',  value: ads.reduce((s, a) => s + (a.click_count || 0), 0), color: '#0070f3' },
+                    { label: 'Total Shares',  value: ads.reduce((s, a) => s + (a.share_count || 0), 0), color: '#7928ca' },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: '#0a0a0a', border: `1px solid #1a1a1a`, borderRadius: 10, padding: '1rem', textAlign: 'center' as const }}>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{s.value}</div>
+                      <div style={{ fontSize: '0.65rem', color: '#555', marginTop: 4 }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {/* ── Upgrade ── */}
           {activeTab === 'Upgrade' && (
             <div style={card}>
-              <div style={lbl}>Upgrade</div>
-              {[
-                { tier: 'Entry',    pts: 0,   color: '#0070f3', desc: 'You are here' },
-                { tier: 'Rising',   pts: 100, color: '#7928ca', desc: '100 pts to unlock' },
-                { tier: 'Featured', pts: 300, color: '#ff0080', desc: '300 pts to unlock' },
-                { tier: 'Top Tier', pts: 750, color: '#f0883e', desc: '750 pts to unlock' },
-              ].map(t => (
-                <div key={t.tier} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0', borderBottom: `1px solid ${tokens.border}` }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <span style={pill(t.color)}>{t.tier}</span>
-                    <span style={{ fontSize: '0.75rem', color: '#555' }}>{t.desc}</span>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', color: t.color, fontWeight: 700 }}>⚡ {t.pts}</span>
-                </div>
-              ))}
+              <div style={lbl}>Upgrade Your Tier</div>
+              <p style={{ fontSize: '0.85rem', color: '#aaa', lineHeight: 1.7, margin: '0 0 1rem' }}>
+                Move from Entry to Rising, Featured, or Top Tier. Higher tiers get more reach, more antbot deployments, and priority placement in the Arena.
+              </p>
+              <button onClick={() => router.push('/arena')}
+                style={{ background: topTier.color, border: 'none', color: '#fff', borderRadius: '10px', padding: '0.75rem 1.5rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+                ⚡ Arena Guide →
+              </button>
             </div>
           )}
 
@@ -345,65 +350,59 @@ export default function ProfileClient() {
           {activeTab === 'Connect' && (
             <div style={card}>
               <div style={lbl}>Connect</div>
-              {CONNECT_SOCIALS.map(s => {
-                const val = profile[s.key] as string | undefined;
-                if (!val) return null;
-                return (
-                  <a key={s.key} href={val.startsWith('http') ? val : `https://${val}`} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.5rem 0', borderBottom: `1px solid ${tokens.border}`, color: '#aaa', textDecoration: 'none', fontSize: '0.82rem' }}>
-                    <FavIcon url={val} socialKey={s.key} />
-                    <span style={{ fontWeight: 600 }}>{s.label}</span>
-                    <span style={{ color: '#555', fontSize: '0.72rem', marginLeft: 'auto' }}>→</span>
-                  </a>
-                );
-              })}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {CONNECT_SOCIALS.map(({ key, label }) => {
+                  const val = profile[key] as string | undefined;
+                  if (!val) return null;
+                  return (
+                    <a key={key}
+                      href={val.startsWith('http') ? val : `https://${val}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: '#aaa', textDecoration: 'none', fontSize: '0.85rem', padding: '0.5rem', borderRadius: '8px', border: '1px solid #1a1a1a' }}>
+                      <FavIcon url={val} socialKey={key} />
+                      <span style={{ fontWeight: 600, color: '#e8eaf0' }}>{label}</span>
+                      <span style={{ color: '#555', fontSize: '0.75rem', marginLeft: 'auto' }}>{val.replace(/https?:\/\//, '')}</span>
+                    </a>
+                  );
+                })}
+              </div>
             </div>
           )}
-
         </div>
       </div>
 
-      {/* ── Arena Guide card — hidden for own profile ── */}
-      {!isOwn && (
-        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 1rem 2rem' }}>
-          <div style={{
-            background: '#111318',
-            border: '1px solid #2a2d35',
-            borderLeft: '3px solid #0070f3',
-            boxShadow: '0 0 20px rgba(0,112,243,0.08)',
-            borderRadius: '12px',
-            padding: '1.25rem 1.5rem',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem',
-          }}>
-            <div>
-              <div style={{ fontSize: '0.65rem', color: '#0070f3', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-                ◈ &nbsp; Arena Guide
-              </div>
-              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#e0e0e0', marginBottom: '0.3rem', lineHeight: 1.3 }}>
-                Easy guide to place ads, share them<br />
-                and find others like {profile.brand || profile.name}.
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#555' }}>
-                The Arena is open. Your brand could be here.
-              </div>
+      {/* ── Share modal ── */}
+      {shareOpen && (
+        <>
+          <div onClick={() => setShareOpen(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, backdropFilter: 'blur(4px)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 1001, background: '#111', border: '1px solid #222', borderRadius: 16, padding: '1.5rem', width: 'min(520px, 92vw)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>✏️ Customize Share</div>
+              <button onClick={() => setShareOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
             </div>
-            <button
-              onClick={() => router.push('/guide?ref=profile')}
-              style={{
-                background: '#0070f3', border: 'none', color: '#fff',
-                borderRadius: '9px', padding: '0.7rem 1.25rem',
-                fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
-                whiteSpace: 'nowrap', boxShadow: '0 4px 16px rgba(0,112,243,0.25)',
-              }}
-            >
-              ⚡ Arena Guide →
-            </button>
+            <textarea
+              value={shareText}
+              onChange={e => setShareText(e.target.value)}
+              rows={7}
+              style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: 10, padding: '0.85rem', color: '#fff', fontSize: '0.85rem', lineHeight: 1.6, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
+            />
+            <div style={{ fontSize: '0.68rem', color: '#555', marginTop: '0.4rem', marginBottom: '1rem' }}>
+              {shareText.length} characters
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={executeShare}
+                style={{ flex: 1, background: topTier.color, border: 'none', borderRadius: 10, color: '#fff', fontWeight: 700, fontSize: '0.9rem', padding: '0.75rem', cursor: 'pointer' }}>
+                {copied ? '✓ Copied!' : '📋 Copy & Share'}
+              </button>
+              <button onClick={() => setShareOpen(false)}
+                style={{ background: 'transparent', border: '1px solid #333', borderRadius: 10, color: '#555', fontWeight: 600, fontSize: '0.9rem', padding: '0.75rem 1.25rem', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
     </div>
