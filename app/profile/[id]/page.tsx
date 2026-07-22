@@ -17,7 +17,7 @@ export async function generateMetadata(
 
   let { data: profile } = await supabase
     .from('ad_profiles')
-    .select('name, brand, bio, website')
+    .select('name, brand, bio, website, avatar')
     .eq('email', id)
     .single();
 
@@ -45,13 +45,13 @@ export async function generateMetadata(
     openGraph: {
       title, description, url,
       siteName: 'ANTCPU ADS',
-      images: [{ url: 'https://antcpu-ads.vercel.app/og-image.jpg', width: 1200, height: 630, alt: profile.brand }],
+      images: [{ url: profile.avatar || 'https://antcpu-ads.vercel.app/og-image.jpg', width: 1200, height: 630, alt: profile.brand }],
       type: 'profile',
     },
     twitter: {
       card: 'summary_large_image',
       title, description,
-      images: ['https://antcpu-ads.vercel.app/og-image.jpg'],
+      images: [profile.avatar || 'https://antcpu-ads.vercel.app/og-image.jpg'],
     },
   };
 }
