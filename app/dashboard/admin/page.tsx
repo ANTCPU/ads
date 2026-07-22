@@ -46,8 +46,11 @@ const S: Record<string, React.CSSProperties> = {
   btn:     { background: 'transparent', border: `1px solid ${bdr}`, color: '#aaa', borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 },
   input:   { flex: 1, minWidth: 200, background: '#0a0a0a', border: `1px solid #222`, borderRadius: 8, padding: '0.6rem 1rem', color: '#fff', fontSize: '0.85rem', outline: 'none' },
   row:     { display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.6rem 0', borderBottom: `1px solid ${bdr}` },
-  tag:     (c: string): React.CSSProperties => ({ background: `${c}15`, border: `1px solid ${c}30`, color: c, borderRadius: 999, padding: '0.15rem 0.5rem', fontSize: '0.65rem', fontWeight: 700 }),
 };
+const tag = (c: string): React.CSSProperties => ({
+  background: `${c}15`, border: `1px solid ${c}30`, color: c,
+  borderRadius: 999, padding: '0.15rem 0.5rem', fontSize: '0.65rem', fontWeight: 700,
+});
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
@@ -229,8 +232,8 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.title}</div>
                   <div style={{ fontSize: '0.7rem', color: muted }}>{ad.brand} · {ad.country || 'No country'} · {ad.email}</div>
                 </div>
-                <span style={S.tag(gold)}>{ad.points} pts</span>
-                <span style={S.tag(blue)}>{ad.tier}</span>
+                <span style={tag(gold)}>{ad.points} pts</span>
+                <span style={tag(blue)}>{ad.tier}</span>
               </div>
             ))}
           </div>
@@ -248,9 +251,9 @@ export default function AdminDashboard() {
                 <div key={p.promo_code} style={{ ...S.row, justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 700, color: orange }}>{p.promo_code}</span>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <span style={S.tag(blue)}>{p.total} signups</span>
-                    <span style={S.tag(green)}>{p.active} active</span>
-                    <span style={S.tag(gold)}>{p.champions} champions</span>
+                    <span style={tag(blue)}>{p.total} signups</span>
+                    <span style={tag(green)}>{p.active} active</span>
+                    <span style={tag(gold)}>{p.champions} champions</span>
                   </div>
                   <span style={{ fontSize: '0.68rem', color: muted }}>{new Date(p.last_signup).toLocaleDateString()}</span>
                 </div>
@@ -265,8 +268,8 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>{s.brand_name || s.name || '—'}</div>
                   <div style={{ fontSize: '0.7rem', color: muted }}>{s.email} · {s.promo_code || 'no promo'}</div>
                 </div>
-                <span style={S.tag(s.status === 'active' ? green : muted)}>{s.status || 'no status'}</span>
-                {s.is_country_champion && <span style={S.tag(gold)}>🏆</span>}
+                <span style={tag(s.status === 'active' ? green : muted)}>{s.status || 'no status'}</span>
+                {s.is_country_champion && <span style={tag(gold)}>🏆</span>}
                 <span style={{ fontSize: '0.68rem', color: muted }}>{new Date(s.created_at).toLocaleDateString()}</span>
               </div>
             ))}
@@ -286,9 +289,9 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.title}</div>
                   <div style={{ fontSize: '0.7rem', color: muted }}>{ad.brand} · {ad.country || '—'}</div>
                 </div>
-                <span style={S.tag(orange)}>{ad.points} pts</span>
-                <span style={S.tag(blue)}>👆 {ad.click_count || 0}</span>
-                <span style={S.tag('#7928ca')}>↗ {ad.share_count || 0}</span>
+                <span style={tag(orange)}>{ad.points} pts</span>
+                <span style={tag(blue)}>👆 {ad.click_count || 0}</span>
+                <span style={tag('#7928ca')}>↗ {ad.share_count || 0}</span>
               </div>
             ))}
           </div>
@@ -324,7 +327,7 @@ export default function AdminDashboard() {
                     <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>{s.name || s.email}</div>
                     <div style={{ fontSize: '0.7rem', color: muted }}>{s.email}</div>
                   </div>
-                  <span style={S.tag(s.role === 'super' ? orange : blue)}>
+                  <span style={tag(s.role === 'super' ? orange : blue)}>
                     {s.role === 'super' ? '⚡ Super' : '🔑 Admin'}
                   </span>
                 </div>
