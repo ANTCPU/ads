@@ -23,6 +23,8 @@ const supabase = createClient(
 // ─── Env ──────────────────────────────────────────────────────────────────────
 const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
+const [brandConfig, setBrandConfig] = useState<Record<string, { image_url: string | null; color: string | null }>>({})
+
 // ─── Session ID ───────────────────────────────────────────────────────────────
 function getSessionId(): string {
   if (typeof window === 'undefined') return 'ssr';
