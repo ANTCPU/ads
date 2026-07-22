@@ -23,8 +23,6 @@ const supabase = createClient(
 // ─── Env ──────────────────────────────────────────────────────────────────────
 const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
-const [brandConfig, setBrandConfig] = useState<Record<string, { image_url: string | null; color: string | null }>>({})
-
 // ─── Session ID ───────────────────────────────────────────────────────────────
 function getSessionId(): string {
   if (typeof window === 'undefined') return 'ssr';
@@ -138,6 +136,7 @@ export default function ArenaUniversalClient() {
   const [toast,   setToast]   = useState<Toast | null>(null);
   const [preview, setPreview] = useState<Ad | null>(null);
   const [shareAd, setShareAd] = useState<Ad | null>(null);
+  const [brandConfig, setBrandConfig] = useState<Record<string, { image_url: string | null; color: string | null }>>({})
 
   // — interaction state keyed by ad id
   const [liked,   setLiked]   = useState<Record<string, boolean>>({});
@@ -172,21 +171,30 @@ export default function ArenaUniversalClient() {
   }, []);
 
   async function fetchAds() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('ads')
-      .select('*')
-      .eq('status', 'active')
-      .order('pinned',  { ascending: false })
-      .order('points',  { ascending: false });
-    setAds(data || []);
-    setLoading(false);
+  setLoading(true)
+  const [{ data: adsData }, { data: brandsData }] = await Promise.all([
+    supabase.from('ads').select('*').eq('status', 'active')
+      .order('pinned', { ascending: false })
+      .order('points', { ascending: false }),
+    supabase.from('brand_config').select('brand_name, image_url, color'),
+  ])
+  setAds(adsData || [])
+  const map: Record<string, { image_url: string | null; color: string | null }> = {}
+  for (const b of (brandsData || [])) {
+    map[b.brand_name] = { image_url: b.image_url, color: b.color }
   }
+  setBrandConfig(map)
+  setLoading(false)
+}
+
 
   function showToast(id: string, msg: string) {
     setToast({ id, msg });
     setTimeout(() => setToast(null), 2000);
   }
+  function getBrandImage(ad: Ad): string | null {
+  return ad.image_url || brandConfig[ad.brand]?.image_url || null
+}
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -346,11 +354,10 @@ export default function ArenaUniversalClient() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
                   {/* Brand icon — Phase 2: shown when image_url set by admin */}
-                  {preview.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={preview.image_url}
-                      alt={preview.brand}
+                  {getBrandImage(preview) && (
+  // eslint-disable-next-line @next/next/no-img-element
+  <img src={getBrandImage(preview)!} alt={preview.brand}
+
                       style={{ width: 48, height: 48, borderRadius: '10px', objectFit: 'cover', border: `1px solid ${color}40`, flexShrink: 0 }}
                     />
                   )}
@@ -538,11 +545,9 @@ export default function ArenaUniversalClient() {
 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', minHeight: 36 }}>
 
   {/* Brand icon — fixed size, never pushes layout */}
-  {ad.image_url && (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={ad.image_url}
-      alt={ad.brand}
+  {getBrandImage(ad) && (
+  // eslint-disable-next-line @next/next/no-img-element
+  <img src={getBrandImage(ad)!} alt={ad.brand}
       style={{ width: 32, height: 32, borderRadius: '6px', objectFit: 'cover', border: `1px solid ${color}30`, flexShrink: 0 }}
     />
   )}
