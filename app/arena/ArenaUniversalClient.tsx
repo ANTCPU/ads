@@ -532,38 +532,39 @@ export default function ArenaUniversalClient() {
                       </div>
                     )}
 
-                    {/* Brand row — icon + name + champion flag */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                   {/* Brand row — icon + name + champion flag */}
+<div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', minHeight: 36 }}>
 
-                      {/* Brand icon — Phase 2: shown when image_url set by admin */}
-                      {ad.image_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={ad.image_url}
-                          alt={ad.brand}
-                          style={{ width: 36, height: 36, borderRadius: '8px', objectFit: 'cover', border: `1px solid ${color}40`, flexShrink: 0 }}
-                        />
-                      )}
+  {/* Brand icon — fixed size, never pushes layout */}
+  {ad.image_url && (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={ad.image_url}
+      alt={ad.brand}
+      style={{ width: 32, height: 32, borderRadius: '6px', objectFit: 'cover', border: `1px solid ${color}30`, flexShrink: 0 }}
+    />
+  )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', flex: 1 }}>
-                        <button
-                          onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
-                          style={{ fontWeight: 700, fontSize: '0.82rem', color, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: `${color}50`, background: 'none', border: 'none', padding: 0 }}>
-                          {ad.brand}
-                        </button>
+  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.3rem' }}>
+    <button
+      onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
+      style={{ fontWeight: 700, fontSize: '0.82rem', color, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: `${color}50`, background: 'none', border: 'none', padding: 0, flexShrink: 0 }}>
+      {ad.brand}
+    </button>
 
-                        {/* Country champion — flag + country name */}
-                        {ad.is_country_champion && ad.country && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '999px', padding: '0.1rem 0.45rem', fontSize: '0.65rem', color: gold, fontWeight: 700 }}>
-                            {flag} {ad.country}
-                          </span>
-                        )}
+    {/* Country champion — flag + country name, truncated */}
+    {ad.is_country_champion && ad.country && (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', background: `${gold}15`, border: `1px solid ${gold}30`, borderRadius: '999px', padding: '0.1rem 0.45rem', fontSize: '0.65rem', color: gold, fontWeight: 700, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {flag} {ad.country}
+      </span>
+    )}
 
-                        <span style={{ fontSize: '0.65rem', color: muted, background: '#1a1a1a', borderRadius: '999px', padding: '0.1rem 0.45rem' }}>
-                          {ad.tier}
-                        </span>
-                      </div>
-                    </div>
+    <span style={{ fontSize: '0.65rem', color: muted, background: '#1a1a1a', borderRadius: '999px', padding: '0.1rem 0.45rem', flexShrink: 0 }}>
+      {ad.tier}
+    </span>
+  </div>
+</div>
+
 
                     {/* Title + description */}
                     <div style={{ marginBottom: '0.75rem' }}>
