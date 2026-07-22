@@ -153,9 +153,14 @@ export default function AdminDashboard() {
   return (
     <div style={S.page}>
       <ArenaNav
-        user={user}
-        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
-      />
+  role="admin"
+  userName={user.name}
+  userEmail={user.email}
+  userBrand={user.brand}
+  trialStatus="team"
+  onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
+/>
+
       <div style={S.inner}>
 
         {/* ── Header ── */}
