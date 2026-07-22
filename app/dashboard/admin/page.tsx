@@ -219,9 +219,10 @@ export default function AdminDashboard() {
               <div style={{ fontSize: '0.72rem', color: muted, marginBottom: '0.5rem' }}>COUNTRY COVERAGE</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {countries.map(c => (
-                  <div key={c.country} style={{ background: c.has_champion ? `${gold}15` : '#1a1a1a', border: `1px solid ${c.has_champion ? gold : bdr}`, borderRadius: 8, padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
-                    <span style={{ color: c.has_champion ? gold : muted }}>{c.country}</span>
-                    <span style={{ color: muted, marginLeft: 6 }}>{c.shops} shops · {c.total_points}pts</span>
+                  <div key={c.country} style={{ background: c.has_champion ? `${gold}20` : '#1a1a1a', border: `1px solid ${c.has_champion ? gold : bdr}`, borderRadius: 8, padding: '0.4rem 0.75rem', fontSize: '0.75rem' }}>
+                  <span style={{ color: c.has_champion ? '#fff' : muted, fontWeight: c.has_champion ? 700 : 400 }}>{c.country}</span>
+                  {c.has_champion && <span style={{ color: gold, marginLeft: 4 }}>🏆</span>}
+                  <span style={{ color: '#888', marginLeft: 6 }}>{c.shops} shops · {c.total_points}pts</span>
                   </div>
                 ))}
               </div>
