@@ -1,6 +1,6 @@
 // app/arena/ArenaUniversalClient.tsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Arena — universal client
+// Arena 1 — universal client
 // Phase 1: text ads + country champion flags + brand icons (when image_url set)
 // Phase 2: images via Amanda Photography partnership (admin-controlled)
 // Phase 3: video streaming (future paid — behind the scenes)
