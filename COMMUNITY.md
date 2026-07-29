@@ -1,12 +1,15 @@
-# ADS Network - Community Standards
+# ADS Network — Community Standards
 
 > The Arena is built on trust. This document describes how the community self-governs.
+> See DEV.md for the technical implementation of the flag and review system.
 
 ---
 
 ## The Principle
 
-The Arena is a points-driven meritocracy. Ads rise and fall based on engagement — not on who paid more or who complained louder. The community flag system exists for one purpose only: **removing genuinely inappropriate content.**
+The Arena is a points-driven meritocracy. Ads rise and fall based on engagement —
+not on who paid more or who complained louder. The community flag system exists
+for one purpose only: **removing genuinely inappropriate content.**
 
 It is not a competitive tool. It is not a way to suppress rivals. It is a last resort.
 
@@ -14,11 +17,11 @@ It is not a competitive tool. It is not a way to suppress rivals. It is a last r
 
 ## Roles
 
-| Role | Who | What they can do |
-|------|-----|-----------------|
-| Admin | ANTCPU team | Full control — approve, reject, manage all content |
-| Moderator | Assigned by admin | Flag inappropriate ads · anonymous to other users |
-| Member | Everyone | Browse, create ads, refer others, vote on flagged content |
+| Role       | Who              | What they can do                                          |
+|------------|------------------|-----------------------------------------------------------|
+| Admin      | ANTCPU team      | Full control — approve, reject, manage all content        |
+| Moderator  | Assigned by admin| Flag inappropriate ads · anonymous to other users         |
+| Member     | Everyone         | Browse, create ads, refer others, vote on flagged content |
 
 Moderators are anonymous. Their identity is never revealed to other members.
 
@@ -35,7 +38,18 @@ When a moderator flags an ad:
 5. **Vote passes** → Ad removed automatically
 6. **Vote fails** → Ad restored to active
 
-The threshold for vote passage is set by the admin and may change as the community grows.
+The threshold for vote passage is set by the admin and may change as the
+community grows.
+
+---
+
+## The 1-Ad Rule
+
+Each member runs **1 active ad**. A second ad slot is earned — not given —
+by making the first ad competitive through real engagement.
+
+This is not a restriction. It is a quality standard. The Arena rewards brands
+that show up and compete, not brands that flood the feed.
 
 ---
 
@@ -56,9 +70,11 @@ Not flaggable:
 
 ## Phase 3
 
-The community flag system is a **Phase 3 feature.** It will not be built until the Arena has sufficient volume to make community governance meaningful.
+The community flag system is a **Phase 3 feature.** Phase 3 is now triggered
+(50+ active ads reached). The approval queue page (`/dashboard/review`) is
+documented in DEV.md and will be built as part of Phase 3 infrastructure.
 
-When Phase 3 opens, moderator applications will be announced here.
+When Phase 3 opens fully, moderator applications will be announced here.
 
 ---
 
