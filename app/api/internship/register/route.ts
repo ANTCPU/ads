@@ -16,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { notifyDiscord } from '../../lib/discord';
+import { notifyDiscord } from '../../../lib/discord';
 
 // ─── Clients ─────────────────────────────────────────────────
 const supabase = createClient(
