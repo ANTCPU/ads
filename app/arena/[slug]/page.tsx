@@ -1,32 +1,16 @@
 import { Metadata } from 'next';
 import ArenaClient from './ArenaClient';
 
-const BRAND_META: Record<string, { name: string; tagline: string; url: string }> = {
-  mapofpi: {
-    name: 'Map of Pi',
-    tagline: 'The future of Pi eCommerce — 2.1M+ users, 148K sellers, 173K+ transactions.',
-    url: 'https://mapofpi.com',
-  },
-  antcpu: {
-    name: 'ANTCPU',
-    tagline: 'Automated marketing network powered by AI antbots.',
-    url: 'https://antcpu.com',
-  },
-  pipioneers: {
-    name: 'PiPioneersX',
-    tagline: 'Join Pi Network — Mine crypto on your smartphone. Referral: Ajataju.',
-    url: 'https://minepi.com/Ajataju',
-  },
-  'ads-network': {
-    name: 'ANTCPU ADS',
-    tagline: 'The Arena — Automated Marketing Network. Free trial. No contracts.',
-    url: 'https://antcpu-ads.vercel.app',
-  },
-  test: {
-    name: 'ANTCPU TEST',
-    tagline: 'Arena Copilot — Test Environment.',
-    url: 'https://antcpu-ads.vercel.app',
-  },
+// ─── Only the network itself is hardcoded ────────────────────
+// All other brands fall back to og-image.jpg until they upload
+// their own via the brand OG page (planned — ad_profiles.og_image_url)
+
+const DEFAULT_OG = 'https://antcpu-ads.vercel.app/og-image.jpg';
+
+const SLUG_ALIAS: Record<string, string> = {
+  'ads-network': 'antcpu',
+  'antcpuads':   'antcpu',
+  'adsnetwork':  'antcpu',
 };
 
 export async function generateMetadata(
@@ -34,56 +18,51 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = rawSlug.toLowerCase();
-  const brand = BRAND_META[slug];
+  const resolvedSlug = SLUG_ALIAS[slug] ?? slug;
 
-  if (!brand) {
+  // ANTCPU ADS is the network — special case only
+  if (resolvedSlug === 'antcpu') {
     return {
-      title: 'Brand Arena — ANTCPU ADS',
-      description: 'Explore brand arenas on ANTCPU ADS.',
+      title: 'ANTCPU ADS — The Arena',
+      description: 'The Arena — automated marketing network powered by AI antbots.',
       openGraph: {
-        title: 'Brand Arena — ANTCPU ADS',
-        description: 'Explore brand arenas on ANTCPU ADS.',
-        url: 'https://antcpu-ads.vercel.app',
+        title: 'ANTCPU ADS — The Arena',
+        description: 'The Arena — automated marketing network powered by AI antbots.',
+        url: `https://antcpu-ads.vercel.app/arena/${slug}`,
         siteName: 'ANTCPU ADS',
-        images: [{ url: 'https://antcpu-ads.vercel.app/og-image.jpg', width: 1200, height: 630, alt: 'ANTCPU ADS' }],
+        images: [{ url: DEFAULT_OG, width: 1200, height: 630, alt: 'ANTCPU ADS' }],
         type: 'website',
       },
       twitter: {
         card: 'summary_large_image',
-        title: 'Brand Arena — ANTCPU ADS',
-        description: 'Explore brand arenas on ANTCPU ADS.',
-        images: ['https://antcpu-ads.vercel.app/og-image.jpg'],
+        title: 'ANTCPU ADS — The Arena',
+        description: 'The Arena — automated marketing network powered by AI antbots.',
+        images: [DEFAULT_OG],
       },
     };
   }
 
-  const title = `${brand.name} — ANTCPU ADS Arena`;
-  const description = brand.tagline;
-  const url = `https://antcpu-ads.vercel.app/arena/${slug}`;
+  // All other brands — generic fallback until og_image_url exists
+  // TODO: when ad_profiles.og_image_url is added, fetch here and use it
+  const brandName = resolvedSlug.charAt(0).toUpperCase() + resolvedSlug.slice(1);
+  const title = `${brandName} — ANTCPU ADS Arena`;
 
   return {
     title,
-    description,
+    description: `${brandName} is live in the ANTCPU ADS Arena.`,
     openGraph: {
       title,
-      description,
-      url,
+      description: `${brandName} is live in the ANTCPU ADS Arena.`,
+      url: `https://antcpu-ads.vercel.app/arena/${slug}`,
       siteName: 'ANTCPU ADS',
-      images: [
-        {
-          url: 'https://antcpu-ads.vercel.app/og-image.jpg',
-          width: 1200,
-          height: 630,
-          alt: brand.name,
-        },
-      ],
+      images: [{ url: DEFAULT_OG, width: 1200, height: 630, alt: brandName }],
       type: 'website',
     },
     twitter: {
       card: 'summary_large_image',
       title,
-      description,
-      images: ['https://antcpu-ads.vercel.app/og-image.jpg'],
+      description: `${brandName} is live in the ANTCPU ADS Arena.`,
+      images: [DEFAULT_OG],
     },
   };
 }
