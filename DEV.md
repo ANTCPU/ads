@@ -261,21 +261,16 @@ Admin: Role set in ad_signups.role · role: admin
 Team: Promo code signup · trialStatus: 'team' · 90-day access
 Trial: Standard signup · trialStatus: 'trial' · 3-day access
 User: Default role after trial
-Session is stored in:
 
-HttpOnly cookie (server-set via /api/session/set) — survives mobile Safari
-localStorage['arena_user'] — UI cache for instant name/brand display
-Dashboard routing (/dashboard/page.tsx) reads localStorage and routes:
+## Authentication
 
-super → /dashboard/admin
-admin → /dashboard/users
-team / user → /dashboard/user
-Visit Tracking
-/api/doorbell is called on page load from:
+Session is stored in an HttpOnly cookie (server-set) and localStorage 
+as a UI cache. Dashboard routing reads localStorage role and routes 
+accordingly. See app/login/page.tsx and app/api/user-auth/route.ts 
+for implementation details.
 
-/login
-/dashboard/user
-Payload: { page, ref, ts, ua }
+Role levels exist in ad_signups.role — see the codebase for routing logic.
+
 
 This is the lightweight analytics layer before Vercel Analytics aggregates.
 
