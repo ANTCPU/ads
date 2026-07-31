@@ -14,7 +14,22 @@ export const revalidate = 60;
 export const metadata = {
   title: 'Human in the Loop — antcpu.io Internship Arena',
   description: '31 days. Real roles. Real CV. Dev or Marketing. Enter the Arena.',
+  openGraph: {
+    title: 'Human in the Loop — antcpu.io Internship Challenge',
+    description: '31 days. Real roles. Real CV. Dev or Marketing. Enter the Arena.',
+    url: 'https://antcpu-ads.vercel.app/internship',
+    siteName: 'ANTCPU ADS',
+    images: [{ url: 'https://antcpu-ads.vercel.app/og-internchallenge.jpg', width: 1200, height: 630, alt: 'antcpu.io Human in the Loop Internship Challenge' }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image' as const,
+    title: 'Human in the Loop — antcpu.io Internship Challenge',
+    description: '31 days. Real roles. Real CV. Dev or Marketing. Enter the Arena.',
+    images: ['https://antcpu-ads.vercel.app/og-internchallenge.jpg'],
+  },
 };
+
 
 const accent = '#2563eb';
 const bg     = '#0a0a0a';
