@@ -13,7 +13,20 @@ import SuccessClient from './SuccessClient';
 export const metadata = {
   title: 'You\'re in — antcpu.io Internship Arena',
   description: 'Welcome to the Human in the Loop Internship Challenge. Week 1 starts now.',
+  openGraph: {
+    title: 'You\'re in — antcpu.io Internship Arena',
+    description: 'Welcome to the Human in the Loop Internship Challenge. Week 1 starts now.',
+    url: 'https://antcpu-ads.vercel.app/internship/success',
+    siteName: 'ANTCPU ADS',
+    images: [{ url: 'https://antcpu-ads.vercel.app/og-internchallenge.jpg', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['https://antcpu-ads.vercel.app/og-internchallenge.jpg'],
+  },
 };
+
 
 export default function InternshipSuccessPage() {
   return (
