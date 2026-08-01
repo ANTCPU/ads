@@ -392,20 +392,23 @@ export async function POST(req: NextRequest) {
 
     const { error: challengerErr } = await supabase
       .from('challengers')
-      .insert({
-        signup_email: cleanEmail,
-        ad_id: ad?.id ?? null,
-        name: cleanName,
-        email: cleanEmail,
-        country,
-        track,
-        week: 1,
-        points: 0,
-        role_title: 'Explorer',
-        is_early_adopter: day <= 7,
-        status: 'active',
-        cohort,
-      });
+      .insert({{
+  signup_email:    cleanEmail,
+  ad_id:           ad?.id ?? null,
+  name:            cleanName,
+  email:           cleanEmail,
+  country,
+  track,
+  week:            1,
+  progress_pct:    5,   // Day 1 complete — what challenger sees
+  points:          5,   // Internal score — starts same, diverges later
+  tasks_done:      1,   // Registration = 1 task done
+  submissions:     0,
+  role_title:      'Explorer',
+  is_early_adopter: day <= 7,
+  status:          'active',
+  cohort,
+});
 
     if (challengerErr) {
       console.error('Challenger insert error:', challengerErr.message);
