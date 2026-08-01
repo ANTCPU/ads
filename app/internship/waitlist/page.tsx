@@ -19,7 +19,20 @@ import { WEEK1_TASKS, CHALLENGE_END } from '../../lib/challengeDays';
 export const metadata = {
   title: 'Next Cohort — antcpu.io Internship Arena',
   description: 'Current Week 1 has closed. Your Arena ad is live — the next cohort opens on the 1st.',
+  openGraph: {
+    title: 'Next Cohort — antcpu.io Internship Arena',
+    description: 'Current Week 1 has closed. Your Arena ad is live — the next cohort opens on the 1st.',
+    url: 'https://antcpu-ads.vercel.app/internship/waitlist',
+    siteName: 'ANTCPU ADS',
+    images: [{ url: 'https://antcpu-ads.vercel.app/og-internchallenge.jpg', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['https://antcpu-ads.vercel.app/og-internchallenge.jpg'],
+  },
 };
+
 
 // Compute next cohort month name from CHALLENGE_END
 // CHALLENGE_END = first moment of the month after the current challenge
