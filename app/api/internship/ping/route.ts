@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       `⏱ ${time}`
     ].filter(Boolean).join('\n');
 
-    await notifyDiscord(lines);
+    await notifyDiscord(lines, 'internship');
 
     return NextResponse.json({ ok: true }, { headers: CORS });
 
