@@ -546,7 +546,7 @@ export async function POST(req: NextRequest) {
       `📧 ${cleanEmail} · ${dayLabel} · ${cohort === 'august-2026' ? 'Founding Member ⭐' : 'September Cohort'}\n` +
       `🎒 Background: ${background ?? '—'} · AI: ${aiExp ?? '—'} · ${availability ?? '—'}/wk\n` +
       `🌐 Timezone: ${timezone ?? '—'} · Session: \`${sessionId ?? '—'}\`\n` +
-      `🔗 https://antcpu-ads.vercel.app/internship/arena`, 'internship');
+      `🔗 https://antcpu.io/apply/`, 'internship');
 
     // ── 6. Return ────────────────────────────────────────────
     return ok({
