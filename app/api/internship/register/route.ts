@@ -450,10 +450,11 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest) {
   try {
     const {
-      name, email, country, track,
-      timezone, background, whyHere,
-      portfolio, aiExp, availability, sessionId,
-    } = await req.json();
+  name, email, country, track,
+  timezone, background,
+  why_here, first_name, last_name,
+  portfolio, ai_exp, availability, sessionId,
+} = await req.json();
 
     if (!name?.trim() || !email?.trim() || !country?.trim() || !track)
       return err('Name, email, country and track are required.', 400);
@@ -510,21 +511,42 @@ export async function POST(req: NextRequest) {
     const day    = getChallengeDay();
     const cohort = day >= 8 ? 'september-2026' : 'august-2026';
 
-    const { error: challengerErr } = await supabase
+     const { error: challengerErr } = await supabase
       .from('challengers')
       .insert({
-        signup_email: cleanEmail, ad_id: ad?.id ?? null,
-        name: cleanName, email: cleanEmail, country, track,
-        timezone: timezone ?? null, background: background ?? null,
-        why_here: whyHere ?? null, portfolio: portfolio ?? null,
-        ai_exp: aiExp ?? null, availability: availability ?? null,
-        session_id: sessionId ?? null,
-        week: 1, progress_pct: 5, points: 5,
-        tasks_done: 1, submissions: 0,
-        role_title: 'Explorer',
+        signup_email:     cleanEmail,
+        ad_id:            ad?.id ?? null,
+        name:             cleanName,
+        first_name:       first_name ?? cleanName.split(' ')[0],
+        last_name:        last_name  ?? cleanName.split(' ').slice(1).join(' ') || null,
+        initials:         ((first_name ?? cleanName.split(' ')[0])[0] +
+                          (last_name   ?? cleanName.split(' ')[1] ?? '')[0] ?? '').toUpperCase(),
+        color:            track === 'dev' ? '#2563eb' : '#7c3aed',
+        email:            cleanEmail,
+        country,
+        track,
+        track_raw:        track,
+        timezone:         timezone    ?? null,
+        background:       background  ?? null,
+        why_here:         why_here    ?? null,
+        portfolio:        portfolio   ?? null,
+        ai_exp:           ai_exp      ?? null,
+        availability:     availability ?? null,
+        session_id:       sessionId   ?? null,
+        completed_gates:  ['d1'],
+        started_gates:    ['d1'],
+        badges:           ['first-click'],
+        week:             1,
+        progress_pct:     5,
+        points:           5,
+        tasks_done:       1,
+        submissions:      0,
+        role_title:       'Registered',
         is_early_adopter: day <= 7,
-        status: 'active', cohort,
+        status:           'active',
+        cohort,
       });
+
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);
 
     // ── 4. Email ─────────────────────────────────────────────
@@ -544,7 +566,7 @@ export async function POST(req: NextRequest) {
     await notifyDiscord(
       `🎯 **New Challenger** — ${cleanName} · ${trackLabel} · ${country}\n` +
       `📧 ${cleanEmail} · ${dayLabel} · ${cohort === 'august-2026' ? 'Founding Member ⭐' : 'September Cohort'}\n` +
-      `🎒 Background: ${background ?? '—'} · AI: ${aiExp ?? '—'} · ${availability ?? '—'}/wk\n` +
+      `🎒 Background: ${background ?? '—'} · AI: ${ai_exp ?? '—'} · ${availability ?? '—'}/wk\n` +
       `🌐 Timezone: ${timezone ?? '—'} · Session: \`${sessionId ?? '—'}\`\n` +
       `🔗 https://antcpu.io/apply/`, 'internship');
 
