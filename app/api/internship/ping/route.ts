@@ -1,12 +1,18 @@
 // ============================================================
 // app/api/internship/ping/route.ts
 // POST — Step funnel ping
-// Fires on every step advance from apply/index.html
+// Fires on every step advance from antcpu.io/apply/
 // Notifies Discord with step progress + partial lead data
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyDiscord } from '../../../lib/discord';
+
+const CORS = {
+  'Access-Control-Allow-Origin':  'https://antcpu.io',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
 const STEP_LABELS: Record<string | number, string> = {
   1:        '👤 Step 1 — Name + Email',
@@ -16,16 +22,15 @@ const STEP_LABELS: Record<string | number, string> = {
   complete: '🎉 Registration complete'
 };
 
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: CORS });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
-      step,
-      email,
-      firstName,
-      country,
-      track,
-      timestamp,
-      sessionId
+      step, email, firstName,
+      country, track, timestamp, sessionId
     } = await req.json();
 
     const label = STEP_LABELS[step] ?? `📋 Step ${step}`;
@@ -35,21 +40,24 @@ export async function POST(req: NextRequest) {
 
     const lines = [
       label,
-      firstName ? `Name: ${firstName}`     : null,
-      email     ? `Email: ${email}`         : null,
-      country   ? `Country: ${country}`     : null,
-      track     ? `Track: ${track}`         : null,
+      firstName ? `Name: ${firstName}`        : null,
+      email     ? `Email: ${email}`            : null,
+      country   ? `Country: ${country}`        : null,
+      track     ? `Track: ${track}`            : null,
       sessionId ? `Session: \`${sessionId}\`` : null,
       `⏱ ${time}`
     ].filter(Boolean).join('\n');
 
     await notifyDiscord(lines);
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { headers: CORS });
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     console.error('Ping error:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message },
+      { status: 500, headers: CORS }
+    );
   }
 }
