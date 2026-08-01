@@ -392,7 +392,7 @@ export async function POST(req: NextRequest) {
 
     const { error: challengerErr } = await supabase
       .from('challengers')
-      .insert({{
+      .insert({
   signup_email:    cleanEmail,
   ad_id:           ad?.id ?? null,
   name:            cleanName,
