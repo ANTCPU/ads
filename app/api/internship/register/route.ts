@@ -115,7 +115,7 @@ function arenaBlock() {
           padding:0.6rem 1.25rem;border-radius:8px">
           Challenger Board →
         </a>
-        <a href="https://antcpu.com/cloud/"
+        <a href="https://antcpu-ads.vercel.app/arena"
           style="display:inline-block;background:${ACCENT}15;color:${ACCENT};
           text-decoration:none;font-weight:600;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px;
