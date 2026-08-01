@@ -49,6 +49,41 @@ Repo: [github.com/ANTCPU/ads](https://github.com/ANTCPU/ads)
 ---
 
 ## The Database (Supabase)
+### challengers table — Internship Challenge
+
+| Field | Notes |
+|---|---|
+| `id` | UUID primary key |
+| `first_name` / `last_name` | Split from name on insert |
+| `initials` / `color` | Display fields — set on insert |
+| `track` | `dev` or `marketing` |
+| `track_raw` | Original selection including `unsure` |
+| `progress_pct` | 0–100 — driven by completed_gates |
+| `completed_gates` | text[] — array of gate IDs e.g. `["d1","d2"]` |
+| `started_gates` | text[] — pre-task started |
+| `badges` | text[] — earned badge IDs |
+| `why_here` | From application form |
+| `ai_exp` | AI experience level |
+| `background` | Professional background |
+| `ad_url` | Link to their Arena ad — set on Day 4 |
+| `last_seen` | Updated on dashboard load |
+| `cohort` | `august-2026` or `september-2026` |
+
+**Views:**
+- `public_leaderboard` — first_name, country, track, progress_pct, week, role_title
+- `admin_challengers` — full row including email
+- `funnel_stats` — registration funnel metrics
+
+**API endpoints:**
+- `POST /api/internship/register` — registration from antcpu.io/apply/
+- `POST /api/internship/ping` — step tracking + Discord notify
+- `GET  /api/internship/challengers` — admin view (full row)
+- `GET  /api/internship/challengers?view=public` — public leaderboard view
+
+**Known gaps as of August 2026:**
+- No PATCH endpoint — gate completions not yet persisted to DB
+- Dashboard reads localStorage only — not Supabase
+- Challenger board reads admin view — should use `?view=public`
 
 ### Key Tables
 
