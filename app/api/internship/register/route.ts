@@ -64,7 +64,7 @@ function emailFooter() {
       border-top:1px solid ${BORDER};padding-top:1rem;margin-top:1.5rem">
       ⚡ antcpu.io ·
       <a href="mailto:ads@antcpu.io" style="color:#555">ads@antcpu.io</a><br>
-      <a href="https://antcpu-ads.vercel.app" style="color:#555">
+      <a href="https://antcpu.io" style="color:#555">
         antcpu-ads.vercel.app
       </a>
     </div>`;
@@ -109,13 +109,13 @@ function arenaBlock() {
         Your intro ad is live right now. Share it to earn your first points.
       </div>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-        <a href="https://antcpu-ads.vercel.app/internship/arena"
+        <a href="https://antcpu.io/apply/"
           style="display:inline-block;background:${ACCENT};color:#fff;
           text-decoration:none;font-weight:700;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px">
           Challenger Board →
         </a>
-        <a href="https://antcpu-ads.vercel.app/arena"
+        <a href="https://antcpu.io/apply/"
           style="display:inline-block;background:${ACCENT}15;color:${ACCENT};
           text-decoration:none;font-weight:600;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px;
