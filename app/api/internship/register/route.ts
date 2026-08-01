@@ -65,7 +65,7 @@ function emailFooter() {
       ⚡ antcpu.io ·
       <a href="mailto:ads@antcpu.io" style="color:#555">ads@antcpu.io</a><br>
       <a href="https://antcpu.io" style="color:#555">
-        antcpu-ads.vercel.app
+        antcpu.io
       </a>
     </div>`;
 }
@@ -109,13 +109,13 @@ function arenaBlock() {
         Your intro ad is live right now. Share it to earn your first points.
       </div>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-        <a href="https://antcpu.io/apply/"
+        <a href="https://antcpu.io/challenge/"
           style="display:inline-block;background:${ACCENT};color:#fff;
           text-decoration:none;font-weight:700;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px">
           Challenger Board →
         </a>
-        <a href="https://antcpu.io/apply/"
+        <a href="https://antcpu.com/cloud/"
           style="display:inline-block;background:${ACCENT}15;color:${ACCENT};
           text-decoration:none;font-weight:600;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px;
@@ -338,7 +338,7 @@ function buildEmail(p: {
           Can't complete Week 1? You're still in the Arena and September
           cohort opens September 1 — you'll be first through the gate.
           <div style="margin-top:0.5rem">
-            <a href="https://antcpu-ads.vercel.app/internship/waitlist"
+            <a href="https://antcpu.io/apply"
               style="color:${ACCENT};text-decoration:none">
               September cohort →
             </a>
@@ -384,7 +384,7 @@ function buildEmail(p: {
         border-radius:12px;padding:1rem;font-size:0.82rem;color:#555">
         Week 2 starts tomorrow. September cohort opens September 1.
         <div style="margin-top:0.5rem">
-          <a href="https://antcpu-ads.vercel.app/internship/waitlist"
+          <a href="https://antcpu.io/apply"
             style="color:${ACCENT};text-decoration:none">
             September cohort →
           </a>
@@ -413,13 +413,13 @@ function buildEmail(p: {
           — you'll be first through the gate with full Week 1 ahead of you.
         </div>
         <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap">
-          <a href="https://antcpu-ads.vercel.app/internship/waitlist"
+          <a href="https://antcpu.io/apply/"
             style="display:inline-block;background:${ACCENT};color:#fff;
             text-decoration:none;font-weight:800;font-size:0.9rem;
             padding:0.75rem 1.5rem;border-radius:10px">
             September Cohort →
           </a>
-          <a href="https://antcpu-ads.vercel.app/internship/arena"
+          <a href="https://antcpu.io/challenge/"
             style="display:inline-block;background:#1a1a1a;color:#fff;
             text-decoration:none;font-weight:700;font-size:0.9rem;
             padding:0.75rem 1.5rem;border-radius:10px;border:1px solid #333">
