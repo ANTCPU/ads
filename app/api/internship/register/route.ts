@@ -519,8 +519,7 @@ export async function POST(req: NextRequest) {
         name:             cleanName,
         first_name:       first_name ?? cleanName.split(' ')[0],
         last_name:        (last_name ?? cleanName.split(' ').slice(1).join(' ')) || null,
-        initials:         ((first_name ?? cleanName.split(' ')[0])[0] +
-                          (last_name   ?? cleanName.split(' ')[1] ?? '')[0] ?? '').toUpperCase(),
+        initials:         (cleanName.split(' ')[0][0] + (cleanName.split(' ')[1]?.[0] ?? '')).toUpperCase(),
         color:            track === 'dev' ? '#2563eb' : '#7c3aed',
         email:            cleanEmail,
         country,
