@@ -9,6 +9,7 @@ import PostsModule         from './posts';
 import ShareModule         from './share';
 import ChatModule          from './chat';
 import YouTubeLiveModule   from './youtube-live';
+import ArchiveModule from './archive';
 
 // ─── Module Registry ──────────────────────────────────────────────────────────
 // tier = which subscription plan unlocks this module
@@ -20,8 +21,9 @@ import YouTubeLiveModule   from './youtube-live';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const MODULE_REGISTRY: ModuleDefinition[] = [
-  { id: 'create-ad',    tier: 'trial',    label: '🚀 Advertise Here', desc: 'Create an ad in this arena',             component: CreateAdModule },
+  { id: 'create-ad',    tier: 'trial',    label: '🚀 Advertise Here', desc: 'Create an ad in this arena',              component: CreateAdModule },
   { id: 'share',        tier: 'trial',    label: '🔗 Share Arena',    desc: 'Share this arena with one tap',           component: ShareModule },
+  { id: 'archive',      tier: 'trial',    label: '📦 Archive',        desc: 'Past campaigns from all Arena brands',    component: ArchiveModule },
   { id: 'leaderboard',  tier: 'trial',    label: '🏆 Leaderboard',    desc: 'Top performing ads in the Arena',         component: LeaderboardModule },
   { id: 'region-map',   tier: 'basic',    label: '🌍 Regional Map',   desc: 'Live signup regions across the network',  component: RegionalMapModule },
   { id: 'campaign-hub', tier: 'basic',    label: '📡 Campaign Hub',   desc: 'Active campaigns grouped by tier',        component: CampaignHubModule },
