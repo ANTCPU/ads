@@ -1,364 +1,215 @@
-# ⚡ DEV.md — ANTCPU ADS Developer Reference
+# ⚡ DEV.md — ANTCPU ADS
 
-> This document is the living source of truth for developers joining the build.
-> It reflects the actual state of the codebase — not aspirations, not plans.
-> Read this before touching anything.
-
-*Last updated: July 2026 · Built by Antony Ciccone · ANTCPU*
+*August 2026 · antcpu-ads.vercel.app · github.com/ANTCPU/ads*
 
 ---
 
 ## What This Is
 
-ANTCPU ADS is an automated marketing network — **The Arena** — where brands
-compete for reach through real engagement. Points drive rank. Rank drives
-reach. The system is designed to evolve with human-in-the-loop oversight at
-every critical gate.
-
-Live: [antcpu-ads.vercel.app](https://antcpu-ads.vercel.app)
-Repo: [github.com/ANTCPU/ads](https://github.com/ANTCPU/ads)
+Automated marketing network. Brands compete in **The Arena** through real
+engagement. Points → rank → reach. Human-in-the-loop at every gate.
 
 ---
 
-## The Stack
+## Stack
 
-| Layer         | Technology                        |
-|---------------|-----------------------------------|
-| Framework     | Next.js 15 · App Router           |
-| Hosting       | Vercel                            |
-| Database      | Supabase (Postgres + RLS)         |
-| Email         | Resend (`ads@antcpu.io`)          |
-| AI            | Gemini 2.5 Flash (`/api/ads-agent`) |
-| Notifications | Discord webhooks                  |
-| Analytics     | Vercel Analytics                  |
-| Auth          | Custom PIN + session cookie + localStorage |
-| External      | Zapier (antbot automation bridge) |
+Next.js 15 · Supabase · Vercel · Resend · Gemini 2.5 Flash · Discord webhooks · Vercel Analytics
+
+Auth: Custom PIN + HttpOnly cookie + localStorage (UI cache)
+Styling: All inline — no globals.css, no Tailwind
+i18n: `/ar` `/es` `/fr` `/hi` `/it` `/pt` `/zh` — locale arena pages (May 2026)
 
 ---
 
-## Repository Structure
+## Key Files — Jump Points
 
-/app /about → About page + founder story /antbots → Antbot pod page + Aria chat (/antbots/chat) /api → All API routes (see API Routes below) /arena → Public live ad feed /champions → Country Champions leaderboard 
-/create-ad → Ad creation (wraps CreateAdDrawer component) /dashboard → Role-based dashboard router /admin → Super admin panel (role: super) /agents → Agent pipeline overview (antcpu@gmail.com only) /antcpu → ANTCPU brand dashboard + Aria approval queue /leaderboard → Points leaderboard 
-/mapofpi → Map of Pi brand dashboard /new → New client onboarding (admin tool) /photography → Amanda Photography dashboard /user → Standard user dashboard (all members) /users → User list (role: admin) /guide → Arena Guide (3-path entry page) /login → Signup + login (multi-step, brand-skinned) 
-/mapofpi → Map of Pi partner landing page /create-shop-ad → 6-step Country Champion wizard /icons/arena → Country Champions icon arena (19 active) /modules → Arena module system /privacy → Privacy policy (GDPR + CCPA) /tos → Terms of service /profile/[id] → Public brand profile pages /s/[id] → Short share links for ads
-
-/ads-agent → Legacy standalone agent prototype (archived) /anthub → Archived onboarding tracker experiments /lib → Shared utilities /public → Static assets + OG images
-
-
----
-
-## The Database (Supabase)
-### challengers table — Internship Challenge
-
-| Field | Notes |
-|---|---|
-| `id` | UUID primary key |
-| `first_name` / `last_name` | Split from name on insert |
-| `initials` / `color` | Display fields — set on insert |
-| `track` | `dev` or `marketing` |
-| `track_raw` | Original selection including `unsure` |
-| `progress_pct` | 0–100 — driven by completed_gates |
-| `completed_gates` | text[] — array of gate IDs e.g. `["d1","d2"]` |
-| `started_gates` | text[] — pre-task started |
-| `badges` | text[] — earned badge IDs |
-| `why_here` | From application form |
-| `ai_exp` | AI experience level |
-| `background` | Professional background |
-| `ad_url` | Link to their Arena ad — set on Day 4 |
-| `last_seen` | Updated on dashboard load |
-| `cohort` | `august-2026` or `september-2026` |
-
-**Views:**
-- `public_leaderboard` — first_name, country, track, progress_pct, week, role_title
-- `admin_challengers` — full row including email
-- `funnel_stats` — registration funnel metrics
-
-**API endpoints:**
-- `POST /api/internship/register` — registration from antcpu.io/apply/
-- `POST /api/internship/ping` — step tracking + Discord notify
-- `GET  /api/internship/challengers` — admin view (full row)
-- `GET  /api/internship/challengers?view=public` — public leaderboard view
-
-**Known gaps as of August 2026:**
-- No PATCH endpoint — gate completions not yet persisted to DB
-- Dashboard reads localStorage only — not Supabase
-- Challenger board reads admin view — should use `?view=public`
-
-### Key Tables
-
-| Table          | Purpose                                              |
-|----------------|------------------------------------------------------|
-| `ads`          | All ads — active, pending_review, rejected, archived |
-| `ad_signups`   | All users — trial, team, active, champion            |
-| `ad_profiles`  | Optional brand bio + contact details per user        |
-| `ad_clicks`    | Click events per ad (used by Scout scoring)          |
-
-### Key Fields on `ad_signups`
-
-| Field                  | Notes                                              |
-|------------------------|----------------------------------------------------|
-| `status`               | `trial` · `team` · `active`                        |
-| `role`                 | `user` · `admin` · `super`                         |
-| `trial_days`           | 3 (standard) · 90 (Map of Pi champions)            |
-| `trial_expiry`         | Date string set at signup                          |
-| `promo_code`           | Drives brand-skinned login + campaign funnel       |
-| `is_country_champion`  | Boolean — set for Map of Pi champion signups       |
-| `welcome_email_sent_at`| Stamped when welcome email fires                   |
-| `country` / `city`     | Captured via IP geolocation at signup              |
-
-### Key Fields on `ads`
-
-| Field                 | Notes                                               |
-|-----------------------|-----------------------------------------------------|
-| `status`              | `pending_review` · `active` · `rejected` · `archived` |
-| `tier`                | `entry` · `rising` · `featured` · `toptier`         |
-| `points`              | Cumulative score (clicks + shares + reactions)      |
-| `is_country_champion` | Boolean — champion ads get special placement        |
-| `is_system`           | Boolean — ANTCPU system ads (capped at 1pt/share)   |
-| `pinned`              | Boolean — admin-pinned ads float to top (+50pts)    |
-| `rank_position`       | Calculated by Scout scoring API                     |
-| `image_url`           | Optional — image upload unlocks Deluxe tier         |
+| What you're touching        | File                                          |
+|-----------------------------|-----------------------------------------------|
+| Main Arena feed             | `app/arena/ArenaUniversalClient.tsx`          |
+| Brand arena (slug)          | `app/arena/[slug]/ArenaClient.tsx`            |
+| Scoring engine              | `app/api/scout/score/route.ts`                |
+| Ad approval + management    | `app/dashboard/antcpu/page.tsx` ⚠️ gated     |
+| Module system               | `app/modules/index.ts` + `app/modules/types.ts` |
+| Discord notifications       | `app/lib/discord.ts`                          |
+| Share logic                 | `app/lib/socialShare.ts`                      |
+| Tracking (clicks/shares)    | `app/lib/tracking.ts`                         |
+| Session auth                | `app/lib/session.ts` + `app/api/user-auth/`   |
+| Profile pages               | `app/profile/[id]/ProfileClient.tsx`          |
+| Short links                 | `app/s/[id]/`                                 |
 
 ---
 
-## The Agent System
+## Database — Tables That Matter
 
-### The 4 Arena Agents
+| Table           | What it holds                                        |
+|-----------------|------------------------------------------------------|
+| `ads`           | Every ad — all statuses                              |
+| `ad_signups`    | Every user — all roles                               |
+| `ad_profiles`   | Brand bio + social links (optional per user)         |
+| `ad_clicks`     | Click events                                         |
+| `ad_shares`     | Share events                                         |
+| `ad_reactions`  | Reaction events (hot / watching / interesting)       |
+| `brand_config`  | Brand image + color overrides                        |
+| `arena_modules` | Module slot config per user/slug — currently empty   |
+| `ledger`        | antcoin + samplecoin transactions (genesis: Apr 2026)|
+| `challengers`   | Internship challenge participants                    |
 
-| Agent    | Role                                                        |
-|----------|-------------------------------------------------------------|
-| 🦋 Aria  | Ad review + approval logic · Live chat at `/antbots/chat`  |
-| 🔍 Scout | Scoring engine · `/api/scout/score` · called on every click/share |
-| 📣 Herald| Weekly digest email · `/api/send-weekly` · needs cron trigger |
-| 🔒 Vault | Session auth · PIN system · `VaultModal` component         |
+**`ads` status flow:** `pending_review` → `active` → `archived` (or `rejected`)
 
-### M.A.C. — Map of Pi AI Companion
+**`ad_signups` column is `brand_name`** — not `brand`. Common query mistake.
 
-M.A.C. (Marketing AI Companion) is **specific to Map of Pi** and lives at
-[chatwithmac.com](https://chatwithmac.com) — a dedicated Zapier-powered
-chatbot for Map of Pi users and Country Champions. It is not part of this
-repo. It is a separate product that connects to the Arena via the
-`/api/agent` Zapier bridge endpoint.
-
-Do not conflate M.A.C. with Aria. They are different agents with different
-audiences:
-- **Aria** → Arena-wide intelligence, ad review, brand strategy
-- **M.A.C.** → Map of Pi specific, lives at chatwithmac.com, Zapier-powered
+**`pinned` on `ads` is a Scout output** — never set manually. Scout sets
+`pinned: true` for rank ≤ 10 after every score run.
 
 ---
 
-## The Antbot Pod System
+## Scoring — ADS_V05
 
-### How It Works
+File: `app/api/scout/score/route.ts`
 
-Every brand in the Arena gets a pod of 10 AI antbots. Each bot owns one
-channel and generates ready-to-post content via Gemini 2.5 Flash.
+Two-pass on every interaction (click / share / like / boost / reaction):
 
-The pod is **dynamically built per champion** using `buildPod(ctx)` in
-`app/antbots/index.ts`. When a Country Champion signs up with their shop
-name, country, language, and shop type — the entire 10-bot pod rewrites
-itself for that specific seller.
+**Pass 1 — raw score:**
+- User ads: `(clicks×3) + (shares×5) + (likes×2) + (boosts×5) + (reactions×1) + tier_pts`
+- System ads: `(clicks×1) + (shares×1)` — no bonuses, never enter top 10
+- Tier pts: entry=0 · rising=+100 · featured=+300 · toptier=+750
 
-```typescript
-// Example: Nigerian beauty salon champion
-buildPod({
-  brand: 'Map of Pi',
-  shopName: 'Endurance Beauty World',
-  shopType: 'Beauty & Salon',
-  shopEmoji: '💇',
-  country: 'Nigeria',
-  countryFlag: '🇳🇬',
-  language: 'en',
-  youtubeAnthemId: 'PNoY1ffzciI',
-})
-This produces 10 fully personalized prompts — tweets, Instagram captions, Reddit posts, YouTube scripts, email copy — all written for that specific shop, country, and audience.
+**Pass 2 — rank bonus after sort:**
+- Rank 1 → +300 · Rank 2 → +200 · Rank 3 → +100 · Ranks 4–10 → +50
 
-The 10 Bots
-Bot	Channel	Output
-ANT-01	Brand Awareness	3 positioning statements
-ANT-02	Google Ads	3 search ad sets (headline + description)
-ANT-03	Meta / Instagram	2 captions + CTAs + hashtags
-ANT-04	Twitter / X	5 tweets (stats, utility, community pride)
-ANT-05	Reddit	r/PiNetwork post with question hook
-ANT-06	YouTube	60-second Shorts script with on-screen cues
-ANT-07	TikTok	Hook + 3-scene breakdown + CTA
-ANT-08	SEO / Content	200-word blog intro with keywords
-ANT-09	Discord	Community announcement (150 words)
-ANT-10	Email	Welcome email for new seller
-The Zapier Bridge
-External antbot automation connects to the Arena via:
+After each run: `points` + `rank_position` + `pinned` written to `ads`.
+User totals synced to `ad_signups.points`.
 
-GET  /api/agent?token=AGENT_TOKEN   → Full Arena snapshot
-POST /api/agent?token=AGENT_TOKEN   → Actions: share, status
-This is how the "100 antbots" concept scales. Zapier workflows run on schedule, read the Arena state, and POST share/engagement actions back. 
-The site evolves as more Zaps are added. You are the human in the loop — you review, approve, and direct. The bots execute.
-
-The Email System
-All email goes through Resend from ads@antcpu.io.
-
-Route	Trigger	Audience
-/api/send-welcome	Fires on every new signup	All new users
-/api/send-module	Fires for champion onboarding	Country Champions
-/api/send-weekly	Manual POST with WEEKLY_SECRET	All trial + team users
-Weekly Email Status
-/api/send-weekly is fully built and ready. It fetches all active subscribers, builds a personalized HTML digest with the live leaderboard, Map of Pi featured ad, and a rotating marketing quote. It just needs a scheduled trigger —a Vercel cron job calling:
-
-POST /api/send-weekly
-{ "secret": "WEEKLY_SECRET" }
-Champion Email
-/api/send-module with type: 'champion' sends a full onboarding email with the tier ladder, point-earning guide, share link, and champion board links. It fires from the Map of Pi shop wizard on completion.
-
-The New User Journey
-/login
-  ├── Doorbell ping (visit tracked)
-  ├── Promo code read from URL → getBrandConfig() skins the page
-  ├── 3-step form: Name → Category → Message
-  ├── Writes to ad_signups (status: 'trial', trial_days: 3)
-  ├── fireWelcomeEmail() → /api/send-welcome
-  ├── welcome_email_sent_at stamped
-  └── persistSession() → cookie + localStorage → /dashboard/user
-
-/dashboard/user
-  ├── Onboarding checklist (3 steps)
-  ├── My Ad card (empty until first ad created)
-  ├── Referral code + copy link
-  └── Arena feed (can share immediately to earn points)
-
-/create-ad
-  └── CreateAdDrawer → ad written to ads (status: pending_review)
-
-/dashboard/antcpu (admin)
-  └── Aria approval queue → Approve/Reject
-      ├── Approve → status: active, Scout scores, Discord notified
-      └── Reject → status: rejected, Discord notified with Aria verdict
-The 1-Ad Rule + Ad Builder (Planned)
-Current Rule
-Each user is limited to 1 active ad. This is enforced at the data level — fetchData() in the user dashboard uses .limit(1) on active ads.
-
-The Upgrade Path (Planned — not yet built)
-A user earns the right to a second ad by making their first ad competitive. The criteria:
-
-Ad has earned meaningful engagement (points threshold TBD)
-User has shared at least once
-Ad has been active for a minimum period
-This reward mechanic keeps the Arena quality high — you earn more reach by proving you can use what you have.
-
-Ad Builder Page — /ad-builder (Planned)
-Document before build. Build after document.
-
-The Ad Builder is a dedicated page (not a drawer, not a modal) that gives users a full creative workspace to:
-
-Write and preview their ad before submitting
-See Aria's live feedback as they type
-Choose category, tier intent, and target audience
-Submit directly to the approval queue
-Why it matters now: With 50+ ads in the Arena, the quality bar is rising. A dedicated builder page signals to new users that this is a serious platform. 
-It also gives Aria a surface to coach copy quality before submission — reducing the rejection rate and admin load.
-
-Current state: /create-ad exists and wraps CreateAdDrawer. The drawer is functional but minimal. 
-The Ad Builder page is the evolution of this — a full page with more guidance, Aria integration, and the second-ad unlock flow.
-
-Nav fix needed: The current "Ad Builder" nav link points to /dashboard (which redirects to login). 
-This must be resolved before the page is built — either remove the nav link or stub the route.
-
-The Approval Queue Page — /dashboard/review (Planned)
-Document before build. Build after document.
-
-Current State
-The Aria approval queue lives inside /dashboard/antcpu — a personal brand dashboard hardcoded. This works at low volume but does not scale.
-
-Why It Needs Its Own Page
-With 50+ ads and growing, the approval queue needs to be:
-
-Accessible to any user with role: admin (not just the founder email)
-A dedicated, focused interface — not buried inside a brand dashboard
-Capable of showing queue depth, Aria verdict, and action history
-The foundation for the Phase 3 moderator system
-What the Page Should Do
-Pull all status: pending_review ads from Supabase
-Show Aria's verdict for each (already built in ariaVerdict())
-Approve → status: active + Scout score + Discord notify
-Request Edit → email brand with specific feedback
-Reject → status: rejected + Discord notify with Aria reason
-Show queue depth and average wait time
-Admin-only route (role: admin or super)
-Migration Path
-The ariaVerdict() function and all approval logic already exists in app/dashboard/antcpu/page.tsx. The move is:
-
-Extract ariaVerdict() to app/lib/aria.ts
-Build /dashboard/review/page.tsx using that shared function
-Add "Review Queue" to the admin nav
-Keep /dashboard/antcpu for brand-specific post builder tools
-Authentication
-Super admin: PIN-protected via /api/user-auth · role: super
-Admin: Role set in ad_signups.role · role: admin
-Team: Promo code signup · trialStatus: 'team' · 90-day access
-Trial: Standard signup · trialStatus: 'trial' · 3-day access
-User: Default role after trial
-
-## Authentication
-
-Session is stored in an HttpOnly cookie (server-set) and localStorage 
-as a UI cache. Dashboard routing reads localStorage role and routes 
-accordingly. See app/login/page.tsx and app/api/user-auth/route.ts 
-for implementation details.
-
-Role levels exist in ad_signups.role — see the codebase for routing logic.
-
-
-This is the lightweight analytics layer before Vercel Analytics aggregates.
-
-Known Gaps (As of July 2026)
-These are confirmed gaps from live code audit — not opinions:
-
-Gap	Location	Priority
-Trial status not shown to user	/dashboard/user	🔴 High
-No early adopter badge surface	Dashboard + Arena cards	🔴 High
-Amanda stats hardcoded	/dashboard/agents	🟡 Medium
-/ad-builder nav link is dead	Nav component	🟡 Medium
-/edu returns 404, ads point there	Multiple live ads	🟡 Medium
-send-weekly has no cron trigger	/api/send-weekly	🟡 Medium
-/about uses homepage OG tags	/app/about	🟢 Low
-/guide not in main nav	Nav component	🟢 Low
-test dashboard still exists	/dashboard/test	🟢 Low
-Planned Pages (Document → Design → Build Order)
-Page	Route	Status	Notes
-Ad Builder	/ad-builder	📋 Documented	Full creative workspace + Aria feedback
-Approval Queue	/dashboard/review	📋 Documented	Dedicated admin review page
-Early Adopter Badge	Dashboard + Arena	📋 Documented	Schema + UI surface needed
-EDU Landing	/edu	📋 Documented	Stub needed — live ads point here
-Agent Hub	/agents	🔜 Planned	Aria, Scout, Herald, Forge overview
-Pricing Page	/pricing	🔜 Planned	Standalone route for pricing section
-Build Philosophy
-Document before build. Build after document.
-
-Every new page or feature goes through this order:
-
-Observe — audit the live site and code for what already exists
-Document — write the spec in DEV.md or ROADMAP.md before any code
-Discuss — human in the loop reviews the plan
-Build — code follows the document, not the other way around
-The antbots are pre-programmed. The agents are pre-programmed. The human (you) is the loop that approves, directs, and evolves the system. 
-The site grows as the documents grow.
-
-Contributing
-This project is in active development. The door opens at antcpu.io.
-
-If you're reading this as a developer interested in joining:
-
-Read this file top to bottom
-Understand the 1-ad rule, the approval queue, and the antbot pod
-Built by Antony Ciccone · ANTCPU · Veteran-owned antcpu.com · antcpu-ads.vercel.app
-
+**Manual recalc available** in `/dashboard/antcpu` — fires Scout on demand
+after archiving or restoring ads.
 
 ---
 
-## What This Document Does
+## Module System
 
-- **Corrects M.A.C.** — clearly separated from Aria, identified as Map of Pi specific, lives at `chatwithmac.com`, Zapier-powered
-- **Documents the 1-ad rule** — explains the current limit and the earn-a-second-ad upgrade path
-- **Documents Ad Builder as a planned page** — full spec written before a single line of code
-- **Documents Approval Queue as a planned page** — migration path from `/dashboard/antcpu` to `/dashboard/review` fully described
-- **Shows the build as it evolves** — every known gap is listed with priority, every planned page has a status
-- **Establishes the document-first philosophy** — "Document before build. Build after document." is the operating principle
+Registry: `app/modules/index.ts`
+Types: `app/modules/types.ts`
+Each module receives `ModuleContext` — `slug`, `user`, `ads`, `supabase`, `isSuper`.
+
+| Module         | Tier     | Notes                                        |
+|----------------|----------|----------------------------------------------|
+| `share`        | trial    | Platform grid + Discord notify — wired in main Arena |
+| `archive`      | trial    | All archived ads, all brands, collapsed      |
+| `leaderboard`  | trial    | Top performing ads                           |
+| `create-ad`    | trial    | Ad creation form                             |
+| `posts`        | standard | Brand posts — wired in `/dashboard/antcpu`   |
+| `region-map`   | basic    | Live signup regions                          |
+| `campaign-hub` | basic    | Active campaigns by tier                     |
+| `schedule`     | standard | Ad activity by day                           |
+| `chat`         | standard | Aria chat — unlocks at 10pts                 |
+| `video-feed`   | premium  | Brand media ads                              |
+| `youtube-live` | premium  | Live stream                                  |
+
+`arena_modules` table exists but is empty — module slots are code-driven for now.
+
+---
+
+## Agents
+
+| Agent    | File / Route                    | Role                              |
+|----------|---------------------------------|-----------------------------------|
+| 🦋 Aria  | `app/antbots/` · `/antbots/chat`| Ad review · brand strategy        |
+| 🔍 Scout | `app/api/scout/score/`          | Scoring · ranking · pinned output |
+| 📣 Herald| `app/api/send-weekly/`          | Weekly digest — needs cron ⚠️    |
+| 🔒 Vault | `app/components/VaultModal.tsx` | PIN auth · session gate           |
+
+**M.A.C.** is Map of Pi only — lives at chatwithmac.com — Zapier-powered — not in this repo.
+
+---
+
+## Ad Lifecycle
+submit → pending_review → [Aria verdict + admin review in /dashboard/antcpu] → active → Scout scores → rank_position + pinned set → archived → removed from Arena · appears in ArchiveModule → restore available in /dashboard/antcpu
+
+
+Archive sets `status: archived` + `pinned: false` in one update.
+Scout excludes archived ads on next run. Ranks shift organically.
+
+---
+
+## Email
+
+All via Resend · `ads@antcpu.io`
+
+| Route               | Trigger                  | Notes                        |
+|---------------------|--------------------------|------------------------------|
+| `/api/send-welcome` | Every signup             | Fires automatically          |
+| `/api/send-module`  | Champion onboarding      | type: 'champion'             |
+| `/api/send-weekly`  | Manual or cron           | Built · needs Vercel cron ⚠️|
+
+---
+
+## Discord Events
+
+File: `app/lib/discord.ts` · All events typed in `DiscordEvent`
+
+| Event          | Channel              |
+|----------------|----------------------|
+| `ad_approved`  | DISCORD_WEBHOOK_ADS  |
+| `ad_rejected`  | DISCORD_WEBHOOK_ADS  |
+| `ad_archived`  | DISCORD_WEBHOOK_ADS  |
+| `share`        | DISCORD_WEBHOOK_SHARES |
+| `new_champion` | DISCORD_WEBHOOK_CHAMPIONS |
+| `internship`   | DISCORD_INTERN       |
+| `general`      | DISCORD_WEBHOOK_ADS  |
+
+Webhook env vars are in Vercel — not in repo.
+
+---
+
+## Auth Roles
+
+| Role    | How set                          | Access                        |
+|---------|----------------------------------|-------------------------------|
+| `super` | PIN via `/api/user-auth`         | Everything — all dashboards   |
+| `admin` | `ad_signups.role = 'admin'`      | Approval queue · user list    |
+| `team`  | Promo code signup                | 90-day access · brand arena   |
+| `trial` | Standard signup                  | 3-day access                  |
+
+`/dashboard/antcpu` is hardcoded to one email — not role-gated yet.
+Migration to role-based approval queue is a planned next step.
+
+---
+
+## Known Gaps — August 2026
+
+| Gap                                      | File                        | Priority  |
+|------------------------------------------|-----------------------------|-----------|
+| Profile page — no Edit/Archive for ads   | `ProfileClient.tsx`         | 🔴 High   |
+| `/dashboard/antcpu` hardcoded to 1 email | `page.tsx`                  | 🔴 High   |
+| `send-weekly` needs cron trigger         | `/api/send-weekly`          | 🟡 Medium |
+| `/edu` returns 404 — live ads point here | Multiple ads                | 🟡 Medium |
+| `arena_modules` table unused             | DB                          | 🟢 Low    |
+| `cpu@antcpu.io` has null `brand_name`    | `ad_signups` system row     | 🟢 Low    |
+
+---
+
+## Next Session — Pickup Points
+
+**Profile deep rebuild** — `ProfileClient.tsx`
+- Owner view: Edit (title/desc/url) + Archive per ad
+- Admin/super view: same controls on any profile
+- Status badges per ad (active / archived / pending / rejected)
+- `canManage = isOwn || role === 'super'` gate
+- `verified_brand` guard — lock brand name if true
+
+**Approval queue extraction** — `app/dashboard/review/`
+- Extract `ariaVerdict()` → `app/lib/aria.ts`
+- Build `/dashboard/review` — role-gated, not email-gated
+- Remove hardcoded email from `/dashboard/antcpu`
+
+**Site background split** — document the intentional theming:
+- Admin/dashboard pages: `background: #fff` (workspace feel)
+- Arena/public pages: `background: #0a0a0a` (live stage feel)
+- Not a bug — a design decision. Do not flatten.
+
+---
+
+## Build Rule
+
+Observe → Document → Discuss → Build.
+Code follows the document. Never the other way around.
