@@ -29,11 +29,14 @@ type PendingAd = {
 type ActiveAd = {
   id: string; brand: string; title: string; description: string;
   url: string; points: number; tier: string; is_system: boolean;
+  rank_position?: number;
 };
 
 type EditForm = { title: string; description: string; url: string };
 
 // ─── Aria verdict ─────────────────────────────────────────────────────────────
+// Aria pre-screens every pending ad before admin review.
+// Verdicts are advisory — admin makes the final call.
 
 const VERDICTS = {
   default:        { icon: '🦋', note: 'Looks good. Title clear, URL present, description readable. Ready for your call.' },
@@ -58,28 +61,39 @@ function ariaVerdict(ad: PendingAd) {
   return VERDICTS.default;
 }
 
+// ─── Rank medal helper ────────────────────────────────────────────────────────
+
+function rankMedal(rank?: number): string {
+  if (rank === 1) return '🥇';
+  if (rank === 2) return '🥈';
+  if (rank === 3) return '🥉';
+  if (rank && rank <= 10) return `#${rank}`;
+  return '';
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AntcpuDashboard() {
   const router = useRouter();
 
-  const [hydrated,     setHydrated]     = useState(false);
-  const [user,         setUser]         = useState<any>(null);
+  const [hydrated,      setHydrated]      = useState(false);
+  const [user,          setUser]          = useState<any>(null);
 
   // ── Approval queue ──
-  const [pendingAds,   setPendingAds]   = useState<PendingAd[]>([]);
-  const [loadingAds,   setLoadingAds]   = useState(false);
-  const [actionId,     setActionId]     = useState<string | null>(null);
+  const [pendingAds,    setPendingAds]    = useState<PendingAd[]>([]);
+  const [loadingAds,    setLoadingAds]    = useState(false);
+  const [actionId,      setActionId]      = useState<string | null>(null);
 
   // ── Active ads management ──
-  const [activeAds,    setActiveAds]    = useState<ActiveAd[]>([]);
-  const [archivedAds,  setArchivedAds]  = useState<ActiveAd[]>([]);
-  const [confirmId,    setConfirmId]    = useState<string | null>(null);  // archive confirm
-  const [archivingId,  setArchivingId]  = useState<string | null>(null);  // in-flight
-  const [restoringId,  setRestoringId]  = useState<string | null>(null);  // unarchive in-flight
-  const [editingId,    setEditingId]    = useState<string | null>(null);  // edit open
-  const [editForm,     setEditForm]     = useState<EditForm>({ title: '', description: '', url: '' });
-  const [savingId,     setSavingId]     = useState<string | null>(null);  // save in-flight
+  const [activeAds,     setActiveAds]     = useState<ActiveAd[]>([]);
+  const [archivedAds,   setArchivedAds]   = useState<ActiveAd[]>([]);
+  const [confirmId,     setConfirmId]     = useState<string | null>(null);   // archive confirm gate
+  const [archivingId,   setArchivingId]   = useState<string | null>(null);   // archive in-flight
+  const [restoringId,   setRestoringId]   = useState<string | null>(null);   // restore in-flight
+  const [editingId,     setEditingId]     = useState<string | null>(null);   // edit form open
+  const [editForm,      setEditForm]      = useState<EditForm>({ title: '', description: '', url: '' });
+  const [savingId,      setSavingId]      = useState<string | null>(null);   // save in-flight
+  const [recalculating, setRecalculating] = useState(false);                 // Scout recalc in-flight
 
   // ─── Data loaders ─────────────────────────────────────────────────────────
 
@@ -95,17 +109,19 @@ export default function AntcpuDashboard() {
   }, []);
 
   const loadActive = useCallback(async () => {
+    // Fetch active ads — ordered by points, rank_position included for medal display
     const { data: active } = await supabase
       .from('ads')
-      .select('id, brand, title, description, url, points, tier, is_system')
+      .select('id, brand, title, description, url, points, tier, is_system, rank_position')
       .eq('status', 'active')
       .eq('email', 'antcpu@gmail.com')
       .order('points', { ascending: false });
     setActiveAds(active || []);
 
+    // Fetch archived ads — same owner, ordered by points for context
     const { data: archived } = await supabase
       .from('ads')
-      .select('id, brand, title, description, url, points, tier, is_system')
+      .select('id, brand, title, description, url, points, tier, is_system, rank_position')
       .eq('status', 'archived')
       .eq('email', 'antcpu@gmail.com')
       .order('points', { ascending: false });
@@ -130,6 +146,7 @@ export default function AntcpuDashboard() {
   async function approveAd(id: string) {
     setActionId(id);
     await supabase.from('ads').update({ status: 'active' }).eq('id', id);
+    // Fire Scout — recalculates all ranks after new ad enters Arena
     fetch('/api/scout/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -182,7 +199,7 @@ export default function AntcpuDashboard() {
   }
 
   async function confirmArchive(id: string) {
-    // Called after user confirms — actually performs the archive
+    // Two-step archive — user confirmed, now execute
     setConfirmId(null);
     setArchivingId(id);
     await supabase.from('ads')
@@ -207,11 +224,9 @@ export default function AntcpuDashboard() {
   }
 
   async function restoreAd(id: string) {
-    // Unarchive — sets back to active, triggers Scout
+    // Restore archived ad to active — Scout recalculates ranks
     setRestoringId(id);
-    await supabase.from('ads')
-      .update({ status: 'active' })
-      .eq('id', id);
+    await supabase.from('ads').update({ status: 'active' }).eq('id', id);
     fetch('/api/scout/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -222,6 +237,8 @@ export default function AntcpuDashboard() {
   }
 
   function openEdit(ad: ActiveAd) {
+    // Close any open confirm before opening edit
+    setConfirmId(null);
     setEditingId(ad.id);
     setEditForm({ title: ad.title, description: ad.description, url: ad.url });
   }
@@ -229,11 +246,28 @@ export default function AntcpuDashboard() {
   async function saveEdit(id: string) {
     setSavingId(id);
     await supabase.from('ads')
-      .update({ title: editForm.title.trim(), description: editForm.description.trim(), url: editForm.url.trim() })
+      .update({
+        title:       editForm.title.trim(),
+        description: editForm.description.trim(),
+        url:         editForm.url.trim(),
+      })
       .eq('id', id);
     setEditingId(null);
     await loadActive();
     setSavingId(null);
+  }
+
+  async function recalcRankings() {
+    // Manually trigger Scout on the top active ad — recalculates all 55 ads in one pass
+    if (activeAds.length === 0) return;
+    setRecalculating(true);
+    await fetch('/api/scout/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_id: activeAds[0].id }),
+    });
+    await loadActive();
+    setRecalculating(false);
   }
 
   if (!hydrated || !user) return null;
@@ -241,12 +275,13 @@ export default function AntcpuDashboard() {
   const moduleCtx = {
     slug: 'antcpu',
     user: { email: user.email, name: user.name, brand: user.brand, trialStatus: 'team' },
-    ads: [],
+    ads: [],  // PostsModule fetches its own brand ads internally via slug
     supabase,
     isSuper: true,
   };
 
   // ─── Shared inline styles ──────────────────────────────────────────────────
+
   const inpStyle: React.CSSProperties = {
     width: '100%', background: '#fafafa', border: '1px solid #e5e5e5',
     borderRadius: '8px', padding: '0.55rem 0.75rem', fontSize: '0.82rem',
@@ -254,12 +289,18 @@ export default function AntcpuDashboard() {
     outline: 'none', boxSizing: 'border-box', marginBottom: '0.5rem',
   };
 
-  const rowBtnStyle = (color: string): React.CSSProperties => ({
-    background: 'transparent', border: `1px solid ${color}`,
-    borderRadius: '8px', color, fontSize: '0.72rem', fontWeight: 700,
-    padding: '0.35rem 0.6rem', cursor: 'pointer',
+  const rowBtn = (color: string, disabled = false): React.CSSProperties => ({
+    background: 'transparent',
+    border: `1px solid ${disabled ? '#e5e5e5' : color}`,
+    borderRadius: '8px',
+    color: disabled ? '#ccc' : color,
+    fontSize: '0.72rem', fontWeight: 700,
+    padding: '0.35rem 0.6rem',
+    cursor: disabled ? 'default' : 'pointer',
     whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0,
   });
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div style={{ background: '#fff', minHeight: '100vh', color: '#0a0a0a' }}>
@@ -275,7 +316,7 @@ export default function AntcpuDashboard() {
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
         <AdminBar />
 
-        {/* HEADER */}
+        {/* ── HEADER ── */}
         <Card>
           <div style={{ fontWeight: 800, fontSize: '1.3rem', marginBottom: '0.25rem' }}>⚡ ANTCPU</div>
           <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: '1rem' }}>Brand dashboard — ad management + content tools</div>
@@ -286,7 +327,7 @@ export default function AntcpuDashboard() {
           </div>
         </Card>
 
-        {/* TEAM */}
+        {/* ── TEAM ── */}
         <Card>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.5rem' }}>⚡</span>
@@ -298,19 +339,21 @@ export default function AntcpuDashboard() {
           </div>
         </Card>
 
-        {/* ARIA APPROVAL QUEUE */}
+        {/* ── ARIA APPROVAL QUEUE ── */}
         <Card>
           <SectionHeader
             title={`🦋 Aria Approval Queue${pendingAds.length > 0 ? ` (${pendingAds.length} pending)` : ''}`}
             sub="Aria reviews each submission — you make the final call"
           />
-          {loadingAds && <div style={{ color: '#555', fontSize: '0.82rem' }}>Loading queue...</div>}
+          {loadingAds && (
+            <div style={{ color: '#555', fontSize: '0.82rem' }}>Loading queue...</div>
+          )}
           {!loadingAds && pendingAds.length === 0 && (
             <div style={{ color: '#555', fontSize: '0.82rem' }}>🦋 All clear — no ads pending review right now.</div>
           )}
           {pendingAds.map(ad => {
             const verdict = ariaVerdict(ad);
-            const busy = actionId === ad.id;
+            const busy    = actionId === ad.id;
             return (
               <div key={ad.id} style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '1rem', marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
@@ -338,25 +381,52 @@ export default function AntcpuDashboard() {
           })}
         </Card>
 
-        {/* ACTIVE ADS — MANAGE */}
+        {/* ── ACTIVE ADS — MANAGE ── */}
         <Card>
           <SectionHeader
             title={`📋 Active Ads (${activeAds.length})`}
             sub="Edit or archive your active ads — Scout recalculates on next interaction"
           />
+
+          {/* Recalculate rankings — forces Scout to run a full two-pass on all active ads */}
+          <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={recalcRankings}
+              disabled={recalculating || activeAds.length === 0}
+              style={{
+                background:   recalculating ? '#f5f5f5' : '#f0883e',
+                border:       'none',
+                borderRadius: '8px',
+                color:        recalculating ? '#aaa' : '#fff',
+                fontSize:     '0.78rem',
+                fontWeight:   700,
+                padding:      '0.5rem 1rem',
+                cursor:       recalculating ? 'default' : 'pointer',
+                transition:   'all 0.15s',
+              }}
+            >
+              {recalculating ? '⏳ Recalculating…' : '⚡ Recalculate Rankings'}
+            </button>
+            <span style={{ fontSize: '0.7rem', color: '#aaa' }}>
+              Run after archiving or restoring ads
+            </span>
+          </div>
+
           {activeAds.length === 0 ? (
             <div style={{ color: '#555', fontSize: '0.82rem' }}>No active ads.</div>
           ) : (
             activeAds.map(ad => {
-              const isEditing  = editingId === ad.id;
-              const isConfirm  = confirmId === ad.id;
-              const isBusy     = archivingId === ad.id || savingId === ad.id;
+              const isEditing = editingId === ad.id;
+              const isConfirm = confirmId === ad.id;
+              const isBusy    = archivingId === ad.id || savingId === ad.id;
+              const medal     = rankMedal(ad.rank_position);
 
               return (
                 <div key={ad.id} style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '0.85rem', marginBottom: '0.85rem' }}>
 
-                  {/* ── Row header ── */}
+                  {/* Row header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                    {medal && <span style={{ fontSize: '0.85rem' }}>{medal}</span>}
                     <span style={{ fontSize: '0.72rem', color: '#555', fontWeight: 700 }}>{ad.brand}</span>
                     <span style={{ fontSize: '0.62rem', color: '#aaa', background: '#f5f5f5', borderRadius: '4px', padding: '0.1rem 0.35rem' }}>{ad.tier}</span>
                     {ad.is_system && <span style={{ fontSize: '0.6rem', color: '#bbb' }}>system</span>}
@@ -366,7 +436,7 @@ export default function AntcpuDashboard() {
                     {ad.title}
                   </div>
 
-                  {/* ── Edit form — inline, expands on edit click ── */}
+                  {/* Edit form — inline, expands on ✏️ Edit click */}
                   {isEditing && (
                     <div style={{ marginBottom: '0.65rem' }}>
                       <input
@@ -391,35 +461,35 @@ export default function AntcpuDashboard() {
                     </div>
                   )}
 
-                  {/* ── Archive confirm — inline, expands on archive click ── */}
+                  {/* Archive confirm — inline amber warning before executing */}
                   {isConfirm && (
                     <div style={{ background: '#fff8f0', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.65rem 0.85rem', marginBottom: '0.65rem', fontSize: '0.8rem', color: '#92400e' }}>
                       Archive this ad? It will leave the Arena feed.
                     </div>
                   )}
 
-                  {/* ── Action buttons ── */}
+                  {/* Action buttons — mutually exclusive states */}
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     {!isEditing && !isConfirm && (
                       <>
-                        <button onClick={() => openEdit(ad)} style={rowBtnStyle('#0070f3')}>✏️ Edit</button>
-                        <button onClick={() => setConfirmId(ad.id)} style={rowBtnStyle('#f0883e')}>📦 Archive</button>
+                        <button onClick={() => openEdit(ad)}          style={rowBtn('#0070f3')}>✏️ Edit</button>
+                        <button onClick={() => setConfirmId(ad.id)}   style={rowBtn('#f0883e')}>📦 Archive</button>
                       </>
                     )}
                     {isEditing && (
                       <>
-                        <button onClick={() => saveEdit(ad.id)} disabled={isBusy} style={rowBtnStyle('#16a34a')}>
+                        <button onClick={() => saveEdit(ad.id)} disabled={isBusy} style={rowBtn('#16a34a', isBusy)}>
                           {savingId === ad.id ? '…' : '💾 Save'}
                         </button>
-                        <button onClick={() => setEditingId(null)} style={rowBtnStyle('#aaa')}>✕ Cancel</button>
+                        <button onClick={() => setEditingId(null)} style={rowBtn('#aaa')}>✕ Cancel</button>
                       </>
                     )}
                     {isConfirm && (
                       <>
-                        <button onClick={() => confirmArchive(ad.id)} disabled={isBusy} style={rowBtnStyle('#dc2626')}>
+                        <button onClick={() => confirmArchive(ad.id)} disabled={isBusy} style={rowBtn('#dc2626', isBusy)}>
                           {archivingId === ad.id ? '…' : '📦 Confirm Archive'}
                         </button>
-                        <button onClick={() => setConfirmId(null)} style={rowBtnStyle('#aaa')}>✕ Cancel</button>
+                        <button onClick={() => setConfirmId(null)} style={rowBtn('#aaa')}>✕ Cancel</button>
                       </>
                     )}
                   </div>
@@ -429,7 +499,7 @@ export default function AntcpuDashboard() {
             })
           )}
 
-          {/* ── ARCHIVED ADS — restore section ── */}
+          {/* Archived ads — restore section */}
           {archivedAds.length > 0 && (
             <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
               <div style={{ fontSize: '0.7rem', color: '#aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.65rem' }}>
@@ -440,11 +510,14 @@ export default function AntcpuDashboard() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700 }}>{ad.brand} · </span>
                     <span style={{ fontSize: '0.78rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.title}</span>
+                    {(ad.points ?? 0) > 0 && (
+                      <span style={{ fontSize: '0.62rem', color: '#f0883e', marginLeft: '0.4rem' }}>⚡ {ad.points}</span>
+                    )}
                   </div>
                   <button
                     onClick={() => restoreAd(ad.id)}
                     disabled={restoringId === ad.id}
-                    style={rowBtnStyle('#22c55e')}
+                    style={rowBtn('#22c55e', restoringId === ad.id)}
                   >
                     {restoringId === ad.id ? '…' : '↩ Restore'}
                   </button>
@@ -454,7 +527,7 @@ export default function AntcpuDashboard() {
           )}
         </Card>
 
-        {/* POSTS MODULE */}
+        {/* ── POSTS MODULE ── */}
         <Card>
           <PostsModule {...moduleCtx} />
         </Card>
