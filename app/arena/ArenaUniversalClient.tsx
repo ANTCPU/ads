@@ -13,6 +13,7 @@ import ArenaNav from '../components/ArenaNav';
 import ArenaFooter from '../components/ArenaFooter';
 import { PLATFORMS, getShareAction, ShareContext } from '../lib/socialShare';
 import { trackClick, recordShare, recordLike, recordBoost, SOURCE } from '../lib/tracking';
+import ShareModule from '../modules/share';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -752,6 +753,22 @@ export default function ArenaUniversalClient() {
             })}
           </div>
         )}
+        {/* ── Module Zone ── */}
+{!loading && (
+  <div style={{
+    marginTop: '2.5rem',
+    borderTop: '1px solid #1a1a1a',
+    paddingTop: '2rem',
+  }}>
+    <ShareModule
+      slug="arena"
+      user={{ email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus }}
+      ads={ads}
+      supabase={supabase}
+      isSuper={isSuper}
+    />
+  </div>
+)}
 
         {/* Bottom CTA */}
         {!loading && (
