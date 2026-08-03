@@ -13,18 +13,24 @@ const TIER_POINTS: Record<string, number> = {
   top_tier: 750,
 };
 
-// Full Arena score formula (ADS_V04)
-// User ads: (clicks × 3) + (shares × 5) + (likes × 2) + (boosts × 5) + (reactions × 1)
-//           + tier_pts + pinned_bonus(50)
-// System ads: (clicks × 1) + (shares × 1) — no interaction bonuses
-function calcScore(
+// Rank bonus — applied after sort (Pass 2)
+const RANK_BONUS: Record<number, number> = {
+  1: 300, 2: 200, 3: 100,
+  4: 50, 5: 50, 6: 50, 7: 50, 8: 50, 9: 50, 10: 50,
+};
+
+// Full Arena score formula (ADS_V05)
+// User ads: (clicks × 3) + (shares × 5) + (likes × 2) + (boosts × 5) + (reactions × 1) + tier_pts
+// Rank bonus applied in Pass 2 after sort: #1→+300, #2→+200, #3→+100, #4-10→+50
+// pinned is now a Scout output (rank ≤ 10), not a manual input
+// System ads: (clicks × 1) + (shares × 1) — no bonuses, no rank bonus
+function calcRaw(
   click_count: number,
   share_count: number,
   like_count: number,
   boost_count: number,
   reaction_count: number,
   tier: string,
-  pinned: boolean,
   is_system = false
 ): number {
   if (is_system) {
@@ -36,8 +42,7 @@ function calcScore(
     (like_count * 2) +
     (boost_count * 5) +
     (reaction_count * 1) +
-    (TIER_POINTS[tier] ?? 0) +
-    (pinned ? 50 : 0)
+    (TIER_POINTS[tier] ?? 0)
   );
 }
 
@@ -47,67 +52,105 @@ export async function POST(req: NextRequest) {
 
   const { data: ad, error } = await supabase
     .from('ads')
-    .select('id, tier, email, name, brand, click_count, share_count, like_count, boost_count, reaction_count, pinned, is_system')
+    .select('id, tier, email, name, brand, click_count, share_count, like_count, boost_count, reaction_count, is_system')
     .eq('id', ad_id).single();
   if (error || !ad) return NextResponse.json({ error: 'ad not found' }, { status: 404 });
 
-  const click_count    = ad.click_count    || 0;
-  const share_count    = ad.share_count    || 0;
-  const like_count     = ad.like_count     || 0;
-  const boost_count    = ad.boost_count    || 0;
-  const reaction_count = ad.reaction_count || 0;
-  const pinned         = ad.pinned         || false;
-  const is_system      = ad.is_system      || false;
+  const is_system = ad.is_system || false;
 
-  const points = calcScore(click_count, share_count, like_count, boost_count, reaction_count, ad.tier, pinned, is_system);
-
-  await supabase.from('ads').update({ points }).eq('id', ad_id);
-
-  // Update user total points in ad_signups
-  const { data: allAds } = await supabase
-    .from('ads').select('points').eq('email', ad.email).eq('status', 'active');
-  const total = (allAds || []).reduce((sum: number, a: any) => sum + (a.points || 0), 0);
-  await supabase.from('ad_signups').update({ points: total }).eq('email', ad.email);
-
-  // ── RANK ALL ACTIVE ADS ──────────────────────────────────────
+  // ── RANK ALL ACTIVE ADS — two-pass ───────────────────────────────────────
   const { data: allActive } = await supabase
     .from('ads')
-    .select('id, tier, click_count, share_count, like_count, boost_count, reaction_count, pinned, points, is_system')
+    .select('id, email, tier, click_count, share_count, like_count, boost_count, reaction_count, is_system')
     .eq('status', 'active');
 
+  let finalPoints = 0;
+
   if (allActive && allActive.length > 0) {
-    const scored = allActive.map((a: any) => ({
+    // Pass 1 — raw engagement score, no rank bonus
+    const pass1 = allActive.map((a: any) => ({
       id: a.id,
-      points: calcScore(
-        a.click_count    || 0,
-        a.share_count    || 0,
-        a.like_count     || 0,
-        a.boost_count    || 0,
+      email: a.email,
+      is_system: a.is_system || false,
+      raw: calcRaw(
+        a.click_count || 0,
+        a.share_count || 0,
+        a.like_count || 0,
+        a.boost_count || 0,
         a.reaction_count || 0,
         a.tier,
-        a.pinned || false,
         a.is_system || false
       ),
     }));
-    scored.sort((a: any, b: any) => b.points - a.points);
+
+    // Sort by raw — system ads always below user ads
+    pass1.sort((a: any, b: any) => {
+      if (a.is_system !== b.is_system) return a.is_system ? 1 : -1;
+      return b.raw - a.raw;
+    });
+
+    // Pass 2 — apply rank bonus, assign rank_position, set pinned
+    const pass2 = pass1.map((a: any, i: number) => {
+      const rank = i + 1;
+      const bonus = (!a.is_system && RANK_BONUS[rank]) ? RANK_BONUS[rank] : 0;
+      const points = a.raw + bonus;
+      if (a.id === ad_id) finalPoints = points;
+      return {
+        id: a.id,
+        email: a.email,
+        points,
+        rank_position: rank,
+        pinned: !a.is_system && rank <= 10,
+      };
+    });
+
+    // Write all in parallel
     await Promise.all(
-      scored.map((a: any, i: number) =>
-        supabase.from('ads').update({ rank_position: i + 1, points: a.points }).eq('id', a.id)
+      pass2.map((a: any) =>
+        supabase.from('ads').update({
+          points: a.points,
+          rank_position: a.rank_position,
+          pinned: a.pinned,
+        }).eq('id', a.id)
       )
+    );
+
+    // Update user total points in ad_signups
+    const emailsToUpdate = [...new Set(pass2.map((a: any) => a.email).filter(Boolean))];
+    await Promise.all(
+      emailsToUpdate.map(async (email: string) => {
+        const userAds = pass2.filter((a: any) => a.email === email);
+        const total = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
+        await supabase.from('ad_signups').update({ points: total }).eq('email', email);
+      })
     );
   }
 
   return NextResponse.json({
-    ad_id, tier: ad.tier, points, user_total: total,
+    ad_id,
+    tier: ad.tier,
+    points: finalPoints,
+    is_system,
+    formula: 'ADS_V05',
     breakdown: {
-      clicks:    is_system ? click_count * 1    : click_count * 3,
-      shares:    is_system ? share_count * 1    : share_count * 5,
-      likes:     is_system ? 0                  : like_count * 2,
-      boosts:    is_system ? 0                  : boost_count * 5,
-      reactions: is_system ? 0                  : reaction_count * 1,
-      tier:      is_system ? 0                  : (TIER_POINTS[ad.tier] ?? 0),
-      pinned:    is_system ? 0                  : (pinned ? 50 : 0),
-      is_system,
-    }
+      engagement: calcRaw(
+        ad.click_count || 0,
+        ad.share_count || 0,
+        ad.like_count || 0,
+        ad.boost_count || 0,
+        ad.reaction_count || 0,
+        ad.tier,
+        is_system
+      ),
+      rank_bonus: finalPoints - calcRaw(
+        ad.click_count || 0,
+        ad.share_count || 0,
+        ad.like_count || 0,
+        ad.boost_count || 0,
+        ad.reaction_count || 0,
+        ad.tier,
+        is_system
+      ),
+    },
   });
 }
