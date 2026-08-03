@@ -559,9 +559,9 @@ export default function ArenaUniversalClient() {
         {/* Header stats */}
         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {[
-            { label: 'Live Ads',     value: ads.length,                   color: orange    },
-            { label: 'Brands',       value: totalBrands,                  color: '#0070f3' },
-            { label: 'Total Points', value: totalPoints.toLocaleString(), color: gold      },
+           { label: 'Brands', value: totalBrands,                    color: '#0070f3' },
+           { label: 'Ads',    value: ads.length,                     color: orange    },
+           { label: 'Points', value: totalPoints.toLocaleString(),   color: gold      },
           ].map(s => (
             <div key={s.label}>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.value}</div>
