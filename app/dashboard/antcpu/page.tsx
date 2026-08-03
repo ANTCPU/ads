@@ -11,6 +11,7 @@ import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 import { createClient } from '@supabase/supabase-js';
 import { notifyDiscord, DC } from '../../lib/discord';
+import PostsModule from '../../modules/posts';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,11 @@ type PendingAd = {
   tier: string; created_at: string;
 };
 
+type ActiveAd = {
+  id: string; brand: string; title: string;
+  points: number; tier: string; is_system: boolean;
+};
+
 // ─── Aria verdict ─────────────────────────────────────────────────────────────
 
 const VERDICTS = {
@@ -36,40 +42,38 @@ const VERDICTS = {
   seed_ad:        { icon: '⚠️', note: 'Default seed ad detected — user did not edit the example. Reject and ask for their own ad.' },
 };
 
-const SEED    = ['coming in hot', 'antcpu ad network', 'antcpu ads'];
-const ANTCPU  = ['antcpu', 'antcpu.com', 'antcpu-ads'];
+const SEED   = ['coming in hot', 'antcpu ad network', 'antcpu ads'];
+const ANTCPU = ['antcpu', 'antcpu.com', 'antcpu-ads'];
 
 function ariaVerdict(ad: PendingAd) {
   const c = `${ad.title} ${ad.description} ${ad.url}`.toLowerCase();
   const b = ad.brand.toLowerCase();
-  if (SEED.some(p => c.includes(p)))                          return VERDICTS.seed_ad;
-  if (b !== 'antcpu' && ANTCPU.some(p => c.includes(p)))     return VERDICTS.brand_mismatch;
-  if (!ad.url || ad.url.length < 5)                          return VERDICTS.no_url;
-  if (!ad.description || ad.description.length < 20)         return VERDICTS.no_desc;
-  if (!ad.title || ad.title.length < 10)                     return VERDICTS.short_title;
+  if (SEED.some(p => c.includes(p)))                      return VERDICTS.seed_ad;
+  if (b !== 'antcpu' && ANTCPU.some(p => c.includes(p))) return VERDICTS.brand_mismatch;
+  if (!ad.url || ad.url.length < 5)                       return VERDICTS.no_url;
+  if (!ad.description || ad.description.length < 20)      return VERDICTS.no_desc;
+  if (!ad.title || ad.title.length < 10)                  return VERDICTS.short_title;
   return VERDICTS.default;
 }
-
-// ─── Static content ───────────────────────────────────────────────────────────
-
-const POSTS = [
-  { id: 1, text: 'ANTCPU ADS — The Arena is Live\n\nA competitive ad network where brands grow through real engagement, promo codes, and community sharing.\n\nFree 3-day trial. No credit card required.\n\n#antcpuads #marketing #buildinpublic #adtech #startup' },
-  { id: 2, text: 'Why pay for ads that nobody sees?\n\nANTCPU ADS puts your brand in the Arena — where every click, share, and referral earns points and moves your ad up.\n\nStart free today.\n\n#antcpuads #marketing #growthhacking #startup #buildinpublic' },
-  { id: 3, text: 'The $9.99 is not paying for ad performance.\n\nIt is paying for the brand building system.\n\nANTCPU ADS — quality built in from day one.\n\n#antcpuads #branding #marketing #buildinpublic #adtech' },
-];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AntcpuDashboard() {
   const router = useRouter();
+
   const [hydrated,     setHydrated]     = useState(false);
   const [user,         setUser]         = useState<any>(null);
-  const [copiedId,     setCopiedId]     = useState<number | null>(null);
-  const [custom,       setCustom]       = useState('');
-  const [customCopied, setCustomCopied] = useState(false);
+
+  // ── Approval queue ──
   const [pendingAds,   setPendingAds]   = useState<PendingAd[]>([]);
   const [loadingAds,   setLoadingAds]   = useState(false);
   const [actionId,     setActionId]     = useState<string | null>(null);
+
+  // ── Active ads management ──
+  const [activeAds,    setActiveAds]    = useState<ActiveAd[]>([]);
+  const [archivingId,  setArchivingId]  = useState<string | null>(null);
+
+  // ─── Data loaders ─────────────────────────────────────────────────────────
 
   const loadPending = useCallback(async () => {
     setLoadingAds(true);
@@ -82,6 +86,16 @@ export default function AntcpuDashboard() {
     setLoadingAds(false);
   }, []);
 
+  const loadActive = useCallback(async () => {
+    const { data } = await supabase
+      .from('ads')
+      .select('id, brand, title, points, tier, is_system')
+      .eq('status', 'active')
+      .eq('email', 'antcpu@gmail.com')
+      .order('points', { ascending: false });
+    setActiveAds(data || []);
+  }, []);
+
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     if (!stored) { router.push('/'); return; }
@@ -92,7 +106,10 @@ export default function AntcpuDashboard() {
     } catch { router.push('/'); return; }
     setHydrated(true);
     loadPending();
-  }, [loadPending]);
+    loadActive();
+  }, [loadPending, loadActive]);
+
+  // ─── Handlers ─────────────────────────────────────────────────────────────
 
   async function approveAd(id: string) {
     setActionId(id);
@@ -119,6 +136,7 @@ export default function AntcpuDashboard() {
       });
     }
     await loadPending();
+    await loadActive();
     setActionId(null);
   }
 
@@ -147,33 +165,50 @@ export default function AntcpuDashboard() {
     setActionId(null);
   }
 
-  function copyPost(text: string, id: number) {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2500);
-    });
-  }
-
-  function copyCustom() {
-    if (!custom.trim()) return;
-    navigator.clipboard.writeText(custom).then(() => {
-      setCustomCopied(true);
-      setTimeout(() => setCustomCopied(false), 2500);
-    });
+  async function archiveAd(id: string) {
+    setArchivingId(id);
+    await supabase.from('ads')
+      .update({ status: 'archived', pinned: false })
+      .eq('id', id);
+    const ad = activeAds.find(a => a.id === id);
+    if (ad) {
+      notifyDiscord('', 'ad_archived', {
+        title: '📦 Ad Archived',
+        color: DC.orange || '#f0883e',
+        fields: [
+          { name: 'Brand', value: ad.brand, inline: true },
+          { name: 'Tier',  value: ad.tier,  inline: true },
+          { name: 'Title', value: ad.title, inline: false },
+        ],
+        footer: 'ANTCPU ADS · Admin Archive',
+        timestamp: true,
+      });
+    }
+    await loadActive();
+    setArchivingId(null);
   }
 
   if (!hydrated || !user) return null;
 
+  // ── ModuleContext for PostsModule ──
+  const moduleCtx = {
+    slug: 'antcpu',
+    user: { email: user.email, name: user.name, brand: user.brand, trialStatus: 'team' },
+    ads: [],   // PostsModule fetches its own brand ads internally
+    supabase,
+    isSuper: true,
+  };
+
   return (
     <div style={{ background: '#fff', minHeight: '100vh', color: '#0a0a0a' }}>
       <ArenaNav
-  role="admin"
-  userName={user.name}
-  userEmail={user.email}
-  userBrand={user.brand}
-  trialStatus="team"
-  onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
-/>
+        role="admin"
+        userName={user.name}
+        userEmail={user.email}
+        userBrand={user.brand}
+        trialStatus="team"
+        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
+      />
 
       <div style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
         <AdminBar />
@@ -181,11 +216,11 @@ export default function AntcpuDashboard() {
         {/* HEADER */}
         <Card>
           <div style={{ fontWeight: 800, fontSize: '1.3rem', marginBottom: '0.25rem' }}>⚡ ANTCPU</div>
-          <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: '1rem' }}>Brand dashboard — post builder + content tools</div>
+          <div style={{ fontSize: '0.82rem', color: '#555', marginBottom: '1rem' }}>Brand dashboard — ad management + content tools</div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <Pill label="← Dashboard"   onClick={() => router.push('/dashboard')}       color="#0a0a0a" outline />
-            <Pill label="📢 Create Ad"  onClick={() => router.push('/create-ad')}       color="#f0883e" />
-            <Pill label="⚡ Admin"      onClick={() => router.push('/dashboard/admin')} color="#f0883e" outline />
+            <Pill label="← Dashboard"  onClick={() => router.push('/dashboard')}       color="#0a0a0a" outline />
+            <Pill label="📢 Create Ad" onClick={() => router.push('/create-ad')}       color="#f0883e" />
+            <Pill label="⚡ Admin"     onClick={() => router.push('/dashboard/admin')} color="#f0883e" outline />
           </div>
         </Card>
 
@@ -241,39 +276,62 @@ export default function AntcpuDashboard() {
           })}
         </Card>
 
-        {/* POST BUILDER */}
+        {/* ACTIVE ADS — MANAGE */}
         <Card>
-          <SectionHeader title="📋 Ready-to-Post" sub="Copy and post to any platform — button turns green when copied" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {POSTS.map(p => (
-              <div key={p.id} style={{ background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '1rem' }}>
-                <pre style={{ fontFamily: 'system-ui, sans-serif', fontSize: '0.82rem', color: '#333', whiteSpace: 'pre-wrap', margin: '0 0 0.75rem', lineHeight: 1.6 }}>{p.text}</pre>
-                <Pill
-                  label={copiedId === p.id ? '✅ Copied — safe to post' : '↗ Copy Post'}
-                  onClick={() => copyPost(p.text, p.id)}
-                  color={copiedId === p.id ? '#22c55e' : '#0070f3'}
-                />
-              </div>
-            ))}
-          </div>
+          <SectionHeader
+            title={`📋 Active Ads (${activeAds.length})`}
+            sub="Archive an ad to remove it from the Arena — Scout recalculates on next interaction"
+          />
+          {activeAds.length === 0 ? (
+            <div style={{ color: '#555', fontSize: '0.82rem' }}>No active ads.</div>
+          ) : (
+            activeAds.map(ad => {
+              const busy = archivingId === ad.id;
+              return (
+                <div key={ad.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  gap: '1rem', borderBottom: '1px solid #f0f0f0',
+                  paddingBottom: '0.75rem', marginBottom: '0.75rem',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.72rem', color: '#555', fontWeight: 700 }}>{ad.brand}</span>
+                      <span style={{ fontSize: '0.62rem', color: '#aaa', background: '#f5f5f5', borderRadius: '4px', padding: '0.1rem 0.35rem' }}>{ad.tier}</span>
+                      {ad.is_system && <span style={{ fontSize: '0.6rem', color: '#bbb' }}>system</span>}
+                      <span style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700, marginLeft: 'auto' }}>⚡ {ad.points ?? 0}</span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: '#333', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {ad.title}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => !busy && archiveAd(ad.id)}
+                    disabled={busy}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #e5e5e5',
+                      borderRadius: '8px',
+                      color: busy ? '#ccc' : '#888',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      padding: '0.4rem 0.7rem',
+                      cursor: busy ? 'default' : 'pointer',
+                      flexShrink: 0,
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {busy ? '…' : '📦 Archive'}
+                  </button>
+                </div>
+              );
+            })
+          )}
         </Card>
 
-        {/* CUSTOM POST */}
+        {/* POSTS MODULE — replaces hardcoded post builder */}
         <Card>
-          <SectionHeader title="✏️ Custom Post" sub="Write your own — copy when ready" />
-          <textarea
-            value={custom}
-            onChange={e => setCustom(e.target.value)}
-            placeholder="Write your post here..."
-            style={{ width: '100%', minHeight: '120px', background: '#fafafa', border: '1px solid #e5e5e5', borderRadius: '10px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0a0a0a', fontFamily: 'system-ui, sans-serif', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }}
-          />
-          <div style={{ marginTop: '0.75rem' }}>
-            <Pill
-              label={customCopied ? '✅ Copied — safe to post' : '↗ Copy Custom Post'}
-              onClick={copyCustom}
-              color={customCopied ? '#22c55e' : '#f0883e'}
-            />
-          </div>
+          <PostsModule {...moduleCtx} />
         </Card>
 
         <ArenaFooter accent="#f0883e" />
