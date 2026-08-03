@@ -281,6 +281,7 @@ export default function ArenaUniversalClient() {
       });
       await recordAdShare(ad, 'Native Share');
       setShareAd(null);
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
     } catch {}
   }
 
@@ -309,7 +310,9 @@ export default function ArenaUniversalClient() {
 
     await recordAdShare(ad, platform.label);
     setShareAd(null);
+    if (typeof window !== 'undefined') window.scrollTo(0, 0);
   }
+
 
   async function handleMegaCopy(ad: Ad) {
     try {
