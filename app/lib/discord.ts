@@ -1,29 +1,34 @@
 // ─── Discord — structured embeds, event routing ───────────────────────────────
 //
 // Webhook routing:
-//   internship → DISCORD_INTERN
-//   new_champion → DISCORD_WEBHOOK_CHAMPIONS
-//   share → DISCORD_WEBHOOK_SHARES
-//   ad_approved | ad_rejected | general → DISCORD_WEBHOOK_ADS
+//   internship                          → DISCORD_INTERN
+//   new_champion                        → DISCORD_WEBHOOK_CHAMPIONS
+//   share                               → DISCORD_WEBHOOK_SHARES
+//   ad_approved | ad_rejected |
+//   ad_archived | general               → DISCORD_WEBHOOK_ADS
 //
 // Usage:
 //   await notifyDiscord(content, 'internship');
 //   await notifyDiscord(content, 'ad_approved', embed);
+//   await notifyDiscord(content, 'ad_archived', embed);
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Platform, ShareContext } from './socialShare';
 
 // ─── Event types ──────────────────────────────────────────────────────────────
+// Add new events here when a new Discord notification type is needed.
+// Every event must also be added to WEBHOOK_MAP below.
 
 export type DiscordEvent =
-  | 'internship'
-  | 'new_champion'
-  | 'share'
-  | 'click_milestone'
-  | 'new_signup'
-  | 'ad_approved'
-  | 'ad_rejected'
-  | 'general';
+  | 'internship'       // Internship challenge activity → DISCORD_INTERN
+  | 'new_champion'     // New country champion signup → DISCORD_WEBHOOK_CHAMPIONS
+  | 'share'            // Ad share events → DISCORD_WEBHOOK_SHARES
+  | 'click_milestone'  // Click count milestones → DISCORD_WEBHOOK_ADS (default)
+  | 'new_signup'       // New user signup → DISCORD_WEBHOOK_ADS (default)
+  | 'ad_approved'      // Ad approved by admin → DISCORD_WEBHOOK_ADS
+  | 'ad_rejected'      // Ad rejected by admin → DISCORD_WEBHOOK_ADS
+  | 'ad_archived'      // Ad archived by admin → DISCORD_WEBHOOK_ADS
+  | 'general';         // Catch-all → DISCORD_WEBHOOK_ADS (default)
 
 // ─── Embed types ──────────────────────────────────────────────────────────────
 
@@ -34,28 +39,31 @@ export type DiscordField = {
 };
 
 export type DiscordEmbed = {
-  title:      string;
+  title:        string;
   description?: string;
-  color:      number;
-  fields?:    DiscordField[];
-  footer?:    string;
-  timestamp?: boolean;
+  color:        number;
+  fields?:      DiscordField[];
+  footer?:      string;
+  timestamp?:   boolean;
 };
 
 // ─── Color palette ────────────────────────────────────────────────────────────
+// Use DC.color when building embeds — keeps colors consistent across all events.
 
 export const DC = {
-  green:  0x2E7D32,
-  gold:   0xD4AF37,
-  blue:   0x0070F3,
-  orange: 0xF0883E,
-  red:    0xEF4444,
-  purple: 0x7928CA,
-  grey:   0x555555,
-  intern: 0x2563EB,  // antcpu accent — used for internship embeds
+  green:  0x2E7D32,  // approvals, success
+  gold:   0xD4AF37,  // champions, highlights
+  blue:   0x0070F3,  // info, clicks
+  orange: 0xF0883E,  // ANTCPU brand, archive
+  red:    0xEF4444,  // rejections, errors
+  purple: 0x7928CA,  // rising tier, special
+  grey:   0x555555,  // neutral, system
+  intern: 0x2563EB,  // internship challenge accent
 };
 
 // ─── Webhook routing ──────────────────────────────────────────────────────────
+// Maps each event to its destination webhook env var.
+// Events not listed here fall through to DEFAULT_WEBHOOK (DISCORD_WEBHOOK_ADS).
 
 const WEBHOOK_MAP: Partial<Record<DiscordEvent, string | undefined>> = {
   internship:   process.env.DISCORD_INTERN,
@@ -63,11 +71,16 @@ const WEBHOOK_MAP: Partial<Record<DiscordEvent, string | undefined>> = {
   share:        process.env.DISCORD_WEBHOOK_SHARES,
   ad_approved:  process.env.DISCORD_WEBHOOK_ADS,
   ad_rejected:  process.env.DISCORD_WEBHOOK_ADS,
+  ad_archived:  process.env.DISCORD_WEBHOOK_ADS,
 };
 
 const DEFAULT_WEBHOOK = process.env.DISCORD_WEBHOOK_ADS!;
 
 // ─── Core sender ──────────────────────────────────────────────────────────────
+// Sends a message (and optional embed) to the correct Discord webhook.
+// content  — plain text message (can be empty string '')
+// event    — routes to the correct webhook channel
+// embed    — optional structured embed with title, fields, color, footer
 
 export async function notifyDiscord(
   content:  string,
@@ -100,11 +113,11 @@ export async function notifyDiscord(
 }
 
 // ─── Discord platform — for social share system ───────────────────────────────
-// Implements Platform interface from socialShare.ts
-// Used by share buttons, champion posts, arena activity
+// Implements the Platform interface from socialShare.ts.
+// Used by share buttons across the Arena, champion posts, and activity feeds.
 
-import { EMOJI }                from './content/emojis';
-import { championPrefixBold }   from './content/templates';
+import { EMOJI }              from './content/emojis';
+import { championPrefixBold } from './content/templates';
 
 export const discordPlatform: Platform = {
   key:            'discord',
