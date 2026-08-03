@@ -174,7 +174,7 @@ export default function AntcpuDashboard() {
     if (ad) {
       notifyDiscord('', 'ad_archived', {
         title: '📦 Ad Archived',
-        color: DC.orange || '#f0883e',
+        color: DC.orange,
         fields: [
           { name: 'Brand', value: ad.brand, inline: true },
           { name: 'Tier',  value: ad.tier,  inline: true },
