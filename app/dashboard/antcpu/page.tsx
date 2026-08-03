@@ -27,9 +27,11 @@ type PendingAd = {
 };
 
 type ActiveAd = {
-  id: string; brand: string; title: string;
-  points: number; tier: string; is_system: boolean;
+  id: string; brand: string; title: string; description: string;
+  url: string; points: number; tier: string; is_system: boolean;
 };
+
+type EditForm = { title: string; description: string; url: string };
 
 // ─── Aria verdict ─────────────────────────────────────────────────────────────
 
@@ -71,7 +73,13 @@ export default function AntcpuDashboard() {
 
   // ── Active ads management ──
   const [activeAds,    setActiveAds]    = useState<ActiveAd[]>([]);
-  const [archivingId,  setArchivingId]  = useState<string | null>(null);
+  const [archivedAds,  setArchivedAds]  = useState<ActiveAd[]>([]);
+  const [confirmId,    setConfirmId]    = useState<string | null>(null);  // archive confirm
+  const [archivingId,  setArchivingId]  = useState<string | null>(null);  // in-flight
+  const [restoringId,  setRestoringId]  = useState<string | null>(null);  // unarchive in-flight
+  const [editingId,    setEditingId]    = useState<string | null>(null);  // edit open
+  const [editForm,     setEditForm]     = useState<EditForm>({ title: '', description: '', url: '' });
+  const [savingId,     setSavingId]     = useState<string | null>(null);  // save in-flight
 
   // ─── Data loaders ─────────────────────────────────────────────────────────
 
@@ -87,13 +95,21 @@ export default function AntcpuDashboard() {
   }, []);
 
   const loadActive = useCallback(async () => {
-    const { data } = await supabase
+    const { data: active } = await supabase
       .from('ads')
-      .select('id, brand, title, points, tier, is_system')
+      .select('id, brand, title, description, url, points, tier, is_system')
       .eq('status', 'active')
       .eq('email', 'antcpu@gmail.com')
       .order('points', { ascending: false });
-    setActiveAds(data || []);
+    setActiveAds(active || []);
+
+    const { data: archived } = await supabase
+      .from('ads')
+      .select('id, brand, title, description, url, points, tier, is_system')
+      .eq('status', 'archived')
+      .eq('email', 'antcpu@gmail.com')
+      .order('points', { ascending: false });
+    setArchivedAds(archived || []);
   }, []);
 
   useEffect(() => {
@@ -165,7 +181,9 @@ export default function AntcpuDashboard() {
     setActionId(null);
   }
 
-  async function archiveAd(id: string) {
+  async function confirmArchive(id: string) {
+    // Called after user confirms — actually performs the archive
+    setConfirmId(null);
     setArchivingId(id);
     await supabase.from('ads')
       .update({ status: 'archived', pinned: false })
@@ -188,16 +206,60 @@ export default function AntcpuDashboard() {
     setArchivingId(null);
   }
 
+  async function restoreAd(id: string) {
+    // Unarchive — sets back to active, triggers Scout
+    setRestoringId(id);
+    await supabase.from('ads')
+      .update({ status: 'active' })
+      .eq('id', id);
+    fetch('/api/scout/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_id: id }),
+    }).catch(() => {});
+    await loadActive();
+    setRestoringId(null);
+  }
+
+  function openEdit(ad: ActiveAd) {
+    setEditingId(ad.id);
+    setEditForm({ title: ad.title, description: ad.description, url: ad.url });
+  }
+
+  async function saveEdit(id: string) {
+    setSavingId(id);
+    await supabase.from('ads')
+      .update({ title: editForm.title.trim(), description: editForm.description.trim(), url: editForm.url.trim() })
+      .eq('id', id);
+    setEditingId(null);
+    await loadActive();
+    setSavingId(null);
+  }
+
   if (!hydrated || !user) return null;
 
-  // ── ModuleContext for PostsModule ──
   const moduleCtx = {
     slug: 'antcpu',
     user: { email: user.email, name: user.name, brand: user.brand, trialStatus: 'team' },
-    ads: [],   // PostsModule fetches its own brand ads internally
+    ads: [],
     supabase,
     isSuper: true,
   };
+
+  // ─── Shared inline styles ──────────────────────────────────────────────────
+  const inpStyle: React.CSSProperties = {
+    width: '100%', background: '#fafafa', border: '1px solid #e5e5e5',
+    borderRadius: '8px', padding: '0.55rem 0.75rem', fontSize: '0.82rem',
+    color: '#0a0a0a', fontFamily: 'system-ui, sans-serif',
+    outline: 'none', boxSizing: 'border-box', marginBottom: '0.5rem',
+  };
+
+  const rowBtnStyle = (color: string): React.CSSProperties => ({
+    background: 'transparent', border: `1px solid ${color}`,
+    borderRadius: '8px', color, fontSize: '0.72rem', fontWeight: 700,
+    padding: '0.35rem 0.6rem', cursor: 'pointer',
+    whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0,
+  });
 
   return (
     <div style={{ background: '#fff', minHeight: '100vh', color: '#0a0a0a' }}>
@@ -280,56 +342,119 @@ export default function AntcpuDashboard() {
         <Card>
           <SectionHeader
             title={`📋 Active Ads (${activeAds.length})`}
-            sub="Archive an ad to remove it from the Arena — Scout recalculates on next interaction"
+            sub="Edit or archive your active ads — Scout recalculates on next interaction"
           />
           {activeAds.length === 0 ? (
             <div style={{ color: '#555', fontSize: '0.82rem' }}>No active ads.</div>
           ) : (
             activeAds.map(ad => {
-              const busy = archivingId === ad.id;
+              const isEditing  = editingId === ad.id;
+              const isConfirm  = confirmId === ad.id;
+              const isBusy     = archivingId === ad.id || savingId === ad.id;
+
               return (
-                <div key={ad.id} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  gap: '1rem', borderBottom: '1px solid #f0f0f0',
-                  paddingBottom: '0.75rem', marginBottom: '0.75rem',
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.72rem', color: '#555', fontWeight: 700 }}>{ad.brand}</span>
-                      <span style={{ fontSize: '0.62rem', color: '#aaa', background: '#f5f5f5', borderRadius: '4px', padding: '0.1rem 0.35rem' }}>{ad.tier}</span>
-                      {ad.is_system && <span style={{ fontSize: '0.6rem', color: '#bbb' }}>system</span>}
-                      <span style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700, marginLeft: 'auto' }}>⚡ {ad.points ?? 0}</span>
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: '#333', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {ad.title}
-                    </div>
+                <div key={ad.id} style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '0.85rem', marginBottom: '0.85rem' }}>
+
+                  {/* ── Row header ── */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#555', fontWeight: 700 }}>{ad.brand}</span>
+                    <span style={{ fontSize: '0.62rem', color: '#aaa', background: '#f5f5f5', borderRadius: '4px', padding: '0.1rem 0.35rem' }}>{ad.tier}</span>
+                    {ad.is_system && <span style={{ fontSize: '0.6rem', color: '#bbb' }}>system</span>}
+                    <span style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700, marginLeft: 'auto' }}>⚡ {ad.points ?? 0}</span>
                   </div>
-                  <button
-                    onClick={() => !busy && archiveAd(ad.id)}
-                    disabled={busy}
-                    style={{
-                      background: 'transparent',
-                      border: '1px solid #e5e5e5',
-                      borderRadius: '8px',
-                      color: busy ? '#ccc' : '#888',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '0.4rem 0.7rem',
-                      cursor: busy ? 'default' : 'pointer',
-                      flexShrink: 0,
-                      whiteSpace: 'nowrap',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    {busy ? '…' : '📦 Archive'}
-                  </button>
+                  <div style={{ fontSize: '0.82rem', color: '#333', fontWeight: 600, marginBottom: '0.5rem' }}>
+                    {ad.title}
+                  </div>
+
+                  {/* ── Edit form — inline, expands on edit click ── */}
+                  {isEditing && (
+                    <div style={{ marginBottom: '0.65rem' }}>
+                      <input
+                        value={editForm.title}
+                        onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                        placeholder="Title"
+                        style={inpStyle}
+                      />
+                      <textarea
+                        value={editForm.description}
+                        onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                        placeholder="Description"
+                        rows={3}
+                        style={{ ...inpStyle, resize: 'vertical' }}
+                      />
+                      <input
+                        value={editForm.url}
+                        onChange={e => setEditForm(f => ({ ...f, url: e.target.value }))}
+                        placeholder="URL"
+                        style={{ ...inpStyle, marginBottom: 0 }}
+                      />
+                    </div>
+                  )}
+
+                  {/* ── Archive confirm — inline, expands on archive click ── */}
+                  {isConfirm && (
+                    <div style={{ background: '#fff8f0', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.65rem 0.85rem', marginBottom: '0.65rem', fontSize: '0.8rem', color: '#92400e' }}>
+                      Archive this ad? It will leave the Arena feed.
+                    </div>
+                  )}
+
+                  {/* ── Action buttons ── */}
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    {!isEditing && !isConfirm && (
+                      <>
+                        <button onClick={() => openEdit(ad)} style={rowBtnStyle('#0070f3')}>✏️ Edit</button>
+                        <button onClick={() => setConfirmId(ad.id)} style={rowBtnStyle('#f0883e')}>📦 Archive</button>
+                      </>
+                    )}
+                    {isEditing && (
+                      <>
+                        <button onClick={() => saveEdit(ad.id)} disabled={isBusy} style={rowBtnStyle('#16a34a')}>
+                          {savingId === ad.id ? '…' : '💾 Save'}
+                        </button>
+                        <button onClick={() => setEditingId(null)} style={rowBtnStyle('#aaa')}>✕ Cancel</button>
+                      </>
+                    )}
+                    {isConfirm && (
+                      <>
+                        <button onClick={() => confirmArchive(ad.id)} disabled={isBusy} style={rowBtnStyle('#dc2626')}>
+                          {archivingId === ad.id ? '…' : '📦 Confirm Archive'}
+                        </button>
+                        <button onClick={() => setConfirmId(null)} style={rowBtnStyle('#aaa')}>✕ Cancel</button>
+                      </>
+                    )}
+                  </div>
+
                 </div>
               );
             })
           )}
+
+          {/* ── ARCHIVED ADS — restore section ── */}
+          {archivedAds.length > 0 && (
+            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f0f0f0' }}>
+              <div style={{ fontSize: '0.7rem', color: '#aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.65rem' }}>
+                📦 Archived ({archivedAds.length})
+              </div>
+              {archivedAds.map(ad => (
+                <div key={ad.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.6rem', opacity: 0.6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 700 }}>{ad.brand} · </span>
+                    <span style={{ fontSize: '0.78rem', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.title}</span>
+                  </div>
+                  <button
+                    onClick={() => restoreAd(ad.id)}
+                    disabled={restoringId === ad.id}
+                    style={rowBtnStyle('#22c55e')}
+                  >
+                    {restoringId === ad.id ? '…' : '↩ Restore'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
-        {/* POSTS MODULE — replaces hardcoded post builder */}
+        {/* POSTS MODULE */}
         <Card>
           <PostsModule {...moduleCtx} />
         </Card>
