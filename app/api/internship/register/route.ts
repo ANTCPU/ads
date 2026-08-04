@@ -544,6 +544,7 @@ if (existing)
         is_early_adopter: day <= 7,
         status:           'active',
         cohort,
+        intern_id:        `intern-${crypto.randomUUID().slice(0, 8)}`,
       });
 
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);
