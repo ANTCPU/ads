@@ -54,7 +54,7 @@ function ariaVerdict(ad: PendingAd) {
   const c = `${ad.title} ${ad.description} ${ad.url}`.toLowerCase();
   const b = ad.brand.toLowerCase();
   if (SEED.some(p => c.includes(p)))                      return VERDICTS.seed_ad;
-  if (b !== 'antcpu' && ANTCPU.some(p => c.includes(p))) return VERDICTS.brand_mismatch;
+  if (b !== 'antcpu' && ANTCPU.some(p => c.includes(p)))  return VERDICTS.brand_mismatch;
   if (!ad.url || ad.url.length < 5)                       return VERDICTS.no_url;
   if (!ad.description || ad.description.length < 20)      return VERDICTS.no_desc;
   if (!ad.title || ad.title.length < 10)                  return VERDICTS.short_title;
@@ -123,7 +123,7 @@ export default function AntcpuDashboard() {
       .from('ads')
       .select('id, brand, title, description, url, points, tier, is_system, rank_position')
       .eq('status', 'archived')
-      .eq('email', 'antcpu@gmail.com')
+      .eq('email', 'user.email')
       .order('points', { ascending: false });
     setArchivedAds(archived || []);
   }, []);
