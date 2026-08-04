@@ -133,7 +133,7 @@ export default function AntcpuDashboard() {
     if (!stored) { router.push('/'); return; }
     try {
       const u = JSON.parse(stored);
-      if (u.email !== 'antcpu@gmail.com') { router.push('/dashboard/user'); return; }
+      if (u.role !== 'super' && u.role !== 'admin') { router.push('/dashboard/user'); return; }
       setUser(u);
     } catch { router.push('/'); return; }
     setHydrated(true);
