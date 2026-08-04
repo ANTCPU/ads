@@ -1,9 +1,10 @@
 // ============================================================
-// app/api/internship/register/route.ts
+// https://antcpu-ads.vercel.app/ads/app/api/internship/register/route.ts
 // POST — Internship challenger registration
-// Writes: ad_signups → ads → challengers
-// Then: day-aware email + Discord notify
-// Called by: antcpu.io/apply/
+// Writes: ad_signups → ads → challengers → sessions
+//         → activity_log → submissions
+// Then:   day-aware email + Discord notify
+// Called by: https://antcpu.io/apply/
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,32 +19,32 @@ import {
   type ChallengeTask,
 } from '../../../lib/challengeDays';
 
-// ─── Clients ─────────────────────────────────────────────────
+// ─── Clients ──────────────────────────────────────────────────
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// ─── CORS ─────────────────────────────────────────────────────
+// ─── CORS ──────────────────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin':  'https://antcpu.io',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// ─── Helpers ──────────────────────────────────────────────────
-const ok  = (data: object)  => NextResponse.json(data, { headers: CORS });
+// ─── Helpers ───────────────────────────────────────────────────
+const ok  = (data: object) => NextResponse.json(data, { headers: CORS });
 const err = (msg: string, status = 500) =>
   NextResponse.json({ error: msg }, { status, headers: CORS });
 
-// ─── Email constants ──────────────────────────────────────────
+// ─── Email constants ───────────────────────────────────────────
 const ACCENT = '#2563eb';
 const BG     = '#0a0a0a';
 const CARD   = '#111';
 const BORDER = '#1a1a1a';
 
-// ─── Email helpers ────────────────────────────────────────────
+// ─── Email helpers ─────────────────────────────────────────────
 function emailHeader(trackIcon: string) {
   return `
     <div style="text-align:center;margin-bottom:2rem">
@@ -64,9 +65,7 @@ function emailFooter() {
       border-top:1px solid ${BORDER};padding-top:1rem;margin-top:1.5rem">
       ⚡ antcpu.io ·
       <a href="mailto:ads@antcpu.io" style="color:#555">ads@antcpu.io</a><br>
-      <a href="https://antcpu.io" style="color:#555">
-        antcpu.io
-      </a>
+      <a href="https://antcpu.io" style="color:#555">antcpu.io</a>
     </div>`;
 }
 
@@ -97,30 +96,31 @@ function taskRow(t: ChallengeTask, track: string, highlight = false) {
     </div>`;
 }
 
-function arenaBlock() {
+function dashboardBlock(firstName: string) {
   return `
     <div style="background:${CARD};border:1px solid ${ACCENT}30;
       border-radius:12px;padding:1.25rem;margin-top:1.25rem">
       <div style="font-size:0.7rem;color:#555;font-weight:700;
         letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem">
-        ⚡ You're in the Arena
+        ⚡ Your Dashboard
       </div>
       <div style="font-size:0.85rem;color:#aaa;margin-bottom:0.75rem">
-        Your intro ad is live right now. Share it to earn your first points.
+        Track your progress, complete tasks, and submit your work —
+        all in one place.
       </div>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-        <a href="https://antcpu.io/challenge/"
+        <a href="https://antcpu.io/dashboard/"
           style="display:inline-block;background:${ACCENT};color:#fff;
           text-decoration:none;font-weight:700;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px">
-          Challenger Board →
+          Go to Dashboard →
         </a>
-        <a href="https://antcpu-ads.vercel.app/arena"
+        <a href="https://antcpu.io/challenge/"
           style="display:inline-block;background:${ACCENT}15;color:${ACCENT};
           text-decoration:none;font-weight:600;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px;
           border:1px solid ${ACCENT}30">
-          Full Arena →
+          View Challenge →
         </a>
       </div>
     </div>`;
@@ -136,7 +136,6 @@ function wrap(trackIcon: string, body: string) {
     <div style="max-width:560px;margin:0 auto;padding:2rem 1.5rem">
       ${emailHeader(trackIcon)}
       ${body}
-      ${arenaBlock()}
       ${emailFooter()}
     </div></body></html>`;
 }
@@ -145,7 +144,6 @@ function buildEmail(p: {
   firstName: string; trackLabel: string; trackIcon: string;
   track: string; country: string; day: number;
 }): { subject: string; html: string } {
-
   const { firstName, trackLabel, trackIcon, track, country, day } = p;
   const maxPct  = getMaxAchievable(Math.max(1, day));
   const catchUp = getCatchUpTasks(Math.max(1, day));
@@ -156,7 +154,7 @@ function buildEmail(p: {
     : { label: 'Logo Creation Basics',
         url: 'https://antcpu.com/edu/classes/logo-creation-basics/' };
 
-  // ── Day 0 ────────────────────────────────────────────────
+  // ── Day 0 — pre-launch ────────────────────────────────────
   if (day === 0) return {
     subject: `⚡ You're registered, ${firstName} — challenge starts August 1`,
     html: wrap(trackIcon, `
@@ -194,14 +192,14 @@ function buildEmail(p: {
             🎓 ${edu.label} — start now, free →
           </a>
           <div style="font-size:0.75rem;color:#555;margin-top:0.2rem">
-            Week 1 EDU class for ${isDev ? 'Dev' : 'Marketing'} track.
-            No signup needed.
+            Week 1 EDU class for ${isDev ? 'Dev' : 'Marketing'} track. No signup needed.
           </div>
         </div>
-      </div>`)
+      </div>
+      ${dashboardBlock(firstName)}`)
   };
 
-  // ── Day 1 ────────────────────────────────────────────────
+  // ── Day 1 ─────────────────────────────────────────────────
   if (day === 1) return {
     subject: `⚡ You're in, ${firstName} — Week 1 starts now`,
     html: wrap(trackIcon, `
@@ -215,11 +213,11 @@ function buildEmail(p: {
           <strong style="color:#fff">${country}</strong><br>
           Week 1 — Explorer · Founding Member ⭐
         </div>
-        <a href="https://antcpu.io/challenge/"
+        <a href="https://antcpu.io/dashboard/"
           style="display:inline-block;background:${ACCENT};color:#fff;
           text-decoration:none;font-weight:800;font-size:0.9rem;
           padding:0.75rem 1.75rem;border-radius:10px">
-          View Week 1 Tasks →
+          Go to Your Dashboard →
         </a>
       </div>
       <div style="background:${CARD};border:1px solid ${BORDER};
@@ -247,7 +245,7 @@ function buildEmail(p: {
       </div>`)
   };
 
-  // ── Days 2–4 ─────────────────────────────────────────────
+  // ── Days 2–4 ──────────────────────────────────────────────
   if (day >= 2 && day <= 4) {
     const missed    = WEEK1_TASKS.filter(t => t.day < day);
     const missedMin = missed.reduce((s, t) => s + parseInt(t.time), 0);
@@ -298,11 +296,12 @@ function buildEmail(p: {
           <div style="font-size:0.75rem;color:#555;margin-top:0.2rem">
             Free · No signup · Directly feeds your Week 1 + Week 2 work
           </div>
-        </div>`)
+        </div>
+        ${dashboardBlock(firstName)}`)
     };
   }
 
-  // ── Days 5–6 ─────────────────────────────────────────────
+  // ── Days 5–6 ──────────────────────────────────────────────
   if (day === 5 || day === 6) {
     const daysLeft = 8 - day;
     return {
@@ -338,16 +337,17 @@ function buildEmail(p: {
           Can't complete Week 1? You're still in the Arena and September
           cohort opens September 1 — you'll be first through the gate.
           <div style="margin-top:0.5rem">
-            <a href="https://antcpu.io/apply"
+            <a href="https://antcpu.io/apply/"
               style="color:${ACCENT};text-decoration:none">
               September cohort →
             </a>
           </div>
-        </div>`)
+        </div>
+        ${dashboardBlock(firstName)}`)
     };
   }
 
-  // ── Day 7 ────────────────────────────────────────────────
+  // ── Day 7 ─────────────────────────────────────────────────
   if (day === 7) return {
     subject: `⚡ You're in, ${firstName} — today is the last day of Week 1`,
     html: wrap(trackIcon, `
@@ -384,15 +384,16 @@ function buildEmail(p: {
         border-radius:12px;padding:1rem;font-size:0.82rem;color:#555">
         Week 2 starts tomorrow. September cohort opens September 1.
         <div style="margin-top:0.5rem">
-          <a href="https://antcpu.io/apply"
+          <a href="https://antcpu.io/apply/"
             style="color:${ACCENT};text-decoration:none">
             September cohort →
           </a>
         </div>
-      </div>`)
+      </div>
+      ${dashboardBlock(firstName)}`)
   };
 
-  // ── Day 8+ ───────────────────────────────────────────────
+  // ── Day 8+ — September cohort ─────────────────────────────
   return {
     subject: `⚡ You're in the Arena, ${firstName} — September cohort is open`,
     html: wrap(trackIcon, `
@@ -441,20 +442,20 @@ function buildEmail(p: {
   };
 }
 
-// ─── OPTIONS — CORS preflight ─────────────────────────────────
+// ─── OPTIONS — CORS preflight ──────────────────────────────────
 export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: CORS });
 }
 
-// ─── POST ─────────────────────────────────────────────────────
+// ─── POST ──────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const {
-  name, email, country, track,
-  timezone, background,
-  why_here, first_name, last_name,
-  portfolio, ai_exp, availability, sessionId,
-} = await req.json();
+      name, email, country, track,
+      timezone, background,
+      why_here, first_name, last_name,
+      portfolio, ai_exp, availability, sessionId,
+    } = await req.json();
 
     if (!name?.trim() || !email?.trim() || !country?.trim() || !track)
       return err('Name, email, country and track are required.', 400);
@@ -464,19 +465,21 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanName  = name.trim();
-    const firstName  = cleanName.split(' ')[0];
+    const firstName  = first_name ?? cleanName.split(' ')[0];
     const trackLabel = track === 'dev' ? '💻 Developer' : '📣 Marketer';
     const trackIcon  = track === 'dev' ? '💻' : '📣';
     const brandName  = `${cleanName} — ${trackLabel}`;
+    const day        = getChallengeDay();
+    const cohort     = day >= 8 ? 'september-2026' : 'august-2026';
 
-    // Check challengers only — ad_signups is shared with Arena users
-const { data: existing } = await supabase
-  .from('challengers').select('id')
-  .eq('email', cleanEmail).maybeSingle();
-if (existing)
-  return err('You\'re already registered as a challenger.', 409);
+    // ── Duplicate check ───────────────────────────────────────
+    const { data: existing } = await supabase
+      .from('challengers').select('id')
+      .eq('email', cleanEmail).maybeSingle();
+    if (existing)
+      return err('You\'re already registered as a challenger.', 409);
 
-    // ── 1. ad_signups ────────────────────────────────────────
+    // ── 1. ad_signups ─────────────────────────────────────────
     const trialExpiry = new Date();
     trialExpiry.setDate(trialExpiry.getDate() + 31);
 
@@ -493,7 +496,7 @@ if (existing)
       }).select('id').single();
     if (signupErr) return err(signupErr.message);
 
-    // ── 2. ads ───────────────────────────────────────────────
+    // ── 2. ads ────────────────────────────────────────────────
     const { data: ad, error: adErr } = await supabase
       .from('ads')
       .insert({
@@ -507,17 +510,16 @@ if (existing)
       }).select('id').single();
     if (adErr) console.error('Ad insert error:', adErr.message);
 
-    // ── 3. challengers ───────────────────────────────────────
-    const day    = getChallengeDay();
-    const cohort = day >= 8 ? 'september-2026' : 'august-2026';
+    // ── 3. challengers ────────────────────────────────────────
+    const internId = `intern-${crypto.randomUUID().slice(0, 8)}`;
 
-     const { error: challengerErr } = await supabase
+    const { error: challengerErr } = await supabase
       .from('challengers')
       .insert({
         signup_email:     cleanEmail,
         ad_id:            ad?.id ?? null,
         name:             cleanName,
-        first_name:       first_name ?? cleanName.split(' ')[0],
+        first_name:       firstName,
         last_name:        (last_name ?? cleanName.split(' ').slice(1).join(' ')) || null,
         initials:         (cleanName.split(' ')[0][0] + (cleanName.split(' ')[1]?.[0] ?? '')).toUpperCase(),
         color:            track === 'dev' ? '#2563eb' : '#7c3aed',
@@ -525,13 +527,13 @@ if (existing)
         country,
         track,
         track_raw:        track,
-        timezone:         timezone    ?? null,
-        background:       background  ?? null,
-        why_here:         why_here    ?? null,
-        portfolio:        portfolio   ?? null,
-        ai_exp:           ai_exp      ?? null,
+        timezone:         timezone     ?? null,
+        background:       background   ?? null,
+        why_here:         why_here     ?? null,
+        portfolio:        portfolio    ?? null,
+        ai_exp:           ai_exp       ?? null,
         availability:     availability ?? null,
-        session_id:       sessionId   ?? null,
+        session_id:       sessionId    ?? null,
         completed_gates:  ['d1'],
         started_gates:    ['d1'],
         badges:           ['first-click'],
@@ -544,37 +546,94 @@ if (existing)
         is_early_adopter: day <= 7,
         status:           'active',
         cohort,
-        intern_id:        `intern-${crypto.randomUUID().slice(0, 8)}`,
+        intern_id:        internId,
       });
-
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);
 
-    // ── 4. Email ─────────────────────────────────────────────
+    // ── 4. Fetch challenger back ──────────────────────────────
+    const { data: challenger } = await supabase
+      .from('challengers')
+      .select('id, intern_id, email')
+      .eq('email', cleanEmail)
+      .single();
+
+    let sessionId_db: string | null = null;
+
+    if (challenger) {
+
+           // ── 5. Session row ────────────────────────────────────
+      const { data: session } = await supabase
+        .from('sessions')
+        .insert({
+          challenger_id: challenger.id,
+          intern_id:     challenger.intern_id,
+          email:         challenger.email,
+          device:        req.headers.get('user-agent') || null
+        })
+        .select('id')
+        .single();
+
+      sessionId_db = session?.id ?? null;
+
+      // ── 6. Activity log — Day 1 gate ──────────────────────
+      await supabase
+        .from('activity_log')
+        .insert({
+          challenger_id: challenger.id,
+          type:          'gate',
+          event:         'gate_complete',
+          label:         'Registered & Introduced Yourself',
+          icon:          '🚀',
+          gate_id:       'd1',
+          points:        5
+        });
+
+      // ── 7. Submission record — Day 1 ──────────────────────
+      await supabase
+        .from('submissions')
+        .insert({
+          challenger_id: challenger.id,
+          gate_id:       'd1',
+          type:          'registration',
+          title:         'Challenger Registration',
+          track:         track,
+          week:          1,
+          status:        'reviewed',
+          points:        5
+        });
+    }
+
+    // ── 8. Email ──────────────────────────────────────────────
     const { subject, html } = buildEmail({
       firstName, trackLabel, trackIcon, track, country, day,
     });
+
     resend.emails.send({
       from: 'ANTCPU ADS <ads@antcpu.io>',
-      to: cleanEmail, subject, html,
+      to:   cleanEmail, subject, html,
     }).catch(e => console.error('Resend error:', e));
 
-    // ── 5. Discord ───────────────────────────────────────────
+    // ── 9. Discord ────────────────────────────────────────────
     const dayLabel = day === 0 ? 'pre-launch'
-      : day <= 7 ? `Day ${day} · Week 1`
+      : day <= 7  ? `Day ${day} · Week 1`
       : `Day ${day} · September cohort`;
 
     await notifyDiscord(
       `🎯 **New Challenger** — ${cleanName} · ${trackLabel} · ${country}\n` +
       `📧 ${cleanEmail} · ${dayLabel} · ${cohort === 'august-2026' ? 'Founding Member ⭐' : 'September Cohort'}\n` +
       `🎒 Background: ${background ?? '—'} · AI: ${ai_exp ?? '—'} · ${availability ?? '—'}/wk\n` +
-      `🌐 Timezone: ${timezone ?? '—'} · Session: \`${sessionId ?? '—'}\`\n` +
+      `🌐 Timezone: ${timezone ?? '—'} · intern_id: \`${internId}\`\n` +
       `🔗 https://antcpu.io/apply/`, 'internship');
 
-    // ── 6. Return ────────────────────────────────────────────
+    // ── 10. Return session to frontend ────────────────────────
     return ok({
-      success:  true,
-      signupId: signup.id,
-      adId:     ad?.id ?? null,
+      success:    true,
+      signupId:   signup.id,
+      adId:       ad?.id        ?? null,
+      session_id: sessionId_db,
+      intern_id:  internId,
+      email:      cleanEmail,
+      first_name: firstName,
       day,
       cohort,
     });
@@ -585,3 +644,4 @@ if (existing)
     return err(message);
   }
 }
+
