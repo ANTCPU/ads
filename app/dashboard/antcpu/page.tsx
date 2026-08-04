@@ -114,7 +114,6 @@ export default function AntcpuDashboard() {
       .from('ads')
       .select('id, brand, title, description, url, points, tier, is_system, rank_position')
       .eq('status', 'active')
-      .eq('email', 'antcpu@gmail.com')
       .order('points', { ascending: false });
     setActiveAds(active || []);
 
@@ -333,7 +332,7 @@ export default function AntcpuDashboard() {
             <span style={{ fontSize: '1.5rem' }}>⚡</span>
             <div>
               <div style={{ fontWeight: 700 }}>Antony Ciccone</div>
-              <div style={{ fontSize: '0.78rem', color: '#555' }}>antcpu@gmail.com · Founder & Admin</div>
+              <div style={{ fontSize: '0.78rem', color: '#555' }}>{user.name} {user.email} · Founder & Admin</div>
             </div>
             <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: '#22c55e', fontWeight: 700 }}>✅ Admin</span>
           </div>
