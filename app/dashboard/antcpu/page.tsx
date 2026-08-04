@@ -122,7 +122,6 @@ export default function AntcpuDashboard() {
       .from('ads')
       .select('id, brand, title, description, url, points, tier, is_system, rank_position')
       .eq('status', 'archived')
-      .eq('email', 'user.email')
       .order('points', { ascending: false });
     setArchivedAds(archived || []);
   }, []);
