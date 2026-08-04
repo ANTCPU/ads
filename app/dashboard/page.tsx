@@ -28,7 +28,7 @@ export default function DashboardRedirect() {
       const stored = localStorage.getItem('arena_user');
       if (!stored) { router.push('/'); return; }
       const u: SessionUser = JSON.parse(stored);
-      if (u.role === 'super')       { router.push('/dashboard/admin'); return; }
+      if (u.role === 'super')       { router.push('/dashboard/antcpu'); return; }
       if (u.role === 'admin')       { router.push('/dashboard/users'); return; }
       router.push('/dashboard/user');
     } catch {
