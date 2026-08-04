@@ -469,12 +469,12 @@ export async function POST(req: NextRequest) {
     const trackIcon  = track === 'dev' ? '💻' : '📣';
     const brandName  = `${cleanName} — ${trackLabel}`;
 
-    // ── Duplicate check ──────────────────────────────────────
-    const { data: existing } = await supabase
-      .from('ad_signups').select('id')
-      .eq('email', cleanEmail).maybeSingle();
-    if (existing)
-      return err('This email is already registered in the Arena.', 409);
+    // Check challengers only — ad_signups is shared with Arena users
+const { data: existing } = await supabase
+  .from('challengers').select('id')
+  .eq('email', cleanEmail).maybeSingle();
+if (existing)
+  return err('You\'re already registered as a challenger.', 409);
 
     // ── 1. ad_signups ────────────────────────────────────────
     const trialExpiry = new Date();
