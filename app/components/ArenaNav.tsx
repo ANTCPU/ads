@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Role = 'admin' | 'team' | 'user' | 'mod';
+type Role = 'super' | 'admin' | 'team' | 'user' | 'mod';
 type ArenaNavProps = {
   role: Role;
   userName?: string;
@@ -93,6 +93,17 @@ export default function ArenaNav({
   }
 
   const menuItems: { label: string; icon: string; color?: string; action: () => void }[] = [];
+  if (role === 'super') {
+  menuItems.push(
+    { label: 'Dashboard', icon: '⚡', action: () => router.push('/dashboard/antcpu') },
+    { label: 'The Arena', icon: '🏟', action: () => router.push('/arena') },
+    { label: 'Brands', icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
+    { label: 'Review Queue', icon: '🦋', action: () => router.push('/dashboard/antcpu') },
+    { label: 'Users', icon: '👥', action: () => router.push('/dashboard/users') },
+    { label: 'Create Ad', icon: '📢', action: () => router.push('/create-ad') },
+    { label: 'Profile', icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+  );
+  }
 
   if (role === 'admin') {
     menuItems.push(
