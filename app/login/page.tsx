@@ -77,7 +77,7 @@ async function persistSession(session: SessionUser, redirect: string | null) {
   // Keep localStorage as UI cache only — for instant name/brand display
   localStorage.setItem('arena_user', JSON.stringify(session));
   window.location.href = redirect || (
-    session.role === 'super' ? '/dashboard/admin' :
+    session.role === 'super' ? '/dashboard/antcpu' :
     session.role === 'admin' ? '/dashboard/users' :
     '/dashboard/user'
   );
