@@ -84,7 +84,7 @@ export default function UserDashboard() {
 
     try {
       const u: SessionUser = JSON.parse(stored);
-      if (u.role === 'super') { router.push('/dashboard/admin'); return; }
+      if (u.role === 'super') { router.push('/dashboard/antcpu'); return; }
       if (u.role === 'admin') { router.push('/dashboard/users'); return; }
       setUser(u);
       fetchData(u.email);
