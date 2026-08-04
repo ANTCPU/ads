@@ -18,16 +18,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const query = supabase
+  let query = supabase
     .from('challengers')
     .select('*')
-    .eq('status', 'active')
-    .single();
+    .eq('status', 'active');
 
-  if (email)     query.eq('email', email);
-  if (intern_id) query.eq('intern_id', intern_id);
+  if (email)     query = query.eq('email', email);
+  if (intern_id) query = query.eq('intern_id', intern_id);
 
-  const { data, error } = await query;
+  const { data, error } = await query.single();
 
   if (error || !data) {
     return NextResponse.json(
