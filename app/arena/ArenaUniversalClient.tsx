@@ -14,7 +14,9 @@ import ArenaFooter from '../components/ArenaFooter';
 import { PLATFORMS, getShareAction, ShareContext } from '../lib/socialShare';
 import { trackClick, recordShare, recordLike, recordBoost, SOURCE } from '../lib/tracking';
 import ShareModule from '../modules/share';
-import ArchiveModule from '../modules/archive';
+import ArchiveModule from '../modules/archive'; 
+import { clearSessionCookie } from '../lib/session';
+
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -349,7 +351,7 @@ export default function ArenaUniversalClient() {
         role={isSuper ? 'admin' : user.trialStatus === 'team' ? 'team' : 'user'}
         userName={user.name} userEmail={user.email} userBrand={user.brand}
         trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
-        onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
+        { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }
       />
 
       {/* ── Preview modal ── */}
@@ -795,12 +797,12 @@ export default function ArenaUniversalClient() {
             borderRadius: '14px', padding: '2rem', textAlign: 'center' }}>
             <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.5rem' }}>Join the Network</div>
             <div style={{ fontSize: '0.85rem', color: muted, marginBottom: '0.35rem' }}>Get your brand in the Arena.</div>
-            <div style={{ fontSize: '0.75rem', color: '#333', marginBottom: '1.25rem' }}>3-day free trial · $9.99/mo · No contracts</div>
+            <div style={{ fontSize: '0.75rem', color: '#333', marginBottom: '1.25rem' }}>Free to join · No contracts</div>
             <button
               onClick={() => router.push('/login')}
               style={{ background: orange, border: 'none', borderRadius: '10px', color: '#000',
                 fontWeight: 800, fontSize: '1rem', padding: '0.9rem 2.5rem', cursor: 'pointer' }}>
-              Start Free Trial →
+              Join the Arena →
             </button>
           </div>
         )}
