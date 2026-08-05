@@ -12,20 +12,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const TIER_CONFIG: Record<string, { color: string; label: string }> = {
-  entry:    { color: '#0070f3', label: 'Entry' },
-  rising:   { color: '#7928ca', label: 'Rising' },
-  featured: { color: '#ff0080', label: 'Featured' },
-  toptier:  { color: '#f0883e', label: 'Top Tier' },
-};
-
-const CATEGORY_TAGS: Record<string, string> = {
-  'Pi Commerce':    '#mapofpi #pinetwork #picommerce #crypto',
-  'Photography':    '#photography #portraits #memories #photographer',
-  'Brand Awareness':'#branding #marketing #growthhacking',
-  'Product Launch': '#productlaunch #startup #newproduct',
-  'Other':          '#marketing #ads #business #antcpu',
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type SessionUser = {
   email: string;
@@ -53,6 +40,25 @@ type Ad = {
   rank_position: number;
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TIER_CONFIG: Record<string, { color: string; label: string }> = {
+  entry:    { color: '#0070f3', label: 'Entry' },
+  rising:   { color: '#7928ca', label: 'Rising' },
+  featured: { color: '#ff0080', label: 'Featured' },
+  top_tier: { color: '#f0883e', label: 'Top Tier' },
+};
+
+const CATEGORY_TAGS: Record<string, string> = {
+  'Pi Commerce':     '#mapofpi #pinetwork #picommerce #crypto',
+  'Photography':     '#photography #portraits #memories #photographer',
+  'Brand Awareness': '#branding #marketing #growthhacking',
+  'Product Launch':  '#productlaunch #startup #newproduct',
+  'Other':           '#marketing #ads #business #antcpu',
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function UserDashboard() {
   const router = useRouter();
 
@@ -66,6 +72,8 @@ export default function UserDashboard() {
   const [sharedId,       setSharedId]       = useState<string | null>(null);
   const [hasProfile,     setHasProfile]     = useState(false);
   const [myRank,         setMyRank]         = useState<number | null>(null);
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetch('/api/doorbell', {
@@ -84,16 +92,21 @@ export default function UserDashboard() {
 
     try {
       const u: SessionUser = JSON.parse(stored);
+      // Role gates — redirect before rendering anything
       if (u.role === 'super') { router.push('/dashboard/antcpu'); return; }
       if (u.role === 'admin') { router.push('/dashboard/users'); return; }
+      // Valid user — set state then load data
       setUser(u);
+      setHydrated(true);
       fetchData(u.email);
+      // Profile check
       supabase
         .from('ad_profiles')
         .select('bio')
         .eq('email', u.email.trim().toLowerCase())
         .maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
+      // Referral code
       supabase
         .from('ad_signups')
         .select('promo_code')
@@ -107,9 +120,9 @@ export default function UserDashboard() {
           );
         });
     } catch { router.push('/'); return; }
-
-    setHydrated(true);
   }, []);
+
+  // ── Data ──────────────────────────────────────────────────────────────────
 
   async function fetchData(email: string) {
     setLoading(true);
@@ -119,42 +132,49 @@ export default function UserDashboard() {
       { data: signups },
       { data: rankData },
     ] = await Promise.all([
-      supabase.from('ads').select('*').eq('email', email).eq('status', 'active').order('created_at', { ascending: false }).limit(1),
-      supabase.from('ads').select('*').eq('status', 'active').order('pinned', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('ads').select('*')
+        .eq('email', email).eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(1),
+      supabase.from('ads').select('*')
+        .eq('status', 'active')
+        .order('pinned', { ascending: false })
+        .order('points', { ascending: false }),
       supabase.from('ad_signups').select('email, promo_code'),
-      supabase.from('ads').select('rank_position').eq('email', email).eq('status', 'active').order('rank_position', { ascending: true }).limit(1),
+      supabase.from('ads').select('rank_position')
+        .eq('email', email).eq('status', 'active')
+        .order('rank_position', { ascending: true }).limit(1),
     ]);
 
     const promoMap: Record<string, string> = {};
     (signups || []).forEach((s: { email: string; promo_code: string | null }) => {
       if (s.promo_code) promoMap[s.email] = s.promo_code.toLowerCase();
     });
-    const enrich = (ads: Ad[]) => ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
+    const enrich = (ads: Ad[]) =>
+      ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
 
-    if (rankData && rankData.length > 0 && rankData[0].rank_position > 0) {
-      setMyRank(rankData[0].rank_position);
-    }
+    if (rankData?.[0]?.rank_position > 0) setMyRank(rankData[0].rank_position);
     const enrichedMine = enrich(mine || []);
-    setMyAd(enrichedMine.length > 0 ? enrichedMine[0] : null);
+    setMyAd(enrichedMine[0] || null);
     setArenaAds(enrich(arena || []));
     setLoading(false);
   }
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   async function trackClick(ad: Ad) {
     if (ad.id.startsWith('sample-') || !user) return;
     try {
-      const newCount = (ad.click_count || 0) + 1;
+      const n = (ad.click_count || 0) + 1;
       await Promise.all([
-        supabase.from('ad_clicks').insert([{ ad_id: ad.id, email: user.email, source: 'arena_feed' }]),
-        supabase.from('ads').update({ click_count: newCount }).eq('id', ad.id),
+        supabase.from('ad_clicks').insert([{ ad_id: ad.id, email: user.email, source: 'dashboard_feed' }]),
+        supabase.from('ads').update({ click_count: n }).eq('id', ad.id),
       ]);
       fetch('/api/scout/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ad_id: ad.id }),
       }).catch(() => {});
-      if (newCount % 10 === 0) {
-        notifyDiscord(`👆 **Click Milestone** — ${ad.brand} hit **${newCount} clicks**\n**Ad:** "${ad.title}"\n**Email:** ${ad.email}`);
+      if (n % 10 === 0) {
+        notifyDiscord(`👆 **Click Milestone** — ${ad.brand} hit **${n} clicks**\n**Ad:** "${ad.title}"\n**Email:** ${ad.email}`);
       }
     } catch {}
   }
@@ -170,37 +190,42 @@ export default function UserDashboard() {
     setSharedId(ad.id);
     setTimeout(() => setSharedId(null), 2500);
     if (!ad.id.startsWith('sample-') && user) {
-      const newShares = (ad.share_count || 0) + 1;
-      supabase.from('ads').update({ share_count: newShares }).eq('id', ad.id).then(() => {
+      const n = (ad.share_count || 0) + 1;
+      supabase.from('ads').update({ share_count: n }).eq('id', ad.id).then(() => {
         fetch('/api/scout/score', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ad_id: ad.id }),
         }).catch(() => {});
       });
-      notifyDiscord(`↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user.email}\n**Shares:** ${newShares}`);
+      notifyDiscord(`↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user.email}\n**Shares:** ${n}`);
     }
   }
 
+  // ── Guard ─────────────────────────────────────────────────────────────────
+
   if (!hydrated || !user) return null;
 
-  const isTeam    = user.trialStatus === 'team';
-  const accent    = isTeam ? '#7928ca' : '#0070f3';
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const isTeam  = user.trialStatus === 'team';
+  const accent  = isTeam ? '#7928ca' : '#0070f3';
   const firstName = user.name?.includes('@')
     ? user.brand || user.email.split('@')[0]
     : user.name?.split(' ')[0];
   const showOnboarding = !hasProfile || !myAd;
 
+  // ── Styles ────────────────────────────────────────────────────────────────
+
   const card: React.CSSProperties = {
     background: '#111', border: '1px solid #1a1a1a',
     borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem',
   };
-  const label: React.CSSProperties = {
+  const lbl: React.CSSProperties = {
     fontSize: '0.68rem', color: '#555', fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem',
   };
-  const pill = (color: string, bg = 'transparent'): React.CSSProperties => ({
-    background: bg, border: `1px solid ${color}40`, color,
+  const pill = (color: string): React.CSSProperties => ({
+    border: `1px solid ${color}40`, color, background: 'transparent',
     borderRadius: '999px', padding: '0.15rem 0.6rem',
     fontSize: '0.68rem', fontWeight: 700,
   });
@@ -210,11 +235,13 @@ export default function UserDashboard() {
     fontWeight: 700, cursor: 'pointer',
   });
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
 
       <ArenaNav
-        role={user.role === 'super' ? 'admin' : user.trialStatus === 'team' ? 'team' : 'user'}
+        role={user.role as 'super' | 'admin' | 'team' | 'user'}
         userName={user.name}
         userEmail={user.email}
         userBrand={user.brand}
@@ -224,31 +251,32 @@ export default function UserDashboard() {
 
       <div style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem 1.5rem' }}>
 
-        {/* Welcome */}
+        {/* ── Welcome ── */}
         <div style={card}>
           <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.4rem' }}>
             Welcome back, {firstName} ⚡
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#555', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '0.78rem', color: '#555', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={pill(accent)}>{user.brand}</span>
             <span>·</span>
-            <span>{isTeam ? 'Team — Unlimited' : '3-day trial'}</span>
-            {myRank && <><span>·</span><span>#{myRank} in the Arena</span></>}
+            <span>{isTeam ? 'Team — Unlimited' : 'Free'}</span>
+            {myRank && <><span>·</span><span style={{ color: '#f0883e' }}>#{myRank} in the Arena</span></>}
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
             <button onClick={() => router.push('/create-ad')} style={btn(accent)}>📢 Create Ad</button>
-            <button onClick={() => router.push('/profile')} style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
+            <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)} style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
+            <button onClick={() => router.push('/arena')} style={btn('transparent', '#555', '1px solid #333')}>🏟 Arena</button>
           </div>
         </div>
 
-        {/* Onboarding */}
+        {/* ── Onboarding ── */}
         {showOnboarding && (
           <div style={card}>
-            <div style={label}>Getting Started</div>
+            <div style={lbl}>Getting Started</div>
             {[
-              { label: "You're in the Arena", desc: `Signed up as ${user.name}`, done: true, href: null },
-              { label: 'Complete Your Profile', desc: 'Add your bio and contact details', done: hasProfile, href: '/profile' },
-              { label: 'Create Your First Ad', desc: 'Build and launch your first ad', done: !!myAd, href: '/create-ad' },
+              { label: "You're in the Arena", desc: `Signed up as ${user.name}`, done: true,       href: null },
+              { label: 'Complete Your Profile', desc: 'Add your bio and contact details',           done: hasProfile, href: `/profile/${encodeURIComponent(user.email)}` },
+              { label: 'Create Your First Ad',  desc: 'Build and launch your first ad',            done: !!myAd,     href: '/create-ad' },
             ].map((step, i) => (
               <div
                 key={i}
@@ -256,61 +284,80 @@ export default function UserDashboard() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
                   padding: '0.75rem',
-                  background: step.done ? '#0d1f0d' : '#111',
+                  background: step.done ? '#0d1f0d' : '#0a0a0a',
                   border: `1px solid ${step.done ? '#1a3a1a' : '#222'}`,
                   borderRadius: '10px',
                   cursor: step.href && !step.done ? 'pointer' : 'default',
                   marginBottom: '0.5rem',
                 }}
               >
-                <span>{step.done ? '✅' : '⭕'}</span>
-                <div>
+                <span style={{ fontSize: '1.1rem' }}>{step.done ? '✅' : '⭕'}</span>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{step.label}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#555' }}>{step.desc}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.15rem' }}>{step.desc}</div>
                 </div>
-                {!step.done && step.href && <span style={{ marginLeft: 'auto', color: '#555' }}>→</span>}
+                {!step.done && step.href && <span style={{ color: '#555', fontSize: '0.85rem' }}>→</span>}
               </div>
             ))}
           </div>
         )}
 
-        {/* My Ad */}
+        {/* ── My Ad ── */}
         <div style={card}>
-          <div style={label}>My Ad</div>
+          <div style={lbl}>My Ad</div>
           {!myAd ? (
             <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
-              <div style={{ color: '#555', marginBottom: '1rem' }}>No active ad yet</div>
+              <div style={{ color: '#555', marginBottom: '1rem', fontSize: '0.88rem' }}>No active ad yet</div>
               <button onClick={() => router.push('/create-ad')} style={btn(accent)}>Create Ad →</button>
             </div>
           ) : (
             <div>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{myAd.title}</span>
-                <span style={pill(TIER_CONFIG[myAd.tier]?.color || accent)}>{TIER_CONFIG[myAd.tier]?.label || 'Entry'}</span>
-                <span style={pill('#22c55e')}>🟢 LIVE</span>
-                {(myAd.click_count || 0) > 0 && <span style={{ fontSize: '0.75rem', color: '#555' }}>👆 {myAd.click_count} clicks</span>}
-                {(myAd.points || 0) > 0 && <span style={{ fontSize: '0.75rem', color: '#f0883e' }}>⚡ {myAd.points} pts</span>}
-              </div>
-              <div style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '1rem' }}>{myAd.description}</div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {myAd.promo_code && (
-                  <button onClick={() => router.push(`/arena/${myAd.promo_code}`)} style={btn('transparent', accent, `1px solid ${accent}`)}>
-                    🏟 View in Arena
-                  </button>
+                <span style={pill(TIER_CONFIG[myAd.tier]?.color || accent)}>
+                  {TIER_CONFIG[myAd.tier]?.label || 'Entry'}
+                </span>
+                <span style={pill('#22c55e')}>🟢 Live</span>
+                {(myAd.click_count || 0) > 0 && (
+                  <span style={{ fontSize: '0.72rem', color: '#555' }}>👆 {myAd.click_count}</span>
                 )}
-                <button onClick={() => router.push('/create-ad')} style={btn('transparent', '#555', '1px solid #333')}>✏️ Edit</button>
+                {(myAd.share_count || 0) > 0 && (
+                  <span style={{ fontSize: '0.72rem', color: '#555' }}>↗ {myAd.share_count}</span>
+                )}
+                {(myAd.points || 0) > 0 && (
+                  <span style={{ fontSize: '0.72rem', color: '#f0883e' }}>⚡ {myAd.points} pts</span>
+                )}
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '1rem', lineHeight: 1.5 }}>
+                {myAd.description}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>
+                  🏟 View in Arena
+                </button>
+                <button onClick={() => shareAd(myAd)} style={btn(accent)}>
+                  ↗ Share
+                </button>
+                <button onClick={() => router.push('/create-ad')} style={btn('transparent', '#555', '1px solid #333')}>
+                  ✏️ Edit
+                </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Referral */}
+        {/* ── Referral ── */}
         {referralCode && (
           <div style={card}>
-            <div style={label}>Your Referral Code</div>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <span style={{ fontFamily: 'monospace', color: accent, fontWeight: 700 }}>{referralCode}</span>
+            <div style={lbl}>Your Referral Link</div>
+            <div style={{ fontSize: '0.78rem', color: '#555', marginBottom: '0.75rem' }}>
+              Share this link — anyone who signs up through it joins under your brand.
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'monospace', color: accent, fontWeight: 700, fontSize: '0.88rem' }}>
+                {referralCode}
+              </span>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(`https://antcpu-ads.vercel.app/login?ref=${referralCode}`);
@@ -325,17 +372,39 @@ export default function UserDashboard() {
           </div>
         )}
 
-        {/* Arena feed */}
+        {/* ── Arena nudge ── */}
+        {myAd && (myAd.share_count || 0) === 0 && (myAd.click_count || 0) > 0 && (
+          <div style={{
+            ...card,
+            border: '1px solid #f0883e40',
+            background: '#f0883e08',
+          }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f0883e', marginBottom: '0.4rem' }}>
+              ⚡ Your ad has clicks — now share it
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem' }}>
+              One share = 10 points. Shares are the fastest way to climb the Arena.
+            </div>
+            <button onClick={() => shareAd(myAd)} style={btn('#f0883e', '#000')}>
+              ↗ Share My Ad Now
+            </button>
+          </div>
+        )}
+
+        {/* ── Arena feed ── */}
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <div style={label}>The Arena</div>
-            <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>View All →</button>
+            <div style={lbl}>The Arena</div>
+            <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>
+              View All →
+            </button>
           </div>
+
           {loading ? (
-            <div style={{ color: '#555', fontSize: '0.85rem' }}>Loading arena...</div>
+            <div style={{ color: '#555', fontSize: '0.85rem', padding: '1rem 0' }}>Loading arena...</div>
           ) : (
             <div>
-              {arenaAds.map(ad => {
+              {arenaAds.slice(0, 10).map(ad => {
                 const tier  = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
                 const isOwn = ad.email === user.email;
                 return (
@@ -347,25 +416,32 @@ export default function UserDashboard() {
                       border: `1px solid ${ad.pinned ? '#f0883e40' : '#1a1a1a'}`,
                       borderLeft: `3px solid ${tier.color}`,
                       borderRadius: '10px', padding: '1rem', cursor: 'pointer',
-                      marginBottom: '0.75rem',
+                      marginBottom: '0.75rem', transition: 'border-color 0.15s',
                     }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = tier.color + '60')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? '#f0883e40' : '#1a1a1a')}
                   >
-                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.4rem' }}>
                       <span
-                        onClick={e => { e.stopPropagation(); if (ad.email) router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
+                        onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
                         style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color, cursor: 'pointer' }}
                       >
                         {ad.brand}
                       </span>
-                      {ad.pinned && <span style={pill('#f0883e')}>📌 PINNED</span>}
-                      {isOwn  && <span style={pill('#22c55e')}>YOUR AD</span>}
+                      {ad.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
+                      {isOwn   && <span style={pill('#22c55e')}>Your Ad</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
+                      {ad.rank_position && ad.rank_position <= 3 && (
+                        <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
+                      )}
                     </div>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.3rem' }}>{ad.title}</div>
-                    <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '0.75rem' }}>{ad.description}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+                      {ad.description.length > 90 ? ad.description.slice(0, 90) + '…' : ad.description}
+                    </div>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
-                        onClick={e => { e.stopPropagation(); window.open(ad.url, '_blank'); }}
+                        onClick={e => { e.stopPropagation(); window.open(ad.url, '_blank', 'noopener,noreferrer'); }}
                         style={btn(tier.color)}
                       >
                         Visit →
@@ -380,12 +456,19 @@ export default function UserDashboard() {
                   </div>
                 );
               })}
+              {arenaAds.length > 10 && (
+                <button
+                  onClick={() => router.push('/arena')}
+                  style={{ ...btn('transparent', accent, `1px solid ${accent}`), width: '100%', marginTop: '0.5rem' }}
+                >
+                  See all {arenaAds.length} ads in the Arena →
+                </button>
+              )}
             </div>
           )}
         </div>
 
       </div>
-
       <ArenaFooter />
     </div>
   );
