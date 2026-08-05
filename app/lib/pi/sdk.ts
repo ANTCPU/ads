@@ -1,14 +1,10 @@
 // app/lib/pi/sdk.ts
-// Loads Pi SDK, authenticates user, returns token + identity
-// Works inside Pi Browser and standard browsers (sandbox fallback)
-
 export type PiAuthResult = {
   accessToken: string;
   uid: string;
   username: string;
 };
 
-// Dynamically load the Pi SDK script if not already present
 function loadPiSDK(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined') return reject('SSR');
@@ -22,29 +18,40 @@ function loadPiSDK(): Promise<void> {
   });
 }
 
+export function isInsidePiBrowser(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    navigator.userAgent.includes('PiBrowser') ||
+    !!(window as any).Pi ||
+    window.location.hostname.endsWith('.pi')
+  );
+}
+
 export async function piAuthenticate(): Promise<PiAuthResult> {
   await loadPiSDK();
-
   const Pi = (window as any).Pi;
-
-  // Init — sandbox false = production
   Pi.init({ version: '2.0', sandbox: false });
 
   return new Promise((resolve, reject) => {
+    // 8 second timeout — prevents infinite "Connecting" on non-Pi browsers
+    const timeout = setTimeout(() => {
+      reject(new Error('Pi auth timeout — open in Pi Browser to sign in with Pi'));
+    }, 8000);
+
     Pi.authenticate(
       ['username', 'payments', 'wallet_address'],
-      // onIncompletePaymentFound — required callback
-      // We don't process payments yet — log and continue
       (payment: any) => {
         console.warn('[Pi] Incomplete payment found:', payment.identifier);
       }
     ).then((auth: any) => {
+      clearTimeout(timeout);
       resolve({
         accessToken: auth.accessToken,
         uid: auth.user.uid,
         username: auth.user.username,
       });
     }).catch((err: any) => {
+      clearTimeout(timeout);
       reject(err);
     });
   });
