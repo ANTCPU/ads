@@ -382,6 +382,56 @@ await persistSession(
         </h1>
         <p style={{ color: muted, fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>{brand.subText}</p>
 
+        {/* ── PI LOGIN ── */}
+{!isBrand && (
+  <div style={{ marginBottom: '1.5rem' }}>
+    <button
+      onClick={async () => {
+        try {
+          setLoading(true);
+          const { piAuthenticate } = await import('../lib/pi/sdk');
+          const auth = await piAuthenticate();
+          const res = await fetch('/api/pi/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(auth),
+          });
+          if (!res.ok) throw new Error('Pi auth failed');
+          const { user: piUser } = await res.json();
+          localStorage.setItem('arena_user', JSON.stringify(piUser));
+          window.location.href =
+            piUser.role === 'super' ? '/dashboard/antcpu' :
+            piUser.role === 'admin' ? '/dashboard/users' :
+            '/dashboard/user';
+        } catch (err) {
+          console.error('[Pi Login]', err);
+          setLoading(false);
+        }
+      }}
+      disabled={loading}
+      style={{
+        width: '100%', background: loading ? '#1a1a1a' : '#7928ca20',
+        border: '1px solid #7928ca60', color: loading ? muted : '#b388ff',
+        borderRadius: '8px', padding: '1rem', fontWeight: 700,
+        fontSize: '1rem', cursor: loading ? 'not-allowed' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
+      }}
+    >
+      <span style={{ fontSize: '1.2rem' }}>π</span>
+      {loading ? 'Connecting...' : 'Sign in with Pi'}
+    </button>
+
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0',
+    }}>
+      <div style={{ flex: 1, height: '1px', background: '#222' }} />
+      <span style={{ fontSize: '0.72rem', color: muted, letterSpacing: '0.1em' }}>OR</span>
+      <div style={{ flex: 1, height: '1px', background: '#222' }} />
+    </div>
+  </div>
+)}
+
+        
         {/* Form card */}
         <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1.75rem' }}>
 
