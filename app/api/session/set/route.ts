@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // ─── Session Set ──────────────────────────────────────────────────────────────
 // Called from persistSession() in login/page.tsx after PIN verification.
 // Sets arena_session as HttpOnly — not readable by JS, survives mobile Safari.
+//
+// sameSite: 'none' — required for cross-origin reads from antcpu.com/cloud/
+// secure: true     — required when sameSite is 'none' (browser enforced)
+// Both must be set together or the cookie is rejected by the browser.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -10,17 +14,22 @@ export async function POST(req: NextRequest) {
     const { email, name, brand, trialStatus, role } = await req.json();
 
     if (!email || !role) {
-      return NextResponse.json({ ok: false, error: 'email and role required' }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: 'email and role required' },
+        { status: 400 }
+      );
     }
 
     const session = JSON.stringify({ email, name, brand, trialStatus, role });
-    const maxAge = (trialStatus === 'team' || role === 'super') ? 90 * 86400 : 3 * 86400;
+    const maxAge  = (trialStatus === 'team' || role === 'super')
+      ? 90 * 86400
+      :  3 * 86400;
 
     const res = NextResponse.json({ ok: true });
     res.cookies.set('arena_session', session, {
       httpOnly: true,
-      secure:   process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure:   true,        // required — sameSite: 'none' demands secure
+      sameSite: 'none',      // allows cross-origin sends from antcpu.com/cloud/
       maxAge,
       path:     '/',
     });
