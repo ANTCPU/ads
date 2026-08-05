@@ -258,28 +258,41 @@ export default function ProfileClient() {
 
           {/* ── About ── */}
           {activeTab === 'About' && (
-            <div style={card}>
-              <div style={lbl}>About</div>
-              <p style={{ fontSize: '0.85rem', color: '#aaa', lineHeight: 1.7, margin: '0 0 1rem' }}>{profile.bio || 'No bio yet.'}</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                {profile.website && (
-                  <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#aaa', textDecoration: 'none', fontSize: '0.82rem' }}>
-                    <FavIcon url={profile.website} socialKey="website" />
-                    {profile.website.replace(/https?:\/\//, '')}
-                  </a>
-                )}
-                {profile.contact && (
-                  <a href={profile.contact.startsWith('http') ? profile.contact : `https://${profile.contact}`}
-                    target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#aaa', textDecoration: 'none', fontSize: '0.82rem' }}>
-                    📬 {profile.contact}
-                  </a>
-                )}
-              </div>
-              {/* YouTube */}
-              <div style={lbl}>▶ {profile.youtube ? 'YouTube' : 'Arena Video'}</div>
+  <div>
+    {/* Bio card */}
+    <div style={card}>
+      <div style={lbl}>About</div>
+      <p style={{
+        fontSize: '0.88rem', color: '#ccc', lineHeight: 1.7,
+        margin: 0, whiteSpace: 'pre-wrap',
+      }}>
+        {profile.bio || 'No bio yet.'}
+      </p>
+      {profile.website && (
+        <a
+          href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
+          target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+            marginTop: '0.75rem', fontSize: '0.78rem', color: topTier.color,
+            textDecoration: 'none' }}>
+          🌐 {profile.website.replace(/https?:\/\//, '')}
+        </a>
+      )}
+      {profile.contact && (
+        <a
+          href={profile.contact.startsWith('http') ? profile.contact : `mailto:${profile.contact}`}
+          target="_blank" rel="noopener noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+            marginTop: '0.5rem', fontSize: '0.78rem', color: '#888',
+            textDecoration: 'none' }}>
+          📬 {profile.contact}
+        </a>
+      )}
+    </div>
+
+    {/* YouTube card */}
+    <div style={card}>
+      <div style={lbl}>▶ {profile.youtube ? 'YouTube' : 'Arena Video'}</div>
               <iframe
                 src={getYouTubeEmbedUrl(profile.youtube)}
                 style={{ width: '100%', aspectRatio: '16/9', border: 'none', borderRadius: '10px' }}
