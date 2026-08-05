@@ -346,13 +346,15 @@ export default function ArenaUniversalClient() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
+  <ArenaNav
+  role={user.role as 'super' | 'admin' | 'team' | 'user'}
+  userName={user.name}
+  userEmail={user.email}
+  userBrand={user.brand}
+  trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+  onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
+  />
 
-      <ArenaNav
-        role={isSuper ? 'admin' : user.trialStatus === 'team' ? 'team' : 'user'}
-        userName={user.name} userEmail={user.email} userBrand={user.brand}
-        trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
-        { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }
-      />
 
       {/* ── Preview modal ── */}
       {preview && (() => {
