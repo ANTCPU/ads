@@ -354,8 +354,7 @@ export default function ArenaNav({
           </div>
         </div>
       )}
-
-      {/* ── NAV BAR ── */}
+          {/* ── NAV BAR ── */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a',
         background: '#0a0a0a', position: 'sticky', top: 0, zIndex: 50 }}>
@@ -408,15 +407,14 @@ export default function ArenaNav({
             </span>
           )}
 
-          {/* ── ENVELOPE ── only when logged in */}
+          {/* ── ENVELOPE ── */}
           {userEmail && (
             <button
               onClick={() => setNotifOpen(true)}
-              title={unread > 0 ? `${unread} unread message${unread > 1 ? 's' : ''}` : 'Messages'}
+              title={unread > 0 ? `${unread} unread` : 'Messages'}
               style={{ position: 'relative', background: 'none', border: 'none',
                 cursor: 'pointer', fontSize: '1.05rem', padding: '0.4rem',
-                color: unread > 0 ? '#fff' : '#444', lineHeight: 1,
-                transition: 'color 0.15s' }}
+                color: unread > 0 ? '#fff' : '#444', lineHeight: 1 }}
             >
               ✉️
               {unread > 0 && (
@@ -443,7 +441,6 @@ export default function ArenaNav({
               ))}
             </button>
 
-            {/* Dropdown */}
             {open && (
               <div style={{ position: 'absolute', top: 'calc(100% + 0.5rem)', right: 0,
                 background: '#111', border: '1px solid #1a1a1a', borderRadius: '14px',
@@ -476,14 +473,10 @@ export default function ArenaNav({
 
                 <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
 
-                {/* Back to admin — legacy impersonation */}
+                {/* Back to admin */}
                 {isPrevAdmin && (
                   <button
-                    onClick={() => {
-                      setOpen(false);
-                      localStorage.removeItem('arena_prev_admin');
-                      router.push('/dashboard/antcpu');
-                    }}
+                    onClick={() => { setOpen(false); localStorage.removeItem('arena_prev_admin'); router.push('/dashboard/antcpu'); }}
                     style={{ display: 'flex', alignItems: 'center', gap: '0.6rem',
                       width: '100%', padding: '0.7rem 1rem', color: '#00ffcc',
                       background: '#00ffcc08', border: 'none', borderRadius: '8px',
@@ -507,6 +500,8 @@ export default function ArenaNav({
           </div>
         </div>
       </nav>
+
+     
     </>
   );
 }
