@@ -1,7 +1,7 @@
 'use client';
 import VaultModal from './components/VaultModal';
 import React, { useState, useEffect } from 'react';
-import { Locale } from './lib/i18n/index';
+import { Locale, t, isRTL } from './lib/i18n/index';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { createClient } from '@supabase/supabase-js';
 
@@ -17,62 +17,23 @@ const C = {
   gold: '#D4AF37', teal: '#00ffcc', white: '#fff', muted: '#888', muted2: '#555',
 };
 
-// ─── Static data ──────────────────────────────────────────────────────────────
-const STEPS = [
-  { n: '01', title: 'Join Free',      desc: 'Name, email, brand. 60 seconds.' },
-  { n: '02', title: 'Build Your Ad',  desc: 'Title, URL, description. 2 minutes.' },
-  { n: '03', title: 'Go Live Today',  desc: 'Aria reviews it. Live same day.' },
-  { n: '04', title: 'Earn & Climb',   desc: 'Share ads, earn points, rise through tiers.' },
-];
-
-const LADDER = [
-  { tier: 'Entry',    color: C.teal,   pts: 'Start here — free',  desc: 'Standard rotation across the network' },
-  { tier: 'Rising',   color: C.blue,   pts: 'Earn 100 pts',       desc: 'Higher priority + increased impressions' },
-  { tier: 'Featured', color: C.orange, pts: 'Earn 300 pts',       desc: 'Featured placement + cross-channel distribution' },
-  { tier: 'Top Tier', color: C.gold,   pts: 'Earn 750 pts',       desc: 'Full network + creator channel integrations' },
-];
-
-const PLANS = [
-  {
-    name: 'Free', price: 'Free', period: 'forever', color: C.teal,
-    badge: '', badgeColor: '',
-    features: ['Text ad in the Arena', 'Aria reviews your ad 🦋', 'Entry tier placement', 'Basic agent previews'],
-    cta: 'Join Free →', disabled: false,
-  },
-  {
-    name: 'Arena', price: 'Free', period: 'to start', color: C.orange,
-    badge: 'Most Popular', badgeColor: C.orange,
-    features: ['Everything in Free', 'Promote to earn points', 'Aria + Herald messages', 'Scout stats 🔍', 'Forge ad review ⚙️'],
-    cta: 'Join the Arena →', disabled: false,
-  },
-  {
-    name: 'Pro', price: '$27', period: '/mo', color: C.purple,
-    badge: 'Coming Soon', badgeColor: C.purple,
-    features: ['Everything in Arena', '🔒 Rising tier', 'Full agent suite', 'Herald digest 📣', 'Scout analytics'],
-    cta: 'Coming Soon', disabled: true,
-  },
-  {
-    name: 'Deluxe', price: '$79', period: '/mo', color: C.gold,
-    badge: 'Coming Soon', badgeColor: C.gold,
-    features: ['Everything in Pro', '🔒 Featured tier', '10-antbot campaign', 'Custom brand voice', 'Vault protection 🔒'],
-    cta: 'Coming Soon', disabled: true,
-  },
-];
-
 const MAP_STATS = [
-  { v: '2.1M+', l: 'Users' }, { v: '148K', l: 'Sellers' },
-  { v: '173K+', l: 'Transactions' }, { v: '88', l: 'Countries' },
+  { v: '2.1M+', l: 'Users'        },
+  { v: '148K',  l: 'Sellers'      },
+  { v: '173K+', l: 'Transactions' },
+  { v: '88',    l: 'Countries'    },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
-  const [scrolled,      setScrolled]      = useState(false);
-  const [vaultOpen,     setVaultOpen]     = useState(false);
-  const [piPrice,       setPiPrice]       = useState('...');
-  const [liveAds,       setLiveAds]       = useState<number | null>(null);
-  const [liveBrands,    setLiveBrands]    = useState<number | null>(null);
-  const [liveCountries, setLiveCountries] = useState<number | null>(null);
-  const [livePoints,    setLivePoints]    = useState<number | null>(null);
+
+  const [scrolled,       setScrolled]       = useState(false);
+  const [vaultOpen,      setVaultOpen]      = useState(false);
+  const [piPrice,        setPiPrice]        = useState('...');
+  const [liveAds,        setLiveAds]        = useState<number | null>(null);
+  const [liveBrands,     setLiveBrands]     = useState<number | null>(null);
+  const [liveCountries,  setLiveCountries]  = useState<number | null>(null);
+  const [livePoints,     setLivePoints]     = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/pi-price').then(r => r.json()).then(d => {
@@ -94,7 +55,70 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ─── Shared style helpers ─────────────────────────────────────────────────
+  // ── Locale-aware data arrays — defined inside component so t() has locale ──
+
+  const STEPS = [
+    { n: '01', title: t(locale, 'step_01_title'), desc: t(locale, 'step_01_desc') },
+    { n: '02', title: t(locale, 'step_02_title'), desc: t(locale, 'step_02_desc') },
+    { n: '03', title: t(locale, 'step_03_title'), desc: t(locale, 'step_03_desc') },
+    { n: '04', title: t(locale, 'step_04_title'), desc: t(locale, 'step_04_desc') },
+  ];
+
+  const LADDER = [
+    { tier: 'Entry',    color: C.teal,   pts: t(locale, 'ladder_entry_pts'),    desc: t(locale, 'ladder_entry_desc')    },
+    { tier: 'Rising',   color: C.blue,   pts: t(locale, 'ladder_rising_pts'),   desc: t(locale, 'ladder_rising_desc')   },
+    { tier: 'Featured', color: C.orange, pts: t(locale, 'ladder_featured_pts'), desc: t(locale, 'ladder_featured_desc') },
+    { tier: 'Top Tier', color: C.gold,   pts: t(locale, 'ladder_top_pts'),      desc: t(locale, 'ladder_top_desc')      },
+  ];
+
+  const PLANS = [
+    {
+      name: t(locale, 'plan_trial_name'), price: t(locale, 'plan_trial_price'),
+      period: t(locale, 'plan_trial_period'), color: C.teal,
+      badge: '', badgeColor: '',
+      features: [
+        t(locale, 'plan_trial_f1'), t(locale, 'plan_trial_f2'),
+        t(locale, 'plan_trial_f3'), t(locale, 'plan_trial_f4'),
+      ],
+      cta: t(locale, 'plan_trial_cta'), disabled: false,
+    },
+    {
+      name: t(locale, 'plan_arena_name'), price: t(locale, 'plan_arena_price'),
+      period: t(locale, 'plan_arena_period'), color: C.orange,
+      badge: t(locale, 'plan_arena_badge'), badgeColor: C.orange,
+      features: [
+        t(locale, 'plan_arena_f1'), t(locale, 'plan_arena_f2'),
+        t(locale, 'plan_arena_f3'), t(locale, 'plan_arena_f4'),
+        t(locale, 'plan_arena_f5'),
+      ],
+      cta: t(locale, 'plan_arena_cta'), disabled: false,
+    },
+    {
+      name: t(locale, 'plan_pro_name'), price: t(locale, 'plan_pro_price'),
+      period: t(locale, 'plan_pro_period'), color: C.purple,
+      badge: t(locale, 'plan_pro_badge'), badgeColor: C.purple,
+      features: [
+        t(locale, 'plan_pro_f1'), t(locale, 'plan_pro_f2'),
+        t(locale, 'plan_pro_f3'), t(locale, 'plan_pro_f4'),
+        t(locale, 'plan_pro_f5'),
+      ],
+      cta: t(locale, 'plan_pro_cta'), disabled: true,
+    },
+    {
+      name: t(locale, 'plan_deluxe_name'), price: t(locale, 'plan_deluxe_price'),
+      period: t(locale, 'plan_deluxe_period'), color: C.gold,
+      badge: t(locale, 'plan_deluxe_badge'), badgeColor: C.gold,
+      features: [
+        t(locale, 'plan_deluxe_f1'), t(locale, 'plan_deluxe_f2'),
+        t(locale, 'plan_deluxe_f3'), t(locale, 'plan_deluxe_f4'),
+        t(locale, 'plan_deluxe_f5'),
+      ],
+      cta: t(locale, 'plan_deluxe_cta'), disabled: true,
+    },
+  ];
+
+  // ── Style helpers ──────────────────────────────────────────────────────────
+  const rtl  = isRTL(locale);
   const sec  = { maxWidth: '1100px', margin: '0 auto', padding: '0 clamp(16px,5vw,48px)' };
   const pad  = { padding: 'clamp(60px,8vw,100px) 0' };
   const tag  = { fontSize: '11px', fontWeight: 700, letterSpacing: '3px',
@@ -130,8 +154,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: C.bg, color: C.white,
-      fontFamily: 'system-ui,sans-serif', overflowX: 'hidden' }}>
+    <div
+      dir={rtl ? 'rtl' : 'ltr'}
+      style={{ background: C.bg, color: C.white,
+        fontFamily: 'system-ui,sans-serif', overflowX: 'hidden' }}
+    >
       <style>{css}</style>
 
       {/* ── NAV ── */}
@@ -148,15 +175,19 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           ⚡ ANTCPU ADS
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* ── Language switcher ──
+              Visible to all visitors including first-time / unauthenticated.
+              Routes to /${locale} pages which pass locale prop back to this
+              component. t() then renders all content in the selected language. */}
           <LanguageSwitcher />
           <button onClick={() => setVaultOpen(true)} className="nav-a"
             style={{ background: 'none', border: 'none', color: C.muted2,
               cursor: 'pointer', fontSize: '13px', transition: 'color 0.2s' }}>
-            Sign In
+            {t(locale, 'nav_signin')}
           </button>
           <a href="/login" className="cta"
             style={{ ...btn(C.orange), padding: '8px 18px', fontSize: '13px' }}>
-            Join Free →
+            {t(locale, 'nav_start')}
           </a>
         </div>
       </nav>
@@ -167,20 +198,21 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ position: 'relative', minHeight: '90vh',
           display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
 
-          {/* subtle grid lines */}
+          {/* Grid lines */}
           {[15,30,50,70,85].map((p,i) => (
             <div key={i} style={{ position: 'absolute', top: 0, bottom: 0,
               left: `${p}%`, width: 1,
               background: 'linear-gradient(to bottom,transparent,#ffffff06,transparent)' }} />
           ))}
-          {/* glow */}
+          {/* Glow */}
           <div style={{ position: 'absolute', top: '30%', left: '50%',
-            transform: 'translate(-50%,-50%)', width: 700, height: 700, pointerEvents: 'none',
+            transform: 'translate(-50%,-50%)', width: 700, height: 700,
+            pointerEvents: 'none',
             background: `radial-gradient(circle,${C.blue}10 0%,transparent 70%)` }} />
 
           <div className="hero-in" style={{ ...sec, width: '100%' }}>
 
-            {/* live badge */}
+            {/* Live badge */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8,
               background: `${C.teal}10`, border: `1px solid ${C.teal}25`,
               borderRadius: 999, padding: '6px 16px', fontSize: 12,
@@ -190,7 +222,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 display: 'inline-block' }} />
               {liveAds !== null
                 ? `${liveAds} ads live · ${liveBrands} brands · ${liveCountries} countries`
-                : 'The Arena is Live'}
+                : t(locale, 'hero_badge')}
             </div>
 
             <h1 style={{ fontSize: 'clamp(38px,6.5vw,76px)', fontWeight: 900,
@@ -203,8 +235,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
             <p style={{ fontSize: 'clamp(15px,1.8vw,19px)', color: C.muted,
               maxWidth: 520, lineHeight: 1.7, marginBottom: 32 }}>
-              The ad network that rewards you for promoting.
-              Real brands. Real engagement. Real results.
+              {t(locale, 'hero_sub')}
               {liveBrands && (
                 <strong style={{ color: C.white }}>
                   {' '}Already working for {liveBrands}+ brands.
@@ -214,15 +245,15 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <a href="/login" className="cta" style={btn(C.orange)}>
-                Join the Arena →
+                {t(locale, 'hero_cta_primary')}
               </a>
               <a href="/arena" className="ghost" style={ghostBtn}>
-                Browse the Arena →
+                {t(locale, 'hero_cta_secondary')}
               </a>
             </div>
 
             <p style={{ fontSize: 12, color: C.muted2 }}>
-              Free to join · No credit card · Sign in with Pi Network on login
+              {t(locale, 'hero_trial')}
             </p>
 
           </div>
@@ -232,13 +263,12 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ borderTop: `1px solid ${C.border}`,
           borderBottom: `1px solid ${C.border}`, background: '#0d0d0d' }}>
           <div style={{ ...sec, display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))',
-            gap: 1 }}>
+            gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 1 }}>
             {[
-              { v: liveAds     !== null ? String(liveAds)              : '…', l: 'Live Ads',     c: C.blue   },
-              { v: liveBrands  !== null ? String(liveBrands)           : '…', l: 'Brands',       c: C.orange },
-              { v: liveCountries !== null ? String(liveCountries)      : '…', l: 'Countries',    c: C.gold   },
-              { v: livePoints  !== null ? livePoints.toLocaleString()  : '…', l: 'Total Points', c: C.teal   },
+              { v: liveAds        !== null ? String(liveAds)             : '…', l: 'Live Ads',     c: C.blue   },
+              { v: liveBrands     !== null ? String(liveBrands)          : '…', l: 'Brands',       c: C.orange },
+              { v: liveCountries  !== null ? String(liveCountries)       : '…', l: 'Countries',    c: C.gold   },
+              { v: livePoints     !== null ? livePoints.toLocaleString() : '…', l: 'Total Points', c: C.teal   },
             ].map(s => (
               <div key={s.l} style={{ textAlign: 'center', padding: '28px 16px',
                 borderRight: `1px solid ${C.border}` }}>
@@ -254,8 +284,8 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         {/* ── HOW IT WORKS ── */}
         <section style={{ ...pad, borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>How it works</div>
-            <h2 style={h2}>Up and running in minutes.</h2>
+            <div style={tag}>{t(locale, 'how_section_label')}</div>
+            <h2 style={h2}>{t(locale, 'how_title')}</h2>
             <div style={{ display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
               {STEPS.map((s, i) => (
@@ -279,12 +309,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ ...pad, background: '#0d0d0d',
           borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>Promotion System</div>
-            <h2 style={h2}>The Ladder.</h2>
+            <div style={tag}>{t(locale, 'ladder_section_label')}</div>
+            <h2 style={h2}>{t(locale, 'ladder_title')}</h2>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 32,
               maxWidth: 480, lineHeight: 1.65 }}>
-              Earn points through clicks, shares, and reactions.
-              Points drive your rank. Higher rank means more reach.
+              {t(locale, 'ladder_sub')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {LADDER.map((row, i) => (
@@ -309,10 +338,10 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         {/* ── PRICING ── */}
         <section style={{ ...pad, borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>Pricing</div>
-            <h2 style={h2}>Simple, transparent pricing.</h2>
+            <div style={tag}>{t(locale, 'pricing_section_label')}</div>
+            <h2 style={h2}>{t(locale, 'pricing_title')}</h2>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 40 }}>
-              Start free. No credit card. No contracts.
+              {t(locale, 'pricing_sub')}
             </p>
             <div style={{ display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 16 }}>
@@ -320,8 +349,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 <div key={i} className="card-hover"
                   style={{ background: C.card, border: `1px solid ${C.border}`,
                     borderRadius: 16, padding: '26px 22px', position: 'relative',
-                    transition: 'all 0.25s', display: 'flex',
-                    flexDirection: 'column' }}>
+                    transition: 'all 0.25s', display: 'flex', flexDirection: 'column' }}>
                   {plan.badge && (
                     <div style={{ position: 'absolute', top: -11, left: 20,
                       background: plan.badgeColor, color: '#000',
@@ -351,7 +379,9 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                   {plan.disabled ? (
                     <div style={{ background: C.border, color: C.muted2,
                       borderRadius: 10, padding: '11px', textAlign: 'center',
-                      fontSize: 13, fontWeight: 600 }}>Coming Soon</div>
+                      fontSize: 13, fontWeight: 600 }}>
+                      {plan.cta}
+                    </div>
                   ) : (
                     <a href="/login" className="cta"
                       style={{ ...btn(plan.color), textAlign: 'center',
@@ -369,15 +399,15 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ ...pad, background: '#0d0d0d',
           borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>Featured Partner</div>
+            <div style={tag}>{t(locale, 'partner_section_label')}</div>
             <div style={{ background: C.card, border: `1px solid ${C.gold}30`,
               borderRadius: 20, padding: 'clamp(28px,4vw,48px)',
               position: 'relative', overflow: 'hidden' }}>
 
-              {/* gold top line */}
+              {/* Gold top line */}
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2,
                 background: `linear-gradient(to right,transparent,${C.gold},transparent)` }} />
-              {/* gold glow */}
+              {/* Gold glow */}
               <div style={{ position: 'absolute', top: -60, right: -60,
                 width: 200, height: 200, borderRadius: '50%', pointerEvents: 'none',
                 background: `radial-gradient(circle,${C.gold}18 0%,transparent 70%)` }} />
@@ -397,7 +427,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
               <p style={{ color: C.muted, fontSize: 14, lineHeight: 1.7,
                 maxWidth: 600, marginBottom: 28 }}>
-                The world's largest Pi commerce platform — connecting buyers and sellers
+                The world&apos;s largest Pi commerce platform — connecting buyers and sellers
                 across 88 countries using Pi Network. Every Map of Pi user in the Arena
                 is a Country Champion representing their nation.
               </p>
@@ -405,14 +435,12 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               <div style={{ display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit,minmax(90px,1fr))',
                 gap: 12, marginBottom: 28 }}>
-                {[...MAP_STATS, { v: piPrice, l: 'Pi Price' }].map((st, i) => (
+                {[...MAP_STATS, { v: piPrice, l: t(locale, 'partner_price_label') }].map((st, i) => (
                   <div key={i} style={{ background: '#0a0a0a',
                     border: `1px solid ${C.border}`, borderRadius: 10,
                     padding: '14px 10px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 20, fontWeight: 800,
-                      color: C.gold }}>{st.v}</div>
-                    <div style={{ fontSize: 10, color: C.muted2,
-                      marginTop: 3 }}>{st.l}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.gold }}>{st.v}</div>
+                    <div style={{ fontSize: 10, color: C.muted2, marginTop: 3 }}>{st.l}</div>
                   </div>
                 ))}
               </div>
@@ -424,8 +452,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                   marginBottom: 6, fontSize: 14 }}>
                   🏆 Country Champion Program
                 </div>
-                <p style={{ color: C.muted, fontSize: 13,
-                  lineHeight: 1.65, margin: 0 }}>
+                <p style={{ color: C.muted, fontSize: 13, lineHeight: 1.65, margin: 0 }}>
                   90 days free · 10 AI antbots deployed · Represent your country.
                   Every Map of Pi pioneer is automatically a Country Champion.
                 </p>
@@ -442,8 +469,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                     fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
                   🗺️ Claim Your Country →
                 </a>
-                <a href="https://youtube.com/@mapofpi" target="_blank"
-                  rel="noopener noreferrer"
+                <a href="https://youtube.com/@mapofpi" target="_blank" rel="noopener noreferrer"
                   style={{ background: 'transparent', border: `1px solid ${C.border2}`,
                     color: C.muted, borderRadius: 8, padding: '9px 18px',
                     fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
@@ -458,40 +484,34 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         {/* ── FINAL CTA ── */}
         <section style={{ ...pad }}>
           <div style={{ ...sec, textAlign: 'center' }}>
-
-            <div style={tag}>Get Started</div>
-
+            <div style={tag}>{t(locale, 'final_section_label')}</div>
             <h2 style={{ ...h2, textAlign: 'center', fontSize: 'clamp(28px,5vw,52px)' }}>
               The Arena is open.<br />
               <span style={{ color: C.orange }}>Your brand belongs here.</span>
             </h2>
-
             <p style={{ color: C.muted, fontSize: 15, lineHeight: 1.7,
               maxWidth: 460, margin: '0 auto 36px' }}>
               {liveAds !== null
                 ? `${liveAds} ads live. ${liveBrands} brands competing. Join them.`
-                : 'Real brands. Real engagement. Real results.'}
+                : t(locale, 'final_sub')}
             </p>
-
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap',
               justifyContent: 'center', marginBottom: 20 }}>
               <a href="/login" className="cta"
                 style={{ ...btn(C.orange), fontSize: 16, padding: '14px 36px' }}>
-                Join the Arena →
+                {t(locale, 'final_cta')}
               </a>
               <a href="/arena" className="ghost" style={{ ...ghostBtn, fontSize: 16 }}>
-                Browse the Arena →
+                {t(locale, 'hero_cta_secondary')}
               </a>
             </div>
-
             <button onClick={() => setVaultOpen(true)}
               style={{ background: 'none', border: 'none', color: C.muted2,
                 cursor: 'pointer', fontSize: 13, marginTop: 4 }}>
-              Already in the Arena? Sign In →
+              {t(locale, 'final_signin')}
             </button>
-
-          </div>
-        </section>
+            </div>
+          </section>
 
         {/* ── FOOTER ── */}
         <footer style={{ borderTop: `1px solid ${C.border}`,
@@ -502,7 +522,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
             ⚡ ANTCPU ADS
           </span>
           <div style={{ display: 'flex', gap: 24 }}>
-            {[['Arena','/arena'],['About','/about'],['Profile','/profile']].map(([l,h]) => (
+            {[
+              ['Arena',   '/arena'  ],
+              ['About',   '/about'  ],
+              ['Profile', '/profile'],
+            ].map(([l, h]) => (
               <a key={l} href={h} className="nav-a"
                 style={{ fontSize: 13, color: C.muted2,
                   textDecoration: 'none', transition: 'color 0.2s' }}>
@@ -510,7 +534,9 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               </a>
             ))}
           </div>
-          <span style={{ fontSize: 12, color: C.muted2 }}>© 2026 ANTCPU</span>
+          <span style={{ fontSize: 12, color: C.muted2 }}>
+            {t(locale, 'footer_copy')}
+          </span>
         </footer>
 
       </div>
