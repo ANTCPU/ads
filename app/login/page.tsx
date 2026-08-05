@@ -403,11 +403,15 @@ await persistSession(
             piUser.role === 'super' ? '/dashboard/antcpu' :
             piUser.role === 'admin' ? '/dashboard/users' :
             '/dashboard/user';
-        } catch (err) {
-          console.error('[Pi Login]', err);
-          setLoading(false);
-        }
-      }}
+          } catch (err: any) {
+           console.error('[Pi Login]', err);
+           setLoading(false);
+            // Show friendly message if outside Pi Browser
+            if (err?.message?.includes('timeout') || err?.message?.includes('Pi Browser')) {
+             alert('Open this page in Pi Browser to sign in with Pi.');
+          }
+         }
+       }
       disabled={loading}
       style={{
         width: '100%', background: loading ? '#1a1a1a' : '#7928ca20',
