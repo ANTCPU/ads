@@ -148,7 +148,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           ⚡ ANTCPU ADS
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <LanguageSwitcher locale={locale} />
+          <LanguageSwitcher />
           <button onClick={() => setVaultOpen(true)} className="nav-a"
             style={{ background: 'none', border: 'none', color: C.muted2,
               cursor: 'pointer', fontSize: '13px', transition: 'color 0.2s' }}>
