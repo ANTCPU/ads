@@ -39,15 +39,12 @@ const TIER_CONFIG: Record<string, { color: string; label: string }> = {
 const TABS = ['About', 'Ads', 'Performance', 'Connect'] as const;
 type Tab = typeof TABS[number];
 
-const SOCIAL_DOMAINS: Record<string, string> = {
-  website: '', twitter: 'x.com', instagram: 'instagram.com',
-  facebook: 'facebook.com', tiktok: 'tiktok.com', youtube: 'youtube.com',
-  linkedin: 'linkedin.com', discord: 'discord.com', telegram: 'telegram.org',
-};
+// Default ANTCPU video shown when profile has no YouTube
+const ANTCPU_FALLBACK_VIDEO = 'https://www.youtube.com/embed/PNoY1ffzciI?autoplay=0&rel=0';
 
 const CONNECT_SOCIALS: { key: keyof Profile; label: string; icon: string }[] = [
   { key: 'website',   label: 'Website',     icon: '🌐' },
-  { key: 'twitter',   label: 'Twitter / X', icon: '𝕏' },
+  { key: 'twitter',   label: 'Twitter / X', icon: '𝕏'  },
   { key: 'instagram', label: 'Instagram',   icon: '📸' },
   { key: 'facebook',  label: 'Facebook',    icon: '📘' },
   { key: 'tiktok',    label: 'TikTok',      icon: '🎵' },
@@ -59,14 +56,16 @@ const CONNECT_SOCIALS: { key: keyof Profile; label: string; icon: string }[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getYouTubeEmbedUrl(url: string): string | null {
-  const watchId = url.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1];
-  if (watchId) return `https://www.youtube.com/embed/${watchId}?autoplay=0&rel=0`;
-  const handle = url.match(/@([\w-]+)/)?.[1];
-  if (handle) return `https://www.youtube.com/embed?listType=user_uploads&list=${handle}&autoplay=0`;
-  const channelId = url.match(/channel\/([\w-]+)/)?.[1];
-  if (channelId) return `https://www.youtube.com/embed?listType=user_uploads&list=${channelId}&autoplay=0`;
-  return null;
+function getYouTubeEmbedUrl(url?: string): string {
+  if (url) {
+    const watchId = url.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/)?.[1];
+    if (watchId) return `https://www.youtube.com/embed/${watchId}?autoplay=0&rel=0`;
+    const handle = url.match(/@([\w-]+)/)?.[1];
+    if (handle) return `https://www.youtube.com/embed?listType=user_uploads&list=${handle}&autoplay=0`;
+    const channelId = url.match(/channel\/([\w-]+)/)?.[1];
+    if (channelId) return `https://www.youtube.com/embed?listType=user_uploads&list=${channelId}&autoplay=0`;
+  }
+  return ANTCPU_FALLBACK_VIDEO;
 }
 
 function buildShareText(profile: Profile): string {
@@ -80,9 +79,9 @@ function buildShareText(profile: Profile): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProfileClient() {
-  const router   = useRouter();
-  const params   = useParams();
-  const id       = decodeURIComponent(params.id as string);
+  const router = useRouter();
+  const params = useParams();
+  const id     = decodeURIComponent(params.id as string);
 
   const [profile,   setProfile]   = useState<Profile | null>(null);
   const [ads,       setAds]       = useState<Ad[]>([]);
@@ -93,8 +92,6 @@ export default function ProfileClient() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareText, setShareText] = useState('');
   const [copied,    setCopied]    = useState(false);
-
-  // ── Boot ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -129,8 +126,6 @@ export default function ProfileClient() {
     setLoading(false);
   }
 
-  // ── Share ─────────────────────────────────────────────────────────────────
-
   function openShare() {
     if (!profile) return;
     setShareText(buildShareText(profile));
@@ -154,7 +149,7 @@ export default function ProfileClient() {
     });
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  // ── Guards ────────────────────────────────────────────────────────────────
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a',
@@ -164,9 +159,9 @@ export default function ProfileClient() {
   );
 
   if (!profile) return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', color: '#555', gap: '1rem' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex',
+      flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      color: '#555', gap: '1rem' }}>
       <div style={{ fontSize: '2.5rem' }}>👤</div>
       <div style={{ fontWeight: 700, color: '#fff' }}>Profile not found</div>
       <div style={{ fontSize: '0.82rem' }}>This advertiser hasn't set up their profile yet.</div>
@@ -182,21 +177,23 @@ export default function ProfileClient() {
 
   const topTier   = TIER_CONFIG[ads[0]?.tier] || TIER_CONFIG.entry;
   const tier      = previewAd ? (TIER_CONFIG[previewAd.tier] || TIER_CONFIG.entry) : topTier;
-  const embedUrl  = profile.youtube ? getYouTubeEmbedUrl(profile.youtube) : null;
-  const totalPts  = ads.reduce((s, a) => s + (a.points || 0), 0);
+  const embedUrl  = getYouTubeEmbedUrl(profile.youtube);
+  const totalPts  = ads.reduce((s, a) => s + (a.points      || 0), 0);
   const totalClks = ads.reduce((s, a) => s + (a.click_count || 0), 0);
   const totalShrs = ads.reduce((s, a) => s + (a.share_count || 0), 0);
 
   // ── Styles ────────────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
-    background: tokens.card, border: `1px solid ${tokens.border}`,
-    borderRadius: '14px', padding: '1.25rem', marginBottom: '0.75rem',
+    background: tokens.card,
+    border: `1px solid ${tokens.border}`,
+    borderRadius: '14px',
+    padding: '1.25rem',
+    marginBottom: '0.75rem',
   };
   const lbl: React.CSSProperties = {
-    fontSize: '0.65rem', color: '#555', fontWeight: 700,
+    display: 'block', fontSize: '0.65rem', color: '#555', fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.65rem',
-    display: 'block',
   };
   const pill = (color: string): React.CSSProperties => ({
     background: `${color}15`, border: `1px solid ${color}40`, color,
@@ -205,8 +202,8 @@ export default function ProfileClient() {
   });
   const statBox = (color: string): React.CSSProperties => ({
     background: '#0a0a0a', border: `1px solid #1a1a1a`,
-    borderRadius: '10px', padding: '1rem', textAlign: 'center' as const,
-    borderTop: `2px solid ${color}`,
+    borderTop: `2px solid ${color}`, borderRadius: '10px',
+    padding: '1rem', textAlign: 'center' as const,
   });
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -220,340 +217,339 @@ export default function ProfileClient() {
         height: 52, display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', position: 'sticky', top: 0,
         background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(12px)', zIndex: 50 }}>
-        <span style={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.08em',
-          color: '#f0883e', cursor: 'pointer' }}
+        <span style={{ fontWeight: 800, fontSize: '0.85rem',
+          letterSpacing: '0.08em', color: '#f0883e', cursor: 'pointer' }}
           onClick={() => router.push('/')}>
           ⚡ ANTCPU ADS
         </span>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => router.push('/arena')}
             style={{ background: 'none', border: '1px solid #222', color: '#555',
-              borderRadius: '8px', padding: '0.4rem 0.9rem', fontSize: '0.78rem', cursor: 'pointer' }}>
+              borderRadius: '8px', padding: '0.4rem 0.9rem',
+              fontSize: '0.78rem', cursor: 'pointer' }}>
             🏟 Arena
           </button>
           {isOwn && (
             <button onClick={() => router.push('/profile')}
               style={{ background: topTier.color, border: 'none', color: '#fff',
-                borderRadius: '8px', padding: '0.4rem 0.9rem', fontSize: '0.78rem',
-                fontWeight: 700, cursor: 'pointer' }}>
-              ✏️ Edit
+                borderRadius: '8px', padding: '0.4rem 0.9rem',
+                fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+              ✏️ Edit Profile
             </button>
           )}
         </div>
       </div>
 
-      {/* ── LAYOUT ── */}
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '1.5rem 1.25rem',
-        display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,2fr)',
-        gap: '1.25rem' }}>
+      {/* ── PAGE ── */}
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '1.5rem 1.25rem' }}>
 
-        {/* ── LEFT COLUMN ── */}
-        <div>
-
-          {/* Ad preview card */}
-          <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: '0.75rem' }}>
-            <div style={{ padding: '0.75rem 1rem', borderBottom: `1px solid ${tokens.border}` }}>
-              <span style={lbl}>Live Ad Preview</span>
+        {/* ── HERO CARD — brand identity ── */}
+        <div style={{ ...card, marginBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between',
+            alignItems: 'flex-start', gap: '1rem' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: '1.3rem',
+                color: '#fff', marginBottom: '0.2rem', lineHeight: 1.2 }}>
+                {profile.brand || profile.name}
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#666', marginBottom: '0.75rem' }}>
+                {profile.name}
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={pill(topTier.color)}>{topTier.label}</span>
+                <span style={pill('#555')}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</span>
+                {totalPts > 0 && <span style={pill('#D4AF37')}>⚡ {totalPts} pts</span>}
+                {totalClks > 0 && <span style={pill('#0070f3')}>👆 {totalClks}</span>}
+                {totalShrs > 0 && <span style={pill('#7928ca')}>↗ {totalShrs}</span>}
+              </div>
             </div>
-            <div
-              onClick={() => previewAd && window.open(previewAd.url, '_blank', 'noopener,noreferrer')}
-              style={{ padding: '1.25rem', minHeight: '160px',
-                cursor: previewAd ? 'pointer' : 'default',
-                borderLeft: `3px solid ${tier.color}` }}>
-              {previewAd ? (
-                <>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
-                    <span style={pill(tier.color)}>{profile.brand}</span>
-                    <span style={pill('#555')}>{tier.label}</span>
-                    {previewAd.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem',
-                    marginBottom: '0.5rem', lineHeight: 1.4, color: '#fff' }}>
-                    {previewAd.title}
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: '#888',
-                    lineHeight: 1.6, marginBottom: '0.75rem' }}>
-                    {previewAd.description.length > 100
-                      ? previewAd.description.slice(0, 100) + '…'
-                      : previewAd.description}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: tier.color, fontWeight: 600 }}>
-                    Visit → {previewAd.url.replace(/https?:\/\//, '')}
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: '#555', fontSize: '0.85rem', paddingTop: '1rem' }}>
-                  No active ads yet.
+            <button onClick={openShare}
+              style={{ background: topTier.color, border: 'none', color: '#fff',
+                borderRadius: '8px', padding: '0.5rem 1rem',
+                fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                flexShrink: 0 }}>
+              {copied ? '✓ Copied' : '↗ Share'}
+            </button>
+          </div>
+        </div>
+
+        {/* ── LIVE AD PREVIEW ── */}
+        <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: '0.75rem' }}>
+          <div style={{ padding: '0.65rem 1.25rem',
+            borderBottom: `1px solid ${tokens.border}` }}>
+            <span style={lbl}>Live Ad Preview</span>
+          </div>
+          <div
+            onClick={() => previewAd && window.open(previewAd.url, '_blank', 'noopener,noreferrer')}
+            style={{ padding: '1.25rem', cursor: previewAd ? 'pointer' : 'default',
+              borderLeft: `3px solid ${tier.color}` }}>
+            {previewAd ? (
+              <>
+                <div style={{ display: 'flex', gap: '0.4rem',
+                  flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+                  <span style={pill(tier.color)}>{profile.brand}</span>
+                  <span style={pill('#555')}>{tier.label}</span>
+                  {previewAd.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
+                </div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem',
+                  marginBottom: '0.5rem', lineHeight: 1.4, color: '#fff' }}>
+                  {previewAd.title}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#888',
+                  lineHeight: 1.65, marginBottom: '0.75rem' }}>
+                  {previewAd.description}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: tier.color, fontWeight: 600 }}>
+                  Visit → {previewAd.url.replace(/https?:\/\//, '')}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: '#555', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                No active ads yet.
+              </div>
+            )}
+          </div>
+          {/* Ad selector if multiple ads */}
+          {ads.filter(a => a.status === 'active').length > 1 && (
+            <div style={{ padding: '0.65rem 1.25rem',
+              borderTop: `1px solid ${tokens.border}`,
+              display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+              {ads.filter(a => a.status === 'active').map(ad => (
+                <button key={ad.id} onClick={() => setPreviewAd(ad)}
+                  style={{
+                    background: previewAd?.id === ad.id ? `${topTier.color}20` : 'transparent',
+                    border: `1px solid ${previewAd?.id === ad.id ? topTier.color + '60' : '#333'}`,
+                    color: previewAd?.id === ad.id ? topTier.color : '#555',
+                    borderRadius: '6px', padding: '0.25rem 0.6rem',
+                    fontSize: '0.7rem', cursor: 'pointer', fontWeight: 600,
+                  }}>
+                  {ad.title.length > 20 ? ad.title.slice(0, 20) + '…' : ad.title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── TABS ── */}
+        <div style={{ display: 'flex', gap: '0.4rem',
+          flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          {TABS.map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              style={{
+                background: activeTab === tab ? topTier.color : tokens.card,
+                border: activeTab === tab ? 'none' : `1px solid ${tokens.border}`,
+                color: activeTab === tab ? '#fff' : '#555',
+                borderRadius: '8px', padding: '0.45rem 1.1rem',
+                cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                transition: 'all 0.15s',
+              }}>
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* ── ABOUT ── */}
+        {activeTab === 'About' && (
+          <div>
+
+            {/* Bio card */}
+            <div style={card}>
+              <span style={lbl}>About {profile.brand}</span>
+              <p style={{ fontSize: '0.88rem', color: '#ccc',
+                lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
+                {profile.bio || 'No bio yet.'}
+              </p>
+              {(profile.website || profile.contact) && (
+                <div style={{ display: 'flex', flexDirection: 'column',
+                  gap: '0.4rem', marginTop: '1rem' }}>
+                  {profile.website && (
+                    <a href={profile.website.startsWith('http')
+                        ? profile.website : `https://${profile.website}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center',
+                        gap: '0.4rem', fontSize: '0.82rem',
+                        color: topTier.color, textDecoration: 'none' }}>
+                      🌐 {profile.website.replace(/https?:\/\//, '')}
+                    </a>
+                  )}
+                  {profile.contact && (
+                    <a href={profile.contact.startsWith('http')
+                        ? profile.contact : `mailto:${profile.contact}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center',
+                        gap: '0.4rem', fontSize: '0.82rem',
+                        color: '#888', textDecoration: 'none' }}>
+                      📬 {profile.contact}
+                    </a>
+                  )}
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Brand card */}
+            {/* YouTube card — always shown, fallback to ANTCPU video */}
+            <div style={card}>
+              <span style={lbl}>
+                {profile.youtube ? '▶ YouTube' : '▶ Featured Video — ANTCPU ADS'}
+              </span>
+              <iframe
+                src={embedUrl}
+                style={{ width: '100%', aspectRatio: '16/9',
+                  border: 'none', borderRadius: '10px', display: 'block' }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+              {!profile.youtube && (
+                <div style={{ fontSize: '0.72rem', color: '#555',
+                  marginTop: '0.6rem', textAlign: 'center' as const }}>
+                  Add your YouTube channel in your profile to show your own video here.
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ── ADS ── */}
+        {activeTab === 'Ads' && (
           <div style={card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between',
-              alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: '1.05rem',
-                  color: '#fff', marginBottom: '0.2rem' }}>
-                  {profile.brand || profile.name}
+            <span style={lbl}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</span>
+            {ads.length === 0 ? (
+              <div style={{ color: '#555', fontSize: '0.85rem' }}>No ads yet.</div>
+            ) : (
+              ads.map(ad => (
+                <div key={ad.id} onClick={() => setPreviewAd(ad)}
+                  style={{
+                    padding: '0.85rem', borderRadius: '10px',
+                    border: `1px solid ${previewAd?.id === ad.id
+                      ? topTier.color + '60' : tokens.border}`,
+                    marginBottom: '0.5rem', cursor: 'pointer',
+                    background: previewAd?.id === ad.id
+                      ? `${topTier.color}08` : 'transparent',
+                    transition: 'all 0.15s',
+                  }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.88rem',
+                    marginBottom: '0.35rem', color: '#fff' }}>
+                    {ad.title}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#666',
+                    marginBottom: '0.5rem', lineHeight: 1.4 }}>
+                    {ad.description.length > 100
+                      ? ad.description.slice(0, 100) + '…'
+                      : ad.description}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <span style={pill(TIER_CONFIG[ad.tier]?.color || '#555')}>{ad.tier}</span>
+                    <span style={pill(ad.status === 'active' ? '#22c55e' : '#555')}>
+                      {ad.status}
+                    </span>
+                    {(ad.points || 0) > 0 && (
+                      <span style={pill('#D4AF37')}>⚡ {ad.points} pts</span>
+                    )}
+                    {(ad.click_count || 0) > 0 && (
+                      <span style={pill('#0070f3')}>👆 {ad.click_count}</span>
+                    )}
+                    {(ad.share_count || 0) > 0 && (
+                      <span style={pill('#7928ca')}>↗ {ad.share_count}</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#666' }}>
-                  {profile.name}
-                </div>
-              </div>
-              <button onClick={openShare}
-                style={{ background: topTier.color, border: 'none', color: '#fff',
-                  borderRadius: '8px', padding: '0.35rem 0.85rem',
-                  fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
-                  flexShrink: 0 }}>
-                {copied ? '✓ Copied' : '↗ Share'}
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-              <span style={pill(topTier.color)}>{topTier.label}</span>
-              <span style={pill('#555')}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</span>
-              {totalPts > 0 && <span style={pill('#D4AF37')}>⚡ {totalPts} pts</span>}
-            </div>
+              ))
+            )}
           </div>
+        )}
 
-          {/* Quick stats card */}
-          {(totalClks > 0 || totalShrs > 0) && (
+        {/* ── PERFORMANCE ── */}
+        {activeTab === 'Performance' && (
+          <div>
             <div style={card}>
-              <span style={lbl}>Stats</span>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                <div style={statBox('#0070f3')}>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0070f3' }}>
-                    {totalClks}
+              <span style={lbl}>Overall</span>
+              <div style={{ display: 'grid',
+                gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem' }}>
+                {[
+                  { label: 'Points', value: totalPts,  color: '#D4AF37' },
+                  { label: 'Clicks', value: totalClks, color: '#0070f3' },
+                  { label: 'Shares', value: totalShrs, color: '#7928ca' },
+                ].map(s => (
+                  <div key={s.label} style={statBox(s.color)}>
+                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: s.color }}>
+                      {s.value}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: '#555', marginTop: 4 }}>
+                      {s.label}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.62rem', color: '#555', marginTop: 2 }}>Clicks</div>
-                </div>
-                <div style={statBox('#7928ca')}>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#7928ca' }}>
-                    {totalShrs}
-                  </div>
-                  <div style={{ fontSize: '0.62rem', color: '#555', marginTop: 2 }}>Shares</div>
-                </div>
+                ))}
               </div>
             </div>
-          )}
 
-        </div>
-
-        {/* ── RIGHT COLUMN ── */}
-        <div>
-
-          {/* Tab bar */}
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-            {TABS.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                style={{
-                  background: activeTab === tab ? topTier.color : tokens.card,
-                  border: activeTab === tab ? 'none' : `1px solid ${tokens.border}`,
-                  color: activeTab === tab ? '#fff' : '#555',
-                  borderRadius: '8px', padding: '0.4rem 1rem',
-                  cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
-                  transition: 'all 0.15s',
-                }}>
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          {/* ── ABOUT ── */}
-          {activeTab === 'About' && (
-            <div>
-
-              {/* Bio */}
+            {ads.length > 0 && (
               <div style={card}>
-                <span style={lbl}>About {profile.brand}</span>
-                <p style={{ fontSize: '0.88rem', color: '#ccc', lineHeight: 1.75,
-                  margin: 0, whiteSpace: 'pre-wrap' }}>
-                  {profile.bio || 'No bio yet.'}
-                </p>
-                {(profile.website || profile.contact) && (
-                  <div style={{ display: 'flex', flexDirection: 'column',
-                    gap: '0.4rem', marginTop: '1rem' }}>
-                    {profile.website && (
-                      <a href={profile.website.startsWith('http')
-                          ? profile.website : `https://${profile.website}`}
-                        target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center',
-                          gap: '0.4rem', fontSize: '0.78rem',
-                          color: topTier.color, textDecoration: 'none' }}>
-                        🌐 {profile.website.replace(/https?:\/\//, '')}
-                      </a>
-                    )}
-                    {profile.contact && (
-                      <a href={profile.contact.startsWith('http')
-                          ? profile.contact : `mailto:${profile.contact}`}
-                        target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'inline-flex', alignItems: 'center',
-                          gap: '0.4rem', fontSize: '0.78rem',
-                          color: '#888', textDecoration: 'none' }}>
-                        📬 {profile.contact}
-                      </a>
-                    )}
+                <span style={lbl}>Per Ad</span>
+                {ads.map(ad => (
+                  <div key={ad.id} style={{ display: 'flex', alignItems: 'center',
+                    gap: '0.75rem', padding: '0.65rem 0',
+                    borderBottom: `1px solid ${tokens.border}` }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff',
+                        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {ad.title}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#555', marginTop: 2 }}>
+                        {ad.tier} · {ad.status}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+                      <span style={pill('#D4AF37')}>⚡ {ad.points || 0}</span>
+                      <span style={pill('#0070f3')}>👆 {ad.click_count || 0}</span>
+                      <span style={pill('#7928ca')}>↗ {ad.share_count || 0}</span>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
+            )}
+          </div>
+        )}
 
-              {/* YouTube — only if profile has it */}
-              {embedUrl && (
-                <div style={card}>
-                  <span style={lbl}>▶ YouTube</span>
-                  <iframe
-                    src={embedUrl}
-                    style={{ width: '100%', aspectRatio: '16/9',
-                      border: 'none', borderRadius: '10px', display: 'block' }}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              )}
-
-            </div>
-          )}
-
-          {/* ── ADS ── */}
-          {activeTab === 'Ads' && (
-            <div style={card}>
-              <span style={lbl}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</span>
-              {ads.length === 0 ? (
-                <div style={{ color: '#555', fontSize: '0.85rem' }}>No ads yet.</div>
-              ) : (
-                ads.map(ad => (
-                  <div key={ad.id} onClick={() => setPreviewAd(ad)}
-                    style={{
-                      padding: '0.85rem', borderRadius: '10px',
-                      border: `1px solid ${previewAd?.id === ad.id
-                        ? topTier.color + '60' : tokens.border}`,
-                      marginBottom: '0.5rem', cursor: 'pointer',
-                      background: previewAd?.id === ad.id
-                        ? `${topTier.color}08` : 'transparent',
-                      transition: 'all 0.15s',
-                    }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem',
-                      marginBottom: '0.35rem', color: '#fff' }}>
-                      {ad.title}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#666',
-                      marginBottom: '0.5rem', lineHeight: 1.4 }}>
-                      {ad.description.length > 80
-                        ? ad.description.slice(0, 80) + '…'
-                        : ad.description}
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <span style={pill(TIER_CONFIG[ad.tier]?.color || '#555')}>
-                        {ad.tier}
+        {/* ── CONNECT ── */}
+        {activeTab === 'Connect' && (
+          <div style={card}>
+            <span style={lbl}>Connect with {profile.brand}</span>
+            {CONNECT_SOCIALS.filter(({ key }) => !!profile[key]).length === 0 ? (
+              <div style={{ color: '#555', fontSize: '0.85rem' }}>
+                No social links added yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {CONNECT_SOCIALS.map(({ key, label, icon }) => {
+                  const val = profile[key] as string | undefined;
+                  if (!val) return null;
+                  return (
+                    <a key={key}
+                      href={val.startsWith('http') ? val : `https://${val}`}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        color: '#aaa', textDecoration: 'none', fontSize: '0.85rem',
+                        padding: '0.65rem 0.85rem', borderRadius: '10px',
+                        border: `1px solid ${tokens.border}`, transition: 'border-color 0.15s' }}
+                      onMouseEnter={e =>
+                        (e.currentTarget.style.borderColor = topTier.color + '60')}
+                      onMouseLeave={e =>
+                        (e.currentTarget.style.borderColor = tokens.border)}>
+                      <span style={{ fontSize: '1rem', minWidth: '1.2rem' }}>{icon}</span>
+                      <span style={{ fontWeight: 600, color: '#e8eaf0' }}>{label}</span>
+                      <span style={{ color: '#555', fontSize: '0.72rem', marginLeft: 'auto',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap', maxWidth: '180px' }}>
+                        {val.replace(/https?:\/\//, '')}
                       </span>
-                      <span style={pill('#555')}>{ad.status}</span>
-                      {(ad.points || 0) > 0 && (
-                        <span style={pill('#D4AF37')}>⚡ {ad.points} pts</span>
-                      )}
-                      {(ad.click_count || 0) > 0 && (
-                        <span style={pill('#0070f3')}>👆 {ad.click_count}</span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* ── PERFORMANCE ── */}
-          {activeTab === 'Performance' && (
-            <div>
-              <div style={card}>
-                <span style={lbl}>Overall Performance</span>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem' }}>
-                  {[
-                    { label: 'Total Points', value: totalPts,  color: '#D4AF37' },
-                    { label: 'Total Clicks', value: totalClks, color: '#0070f3' },
-                    { label: 'Total Shares', value: totalShrs, color: '#7928ca' },
-                  ].map(s => (
-                    <div key={s.label} style={statBox(s.color)}>
-                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: s.color }}>
-                        {s.value}
-                      </div>
-                      <div style={{ fontSize: '0.62rem', color: '#555', marginTop: 4 }}>
-                        {s.label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    </a>
+                  );
+                })}
               </div>
+            )}
+          </div>
+        )}
 
-              {/* Per-ad breakdown */}
-              {ads.length > 0 && (
-                <div style={card}>
-                  <span style={lbl}>Per Ad</span>
-                  {ads.map(ad => (
-                    <div key={ad.id} style={{ display: 'flex', alignItems: 'center',
-                      gap: '0.75rem', padding: '0.65rem 0',
-                      borderBottom: `1px solid ${tokens.border}` }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 600,
-                          color: '#fff', whiteSpace: 'nowrap',
-                          overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {ad.title}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: '#555', marginTop: 2 }}>
-                          {ad.tier} · {ad.status}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                        <span style={pill('#D4AF37')}>⚡ {ad.points || 0}</span>
-                        <span style={pill('#0070f3')}>👆 {ad.click_count || 0}</span>
-                        <span style={pill('#7928ca')}>↗ {ad.share_count || 0}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── CONNECT ── */}
-          {activeTab === 'Connect' && (
-            <div style={card}>
-              <span style={lbl}>Connect with {profile.brand}</span>
-              {CONNECT_SOCIALS.filter(({ key }) => !!profile[key]).length === 0 ? (
-                <div style={{ color: '#555', fontSize: '0.85rem' }}>
-                  No social links added yet.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {CONNECT_SOCIALS.map(({ key, label, icon }) => {
-                    const val = profile[key] as string | undefined;
-                    if (!val) return null;
-                    return (
-                      <a key={key}
-                        href={val.startsWith('http') ? val : `https://${val}`}
-                        target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem',
-                          color: '#aaa', textDecoration: 'none', fontSize: '0.85rem',
-                          padding: '0.65rem 0.85rem', borderRadius: '10px',
-                          border: `1px solid ${tokens.border}`,
-                          transition: 'border-color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.borderColor = topTier.color + '60')}
-                        onMouseLeave={e => (e.currentTarget.style.borderColor = tokens.border)}>
-                        <span style={{ fontSize: '1rem', minWidth: '1.2rem' }}>{icon}</span>
-                        <span style={{ fontWeight: 600, color: '#e8eaf0' }}>{label}</span>
-                        <span style={{ color: '#555', fontSize: '0.72rem', marginLeft: 'auto',
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          maxWidth: '160px' }}>
-                          {val.replace(/https?:\/\//, '')}
-                        </span>
-                      </a>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-        </div>
       </div>
 
       {/* ── SHARE MODAL ── */}
@@ -572,17 +568,17 @@ export default function ProfileClient() {
                 ↗ Share {profile.brand}
               </div>
               <button onClick={() => setShareOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#555',
-                  cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+                style={{ background: 'none', border: 'none',
+                  color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
             </div>
             <textarea
               value={shareText}
-              onChange={e => setShareText(e.target.value)}
+                            onChange={e => setShareText(e.target.value)}
               rows={7}
               style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222',
                 borderRadius: 10, padding: '0.85rem', color: '#fff', fontSize: '0.85rem',
                 lineHeight: 1.6, resize: 'vertical', outline: 'none',
-                                boxSizing: 'border-box' as const }}
+                boxSizing: 'border-box' as const }}
             />
             <div style={{ fontSize: '0.68rem', color: '#555',
               marginTop: '0.4rem', marginBottom: '1rem' }}>
