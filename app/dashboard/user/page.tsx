@@ -15,39 +15,31 @@ const supabase = createClient(
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SessionUser = {
-  email: string;
-  name: string;
-  brand: string;
-  trialStatus: string;
-  role: string;
+  email: string; name: string; brand: string;
+  trialStatus: string; role: string;
 };
 
 type Ad = {
-  id: string;
-  brand: string;
-  title: string;
-  url: string;
-  description: string;
-  category: string;
-  status: string;
-  tier: string;
-  pinned: boolean;
-  email: string;
-  promo_code: string | null;
-  click_count: number;
-  share_count: number;
-  points: number;
-  rank_position: number;
+  id: string; brand: string; title: string; url: string;
+  description: string; category: string; status: string;
+  tier: string; pinned: boolean; email: string;
+  promo_code: string | null; click_count: number;
+  share_count: number; points: number; rank_position: number;
 };
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Tier ladder — single source of truth ─────────────────────────────────────
+// Used by TIER_CONFIG display AND TierStrip progress calculation.
 
-const TIER_CONFIG: Record<string, { color: string; label: string }> = {
-  entry:    { color: '#0070f3', label: 'Entry' },
-  rising:   { color: '#7928ca', label: 'Rising' },
-  featured: { color: '#ff0080', label: 'Featured' },
-  top_tier: { color: '#f0883e', label: 'Top Tier' },
-};
+const TIERS = [
+  { key: 'entry',    label: 'Entry',    color: '#0070f3', threshold: 0   },
+  { key: 'rising',   label: 'Rising',   color: '#7928ca', threshold: 100 },
+  { key: 'featured', label: 'Featured', color: '#ff0080', threshold: 300 },
+  { key: 'top_tier', label: 'Top Tier', color: '#f0883e', threshold: 750 },
+];
+
+const TIER_CONFIG: Record<string, { color: string; label: string }> = Object.fromEntries(
+  TIERS.map(t => [t.key, { color: t.color, label: t.label }])
+);
 
 const CATEGORY_TAGS: Record<string, string> = {
   'Pi Commerce':     '#mapofpi #pinetwork #picommerce #crypto',
@@ -56,6 +48,86 @@ const CATEGORY_TAGS: Record<string, string> = {
   'Product Launch':  '#productlaunch #startup #newproduct',
   'Other':           '#marketing #ads #business #antcpu',
 };
+
+// ─── TierStrip ────────────────────────────────────────────────────────────────
+// Inline progress bar — shows current tier, pts to next, progress bar.
+// Defined outside component — no re-render on every state change.
+
+function TierStrip({ points, tier }: { points: number; tier: string }) {
+  const currentIdx = TIERS.findIndex(t => t.key === tier);
+  const current    = TIERS[currentIdx] || TIERS[0];
+  const next       = TIERS[currentIdx + 1] || null;
+
+  const progress = next
+    ? Math.min(((points - current.threshold) / (next.threshold - current.threshold)) * 100, 100)
+    : 100;
+
+  const ptsToNext = next ? next.threshold - points : 0;
+
+  return (
+    <div style={{
+      background: '#0a0a0a', border: `1px solid ${current.color}25`,
+      borderRadius: '10px', padding: '0.85rem 1rem', marginTop: '0.75rem',
+    }}>
+      {/* Label row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{
+            fontSize: '0.68rem', fontWeight: 700, color: current.color,
+            background: `${current.color}15`, border: `1px solid ${current.color}30`,
+            borderRadius: '999px', padding: '0.1rem 0.5rem',
+          }}>
+            {current.label}
+          </span>
+          <span style={{ fontSize: '0.72rem', color: '#555' }}>⚡ {points} pts</span>
+        </div>
+        {next && (
+          <span style={{ fontSize: '0.68rem', color: '#444' }}>
+            {ptsToNext} pts → <span style={{ color: next.color }}>{next.label}</span>
+          </span>
+        )}
+        {!next && (
+          <span style={{ fontSize: '0.68rem', color: current.color, fontWeight: 700 }}>
+            🏆 Top Tier
+          </span>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: '4px', background: '#1a1a1a', borderRadius: '999px', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: '999px',
+          width: `${progress}%`,
+          background: next
+            ? `linear-gradient(90deg, ${current.color}, ${next.color})`
+            : current.color,
+          transition: 'width 0.6s ease',
+        }} />
+      </div>
+
+      {/* Tier pills row */}
+      <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+        {TIERS.map((t, i) => {
+          const unlocked = points >= t.threshold;
+          const isCurrent = t.key === tier;
+          return (
+            <span key={t.key} style={{
+              fontSize: '0.6rem', fontWeight: 700,
+              color:      isCurrent ? t.color : unlocked ? t.color + '80' : '#333',
+              background: isCurrent ? `${t.color}15` : 'transparent',
+              border:     `1px solid ${isCurrent ? t.color + '40' : unlocked ? t.color + '20' : '#1a1a1a'}`,
+              borderRadius: '999px', padding: '0.1rem 0.45rem',
+              transition: 'all 0.2s',
+            }}>
+              {i > 0 && <span style={{ marginRight: '0.2rem', opacity: 0.4 }}>→</span>}
+              {t.label}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -72,6 +144,7 @@ export default function UserDashboard() {
   const [sharedId,       setSharedId]       = useState<string | null>(null);
   const [hasProfile,     setHasProfile]     = useState(false);
   const [myRank,         setMyRank]         = useState<number | null>(null);
+  const [showCount,      setShowCount]      = useState(10); // ← NEW arena feed pagination
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -92,31 +165,22 @@ export default function UserDashboard() {
 
     try {
       const u: SessionUser = JSON.parse(stored);
-      // Role gates — redirect before rendering anything
       if (u.role === 'super') { router.push('/dashboard/antcpu'); return; }
       if (u.role === 'admin') { router.push('/dashboard/users'); return; }
-      // Valid user — set state then load data
       setUser(u);
       setHydrated(true);
       fetchData(u.email);
-      // Profile check
       supabase
-        .from('ad_profiles')
-        .select('bio')
-        .eq('email', u.email.trim().toLowerCase())
-        .maybeSingle()
+        .from('ad_profiles').select('bio')
+        .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
-      // Referral code
       supabase
-        .from('ad_signups')
-        .select('promo_code')
-        .eq('email', u.email.trim().toLowerCase())
-        .maybeSingle()
+        .from('ad_signups').select('promo_code')
+        .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => {
           setReferralCode(
             data?.promo_code ||
-            u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) ||
-            ''
+            u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || ''
           );
         });
     } catch { router.push('/'); return; }
@@ -207,12 +271,19 @@ export default function UserDashboard() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const isTeam  = user.trialStatus === 'team';
-  const accent  = isTeam ? '#7928ca' : '#0070f3';
+  const isTeam    = user.trialStatus === 'team';
+  const accent    = isTeam ? '#7928ca' : '#0070f3';
   const firstName = user.name?.includes('@')
     ? user.brand || user.email.split('@')[0]
     : user.name?.split(' ')[0];
   const showOnboarding = !hasProfile || !myAd;
+
+  // ── Tier math — derived from myAd.points ──────────────────────────────────
+  const myPoints   = myAd?.points || 0;
+  const myTierKey  = myAd?.tier   || 'entry';
+  const nextTier   = TIERS.find(t => t.threshold > myPoints);
+  const ptsToNext  = nextTier ? nextTier.threshold - myPoints : 0;
+  const showStrip  = !!myAd; // only show when user has an active ad
 
   // ── Styles ────────────────────────────────────────────────────────────────
 
@@ -268,6 +339,33 @@ export default function UserDashboard() {
             <button onClick={() => router.push('/arena')} style={btn('transparent', '#555', '1px solid #333')}>🏟 Arena</button>
           </div>
         </div>
+
+        {/* ── Tier Progress Strip ── */}           {/* ← NEW */}
+        {showStrip && (
+          <div style={card}>
+            <div style={lbl}>Your Progress</div>
+            <TierStrip points={myPoints} tier={myTierKey} />
+          </div>
+        )}
+
+        {/* ── Points to next tier nudge ── */}     {/* ← NEW */}
+        {showStrip && nextTier && ptsToNext <= 30 && (
+          <div style={{
+            ...card,
+            border: `1px solid ${nextTier.color}40`,
+            background: `${nextTier.color}08`,
+          }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: nextTier.color, marginBottom: '0.3rem' }}>
+              ⚡ {ptsToNext} pts to {nextTier.label}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem' }}>
+              Share your ad once to earn 10 points — you're almost there.
+            </div>
+            <button onClick={() => myAd && shareAd(myAd)} style={btn(nextTier.color, '#fff')}>
+              ↗ Share Now → {nextTier.label}
+            </button>
+          </div>
+        )}
 
         {/* ── Onboarding ── */}
         {showOnboarding && (
@@ -372,13 +470,9 @@ export default function UserDashboard() {
           </div>
         )}
 
-        {/* ── Arena nudge ── */}
+        {/* ── Arena nudge — clicks but no shares ── */}
         {myAd && (myAd.share_count || 0) === 0 && (myAd.click_count || 0) > 0 && (
-          <div style={{
-            ...card,
-            border: '1px solid #f0883e40',
-            background: '#f0883e08',
-          }}>
+          <div style={{ ...card, border: '1px solid #f0883e40', background: '#f0883e08' }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f0883e', marginBottom: '0.4rem' }}>
               ⚡ Your ad has clicks — now share it
             </div>
@@ -404,7 +498,7 @@ export default function UserDashboard() {
             <div style={{ color: '#555', fontSize: '0.85rem', padding: '1rem 0' }}>Loading arena...</div>
           ) : (
             <div>
-              {arenaAds.slice(0, 10).map(ad => {
+              {arenaAds.slice(0, showCount).map(ad => {
                 const tier  = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
                 const isOwn = ad.email === user.email;
                 return (
@@ -429,7 +523,7 @@ export default function UserDashboard() {
                         {ad.brand}
                       </span>
                       {ad.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
-                      {isOwn   && <span style={pill('#22c55e')}>Your Ad</span>}
+                      {isOwn    && <span style={pill('#22c55e')}>Your Ad</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
                       {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
@@ -456,14 +550,31 @@ export default function UserDashboard() {
                   </div>
                 );
               })}
-              {arenaAds.length > 10 && (
+
+              {/* ← NEW — load more + full arena CTA */}
+              {arenaAds.length > showCount ? (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <button
+                    onClick={() => setShowCount(c => c + 10)}
+                    style={{ ...btn('transparent', accent, `1px solid ${accent}`), flex: 1 }}
+                  >
+                                      Load {Math.min(10, arenaAds.length - showCount)} more ↓
+                  </button>
+                  <button
+                    onClick={() => router.push('/arena')}
+                    style={{ ...btn('transparent', '#555', '1px solid #333'), flex: 1 }}
+                  >
+                    Full Arena →
+                  </button>
+                </div>
+              ) : arenaAds.length > 10 ? (
                 <button
                   onClick={() => router.push('/arena')}
                   style={{ ...btn('transparent', accent, `1px solid ${accent}`), width: '100%', marginTop: '0.5rem' }}
                 >
-                  See all {arenaAds.length} ads in the Arena →
+                  You've seen all {arenaAds.length} ads — Open Full Arena →
                 </button>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -473,3 +584,4 @@ export default function UserDashboard() {
     </div>
   );
 }
+
