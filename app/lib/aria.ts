@@ -8,7 +8,7 @@ export const BRAND_URLS: Record<string, string> = {
   'Map of Pi':          'https://mapofpi.com',
   '@pipioneersX':       'https://x.com/PiPioneersX',
   'Amanda Photography': 'https://antcpu.com/manda/',
-  'Artist Kenrick Jobe';'https://antcpu.com/ken/',
+  'Artist Kenrick Jobe':'https://antcpu.com/ken/',
 };
 
 export const FALLBACK_URL = 'https://antcpu.com';
