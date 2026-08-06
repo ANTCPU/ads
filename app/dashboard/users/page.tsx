@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaNav from '../../components/ArenaNav';
+import MessageComposer from '../../components/MessageComposer';          // ← NEW
 import { clearSessionCookie } from '../../lib/session';
 import ArenaFooter from '../../components/ArenaFooter';
 
@@ -48,7 +49,7 @@ const S = {
     borderColor: active ? '#f0883e' : '#333',
     transition: 'all 0.15s',
   }),
-  btn:       (bg: string, color = '#fff'): React.CSSProperties => ({
+  btn: (bg: string, color = '#fff'): React.CSSProperties => ({
     background: bg, border: 'none', color, borderRadius: '8px',
     padding: '0.4rem 0.85rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
   }),
@@ -58,12 +59,14 @@ const S = {
 export default function UsersPage() {
   const router = useRouter();
 
-  const [hydrated, setHydrated] = useState(false);
-  const [users,    setUsers]    = useState<User[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [search,   setSearch]   = useState('');
-  const [filter,   setFilter]   = useState<Filter>('all');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [hydrated,     setHydrated]     = useState(false);
+  const [users,        setUsers]        = useState<User[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [filter,       setFilter]       = useState<Filter>('all');
+  const [expanded,     setExpanded]     = useState<string | null>(null);
+  const [composingFor, setComposingFor] = useState<string | null>(null); // ← NEW
+  const [sentFor,      setSentFor]      = useState<string | null>(null); // ← NEW — tracks sent confirmation
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -111,17 +114,6 @@ export default function UsersPage() {
       }),
     });
     alert(res.ok ? `✅ Champion email sent to ${u.email}` : '❌ Failed — check Resend');
-  }
-
-  async function sendNotify(u: User) {
-    const msg = prompt(`Message to ${u.name || u.email}:`);
-    if (!msg) return;
-    const res = await fetch('/api/scout/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: u.email, name: u.name, subject: '⚡ Message from ANTCPU ADS', message: msg }),
-    });
-    alert(res.ok ? `✅ Sent to ${u.email}` : '❌ Failed — check Resend');
   }
 
   async function toggleChampion(u: User) {
@@ -191,6 +183,26 @@ export default function UsersPage() {
       />
 
       <div style={S.wrap}>
+
+        {/* ── Notifications live banner ── */}          {/* ← NEW */}
+        <div style={{
+          background: 'rgba(0,112,243,0.08)',
+          border: '1px solid rgba(0,112,243,0.2)',
+          borderRadius: '10px', padding: '0.75rem 1rem',
+          marginBottom: '1.25rem',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+        }}>
+          <span style={{ fontSize: '1.1rem' }}>✉️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0070f3' }}>
+              In-app notifications are live
+            </div>
+            <div style={{ fontSize: '0.72rem', color: '#555', marginTop: '0.1rem' }}>
+              Use ✉️ Message on any user to send directly to their envelope.
+              Approved · rejected · points · rank · nudge types available.
+            </div>
+          </div>
+        </div>
 
         <div style={{ marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.25rem' }}>👥 Arena Users</div>
@@ -274,10 +286,16 @@ export default function UsersPage() {
             {filtered.map((u, i) => {
               const key    = u.email + i;
               const isOpen = expanded === key;
+              const isComposing = composingFor === key;  // ← NEW
+              const wasSent    = sentFor === key;        // ← NEW
+
               return (
                 <div key={key} style={S.card}>
                   <div
-                    onClick={() => setExpanded(isOpen ? null : key)}
+                    onClick={() => {
+                      setExpanded(isOpen ? null : key);
+                      if (!isOpen) setComposingFor(null); // close composer when collapsing
+                    }}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', cursor: 'pointer', flexWrap: 'wrap', gap: '0.5rem' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', flex: 1 }}>
@@ -306,7 +324,7 @@ export default function UsersPage() {
                   {isOpen && (
                     <div style={{ borderTop: '1px solid #1a1a1a', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                        {u.country    && <div><div style={S.label}>Location</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>📍 {[u.city, u.country].filter(Boolean).join(', ')}</div></div>}
+                        {u.country     && <div><div style={S.label}>Location</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>📍 {[u.city, u.country].filter(Boolean).join(', ')}</div></div>}
                         {u.trial_expiry && <div><div style={S.label}>Expires</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>{u.trial_expiry}</div></div>}
                         {u.ad_category && <div><div style={S.label}>Category</div><div style={{ fontSize: '0.82rem', color: '#aaa' }}>{u.ad_category}</div></div>}
                         {u.points > 0  && <div><div style={S.label}>Points</div><div style={{ fontSize: '0.82rem', color: '#f0883e', fontWeight: 700 }}>⚡ {u.points}</div></div>}
@@ -333,12 +351,44 @@ export default function UsersPage() {
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      {/* ── Action buttons ── */}
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <button onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)} style={S.btn('#f0883e')}>👤 Profile</button>
                         {u.is_country_champion && <button onClick={() => sendChampionEmail(u)} style={S.btn('#D4AF37', '#000')}>📧 Champion Email</button>}
-                        <button onClick={() => sendNotify(u)} style={S.btn('#7928ca')}>📣 Notify</button>
+
+                        {/* ← NEW — replaces prompt() sendNotify() */}
+                        <button
+                          onClick={() => {
+                            setComposingFor(isComposing ? null : key);
+                            setSentFor(null);
+                          }}
+                          style={{
+                            ...S.btn(isComposing ? '#0a0a0a' : '#7928ca'),
+                            border: isComposing ? '1px solid #7928ca' : 'none',
+                            color:  isComposing ? '#7928ca' : '#fff',
+                          }}
+                        >
+                          {wasSent ? '✅ Sent' : isComposing ? '✕ Cancel' : '✉️ Message'}
+                        </button>
+
                         <button onClick={() => viewAsUser(u)} style={S.btn('#0070f3')}>👁 View as User</button>
                       </div>
+
+                      {/* ← NEW — inline MessageComposer */}
+                      {isComposing && (
+                        <MessageComposer
+                          email={u.email}
+                          name={u.name || u.brand_name || u.email}
+                          dark={true}
+                          onSent={() => {
+                            setComposingFor(null);
+                            setSentFor(key);
+                            setTimeout(() => setSentFor(null), 4000);
+                          }}
+                          onCancel={() => setComposingFor(null)}
+                        />
+                      )}
+
                     </div>
                   )}
                 </div>
