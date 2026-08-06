@@ -41,14 +41,16 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
       if (pi) setPiPrice(`$${pi.toFixed(4)}`);
     }).catch(() => {});
 
-    supabase.from('ads').select('brand,country,points').eq('status', 'active')
-      .then(({ data }) => {
-        if (!data) return;
-        setLiveAds(data.length);
-        setLiveBrands(new Set(data.map((a: any) => a.brand)).size);
-        setLiveCountries(new Set(data.map((a: any) => a.country).filter(Boolean)).size);
-        setLivePoints(data.reduce((s: number, a: any) => s + (a.points || 0), 0));
-      });
+    fetch('/api/stats', { cache: 'no-store' })
+  .then(r => r.json())
+  .then(d => {
+    setLiveAds(d.liveAds          ?? null);
+    setLiveBrands(d.liveBrands    ?? null);
+    setLiveCountries(d.liveCountries ?? null);
+    setLivePoints(d.livePoints    ?? null);
+  })
+  .catch(() => {});
+
 
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
