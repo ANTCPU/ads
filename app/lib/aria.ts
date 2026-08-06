@@ -5,7 +5,6 @@ export const BRAND_URLS: Record<string, string> = {
   'antcpu challenge':   'https://antcpu.io',
   'antcpu edu':         'https://antcpu.com/edu',
   'antcpu antcoin':     'https://antcoin.store',
-  'antcpu challenge':   'https://antcpu.
   'Map of Pi':          'https://mapofpi.com',
   '@pipioneersX':       'https://x.com/PiPioneersX',
   'Amanda Photography': 'https://antcpu.com/manda/',
