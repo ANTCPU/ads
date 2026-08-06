@@ -30,10 +30,12 @@ export function isInsidePiBrowser(): boolean {
 export async function piAuthenticate(): Promise<PiAuthResult> {
   await loadPiSDK();
   const Pi = (window as any).Pi;
-  Pi.init({ version: '2.0', sandbox: false });
+
+  // ← sandbox reads from env — set NEXT_PUBLIC_PI_SANDBOX=true in Vercel for testnet
+  const sandbox = process.env.NEXT_PUBLIC_PI_SANDBOX === 'true';
+  Pi.init({ version: '2.0', sandbox });
 
   return new Promise((resolve, reject) => {
-    // 8 second timeout — prevents infinite "Connecting" on non-Pi browsers
     const timeout = setTimeout(() => {
       reject(new Error('Pi auth timeout — open in Pi Browser to sign in with Pi'));
     }, 8000);
