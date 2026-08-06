@@ -1,16 +1,8 @@
 'use client';
+
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// ─── Supabase (needed to fetch super profile from DB after PIN verify) ─────────
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-// Defined outside component — not re-created on every render
 
 const VAULT_MSGS = [
   'Vault is standing by.',
@@ -24,7 +16,6 @@ const VAULT_MSGS = [
 
 type VaultStep = 'email' | 'pin' | 'success';
 
-// role is required — consistent with SessionUser across the entire build
 type VaultUser = {
   email: string;
   name: string;
@@ -40,9 +31,7 @@ type Props = {
   redirectTo?: string;
 };
 
-// ─── Session writer — mirrors persistSession in login/page.tsx ────────────────
-// Single pattern for cookie + localStorage across all auth entry points.
-// Cookie expiry: 90d for super/team, 3d for trial.
+// ─── Session writer ───────────────────────────────────────────────────────────
 
 function writeSession(session: VaultUser) {
   const encoded = encodeURIComponent(JSON.stringify(session));
@@ -52,11 +41,11 @@ function writeSession(session: VaultUser) {
   localStorage.setItem('arena_user', JSON.stringify(session));
 }
 
-// ─── Role-based redirect — mirrors persistSession in login/page.tsx ───────────
+// ─── Role-based redirect ──────────────────────────────────────────────────────
 
 function resolveRedirect(role: string, redirectTo?: string): string {
   if (redirectTo) return redirectTo;
-  if (role === 'super') return '/dashboard/admin';
+  if (role === 'super') return '/dashboard/antcpu';
   if (role === 'admin') return '/dashboard/users';
   return '/dashboard/user';
 }
@@ -64,17 +53,16 @@ function resolveRedirect(role: string, redirectTo?: string): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Props) {
-  const [step, setStep]           = useState<VaultStep>('email');
-  const [email, setEmail]         = useState('');
-  const [pin, setPin]             = useState('');
-  const [error, setError]         = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [vaultMsg, setVaultMsg] = useState<string>(VAULT_MSGS[0]);
+  const [step,      setStep]      = useState<VaultStep>('email');
+  const [email,     setEmail]     = useState('');
+  const [pin,       setPin]       = useState('');
+  const [error,     setError]     = useState('');
+  const [loading,   setLoading]   = useState(false);
+  const [vaultMsg,  setVaultMsg]  = useState<string>(VAULT_MSGS[0]);
   const [hasPinSet, setHasPinSet] = useState(false);
-  const [isSuper, setIsSuper]     = useState(false);
-  const [showPin, setShowPin]     = useState(false);
+  const [isSuper,   setIsSuper]   = useState(false);
+  const [showPin,   setShowPin]   = useState(false);
 
-  // Full reset on close
   useEffect(() => {
     if (!open) {
       setStep('email');
@@ -88,10 +76,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     }
   }, [open]);
 
-  // ─── Step 1: Email lookup ──────────────────────────────────────────────────
-  // Detects super admin via NEXT_PUBLIC_SUPER_EMAIL (UX gate only — not a
-  // security gate; actual auth happens server-side in /api/admin-auth).
-  // For all other users, checks PIN existence via /api/user-auth.
+  // ─── Step 1: Email lookup ─────────────────────────────────────────────────
 
   async function handleEmail() {
     const norm = email.trim().toLowerCase();
@@ -138,11 +123,11 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     setLoading(false);
   }
 
-  // ─── Step 2: PIN verify ────────────────────────────────────────────────────
-  // Super path: PIN verified server-side → profile fetched from DB.
-  //             Zero hardcoded name/brand anywhere.
-  // User with PIN: PIN verified server-side → user object returned from API.
-  // User without PIN: profile fetched directly from DB via user-auth check.
+  // ─── Step 2: PIN verify ───────────────────────────────────────────────────
+  // All three paths now go through /api/user-auth — single route, single
+  // source of truth. Super path sends { email, pin } just like regular users.
+  // user-auth returns the full user object — no separate DB fetch needed.
+  // /api/admin-auth removed — no longer needed, no env var dependency.
 
   async function handlePin() {
     const norm = email.trim().toLowerCase();
@@ -153,73 +138,51 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     try {
       let session: VaultUser;
 
-      if (isSuper) {
-        // — super admin: verify PIN server-side
-        const res = await fetch('/api/admin-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin }),
-        });
-        if (!res.ok) {
-          setError('Invalid PIN. Access denied.');
-          setLoading(false);
-          return;
-        }
-        // ✅ Fetch profile from DB — no hardcoded name/brand
-        setVaultMsg(VAULT_MSGS[3]);
-        const { data: profile } = await supabase
-          .from('ad_signups')
-          .select('name, brand_name, status')
-          .eq('email', norm)
-          .maybeSingle();
-
-        session = {
-          email: norm,
-          name: profile?.name || '',
-          brand: profile?.brand_name || '',
-          trialStatus: profile?.status || 'team',
-          role: 'super',
-        };
-
-      } else if (hasPinSet) {
-        // — regular user with PIN: verify server-side
+      if (isSuper || hasPinSet) {
+        // ── Super + regular PIN users — same route, same shape ──────────────
         const res = await fetch('/api/user-auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: norm, pin }),
         });
+
         if (!res.ok) {
           setError('Invalid PIN. Access denied.');
           setLoading(false);
           return;
         }
+
+        setVaultMsg(VAULT_MSGS[3]);
         const { user } = await res.json();
+
         session = {
-          email: user.email,
-          name: user.name || '',
-          brand: user.brand || '',
-          trialStatus: user.trialStatus || 'trial',
-          role: user.role || 'user',
+          email:       user.email,
+          name:        user.name        || '',
+          brand:       user.brand       || '',
+          trialStatus: user.trialStatus || 'team',
+          // Force super role for super email — DB role is the fallback
+          role: isSuper ? 'super' : (user.role || 'user'),
         };
 
       } else {
-        // — user without PIN: fetch profile directly from DB
-        const { data: profile } = await supabase
-          .from('ad_signups')
-          .select('name, brand_name, status, role')
-          .eq('email', norm)
-          .maybeSingle();
+        // ── No PIN set — user-auth already returned profile on __check__ ────
+        // Re-fetch cleanly to get full user object
+        const res = await fetch('/api/user-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: norm, pin: '__check__' }),
+        });
+        const data = await res.json();
 
         session = {
-          email: norm,
-          name: profile?.name || '',
-          brand: profile?.brand_name || '',
-          trialStatus: profile?.status || 'trial',
-          role: profile?.role || 'user',
+          email:       norm,
+          name:        data.user?.name        || '',
+          brand:       data.user?.brand       || '',
+          trialStatus: data.user?.trialStatus || 'trial',
+          role:        data.user?.role        || 'user',
         };
       }
 
-      // — write session
       setVaultMsg(VAULT_MSGS[4]);
       writeSession(session);
       setStep('success');
@@ -237,7 +200,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
 
   if (!open) return null;
 
-  // ─── Styles ────────────────────────────────────────────────────────────────
+  // ─── Styles ───────────────────────────────────────────────────────────────
 
   const inputStyle = {
     width: '100%', background: '#111', border: '1px solid #222',
@@ -255,7 +218,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     transition: 'background 0.2s', marginTop: '0.5rem',
   });
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -282,7 +245,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
           <div style={{ fontSize: '0.7rem', color: '#333', marginTop: '0.2rem', letterSpacing: '0.08em' }}>Secured by ANTCPU</div>
         </div>
 
-        {/* Vault status message */}
+        {/* Status message */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.5rem',
           background: '#111', border: '1px solid #1a1a1a', borderRadius: '8px',
@@ -296,10 +259,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
         {step === 'email' && (
           <>
             <input
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoFocus
+              type="email" inputMode="email" autoComplete="email" autoFocus
               placeholder="your@email.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -311,17 +271,10 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
                 {error}
               </div>
             )}
-            <button
-              onClick={handleEmail}
-              disabled={loading || !email.trim()}
-              style={btnStyle(!loading && !!email.trim())}
-            >
+            <button onClick={handleEmail} disabled={loading || !email.trim()} style={btnStyle(!loading && !!email.trim())}>
               {loading ? 'Scanning...' : 'Continue →'}
             </button>
-            <button
-              onClick={onClose}
-              style={{ width: '100%', background: 'none', border: 'none', color: '#333', fontSize: '0.75rem', marginTop: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}
-            >
+            <button onClick={onClose} style={{ width: '100%', background: 'none', border: 'none', color: '#333', fontSize: '0.75rem', marginTop: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}>
               Cancel
             </button>
           </>
@@ -330,7 +283,6 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
         {/* ── Step: pin ── */}
         {step === 'pin' && (
           <>
-            {/* Email badge */}
             <div style={{
               fontSize: '0.78rem', color: '#555', background: '#111',
               border: '1px solid #1a1a1a', borderRadius: '8px',
@@ -344,39 +296,22 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
               <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
                 <input
                   type={showPin ? 'text' : 'password'}
-                  inputMode="numeric"
-                  autoFocus
+                  inputMode="numeric" autoFocus
                   placeholder="••••••"
                   value={pin}
                   onChange={e => setPin(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handlePin()}
-                  style={{
-                    ...inputStyle,
-                    padding: '0.85rem 3rem 0.85rem 1rem',
-                    letterSpacing: '0.25em',
-                    fontSize: '1.2rem',
-                    textAlign: 'center',
-                  }}
+                  style={{ ...inputStyle, padding: '0.85rem 3rem 0.85rem 1rem', letterSpacing: '0.25em', fontSize: '1.2rem', textAlign: 'center' }}
                 />
                 <button
-                  onClick={() => setShowPin(v => !v)}
-                  tabIndex={-1}
-                  style={{
-                    position: 'absolute', right: '0.75rem', top: '50%',
-                    transform: 'translateY(-50%)', background: 'none',
-                    border: 'none', cursor: 'pointer', color: '#444',
-                    fontSize: '1rem', padding: '0.25rem', lineHeight: 1,
-                  }}
+                  onClick={() => setShowPin(v => !v)} tabIndex={-1}
+                  style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '1rem', padding: '0.25rem', lineHeight: 1 }}
                 >
                   {showPin ? '🙈' : '👁️'}
                 </button>
               </div>
             ) : (
-              <div style={{
-                fontSize: '0.8rem', color: '#555', background: '#111',
-                border: '1px solid #1a1a1a', borderRadius: '8px',
-                padding: '0.75rem', marginBottom: '0.75rem', lineHeight: 1.5,
-              }}>
+              <div style={{ fontSize: '0.8rem', color: '#555', background: '#111', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>
                 No PIN set — Vault will secure your session automatically.
               </div>
             )}
@@ -387,17 +322,10 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
               </div>
             )}
 
-            <button
-              onClick={handlePin}
-              disabled={loading || (hasPinSet && !pin.trim())}
-              style={btnStyle(!loading && (!hasPinSet || !!pin.trim()))}
-            >
+            <button onClick={handlePin} disabled={loading || (hasPinSet && !pin.trim())} style={btnStyle(!loading && (!hasPinSet || !!pin.trim()))}>
               {loading ? 'Verifying...' : 'Unlock →'}
             </button>
-            <button
-              onClick={() => { setStep('email'); setPin(''); setError(''); setShowPin(false); }}
-              style={{ width: '100%', background: 'none', border: 'none', color: '#333', fontSize: '0.75rem', marginTop: '0.5rem', cursor: 'pointer', padding: '0.25rem' }}
-            >
+            <button onClick={() => { setStep('email'); setPin(''); setError(''); setShowPin(false); }} style={{ width: '100%', background: 'none', border: 'none', color: '#333', fontSize: '0.75rem', marginTop: '0.5rem', cursor: 'pointer', padding: '0.25rem' }}>
               ← Back
             </button>
           </>
