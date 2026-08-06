@@ -1,16 +1,18 @@
 // ─── Discord — structured embeds, event routing ───────────────────────────────
 //
 // Webhook routing:
-//   internship                          → DISCORD_INTERN
-//   new_champion                        → DISCORD_WEBHOOK_CHAMPIONS
-//   share                               → DISCORD_WEBHOOK_SHARES
+//   internship                              → DISCORD_INTERN
+//   new_champion                            → DISCORD_WEBHOOK_CHAMPIONS
+//   share                                   → DISCORD_WEBHOOK_SHARES
 //   ad_approved | ad_rejected |
-//   ad_archived | general               → DISCORD_WEBHOOK_ADS
+//   ad_archived | aria_review |
+//   aria_auto_approved | aria_flagged |
+//   general                                 → DISCORD_WEBHOOK_ADS
 //
 // Usage:
 //   await notifyDiscord(content, 'internship');
 //   await notifyDiscord(content, 'ad_approved', embed);
-//   await notifyDiscord(content, 'ad_archived', embed);
+//   await notifyDiscord(content, 'aria_auto_approved', embed);
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Platform, ShareContext } from './socialShare';
@@ -20,15 +22,18 @@ import type { Platform, ShareContext } from './socialShare';
 // Every event must also be added to WEBHOOK_MAP below.
 
 export type DiscordEvent =
-  | 'internship'       // Internship challenge activity → DISCORD_INTERN
-  | 'new_champion'     // New country champion signup → DISCORD_WEBHOOK_CHAMPIONS
-  | 'share'            // Ad share events → DISCORD_WEBHOOK_SHARES
-  | 'click_milestone'  // Click count milestones → DISCORD_WEBHOOK_ADS (default)
-  | 'new_signup'       // New user signup → DISCORD_WEBHOOK_ADS (default)
-  | 'ad_approved'      // Ad approved by admin → DISCORD_WEBHOOK_ADS
-  | 'ad_rejected'      // Ad rejected by admin → DISCORD_WEBHOOK_ADS
-  | 'ad_archived'      // Ad archived by admin → DISCORD_WEBHOOK_ADS
-  | 'general';         // Catch-all → DISCORD_WEBHOOK_ADS (default)
+  | 'internship'         // Internship challenge activity → DISCORD_INTERN
+  | 'new_champion'       // New country champion signup → DISCORD_WEBHOOK_CHAMPIONS
+  | 'share'              // Ad share events → DISCORD_WEBHOOK_SHARES
+  | 'click_milestone'    // Click count milestones → DISCORD_WEBHOOK_ADS
+  | 'new_signup'         // New user signup → DISCORD_WEBHOOK_ADS
+  | 'ad_approved'        // Ad approved by admin → DISCORD_WEBHOOK_ADS
+  | 'ad_rejected'        // Ad rejected by admin → DISCORD_WEBHOOK_ADS
+  | 'ad_archived'        // Ad archived by admin → DISCORD_WEBHOOK_ADS
+  | 'aria_review'        // First ad queued for human review → DISCORD_WEBHOOK_ADS
+  | 'aria_auto_approved' // Subsequent ad auto-approved by Aria → DISCORD_WEBHOOK_ADS
+  | 'aria_flagged'       // Subsequent ad flagged by Aria → DISCORD_WEBHOOK_ADS
+  | 'general';           // Catch-all → DISCORD_WEBHOOK_ADS
 
 // ─── Embed types ──────────────────────────────────────────────────────────────
 
@@ -66,12 +71,15 @@ export const DC = {
 // Events not listed here fall through to DEFAULT_WEBHOOK (DISCORD_WEBHOOK_ADS).
 
 const WEBHOOK_MAP: Partial<Record<DiscordEvent, string | undefined>> = {
-  internship:   process.env.DISCORD_INTERN,
-  new_champion: process.env.DISCORD_WEBHOOK_CHAMPIONS,
-  share:        process.env.DISCORD_WEBHOOK_SHARES,
-  ad_approved:  process.env.DISCORD_WEBHOOK_ADS,
-  ad_rejected:  process.env.DISCORD_WEBHOOK_ADS,
-  ad_archived:  process.env.DISCORD_WEBHOOK_ADS,
+  internship:         process.env.DISCORD_INTERN,
+  new_champion:       process.env.DISCORD_WEBHOOK_CHAMPIONS,
+  share:              process.env.DISCORD_WEBHOOK_SHARES,
+  ad_approved:        process.env.DISCORD_WEBHOOK_ADS,
+  ad_rejected:        process.env.DISCORD_WEBHOOK_ADS,
+  ad_archived:        process.env.DISCORD_WEBHOOK_ADS,
+  aria_review:        process.env.DISCORD_WEBHOOK_ADS,
+  aria_auto_approved: process.env.DISCORD_WEBHOOK_ADS,
+  aria_flagged:       process.env.DISCORD_WEBHOOK_ADS,
 };
 
 const DEFAULT_WEBHOOK = process.env.DISCORD_WEBHOOK_ADS!;
@@ -85,7 +93,7 @@ const DEFAULT_WEBHOOK = process.env.DISCORD_WEBHOOK_ADS!;
 export async function notifyDiscord(
   content:  string,
   event?:   DiscordEvent,
-  embed?:   DiscordEmbed
+  embed?:   DiscordEmbed,
 ): Promise<void> {
   try {
     const webhook = (event && WEBHOOK_MAP[event]) || DEFAULT_WEBHOOK;
