@@ -71,12 +71,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Update last_login — non-blocking, silent fail if column missing
+  Promise.resolve(
   supabase
     .from('ad_signups')
     .update({ last_login: now.toISOString() })
     .eq('email', norm)
-    .then(() => {})
-    .catch(() => {});
+).catch(() => {});
+
 
   return NextResponse.json({
     ok: true,
