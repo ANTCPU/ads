@@ -11,57 +11,70 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { notifyDiscord, DC } from '../discord';
 import { TrackingSource } from './sources';
 
+// ✅ notifyDiscord REMOVED — routed through /api/discord-notify
+// This file is imported by client components — must never import discord.ts
+
 export type ClickableAd = {
-  id: string;
-  brand: string;
-  title: string;
-  email: string;
+  id:          string;
+  brand:       string;
+  title:       string;
+  email:       string;
   click_count: number;
 };
 
 export async function trackClick(
-  ad: ClickableAd,
+  ad:        ClickableAd,
   userEmail: string,
-  source: TrackingSource,
-  supabase: SupabaseClient,
+  source:    TrackingSource,
+  supabase:  SupabaseClient,
 ): Promise<number> {
+
   const newCount = (ad.click_count || 0) + 1;
 
-  // — write to ad_clicks + increment counter in parallel
+  // 1 + 2 — write click row + increment counter in parallel
   await Promise.all([
     supabase.from('ad_clicks').insert([{
       ad_id: ad.id,
       email: userEmail || 'visitor',
       source,
     }]),
-    supabase.from('ads').update({ click_count: newCount }).eq('id', ad.id),
+    supabase.from('ads')
+      .update({ click_count: newCount })
+      .eq('id', ad.id),
   ]);
 
-  // — recalculate score + rank (fire and forget)
+  // 3 — recalculate score + rank (fire and forget)
   fetch('/api/scout/score', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ad_id: ad.id }),
+    body:    JSON.stringify({ ad_id: ad.id }),
   }).catch(() => {});
 
-  // — discord milestone every 10 clicks — rich embed
+  // 4 — 🔒 Discord milestone every 10 clicks — via API route only
   if (newCount % 10 === 0) {
-    notifyDiscord('', 'click_milestone', {
-      title: '👆 Click Milestone',
-      color: DC.orange,
-      fields: [
-        { name: 'Brand',  value: ad.brand,          inline: true },
-        { name: 'Clicks', value: String(newCount),  inline: true },
-        { name: 'Source', value: source,            inline: true },
-        { name: 'Ad',     value: ad.title,          inline: false },
-        { name: 'Email',  value: ad.email || '—',   inline: false },
-      ],
-      footer: 'ANTCPU ADS · Scout',
-      timestamp: true,
-    });
+    fetch('/api/discord-notify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: '',
+        event:   'click_milestone',
+        embed: {
+          title:  '👆 Click Milestone',
+          color:  0xF0883E, // DC.orange
+          fields: [
+            { name: 'Brand',  value: ad.brand,         inline: true  },
+            { name: 'Clicks', value: String(newCount), inline: true  },
+            { name: 'Source', value: source,           inline: true  },
+            { name: 'Ad',     value: ad.title,         inline: false },
+            { name: 'Email',  value: ad.email || '—',  inline: false },
+          ],
+          footer:    'ANTCPU ADS · Scout',
+          timestamp: true,
+        },
+      }),
+    }).catch(() => {});
   }
 
   return newCount;
