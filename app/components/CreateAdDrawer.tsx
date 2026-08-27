@@ -1,8 +1,11 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { notifyDiscord } from '../lib/discord';
-import { ariaCheck, resolveUrl } from '../lib/aria';
+import { useRouter }                   from 'next/navigation';
+import { createClient }                from '@supabase/supabase-js';
+import { ariaCheck, resolveUrl }       from '../lib/aria';
+
+// ✅ notifyDiscord import REMOVED — now routed through /api/discord-notify
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,6 +42,16 @@ type Props = {
   onSuccess?: () => void;
 };
 
+// 🔒 Internal helper — routes all Discord calls through /api/discord-notify
+// Fire and forget — never blocks the UI
+function pingDiscord(content: string, event = 'general') {
+  fetch('/api/discord-notify', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ content, event }),
+  }).catch(() => {});
+}
+
 export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props) {
   const [loading,       setLoading]       = useState(false);
   const [form,          setForm]          = useState({ title: '', url: '', description: '', category: 'Brand Awareness' });
@@ -49,10 +62,7 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
   const [selectedBrand, setSelectedBrand] = useState('');
   const [targetEmail,   setTargetEmail]   = useState('');
   const [targetBrand,   setTargetBrand]   = useState('');
-
-  // ── Aria URL resolution state ──
-  // Shows Aria's URL hint below the URL field in real time
-  const [urlHint, setUrlHint] = useState('');
+  const [urlHint,       setUrlHint]       = useState('');
 
   const SUPER_EMAIL  = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
   const isAdmin      = !!(SUPER_EMAIL && user.email === SUPER_EMAIL) || user.trialStatus === 'team';
@@ -60,14 +70,11 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
   const accent       = isAdmin ? '#f0883e' : isTeam ? '#7928ca' : '#0070f3';
   const brands       = MULTI_BRAND[user.email] || null;
 
-  // ariaCheck now only validates title + description — URL handled by resolveUrl()
-  const aria = ariaCheck(form.title, form.description);
-
+  const aria          = ariaCheck(form.title, form.description);
   const resolvedEmail = isAdmin && targetEmail.trim() ? targetEmail.trim() : user.email;
   const resolvedBrand = isAdmin && targetBrand.trim() ? targetBrand.trim()
     : selectedBrand || user.brand;
 
-  // ── Resolve URL hint whenever URL or brand changes ──
   useEffect(() => {
     const r = resolveUrl(form.url, resolvedBrand);
     if (r.source !== 'user') {
@@ -113,8 +120,6 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
-  // ── Fire aria-review after any insert ──────────────────────────────────────
-  // Called after every successful insert — never blocks the UI
   async function fireAriaReview(adId: string) {
     fetch('/api/aria-review', {
       method:  'POST',
@@ -127,9 +132,7 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     if (!aria.ok || !existingAd) return;
     setLoading(true);
 
-    // Resolve URL before saving — ensures clean URL even on edit
     const r = resolveUrl(form.url, resolvedBrand);
-
     await supabase.from('ads').update({
       title:       form.title.trim(),
       url:         r.url,
@@ -139,13 +142,15 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     }).eq('id', existingAd.id);
 
     fetch('/api/scout/score', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ad_id: existingAd.id }),
+      body:    JSON.stringify({ ad_id: existingAd.id }),
     }).catch(() => {});
 
-    notifyDiscord(
-      `✏️ **Ad Edited**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})`
+    // 🔒 Routed through API
+    pingDiscord(
+      `✏️ **Ad Edited**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})`,
+      'ad_approved'
     );
 
     setLoading(false);
@@ -157,27 +162,27 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     setLoading(true);
 
     const r = resolveUrl(form.url, resolvedBrand);
-
     await supabase.from('ads').update({ status: 'archived' }).eq('id', existingAd.id);
 
     const { data, error } = await supabase.from('ads').insert([{
-      email:         resolvedEmail,
-      name:          user.name,
-      brand:         resolvedBrand,
-      title:         form.title.trim(),
-      url:           r.url,
-      description:   form.description.trim(),
-      category:      form.category,
-      status:        'pending_review',
-      trial_status:  user.trialStatus,
-      tier:          'entry',
+      email:        resolvedEmail,
+      name:         user.name,
+      brand:        resolvedBrand,
+      title:        form.title.trim(),
+      url:          r.url,
+      description:  form.description.trim(),
+      category:     form.category,
+      status:       'pending_review',
+      trial_status: user.trialStatus,
+      tier:         'entry',
     }]).select('id').single();
 
     if (!error && data?.id) {
-      notifyDiscord(
-        `🔄 **Ad Replaced**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})`
+      // 🔒 Routed through API
+      pingDiscord(
+        `🔄 **Ad Replaced**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})`,
+        'aria_review'
       );
-      // Fire Aria review — may auto-approve if user has prior approved ads
       await fireAriaReview(data.id);
       setSubmitted(true);
     }
@@ -190,26 +195,25 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     setLoading(true);
 
     const r = resolveUrl(form.url, resolvedBrand);
-
     const { data, error } = await supabase.from('ads').insert([{
-      email:         resolvedEmail,
-      name:          user.name,
-      brand:         resolvedBrand,
-      title:         form.title.trim(),
-      url:           r.url,
-      description:   form.description.trim(),
-      category:      form.category,
-      status:        isAdmin ? 'active' : 'pending_review',
-      trial_status:  user.trialStatus,
-      tier:          'entry',
+      email:        resolvedEmail,
+      name:         user.name,
+      brand:        resolvedBrand,
+      title:        form.title.trim(),
+      url:          r.url,
+      description:  form.description.trim(),
+      category:     form.category,
+      status:       isAdmin ? 'active' : 'pending_review',
+      trial_status: user.trialStatus,
+      tier:         'entry',
     }]).select('id').single();
 
     if (!error && data?.id) {
-      notifyDiscord(
-        `🆕 **New Ad Submitted**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})\n**Status:** ${isAdmin ? 'active' : 'pending_review'}`
+      // 🔒 Routed through API
+      pingDiscord(
+        `🆕 **New Ad Submitted**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})\n**Status:** ${isAdmin ? 'active' : 'pending_review'}`,
+        'new_signup'
       );
-      // Fire Aria review for non-admin submissions only
-      // Admin ads go straight to active — no review needed
       if (!isAdmin) {
         await fireAriaReview(data.id);
       }
@@ -230,13 +234,12 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     flex: 1, padding: '0.65rem', border: 'none', cursor: 'pointer',
     fontWeight: 700, fontSize: '0.85rem', borderRadius: '8px',
     background: active ? accent : '#1a1a1a',
-    color: active ? '#fff' : '#555',
+    color:      active ? '#fff' : '#555',
     transition: 'all 0.15s',
   });
 
   if (!open) return null;
 
-  // ── URL field with Aria hint ───────────────────────────────────────────────
   const urlField = (
     <>
       <input
@@ -298,8 +301,7 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
             <div style={{ fontSize: '0.78rem', color: '#555', marginBottom: '1.5rem' }}>{getPostingTip()}</div>
             <button
               onClick={() => { setSubmitted(false); onClose(); if (onSuccess) onSuccess(); }}
-              style={{ background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem 2rem', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', width: '100%' }}
-            >
+              style={{ background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem 2rem', fontWeight: 700, fontSize: '1rem', cursor: 'pointer', width: '100%' }}>
               Back to the Arena →
             </button>
           </div>
@@ -327,13 +329,11 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                     <div style={{ fontSize: '0.9rem' }}>No active ad yet.</div>
                     <button
                       onClick={() => setTab('new-ad')}
-                      style={{ marginTop: '1rem', background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.75rem 1.5rem', fontWeight: 700, cursor: 'pointer' }}
-                    >
+                      style={{ marginTop: '1rem', background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.75rem 1.5rem', fontWeight: 700, cursor: 'pointer' }}>
                       Create Your First Ad →
                     </button>
                   </div>
                 ) : editMode === 'edit' && form.title === '' ? (
-                  /* VIEW EXISTING */
                   <div>
                     <div style={{ fontSize: '0.7rem', color: '#888', marginBottom: '0.5rem' }}>🦋 Aria — Your Active Ad</div>
                     <div style={{ background: '#111', border: '1px solid #222', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
@@ -347,20 +347,17 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                       <button
                         onClick={() => startEdit(existingAd)}
-                        style={{ flex: 1, background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
-                      >
+                        style={{ flex: 1, background: accent, border: 'none', color: '#fff', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
                         ✏️ Edit
                       </button>
                       <button
                         onClick={() => { setEditMode('replace'); setForm({ title: '', url: '', description: '', category: 'Brand Awareness' }); }}
-                        style={{ flex: 1, background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
-                      >
+                        style={{ flex: 1, background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
                         🔄 Replace
                       </button>
                     </div>
                   </div>
                 ) : (
-                  /* EDIT / REPLACE FORM */
                   <div>
                     <div style={{ fontSize: '0.72rem', color: accent, fontWeight: 700, marginBottom: '0.75rem' }}>
                       {editMode === 'edit' ? '✏️ Editing your active ad — changes go live immediately' : '🔄 Replace — current ad archived · new ad goes to review'}
@@ -385,22 +382,19 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                     <select
                       value={form.category}
                       onChange={e => set('category', e.target.value)}
-                      style={{ ...inp, marginBottom: '1.25rem' }}
-                    >
+                      style={{ ...inp, marginBottom: '1.25rem' }}>
                       {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                       <button
                         onClick={() => { setEditMode('edit'); setForm({ title: '', url: '', description: '', category: 'Brand Awareness' }); }}
-                        style={{ flex: 1, background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}
-                      >
+                        style={{ flex: 1, background: 'none', border: '1px solid #333', color: '#aaa', borderRadius: '8px', padding: '0.85rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
                         ← Back
                       </button>
                       <button
                         onClick={editMode === 'edit' ? handleEdit : handleReplace}
                         disabled={!aria.ok || loading}
-                        style={{ flex: 2, background: aria.ok ? accent : '#222', border: 'none', color: aria.ok ? '#fff' : '#555', borderRadius: '8px', padding: '0.85rem', fontWeight: 800, fontSize: '0.95rem', cursor: aria.ok ? 'pointer' : 'not-allowed' }}
-                      >
+                        style={{ flex: 2, background: aria.ok ? accent : '#222', border: 'none', color: aria.ok ? '#fff' : '#555', borderRadius: '8px', padding: '0.85rem', fontWeight: 800, fontSize: '0.95rem', cursor: aria.ok ? 'pointer' : 'not-allowed' }}>
                         {loading ? 'Saving...' : editMode === 'edit' ? '✏️ Save Changes' : '🔄 Submit New Ad'}
                       </button>
                     </div>
@@ -412,7 +406,6 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
             {/* ── TAB: NEW AD ── */}
             {tab === 'new-ad' && (
               <div>
-                {/* ADMIN OVERRIDE */}
                 {isAdmin && (
                   <div style={{ background: '#1a0f00', border: '1px solid #f0883e40', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
                     <div style={{ fontSize: '0.65rem', color: '#f0883e', fontWeight: 700, marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ Admin — Place Ad For User</div>
@@ -436,7 +429,6 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                   </div>
                 )}
 
-                {/* MULTI BRAND */}
                 {brands && (
                   <div style={{ marginBottom: '1rem' }}>
                     <div style={{ fontSize: '0.72rem', color: '#888', marginBottom: '0.5rem' }}>Which brand is this ad for?</div>
@@ -445,19 +437,17 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                         <button key={b.brand} onClick={() => setSelectedBrand(b.brand)} style={{
                           flex: 1, padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem',
                           background: selectedBrand === b.brand ? accent : '#111',
-                          border: `1px solid ${selectedBrand === b.brand ? accent : '#333'}`,
-                          color: selectedBrand === b.brand ? '#fff' : '#666',
+                          border:     `1px solid ${selectedBrand === b.brand ? accent : '#333'}`,
+                          color:      selectedBrand === b.brand ? '#fff' : '#666',
                         }}>{b.icon} {b.label}</button>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* ARIA */}
                 <div style={{ fontSize: '0.82rem', color: aria.ok ? '#22c55e' : '#f0883e', padding: '0.5rem 0.75rem', background: aria.ok ? '#052e16' : '#1a0a00', borderRadius: '8px', marginBottom: '1rem' }}>
                   {aria.message}
                 </div>
-
                 <div style={{ fontSize: '0.72rem', color: '#555', marginBottom: '0.75rem' }}>
                   {isAdmin ? '⚡ Admin — publishes directly to Arena' : '2 minutes to go live · Entry tier · free'}
                 </div>
@@ -479,8 +469,7 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                 <select
                   value={form.category}
                   onChange={e => set('category', e.target.value)}
-                  style={{ ...inp, marginBottom: '1.25rem' }}
-                >
+                  style={{ ...inp, marginBottom: '1.25rem' }}>
                   {AD_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
 
@@ -491,8 +480,7 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
                     width: '100%', padding: '1rem', borderRadius: '10px', border: 'none',
                     background: aria.ok ? accent : '#222', color: aria.ok ? '#fff' : '#555',
                     fontWeight: 800, fontSize: '1rem', cursor: aria.ok ? 'pointer' : 'not-allowed',
-                  }}
-                >
+                  }}>
                   {loading ? 'Submitting...' : isAdmin ? '⚡ Publish Now' : '🚀 Submit to Arena'}
                 </button>
               </div>
