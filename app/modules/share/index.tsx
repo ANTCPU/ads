@@ -1,24 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { ModuleContext } from '../types';
+import { useState }        from 'react';
+import { ModuleContext }   from '../types';
 
 // ✅ notifyDiscord REMOVED — Discord is admin-only, not a share destination
 // ✅ PLATFORMS replaced with curated mobile-first list below
 
 // ─── Share platforms — mobile-first, high-value only ─────────────────────────
-//
-// Mobile:  navigator.share() fires the phone's native share sheet
-//          → user picks WhatsApp, Telegram, iMessage, etc from their own apps
-//          → zero friction, one tap
-//
-// Desktop: intent URLs open the platform directly in a new tab
-//          → Copy Link as universal fallback
-//
-// REMOVED: Discord (admin only), Facebook (broken intents),
-//          TikTok, Instagram, YouTube (no web share intent)
-// ─────────────────────────────────────────────────────────────────────────────
-
 const SHARE_PLATFORMS = [
   {
     key:    'whatsapp',
@@ -52,19 +40,6 @@ const SHARE_PLATFORMS = [
       `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
   },
 ];
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type ModuleContext = {
-  slug:    string;
-  user:    { email?: string };
-  ads:     {
-    id: string; brand: string; title: string; description: string;
-    category?: string; email?: string;
-    share_count?: number; click_count?: number; points?: number;
-  }[];
-  isSuper: boolean;
-};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
