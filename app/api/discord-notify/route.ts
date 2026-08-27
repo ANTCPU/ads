@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse }              from 'next/server';
-import { notifyDiscord, DiscordEvent, DiscordEmbed } from '@/lib/discord';
+import { notifyDiscord, DiscordEvent, DiscordEmbed } from '../../lib/discord';
 
 export async function POST(req: NextRequest) {
 
