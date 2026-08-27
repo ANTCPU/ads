@@ -1,24 +1,34 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import ArenaNav from '../../components/ArenaNav';
-import AdminBar from '../../components/AdminBar';
-import Card from '../../components/Card';
-import SectionHeader from '../../components/SectionHeader';
-import Pill from '../../components/Pill';
-import MessageComposer from '../../components/MessageComposer';          // ← NEW
-import { clearSessionCookie } from '../../lib/session';
-import ArenaFooter from '../../components/ArenaFooter';
-import { createClient } from '@supabase/supabase-js';
-import { notifyDiscord, DC } from '../../lib/discord';
-import { ariaVerdict } from '../../lib/aria';                            // ← NEW import
-import PostsModule from '../../modules/posts';
+import { useRouter }             from 'next/navigation';
+import ArenaNav                  from '../../components/ArenaNav';
+import AdminBar                  from '../../components/AdminBar';
+import Card                      from '../../components/Card';
+import SectionHeader             from '../../components/SectionHeader';
+import Pill                      from '../../components/Pill';
+import MessageComposer           from '../../components/MessageComposer';
+import { clearSessionCookie }    from '../../lib/session';
+import ArenaFooter               from '../../components/ArenaFooter';
+import { createClient }          from '@supabase/supabase-js';
+import { ariaVerdict }           from '../../lib/aria';
+import PostsModule               from '../../modules/posts';
+
+// ✅ notifyDiscord + DC import REMOVED — routed through /api/discord-notify
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// 🔒 Internal helper — routes all Discord calls through /api/discord-notify
+function pingDiscord(content: string, event: string, embed?: object) {
+  fetch('/api/discord-notify', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ content, event, embed }),
+  }).catch(() => {});
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,16 +60,11 @@ function rankMedal(rank?: number): string {
 
 export default function AntcpuDashboard() {
   const router = useRouter();
-
   const [hydrated,      setHydrated]      = useState(false);
   const [user,          setUser]          = useState<any>(null);
-
-  // ── Approval queue ──
   const [pendingAds,    setPendingAds]    = useState<PendingAd[]>([]);
   const [loadingAds,    setLoadingAds]    = useState(false);
   const [actionId,      setActionId]      = useState<string | null>(null);
-
-  // ── Active ads management ──
   const [activeAds,     setActiveAds]     = useState<ActiveAd[]>([]);
   const [archivedAds,   setArchivedAds]   = useState<ActiveAd[]>([]);
   const [confirmId,     setConfirmId]     = useState<string | null>(null);
@@ -117,31 +122,30 @@ export default function AntcpuDashboard() {
   async function approveAd(id: string) {
     setActionId(id);
     await supabase.from('ads').update({ status: 'active' }).eq('id', id);
-
     fetch('/api/scout/score', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ad_id: id }),
+      body:    JSON.stringify({ ad_id: id }),
     }).catch(() => {});
 
     const ad = pendingAds.find(a => a.id === id);
     if (ad) {
-      // Discord
-      notifyDiscord('', 'ad_approved', {
-        title: '✅ Ad Approved',
-        color: DC.green,
+      // 🔒 Discord via API
+      pingDiscord('', 'ad_approved', {
+        title:  '✅ Ad Approved',
+        color:  0x2E7D32, // DC.green
         fields: [
-          { name: 'Brand',    value: ad.brand,    inline: true },
-          { name: 'Tier',     value: ad.tier,     inline: true },
-          { name: 'Category', value: ad.category, inline: true },
+          { name: 'Brand',    value: ad.brand,    inline: true  },
+          { name: 'Tier',     value: ad.tier,     inline: true  },
+          { name: 'Category', value: ad.category, inline: true  },
           { name: 'Title',    value: ad.title,    inline: false },
           { name: 'Email',    value: ad.email,    inline: false },
         ],
-        footer: 'Aria reviewed · approved by admin',
+        footer:    'Aria reviewed · approved by admin',
         timestamp: true,
       });
 
-      // ← NEW — notify user in-app
+      // In-app notification
       fetch('/api/notify', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,25 +169,25 @@ export default function AntcpuDashboard() {
 
     const ad = pendingAds.find(a => a.id === id);
     if (ad) {
-      const verdict = ariaVerdict(ad);                                   // ← from lib/aria
+      const verdict = ariaVerdict(ad);
 
-      // Discord
-      notifyDiscord('', 'ad_rejected', {
-        title: '❌ Ad Rejected',
-        color: DC.red,
+      // 🔒 Discord via API
+      pingDiscord('', 'ad_rejected', {
+        title:  '❌ Ad Rejected',
+        color:  0xEF4444, // DC.red
         fields: [
-          { name: 'Brand',    value: ad.brand,     inline: true },
-          { name: 'Tier',     value: ad.tier,      inline: true },
-          { name: 'Category', value: ad.category,  inline: true },
+          { name: 'Brand',    value: ad.brand,     inline: true  },
+          { name: 'Tier',     value: ad.tier,      inline: true  },
+          { name: 'Category', value: ad.category,  inline: true  },
           { name: 'Title',    value: ad.title,     inline: false },
           { name: 'Email',    value: ad.email,     inline: false },
           { name: '🦋 Aria',  value: verdict.note, inline: false },
         ],
-        footer: 'ANTCPU ADS · Aria Review',
+        footer:    'ANTCPU ADS · Aria Review',
         timestamp: true,
       });
 
-      // ← NEW — notify user in-app with Aria reason
+      // In-app notification
       fetch('/api/notify', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -206,20 +210,23 @@ export default function AntcpuDashboard() {
     await supabase.from('ads')
       .update({ status: 'archived', pinned: false })
       .eq('id', id);
+
     const ad = activeAds.find(a => a.id === id);
     if (ad) {
-      notifyDiscord('', 'ad_archived', {
-        title: '📦 Ad Archived',
-        color: DC.orange,
+      // 🔒 Discord via API
+      pingDiscord('', 'ad_archived', {
+        title:  '📦 Ad Archived',
+        color:  0xF0883E, // DC.orange
         fields: [
-          { name: 'Brand', value: ad.brand, inline: true },
-          { name: 'Tier',  value: ad.tier,  inline: true },
+          { name: 'Brand', value: ad.brand, inline: true  },
+          { name: 'Tier',  value: ad.tier,  inline: true  },
           { name: 'Title', value: ad.title, inline: false },
         ],
-        footer: 'ANTCPU ADS · Admin Archive',
+        footer:    'ANTCPU ADS · Admin Archive',
         timestamp: true,
       });
     }
+
     await loadActive();
     setArchivingId(null);
   }
@@ -228,9 +235,9 @@ export default function AntcpuDashboard() {
     setRestoringId(id);
     await supabase.from('ads').update({ status: 'active' }).eq('id', id);
     fetch('/api/scout/score', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ad_id: id }),
+      body:    JSON.stringify({ ad_id: id }),
     }).catch(() => {});
     await loadActive();
     setRestoringId(null);
@@ -260,9 +267,9 @@ export default function AntcpuDashboard() {
     if (activeAds.length === 0) return;
     setRecalculating(true);
     await fetch('/api/scout/score', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ad_id: activeAds[0].id }),
+      body:    JSON.stringify({ ad_id: activeAds[0].id }),
     });
     await loadActive();
     setRecalculating(false);
@@ -271,11 +278,11 @@ export default function AntcpuDashboard() {
   if (!hydrated || !user) return null;
 
   const moduleCtx = {
-    slug: 'antcpu',
-    user: { email: user.email, name: user.name, brand: user.brand, trialStatus: 'team' },
-    ads: [],
+    slug:     'antcpu',
+    user:     { email: user.email, name: user.name, brand: user.brand, trialStatus: 'team' },
+    ads:      [],
     supabase,
-    isSuper: true,
+    isSuper:  true,
   };
 
   // ─── Styles ───────────────────────────────────────────────────────────────
@@ -288,14 +295,14 @@ export default function AntcpuDashboard() {
   };
 
   const rowBtn = (color: string, disabled = false): React.CSSProperties => ({
-    background: 'transparent',
-    border: `1px solid ${disabled ? '#e5e5e5' : color}`,
+    background:  'transparent',
+    border:      `1px solid ${disabled ? '#e5e5e5' : color}`,
     borderRadius: '8px',
-    color: disabled ? '#ccc' : color,
-    fontSize: '0.72rem', fontWeight: 700,
-    padding: '0.35rem 0.6rem',
-    cursor: disabled ? 'default' : 'pointer',
-    whiteSpace: 'nowrap', transition: 'all 0.15s', flexShrink: 0,
+    color:       disabled ? '#ccc' : color,
+    fontSize:    '0.72rem', fontWeight: 700,
+    padding:     '0.35rem 0.6rem',
+    cursor:      disabled ? 'default' : 'pointer',
+    whiteSpace:  'nowrap', transition: 'all 0.15s', flexShrink: 0,
   });
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -343,14 +350,12 @@ export default function AntcpuDashboard() {
             title={`🦋 Aria Approval Queue${pendingAds.length > 0 ? ` (${pendingAds.length} pending)` : ''}`}
             sub="Aria reviews each submission — you make the final call"
           />
-          {loadingAds && (
-            <div style={{ color: '#555', fontSize: '0.82rem' }}>Loading queue...</div>
-          )}
+          {loadingAds && <div style={{ color: '#555', fontSize: '0.82rem' }}>Loading queue...</div>}
           {!loadingAds && pendingAds.length === 0 && (
             <div style={{ color: '#555', fontSize: '0.82rem' }}>🦋 All clear — no ads pending review right now.</div>
           )}
           {pendingAds.map(ad => {
-            const verdict = ariaVerdict(ad);                             // ← from lib/aria
+            const verdict = ariaVerdict(ad);
             const busy    = actionId === ad.id;
             return (
               <div key={ad.id} style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '1rem', marginBottom: '1rem' }}>
@@ -379,13 +384,12 @@ export default function AntcpuDashboard() {
           })}
         </Card>
 
-        {/* ── ACTIVE ADS — MANAGE ── */}
+        {/* ── ACTIVE ADS ── */}
         <Card>
           <SectionHeader
             title={`📋 Active Ads (${activeAds.length})`}
             sub="Edit or archive your active ads — Scout recalculates on next interaction"
           />
-
           <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <button
               onClick={recalcRankings}
@@ -398,8 +402,7 @@ export default function AntcpuDashboard() {
                 padding:      '0.5rem 1rem',
                 cursor:       recalculating ? 'default' : 'pointer',
                 transition:   'all 0.15s',
-              }}
-            >
+              }}>
               {recalculating ? '⏳ Recalculating…' : '⚡ Recalculate Rankings'}
             </button>
             <span style={{ fontSize: '0.7rem', color: '#aaa' }}>Run after archiving or restoring ads</span>
@@ -413,7 +416,6 @@ export default function AntcpuDashboard() {
               const isConfirm = confirmId === ad.id;
               const isBusy    = archivingId === ad.id || savingId === ad.id;
               const medal     = rankMedal(ad.rank_position);
-
               return (
                 <div key={ad.id} style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: '0.85rem', marginBottom: '0.85rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
@@ -491,7 +493,7 @@ export default function AntcpuDashboard() {
           )}
         </Card>
 
-        {/* ── SEND MESSAGE ── */}                                       {/* ← NEW card */}
+        {/* ── SEND MESSAGE ── */}
         <Card>
           <SectionHeader
             title="✉️ Send Message"
