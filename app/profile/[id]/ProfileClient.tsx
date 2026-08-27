@@ -1,9 +1,11 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-import { notifyDiscord } from '../../lib/discord';
-import { tokens } from '../../lib/shopAdStyles';
+import { useRouter, useParams }        from 'next/navigation';
+import { createClient }                from '@supabase/supabase-js';
+import { tokens }                      from '../../lib/shopAdStyles';
+
+// ✅ notifyDiscord import REMOVED — now routed through /api/discord-notify
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +41,6 @@ const TIER_CONFIG: Record<string, { color: string; label: string }> = {
 const TABS = ['About', 'Ads', 'Performance', 'Connect'] as const;
 type Tab = typeof TABS[number];
 
-// Default ANTCPU video shown when profile has no YouTube
 const ANTCPU_FALLBACK_VIDEO = 'https://www.youtube.com/embed/PNoY1ffzciI?autoplay=0&rel=0';
 
 const CONNECT_SOCIALS: { key: keyof Profile; label: string; icon: string }[] = [
@@ -108,12 +109,14 @@ export default function ProfileClient() {
     setLoading(true);
     let { data: prof } = await supabase
       .from('ad_profiles').select('*').eq('email', id).single();
+
     if (!prof) {
       const { data: all } = await supabase.from('ad_profiles').select('*');
       prof = all?.find((p: Profile) =>
         p.brand?.toLowerCase().replace(/\s+/g, '-') === id
       ) || null;
     }
+
     if (prof) {
       setProfile(prof);
       const { data: userAds } = await supabase
@@ -135,7 +138,17 @@ export default function ProfileClient() {
   async function executeShare() {
     if (!profile) return;
     const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
-    notifyDiscord(`🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}`);
+
+    // 🔒 Routed through API — webhook URL never touches the client
+    fetch('/api/discord-notify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}`,
+        event:   'share',
+      }),
+    }).catch(() => {}); // fire and forget — never blocks the share UX
+
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({ title: `${profile.brand} — ANTCPU ADS`, text: shareText, url });
@@ -143,6 +156,7 @@ export default function ProfileClient() {
         setShareOpen(false); return;
       } catch {}
     }
+
     navigator.clipboard.writeText(shareText).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2500);
       setShareOpen(false);
@@ -185,21 +199,24 @@ export default function ProfileClient() {
   // ── Styles ────────────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
-    background: tokens.card,
-    border: `1px solid ${tokens.border}`,
+    background:   tokens.card,
+    border:       `1px solid ${tokens.border}`,
     borderRadius: '14px',
-    padding: '1.25rem',
+    padding:      '1.25rem',
     marginBottom: '0.75rem',
   };
+
   const lbl: React.CSSProperties = {
     display: 'block', fontSize: '0.65rem', color: '#555', fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: '0.65rem',
   };
+
   const pill = (color: string): React.CSSProperties => ({
     background: `${color}15`, border: `1px solid ${color}40`, color,
     borderRadius: '999px', padding: '0.15rem 0.6rem',
     fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap' as const,
   });
+
   const statBox = (color: string): React.CSSProperties => ({
     background: '#0a0a0a', border: `1px solid #1a1a1a`,
     borderTop: `2px solid ${color}`, borderRadius: '10px',
@@ -243,7 +260,7 @@ export default function ProfileClient() {
       {/* ── PAGE ── */}
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '1.5rem 1.25rem' }}>
 
-        {/* ── HERO CARD — brand identity ── */}
+        {/* ── HERO CARD ── */}
         <div style={{ ...card, marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between',
             alignItems: 'flex-start', gap: '1rem' }}>
@@ -258,7 +275,7 @@ export default function ProfileClient() {
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <span style={pill(topTier.color)}>{topTier.label}</span>
                 <span style={pill('#555')}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</span>
-                {totalPts > 0 && <span style={pill('#D4AF37')}>⚡ {totalPts} pts</span>}
+                {totalPts  > 0 && <span style={pill('#D4AF37')}>⚡ {totalPts} pts</span>}
                 {totalClks > 0 && <span style={pill('#0070f3')}>👆 {totalClks}</span>}
                 {totalShrs > 0 && <span style={pill('#7928ca')}>↗ {totalShrs}</span>}
               </div>
@@ -275,8 +292,7 @@ export default function ProfileClient() {
 
         {/* ── LIVE AD PREVIEW ── */}
         <div style={{ ...card, padding: 0, overflow: 'hidden', marginBottom: '0.75rem' }}>
-          <div style={{ padding: '0.65rem 1.25rem',
-            borderBottom: `1px solid ${tokens.border}` }}>
+          <div style={{ padding: '0.65rem 1.25rem', borderBottom: `1px solid ${tokens.border}` }}>
             <span style={lbl}>Live Ad Preview</span>
           </div>
           <div
@@ -309,7 +325,7 @@ export default function ProfileClient() {
               </div>
             )}
           </div>
-          {/* Ad selector if multiple ads */}
+
           {ads.filter(a => a.status === 'active').length > 1 && (
             <div style={{ padding: '0.65rem 1.25rem',
               borderTop: `1px solid ${tokens.border}`,
@@ -351,8 +367,6 @@ export default function ProfileClient() {
         {/* ── ABOUT ── */}
         {activeTab === 'About' && (
           <div>
-
-            {/* Bio card */}
             <div style={card}>
               <span style={lbl}>About {profile.brand}</span>
               <p style={{ fontSize: '0.88rem', color: '#ccc',
@@ -386,7 +400,6 @@ export default function ProfileClient() {
               )}
             </div>
 
-            {/* YouTube card — always shown, fallback to ANTCPU video */}
             <div style={card}>
               <span style={lbl}>
                 {profile.youtube ? '▶ YouTube' : '▶ Featured Video — ANTCPU ADS'}
@@ -405,7 +418,6 @@ export default function ProfileClient() {
                 </div>
               )}
             </div>
-
           </div>
         )}
 
@@ -442,15 +454,9 @@ export default function ProfileClient() {
                     <span style={pill(ad.status === 'active' ? '#22c55e' : '#555')}>
                       {ad.status}
                     </span>
-                    {(ad.points || 0) > 0 && (
-                      <span style={pill('#D4AF37')}>⚡ {ad.points} pts</span>
-                    )}
-                    {(ad.click_count || 0) > 0 && (
-                      <span style={pill('#0070f3')}>👆 {ad.click_count}</span>
-                    )}
-                    {(ad.share_count || 0) > 0 && (
-                      <span style={pill('#7928ca')}>↗ {ad.share_count}</span>
-                    )}
+                    {(ad.points      || 0) > 0 && <span style={pill('#D4AF37')}>⚡ {ad.points} pts</span>}
+                    {(ad.click_count || 0) > 0 && <span style={pill('#0070f3')}>👆 {ad.click_count}</span>}
+                    {(ad.share_count || 0) > 0 && <span style={pill('#7928ca')}>↗ {ad.share_count}</span>}
                   </div>
                 </div>
               ))
@@ -499,9 +505,9 @@ export default function ProfileClient() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
-                      <span style={pill('#D4AF37')}>⚡ {ad.points || 0}</span>
+                      <span style={pill('#D4AF37')}>⚡ {ad.points      || 0}</span>
                       <span style={pill('#0070f3')}>👆 {ad.click_count || 0}</span>
-                      <span style={pill('#7928ca')}>↗ {ad.share_count || 0}</span>
+                      <span style={pill('#7928ca')}>↗ {ad.share_count  || 0}</span>
                     </div>
                   </div>
                 ))}
@@ -549,7 +555,6 @@ export default function ProfileClient() {
             )}
           </div>
         )}
-
       </div>
 
       {/* ── SHARE MODAL ── */}
@@ -573,7 +578,7 @@ export default function ProfileClient() {
             </div>
             <textarea
               value={shareText}
-                            onChange={e => setShareText(e.target.value)}
+              onChange={e => setShareText(e.target.value)}
               rows={7}
               style={{ width: '100%', background: '#0a0a0a', border: '1px solid #222',
                 borderRadius: 10, padding: '0.85rem', color: '#fff', fontSize: '0.85rem',
@@ -601,8 +606,6 @@ export default function ProfileClient() {
           </div>
         </>
       )}
-
     </div>
   );
 }
-
