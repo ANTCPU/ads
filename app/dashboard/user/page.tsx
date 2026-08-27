@@ -1,16 +1,27 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-import ArenaNav from '../../components/ArenaNav';
-import ArenaFooter from '../../components/ArenaFooter';
-import { clearSessionCookie } from '../../lib/session';
-import { notifyDiscord } from '../../lib/discord';
+import { useRouter }                   from 'next/navigation';
+import { createClient }                from '@supabase/supabase-js';
+import ArenaNav                        from '../../components/ArenaNav';
+import ArenaFooter                     from '../../components/ArenaFooter';
+import { clearSessionCookie }          from '../../lib/session';
+
+// ✅ notifyDiscord import REMOVED — now routed through /api/discord-notify
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// 🔒 Internal helper — routes all Discord calls through /api/discord-notify
+function pingDiscord(content: string, event = 'general') {
+  fetch('/api/discord-notify', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ content, event }),
+  }).catch(() => {});
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,8 +38,7 @@ type Ad = {
   share_count: number; points: number; rank_position: number;
 };
 
-// ─── Tier ladder — single source of truth ─────────────────────────────────────
-// Used by TIER_CONFIG display AND TierStrip progress calculation.
+// ─── Tier ladder ──────────────────────────────────────────────────────────────
 
 const TIERS = [
   { key: 'entry',    label: 'Entry',    color: '#0070f3', threshold: 0   },
@@ -50,8 +60,6 @@ const CATEGORY_TAGS: Record<string, string> = {
 };
 
 // ─── TierStrip ────────────────────────────────────────────────────────────────
-// Inline progress bar — shows current tier, pts to next, progress bar.
-// Defined outside component — no re-render on every state change.
 
 function TierStrip({ points, tier }: { points: number; tier: string }) {
   const currentIdx = TIERS.findIndex(t => t.key === tier);
@@ -61,7 +69,6 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
   const progress = next
     ? Math.min(((points - current.threshold) / (next.threshold - current.threshold)) * 100, 100)
     : 100;
-
   const ptsToNext = next ? next.threshold - points : 0;
 
   return (
@@ -69,7 +76,6 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
       background: '#0a0a0a', border: `1px solid ${current.color}25`,
       borderRadius: '10px', padding: '0.85rem 1rem', marginTop: '0.75rem',
     }}>
-      {/* Label row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{
@@ -92,8 +98,6 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
           </span>
         )}
       </div>
-
-      {/* Progress bar */}
       <div style={{ height: '4px', background: '#1a1a1a', borderRadius: '999px', overflow: 'hidden' }}>
         <div style={{
           height: '100%', borderRadius: '999px',
@@ -104,11 +108,9 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
           transition: 'width 0.6s ease',
         }} />
       </div>
-
-      {/* Tier pills row */}
       <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
         {TIERS.map((t, i) => {
-          const unlocked = points >= t.threshold;
+          const unlocked  = points >= t.threshold;
           const isCurrent = t.key === tier;
           return (
             <span key={t.key} style={{
@@ -133,7 +135,6 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
 
 export default function UserDashboard() {
   const router = useRouter();
-
   const [hydrated,       setHydrated]       = useState(false);
   const [user,           setUser]           = useState<SessionUser | null>(null);
   const [myAd,           setMyAd]           = useState<Ad | null>(null);
@@ -144,19 +145,19 @@ export default function UserDashboard() {
   const [sharedId,       setSharedId]       = useState<string | null>(null);
   const [hasProfile,     setHasProfile]     = useState(false);
   const [myRank,         setMyRank]         = useState<number | null>(null);
-  const [showCount,      setShowCount]      = useState(10); // ← NEW arena feed pagination
+  const [showCount,      setShowCount]      = useState(10);
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetch('/api/doorbell', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         page: '/dashboard/user',
-        ref: document.referrer || 'direct',
-        ts: new Date().toISOString(),
-        ua: navigator.userAgent,
+        ref:  document.referrer || 'direct',
+        ts:   new Date().toISOString(),
+        ua:   navigator.userAgent,
       }),
     }).catch(() => {});
 
@@ -166,14 +167,16 @@ export default function UserDashboard() {
     try {
       const u: SessionUser = JSON.parse(stored);
       if (u.role === 'super') { router.push('/dashboard/antcpu'); return; }
-      if (u.role === 'admin') { router.push('/dashboard/users'); return; }
+      if (u.role === 'admin') { router.push('/dashboard/users');  return; }
       setUser(u);
       setHydrated(true);
       fetchData(u.email);
+
       supabase
         .from('ad_profiles').select('bio')
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
+
       supabase
         .from('ad_signups').select('promo_code')
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
@@ -201,8 +204,8 @@ export default function UserDashboard() {
         .order('created_at', { ascending: false }).limit(1),
       supabase.from('ads').select('*')
         .eq('status', 'active')
-        .order('pinned', { ascending: false })
-        .order('points', { ascending: false }),
+        .order('pinned',  { ascending: false })
+        .order('points',  { ascending: false }),
       supabase.from('ad_signups').select('email, promo_code'),
       supabase.from('ads').select('rank_position')
         .eq('email', email).eq('status', 'active')
@@ -213,10 +216,12 @@ export default function UserDashboard() {
     (signups || []).forEach((s: { email: string; promo_code: string | null }) => {
       if (s.promo_code) promoMap[s.email] = s.promo_code.toLowerCase();
     });
+
     const enrich = (ads: Ad[]) =>
       ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
 
     if (rankData?.[0]?.rank_position > 0) setMyRank(rankData[0].rank_position);
+
     const enrichedMine = enrich(mine || []);
     setMyAd(enrichedMine[0] || null);
     setArenaAds(enrich(arena || []));
@@ -237,8 +242,13 @@ export default function UserDashboard() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ad_id: ad.id }),
       }).catch(() => {});
+
+      // 🔒 Routed through API
       if (n % 10 === 0) {
-        notifyDiscord(`👆 **Click Milestone** — ${ad.brand} hit **${n} clicks**\n**Ad:** "${ad.title}"\n**Email:** ${ad.email}`);
+        pingDiscord(
+          `👆 **Click Milestone** — ${ad.brand} hit **${n} clicks**\n**Ad:** "${ad.title}"\n**Email:** ${ad.email}`,
+          'click_milestone'
+        );
       }
     } catch {}
   }
@@ -246,13 +256,16 @@ export default function UserDashboard() {
   async function shareAd(ad: Ad) {
     const tags = CATEGORY_TAGS[ad.category] || '#marketing #ads #antcpu';
     const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n${tags} #antcpuads`;
+
     let shared = false;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try { await navigator.share({ title: ad.title, text, url: ad.url }); shared = true; } catch {}
     }
     if (!shared) navigator.clipboard.writeText(text).catch(() => {});
+
     setSharedId(ad.id);
     setTimeout(() => setSharedId(null), 2500);
+
     if (!ad.id.startsWith('sample-') && user) {
       const n = (ad.share_count || 0) + 1;
       supabase.from('ads').update({ share_count: n }).eq('id', ad.id).then(() => {
@@ -261,7 +274,12 @@ export default function UserDashboard() {
           body: JSON.stringify({ ad_id: ad.id }),
         }).catch(() => {});
       });
-      notifyDiscord(`↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user.email}\n**Shares:** ${n}`);
+
+      // 🔒 Routed through API
+      pingDiscord(
+        `↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user.email}\n**Shares:** ${n}`,
+        'share'
+      );
     }
   }
 
@@ -276,14 +294,13 @@ export default function UserDashboard() {
   const firstName = user.name?.includes('@')
     ? user.brand || user.email.split('@')[0]
     : user.name?.split(' ')[0];
-  const showOnboarding = !hasProfile || !myAd;
 
-  // ── Tier math — derived from myAd.points ──────────────────────────────────
-  const myPoints   = myAd?.points || 0;
-  const myTierKey  = myAd?.tier   || 'entry';
-  const nextTier   = TIERS.find(t => t.threshold > myPoints);
-  const ptsToNext  = nextTier ? nextTier.threshold - myPoints : 0;
-  const showStrip  = !!myAd; // only show when user has an active ad
+  const showOnboarding = !hasProfile || !myAd;
+  const myPoints       = myAd?.points || 0;
+  const myTierKey      = myAd?.tier   || 'entry';
+  const nextTier       = TIERS.find(t => t.threshold > myPoints);
+  const ptsToNext      = nextTier ? nextTier.threshold - myPoints : 0;
+  const showStrip      = !!myAd;
 
   // ── Styles ────────────────────────────────────────────────────────────────
 
@@ -291,15 +308,18 @@ export default function UserDashboard() {
     background: '#111', border: '1px solid #1a1a1a',
     borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem',
   };
+
   const lbl: React.CSSProperties = {
     fontSize: '0.68rem', color: '#555', fontWeight: 700,
     textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem',
   };
+
   const pill = (color: string): React.CSSProperties => ({
     border: `1px solid ${color}40`, color, background: 'transparent',
     borderRadius: '999px', padding: '0.15rem 0.6rem',
     fontSize: '0.68rem', fontWeight: 700,
   });
+
   const btn = (bg: string, color = '#fff', border = 'none'): React.CSSProperties => ({
     background: bg, border, color, borderRadius: '8px',
     padding: '0.5rem 1rem', fontSize: '0.82rem',
@@ -310,7 +330,6 @@ export default function UserDashboard() {
 
   return (
     <div style={{ background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' }}>
-
       <ArenaNav
         role={user.role as 'super' | 'admin' | 'team' | 'user'}
         userName={user.name}
@@ -340,7 +359,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* ── Tier Progress Strip ── */}           {/* ← NEW */}
+        {/* ── Tier Progress Strip ── */}
         {showStrip && (
           <div style={card}>
             <div style={lbl}>Your Progress</div>
@@ -348,13 +367,9 @@ export default function UserDashboard() {
           </div>
         )}
 
-        {/* ── Points to next tier nudge ── */}     {/* ← NEW */}
+        {/* ── Points to next tier nudge ── */}
         {showStrip && nextTier && ptsToNext <= 30 && (
-          <div style={{
-            ...card,
-            border: `1px solid ${nextTier.color}40`,
-            background: `${nextTier.color}08`,
-          }}>
+          <div style={{ ...card, border: `1px solid ${nextTier.color}40`, background: `${nextTier.color}08` }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 700, color: nextTier.color, marginBottom: '0.3rem' }}>
               ⚡ {ptsToNext} pts to {nextTier.label}
             </div>
@@ -387,8 +402,7 @@ export default function UserDashboard() {
                   borderRadius: '10px',
                   cursor: step.href && !step.done ? 'pointer' : 'default',
                   marginBottom: '0.5rem',
-                }}
-              >
+                }}>
                 <span style={{ fontSize: '1.1rem' }}>{step.done ? '✅' : '⭕'}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{step.label}</div>
@@ -417,29 +431,17 @@ export default function UserDashboard() {
                   {TIER_CONFIG[myAd.tier]?.label || 'Entry'}
                 </span>
                 <span style={pill('#22c55e')}>🟢 Live</span>
-                {(myAd.click_count || 0) > 0 && (
-                  <span style={{ fontSize: '0.72rem', color: '#555' }}>👆 {myAd.click_count}</span>
-                )}
-                {(myAd.share_count || 0) > 0 && (
-                  <span style={{ fontSize: '0.72rem', color: '#555' }}>↗ {myAd.share_count}</span>
-                )}
-                {(myAd.points || 0) > 0 && (
-                  <span style={{ fontSize: '0.72rem', color: '#f0883e' }}>⚡ {myAd.points} pts</span>
-                )}
+                {(myAd.click_count || 0) > 0 && <span style={{ fontSize: '0.72rem', color: '#555' }}>👆 {myAd.click_count}</span>}
+                {(myAd.share_count || 0) > 0 && <span style={{ fontSize: '0.72rem', color: '#555' }}>↗ {myAd.share_count}</span>}
+                {(myAd.points     || 0) > 0 && <span style={{ fontSize: '0.72rem', color: '#f0883e' }}>⚡ {myAd.points} pts</span>}
               </div>
               <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '1rem', lineHeight: 1.5 }}>
                 {myAd.description}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>
-                  🏟 View in Arena
-                </button>
-                <button onClick={() => shareAd(myAd)} style={btn(accent)}>
-                  ↗ Share
-                </button>
-                <button onClick={() => router.push('/create-ad')} style={btn('transparent', '#555', '1px solid #333')}>
-                  ✏️ Edit
-                </button>
+                <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>🏟 View in Arena</button>
+                <button onClick={() => shareAd(myAd)} style={btn(accent)}>↗ Share</button>
+                <button onClick={() => router.push('/create-ad')} style={btn('transparent', '#555', '1px solid #333')}>✏️ Edit</button>
               </div>
             </div>
           )}
@@ -462,15 +464,14 @@ export default function UserDashboard() {
                   setReferralCopied(true);
                   setTimeout(() => setReferralCopied(false), 2000);
                 }}
-                style={btn(referralCopied ? '#22c55e' : accent)}
-              >
+                style={btn(referralCopied ? '#22c55e' : accent)}>
                 {referralCopied ? '✅ Copied' : '📋 Copy Link'}
               </button>
             </div>
           </div>
         )}
 
-        {/* ── Arena nudge — clicks but no shares ── */}
+        {/* ── Arena nudge ── */}
         {myAd && (myAd.share_count || 0) === 0 && (myAd.click_count || 0) > 0 && (
           <div style={{ ...card, border: '1px solid #f0883e40', background: '#f0883e08' }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f0883e', marginBottom: '0.4rem' }}>
@@ -493,7 +494,6 @@ export default function UserDashboard() {
               View All →
             </button>
           </div>
-
           {loading ? (
             <div style={{ color: '#555', fontSize: '0.85rem', padding: '1rem 0' }}>Loading arena...</div>
           ) : (
@@ -513,17 +513,15 @@ export default function UserDashboard() {
                       marginBottom: '0.75rem', transition: 'border-color 0.15s',
                     }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = tier.color + '60')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? '#f0883e40' : '#1a1a1a')}
-                  >
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? '#f0883e40' : '#1a1a1a')}>
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.4rem' }}>
                       <span
                         onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
-                        style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color, cursor: 'pointer' }}
-                      >
+                        style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color, cursor: 'pointer' }}>
                         {ad.brand}
                       </span>
-                      {ad.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
-                      {isOwn    && <span style={pill('#22c55e')}>Your Ad</span>}
+                      {ad.pinned          && <span style={pill('#f0883e')}>⭐ Featured</span>}
+                      {isOwn              && <span style={pill('#22c55e')}>Your Ad</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
                       {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
@@ -536,14 +534,12 @@ export default function UserDashboard() {
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
                         onClick={e => { e.stopPropagation(); window.open(ad.url, '_blank', 'noopener,noreferrer'); }}
-                        style={btn(tier.color)}
-                      >
+                        style={btn(tier.color)}>
                         Visit →
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); shareAd(ad); }}
-                        style={btn('transparent', sharedId === ad.id ? '#22c55e' : '#555', '1px solid #333')}
-                      >
+                        style={btn('transparent', sharedId === ad.id ? '#22c55e' : '#555', '1px solid #333')}>
                         {sharedId === ad.id ? '✅ Shared' : '↗ Share'}
                       </button>
                     </div>
@@ -551,37 +547,32 @@ export default function UserDashboard() {
                 );
               })}
 
-              {/* ← NEW — load more + full arena CTA */}
               {arenaAds.length > showCount ? (
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <button
                     onClick={() => setShowCount(c => c + 10)}
-                    style={{ ...btn('transparent', accent, `1px solid ${accent}`), flex: 1 }}
-                  >
-                                      Load {Math.min(10, arenaAds.length - showCount)} more ↓
+                    style={{ ...btn('transparent', accent, `1px solid ${accent}`), flex: 1 }}>
+                    Load {Math.min(10, arenaAds.length - showCount)} more ↓
                   </button>
                   <button
                     onClick={() => router.push('/arena')}
-                    style={{ ...btn('transparent', '#555', '1px solid #333'), flex: 1 }}
-                  >
+                    style={{ ...btn('transparent', '#555', '1px solid #333'), flex: 1 }}>
                     Full Arena →
                   </button>
                 </div>
               ) : arenaAds.length > 10 ? (
                 <button
                   onClick={() => router.push('/arena')}
-                  style={{ ...btn('transparent', accent, `1px solid ${accent}`), width: '100%', marginTop: '0.5rem' }}
-                >
+                  style={{ ...btn('transparent', accent, `1px solid ${accent}`), width: '100%', marginTop: '0.5rem' }}>
                   You've seen all {arenaAds.length} ads — Open Full Arena →
                 </button>
               ) : null}
             </div>
           )}
         </div>
-
       </div>
+
       <ArenaFooter />
     </div>
   );
 }
-
