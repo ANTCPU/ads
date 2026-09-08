@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { awardBadge } from '../../lib/badges';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const { data } = await supabase
     .from('ad_signups')
-    .select('pin, name, brand_name, status, role, last_login, created_at, points')
+    .select('pin, name, brand_name, status, role, last_login, created_at, points, promo_code')
     .eq('email', norm)
     .maybeSingle();
 
@@ -41,14 +42,14 @@ export async function POST(req: NextRequest) {
 
   // ── Successful auth — fire nudges + update last_login ─────────────────────
 
-  const now        = new Date();
-  const lastLogin  = data.last_login ? new Date(data.last_login) : null;
-  const createdAt  = data.created_at ? new Date(data.created_at) : null;
-  const daysSince  = lastLogin
+  const now       = new Date();
+  const lastLogin = data.last_login ? new Date(data.last_login) : null;
+  const createdAt = data.created_at ? new Date(data.created_at) : null;
+  const daysSince = lastLogin
     ? (now.getTime() - lastLogin.getTime()) / 86_400_000
     : null;
-  const isNewUser  = createdAt
-    ? (now.getTime() - createdAt.getTime()) < 86_400_000  // created within last 24h
+  const isNewUser = createdAt
+    ? (now.getTime() - createdAt.getTime()) < 86_400_000
     : false;
   const userPoints = data.points || 0;
   const firstName  = data.name?.split(' ')[0] || 'there';
@@ -70,14 +71,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Update last_login — non-blocking, silent fail if column missing
+  // Update last_login — non-blocking, silent fail
   Promise.resolve(
-  supabase
-    .from('ad_signups')
-    .update({ last_login: now.toISOString() })
-    .eq('email', norm)
-).catch(() => {});
+    supabase
+      .from('ad_signups')
+      .update({ last_login: now.toISOString() })
+      .eq('email', norm)
+  ).catch(() => {});
 
+  // ── Badge awards — fire and forget, never block auth ──────────────────────
+  Promise.all([
+    // arena-original — awarded if 100 or fewer users at time of login
+    (async () => {
+      const { count } = await supabase
+        .from('ad_signups')
+        .select('*', { count: 'exact', head: true });
+      if ((count || 0) <= 100) {
+        await awardBadge(supabase, norm, 'arena-original');
+      }
+    })(),
+    // promo-based identity badges — case-insensitive
+    data.promo_code?.toUpperCase() === 'MAPOFPI'    && awardBadge(supabase, norm, 'pi-pioneer'),
+    data.promo_code?.toUpperCase() === 'INTERNSHIP' && awardBadge(supabase, norm, 'challenger'),
+  ]).catch(() => {});
 
   return NextResponse.json({
     ok: true,
