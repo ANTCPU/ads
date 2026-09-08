@@ -8,6 +8,7 @@
 // 2. Increments share_count on the ad
 // 3. Fires /api/scout/score to recalculate points + rank
 // 4. Notifies Discord on every 5 share milestone via /api/discord-notify
+// 5. Awards first-share badge on first share
 //
 // Note: called AFTER the platform intent opens or text is copied —
 // not before — so we only count confirmed share attempts.
@@ -15,6 +16,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TrackingSource } from './sources';
+import { awardBadge } from '../badges';
 
 // ✅ notifyDiscord REMOVED — routed through /api/discord-notify
 // This file is imported by client components so must never import discord.ts
@@ -69,7 +71,7 @@ export async function recordShare(
         event:   'share',
         embed: {
           title:  '↗ Share Milestone',
-          color:  0x0070F3, // DC.blue — hardcoded so we don't import discord.ts
+          color:  0x0070F3,
           fields: [
             { name: 'Platform', value: platform,               inline: true  },
             { name: 'Shares',   value: String(newShares),      inline: true  },
@@ -83,6 +85,11 @@ export async function recordShare(
         },
       }),
     }).catch(() => {});
+  }
+
+  // 5 — first-share badge — fire and forget
+  if (newShares === 1 && userEmail && userEmail !== 'visitor') {
+    awardBadge(supabase, userEmail, 'first-share').catch(() => {});
   }
 
   return newShares;
