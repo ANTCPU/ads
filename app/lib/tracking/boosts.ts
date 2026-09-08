@@ -5,7 +5,7 @@
 // 1. Writes a row to ad_boosts (ad_id, session_id)
 // 2. Increments boost_count on the ad
 // 3. Fires /api/scout/score to recalculate points + rank
-// 4. Notifies Discord via /api/discord-notify — never calls Discord directly
+// 4. Notifies Discord on every 10 boost milestone via /api/discord-notify
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -49,27 +49,29 @@ export async function recordBoost(
     body:    JSON.stringify({ ad_id: ad.id }),
   }).catch(() => {});
 
-  // 4 — 🔒 Discord via API route — webhook URL never touches client bundle
-  fetch('/api/discord-notify', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: '',
-      event:   'general',
-      embed: {
-        title:  '⚡ Ad Boosted',
-        color:  0xD4AF37, // DC.gold
-        fields: [
-          { name: 'Brand',        value: ad.brand,       inline: true  },
-          { name: 'Total Boosts', value: String(newCount), inline: true },
-          { name: 'Source',       value: source,         inline: true  },
-          { name: 'Ad',           value: ad.title,       inline: false },
-        ],
-        footer:    'ANTCPU ADS · Boost Tracking',
-        timestamp: true,
-      },
-    }),
-  }).catch(() => {});
+  // 4 — 🔒 Discord milestone every 10 boosts — via API route only
+  if (newCount % 10 === 0) {
+    fetch('/api/discord-notify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: '',
+        event:   'general',
+        embed: {
+          title:  '⚡ Boost Milestone',
+          color:  0xD4AF37, // DC.gold
+          fields: [
+            { name: 'Brand',        value: ad.brand,          inline: true  },
+            { name: 'Total Boosts', value: String(newCount),  inline: true  },
+            { name: 'Source',       value: source,            inline: true  },
+            { name: 'Ad',           value: ad.title,          inline: false },
+          ],
+          footer:    'ANTCPU ADS · Boost Tracking',
+          timestamp: true,
+        },
+      }),
+    }).catch(() => {});
+  }
 
   return newCount;
 }
