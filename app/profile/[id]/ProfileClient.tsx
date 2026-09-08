@@ -5,7 +5,7 @@ import { useRouter, useParams }        from 'next/navigation';
 import { createClient }                from '@supabase/supabase-js';
 import { tokens }                      from '../../lib/shopAdStyles';
 
-// ✅ notifyDiscord import REMOVED — now routed through /api/discord-notify
+// ✅ notifyDiscord REMOVED — routed through /api/discord-notify
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,13 +29,19 @@ type Ad = {
   click_count?: number; share_count?: number; points?: number;
 };
 
+type Badge = {
+  badge_slug: string;
+  awarded_by: string;
+  awarded_at: string;
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TIER_CONFIG: Record<string, { color: string; label: string }> = {
-  entry:    { color: '#0070f3', label: 'Entry' },
-  rising:   { color: '#7928ca', label: 'Rising' },
+  entry:    { color: '#0070f3', label: 'Entry'    },
+  rising:   { color: '#7928ca', label: 'Rising'   },
   featured: { color: '#ff0080', label: 'Featured' },
-  toptier:  { color: '#f0883e', label: 'Top Tier' },
+  top_tier: { color: '#f0883e', label: 'Top Tier' }, // ✅ fixed — was 'toptier'
 };
 
 const TABS = ['About', 'Ads', 'Performance', 'Connect'] as const;
@@ -54,6 +60,26 @@ const CONNECT_SOCIALS: { key: keyof Profile; label: string; icon: string }[] = [
   { key: 'discord',   label: 'Discord',     icon: '💬' },
   { key: 'telegram',  label: 'Telegram',    icon: '✈️' },
 ];
+
+const BADGE_DISPLAY: Record<string, { icon: string; label: string; tier: number }> = {
+  'arena-original':   { icon: '🔥', label: 'Arena Original',   tier: 1 },
+  'pi-pioneer':       { icon: '🗺️', label: 'Pi Pioneer',       tier: 1 },
+  'challenger':       { icon: '🚀', label: 'Challenger',        tier: 1 },
+  'arena-builder':    { icon: '⚙️', label: 'Arena Builder',     tier: 1 },
+  'first-share':      { icon: '↗',  label: 'Sharer',           tier: 2 },
+  'first-like':       { icon: '😊', label: 'Supporter',        tier: 2 },
+  'first-boost':      { icon: '⚡', label: 'Booster',          tier: 2 },
+  'first-click':      { icon: '👆', label: 'Explorer',         tier: 2 },
+  'first-reaction':   { icon: '🔥', label: 'Reactor',          tier: 2 },
+  'loyal-member':     { icon: '🔄', label: 'Loyal Member',     tier: 3 },
+  'points-100':       { icon: '💯', label: 'Century',          tier: 3 },
+  'points-300':       { icon: '🚀', label: 'Rising Star',      tier: 3 },
+  'points-750':       { icon: '🏆', label: 'Top Tier',         tier: 3 },
+  'country-champion': { icon: '🏆', label: 'Country Champion', tier: 4 },
+  'verified-brand':   { icon: '✅', label: 'Verified',         tier: 4 },
+  'top-brand':        { icon: '🥇', label: 'Top Brand',        tier: 4 },
+  'arena-staff':      { icon: '⚡', label: 'Arena Staff',      tier: 4 },
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +112,7 @@ export default function ProfileClient() {
 
   const [profile,   setProfile]   = useState<Profile | null>(null);
   const [ads,       setAds]       = useState<Ad[]>([]);
+  const [badges,    setBadges]    = useState<Badge[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [isOwn,     setIsOwn]     = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('About');
@@ -119,12 +146,21 @@ export default function ProfileClient() {
 
     if (prof) {
       setProfile(prof);
-      const { data: userAds } = await supabase
-        .from('ads').select('*').eq('email', prof.email)
-        .order('created_at', { ascending: false });
-      const loaded = userAds || [];
+
+      // Fetch ads + badges in parallel
+      const [adsRes, badgesRes] = await Promise.all([
+        supabase.from('ads').select('*').eq('email', prof.email)
+          .order('created_at', { ascending: false }),
+        supabase.from('user_badges')
+          .select('badge_slug, awarded_by, awarded_at')
+          .eq('user_email', prof.email)
+          .order('awarded_at', { ascending: true }),
+      ]);
+
+      const loaded = adsRes.data || [];
       setAds(loaded);
       if (loaded.length > 0) setPreviewAd(loaded[0]);
+      setBadges(badgesRes.data || []);
     }
     setLoading(false);
   }
@@ -139,7 +175,6 @@ export default function ProfileClient() {
     if (!profile) return;
     const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
 
-    // 🔒 Routed through API — webhook URL never touches the client
     fetch('/api/discord-notify', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -147,7 +182,7 @@ export default function ProfileClient() {
         content: `🔗 **Profile Shared** — ${profile.brand}\n**Profile:** ${url}`,
         event:   'share',
       }),
-    }).catch(() => {}); // fire and forget — never blocks the share UX
+    }).catch(() => {});
 
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
@@ -272,6 +307,8 @@ export default function ProfileClient() {
               <div style={{ fontSize: '0.82rem', color: '#666', marginBottom: '0.75rem' }}>
                 {profile.name}
               </div>
+
+              {/* ── STAT PILLS ── */}
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <span style={pill(topTier.color)}>{topTier.label}</span>
                 <span style={pill('#555')}>{ads.length} Ad{ads.length !== 1 ? 's' : ''}</span>
@@ -279,7 +316,40 @@ export default function ProfileClient() {
                 {totalClks > 0 && <span style={pill('#0070f3')}>👆 {totalClks}</span>}
                 {totalShrs > 0 && <span style={pill('#7928ca')}>↗ {totalShrs}</span>}
               </div>
+
+              {/* ── BADGE ROW ── */}
+              {badges.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.35rem',
+                  flexWrap: 'wrap', marginTop: '0.6rem' }}>
+                  {badges.map(b => {
+                    const def = BADGE_DISPLAY[b.badge_slug];
+                    if (!def) return null;
+                    const isManual = def.tier === 4;
+                    return (
+                      <span
+                        key={b.badge_slug}
+                        title={`${def.label}${isManual ? ' · verified by ANTCPU' : ''}`}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                          background: isManual ? '#D4AF3715' : '#ffffff08',
+                          border: `1px solid ${isManual ? '#D4AF3740' : '#ffffff15'}`,
+                          borderRadius: '999px', padding: '0.15rem 0.55rem',
+                          fontSize: '0.68rem', fontWeight: 700,
+                          color: isManual ? '#D4AF37' : '#888',
+                          cursor: 'default',
+                        }}
+                      >
+                        {def.icon} {def.label}
+                        {isManual && (
+                          <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>✦</span>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
+
             <button onClick={openShare}
               style={{ background: topTier.color, border: 'none', color: '#fff',
                 borderRadius: '8px', padding: '0.5rem 1rem',
