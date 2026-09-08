@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkAndAwardPointsBadges } from '../../../lib/badges';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,11 +21,8 @@ const RANK_BONUS: Record<number, number> = {
 
 const DOUBLE_SHARE_SOURCES = new Set(['cloud_guest']);
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app'; // ← NEW
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
 
-// ── Milestone notify helper ───────────────────────────────────────────────────
-// Non-blocking — never delays the score response.
-// Fires /api/notify which inserts into notifications table → user envelope.    // ← NEW
 function notify(email: string, type: string, title: string, message: string) {
   fetch(`${BASE_URL}/api/notify`, {
     method:  'POST',
@@ -33,7 +31,6 @@ function notify(email: string, type: string, title: string, message: string) {
   }).catch(() => {});
 }
 
-// ── Score formula ADS_V05 ─────────────────────────────────────────────────────
 function calcRaw(
   click_count:    number,
   share_count:    number,
@@ -65,8 +62,6 @@ export async function POST(req: NextRequest) {
 
   const share_multiplier = DOUBLE_SHARE_SOURCES.has(source) ? 2 : 1;
 
-  // ── Snapshot BEFORE — capture current state for milestone comparison ──────
-  // Must happen before the two-pass ranking overwrites points + rank_position. // ← NEW
   const { data: before } = await supabase
     .from('ads')
     .select('points, rank_position, email, brand, title, is_system')
@@ -88,17 +83,15 @@ export async function POST(req: NextRequest) {
 
   const is_system = ad.is_system || false;
 
-  // ── RANK ALL ACTIVE ADS — two-pass ────────────────────────────────────────
   const { data: allActive } = await supabase
     .from('ads')
     .select('id, email, tier, click_count, share_count, like_count, boost_count, reaction_count, is_system')
     .eq('status', 'active');
 
   let finalPoints = 0;
-  let finalRank   = 999; // ← NEW — track new rank for milestone check
+  let finalRank   = 999;
 
   if (allActive && allActive.length > 0) {
-    // Pass 1 — raw score
     const pass1 = allActive.map((a: any) => ({
       id:        a.id,
       email:     a.email,
@@ -115,20 +108,18 @@ export async function POST(req: NextRequest) {
       ),
     }));
 
-    // Sort — system ads always below user ads
     pass1.sort((a: any, b: any) => {
       if (a.is_system !== b.is_system) return a.is_system ? 1 : -1;
       return b.raw - a.raw;
     });
 
-    // Pass 2 — rank bonus + pinned
     const pass2 = pass1.map((a: any, i: number) => {
       const rank   = i + 1;
       const bonus  = (!a.is_system && RANK_BONUS[rank]) ? RANK_BONUS[rank] : 0;
       const points = a.raw + bonus;
       if (a.id === ad_id) {
         finalPoints = points;
-        finalRank   = rank; // ← NEW
+        finalRank   = rank;
       }
       return {
         id:            a.id,
@@ -139,7 +130,6 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // Write all in parallel
     await Promise.all(
       pass2.map((a: any) =>
         supabase.from('ads').update({
@@ -150,20 +140,14 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Update user total points in ad_signups
     const emailsToUpdate = [...new Set(pass2.map((a: any) => a.email).filter(Boolean))];
     await Promise.all(
       emailsToUpdate.map(async (email: string) => {
-      const userAds = pass2.filter((a: any) => a.email === adEmail);
-      const total = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
-      await supabase.from('ad_signups').update({ points: total }).eq('email', adEmail);
+        const userAds = pass2.filter((a: any) => a.email === adEmail);
+        const total = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
+        await supabase.from('ad_signups').update({ points: total }).eq('email', adEmail);
       })
     );
-
-    // ── MILESTONE NOTIFICATIONS ───────────────────────────────────────────── // ← NEW
-    // Only fires for the triggered ad.
-    // Never fires for system ads — they don't have real users behind them.
-    // Uses else-if for points so only the highest milestone fires per score run.
 
     if (!adIsSystem && adEmail) {
 
@@ -184,7 +168,6 @@ export async function POST(req: NextRequest) {
           `"${adTitle}" entered the top 10 and is now Featured in the Arena.`);
 
       // ── Points milestones ──
-      // else-if chain — only the highest newly crossed threshold fires.
       if      (prevPoints < 750 && finalPoints >= 750)
         notify(adEmail, 'points',
           '🏆 750 points — Top Tier unlocked',
@@ -199,8 +182,10 @@ export async function POST(req: NextRequest) {
         notify(adEmail, 'points',
           '⚡ 100 points — Rising tier unlocked',
           `"${adTitle}" hit 100 points. Rising tier is now active — keep sharing.`);
+
+      // ── Points badge awards — idempotent, fire and forget ──────────────────
+      checkAndAwardPointsBadges(supabase, adEmail, finalPoints).catch(() => {});
     }
-    // ── END MILESTONES ────────────────────────────────────────────────────────
   }
 
   const engagementRaw = calcRaw(
