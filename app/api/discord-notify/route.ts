@@ -35,12 +35,12 @@ export async function POST(req: NextRequest) {
     const embed:   DiscordEmbed = body.embed    ?? undefined;
 
     // content is required — everything else is optional
-    if (!content) {
-      return NextResponse.json(
-        { ok: false, error: 'content required' },
-        { status: 400 }
-      );
-    }
+ if (!content && !embed) {
+  return NextResponse.json(
+    { ok: false, error: 'content or embed required' },
+    { status: 400 }
+  );
+}
 
     await notifyDiscord(content, event, embed);
     return NextResponse.json({ ok: true });
