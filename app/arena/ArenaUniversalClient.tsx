@@ -1,11 +1,10 @@
 // app/arena/ArenaUniversalClient.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Arena 1 — universal client
-// Phase 1: text ads + country champion flags + brand icons (when image_url set)
-// Phase 2: images via Amanda Photography partnership (admin-controlled)
-// Phase 3: video streaming (future paid — behind the scenes)
+// Arena — universal client
+// Modules rendered from arena_modules table (slug='arena') + MODULE_REGISTRY
+// Falls back to default module set if table is empty
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
+
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -13,10 +12,8 @@ import ArenaNav from '../components/ArenaNav';
 import ArenaFooter from '../components/ArenaFooter';
 import { PLATFORMS, getShareAction, ShareContext } from '../lib/socialShare';
 import { trackClick, recordShare, recordLike, recordBoost, SOURCE } from '../lib/tracking';
-import ShareModule from '../modules/share';
-import ArchiveModule from '../modules/archive'; 
 import { clearSessionCookie } from '../lib/session';
-
+import { MODULE_REGISTRY } from '../modules';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -25,11 +22,14 @@ const supabase = createClient(
 );
 
 // ─── Env ──────────────────────────────────────────────────────────────────────
-const SUPER_EMAIL    = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
+const SUPER_EMAIL     = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 const SOCIAL_PACK_API = 'https://amandaland.vercel.app/api/social-pack';
 
 // ─── Mobile share platforms — top 3 only ─────────────────────────────────────
 const MOBILE_PLATFORMS = ['whatsapp', 'facebook', 'telegram'];
+
+// ─── Default module order for slug='arena' when table is empty ────────────────
+const DEFAULT_ARENA_MODULES = ['share', 'leaderboard', 'archive'];
 
 // ─── Session ID ───────────────────────────────────────────────────────────────
 function getSessionId(): string {
@@ -51,6 +51,7 @@ type Ad = {
   boost_count: number; reaction_count: number; rank_position?: number;
   image_url: string | null; is_country_champion?: boolean; country?: string;
 };
+
 type Toast        = { id: string; msg: string };
 type ReactionType = 'hot' | 'watching' | 'interesting';
 type BrandCfg     = { image_url: string | null; color: string | null };
@@ -106,7 +107,7 @@ const muted  = '#555';
 const orange = '#f0883e';
 const gold   = '#D4AF37';
 
-// ─── Btn helper — keeps inline styles DRY ────────────────────────────────────
+// ─── Btn helper ───────────────────────────────────────────────────────────────
 const iconBtn = (active: boolean, activeColor: string): React.CSSProperties => ({
   background:   active ? `${activeColor}20` : 'transparent',
   border:       `1px solid ${active ? activeColor : border}`,
@@ -123,13 +124,14 @@ const iconBtn = (active: boolean, activeColor: string): React.CSSProperties => (
 export default function ArenaUniversalClient() {
   const router = useRouter();
 
-  const [ads,        setAds]        = useState<Ad[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [user,       setUser]       = useState({ name: '', email: '', brand: '', trialStatus: 'trial', role: '' });
-  const [toast,      setToast]      = useState<Toast | null>(null);
-  const [preview,    setPreview]    = useState<Ad | null>(null);
-  const [shareAd,    setShareAd]    = useState<Ad | null>(null);
-  const [brandConfig,setBrandConfig]= useState<Record<string, BrandCfg>>({});
+  const [ads,         setAds]         = useState<Ad[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [user,        setUser]        = useState({ name: '', email: '', brand: '', trialStatus: 'trial', role: '' });
+  const [toast,       setToast]       = useState<Toast | null>(null);
+  const [preview,     setPreview]     = useState<Ad | null>(null);
+  const [shareAd,     setShareAd]     = useState<Ad | null>(null);
+  const [brandConfig, setBrandConfig] = useState<Record<string, BrandCfg>>({});
+  const [moduleIds,   setModuleIds]   = useState<string[]>([]);
 
   // ─── Interaction state ───────────────────────────────────────────────────
   const [liked,      setLiked]      = useState<Record<string, boolean>>({});
@@ -142,6 +144,15 @@ export default function ArenaUniversalClient() {
   const isSuper     = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
   const totalBrands = new Set(ads.map(a => a.brand)).size;
   const totalPoints = ads.reduce((sum, a) => sum + (a.points || 0), 0);
+
+  // ─── Module context ───────────────────────────────────────────────────────
+  const moduleCtx = {
+    slug: 'arena',
+    user: { email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus },
+    ads,
+    supabase,
+    isSuper,
+  };
 
   // ─── Boot ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -165,7 +176,9 @@ export default function ArenaUniversalClient() {
     setBoosted(boostedMap);
     setReacted(reactedMap);
     setBookmarked(bookmarkedMap);
+
     fetchAds();
+    fetchModules();
   }, []);
 
   // ─── Data ─────────────────────────────────────────────────────────────────
@@ -185,6 +198,23 @@ export default function ArenaUniversalClient() {
     setLoading(false);
   }
 
+  // ─── Module loader — reads arena_modules table, falls back to defaults ────
+  async function fetchModules() {
+    const { data } = await supabase
+      .from('arena_modules')
+      .select('module_id, position')
+      .eq('slug', 'arena')
+      .eq('enabled', true)
+      .order('position', { ascending: true });
+
+    if (data && data.length > 0) {
+      setModuleIds(data.map((r: { module_id: string }) => r.module_id));
+    } else {
+      // Table empty or no rows for 'arena' — use defaults
+      setModuleIds(DEFAULT_ARENA_MODULES);
+    }
+  }
+
   const getBrandImage = (ad: Ad): string | null =>
     ad.image_url || brandConfig[ad.brand]?.image_url || null;
 
@@ -193,7 +223,7 @@ export default function ArenaUniversalClient() {
     setTimeout(() => setToast(null), 2000);
   }
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────
+  // ─── Handlers (unchanged) ─────────────────────────────────────────────────
   async function handleClick(ad: Ad) {
     if (!ad.url || ad.url.trim() === '') { router.push('/guide?ref=champion-ad'); return; }
     window.open(ad.url, '_blank', 'noopener,noreferrer');
@@ -278,14 +308,10 @@ export default function ArenaUniversalClient() {
 
   async function handleNativeShare(ad: Ad) {
     try {
-      await navigator.share({
-        title: ad.title,
-        text:  `${ad.brand} — ${ad.title}\n\n${ad.description}`,
-        url:   ad.url,
-      });
+      await navigator.share({ title: ad.title, text: `${ad.brand} — ${ad.title}\n\n${ad.description}`, url: ad.url });
       await recordAdShare(ad, 'Native Share');
       setShareAd(null);
-    if (typeof window !== 'undefined') window.scrollTo(0, 0);
+      if (typeof window !== 'undefined') window.scrollTo(0, 0);
     } catch {}
   }
 
@@ -293,14 +319,11 @@ export default function ArenaUniversalClient() {
     const platform = PLATFORMS.find(p => p.key === platformKey);
     if (!platform) return;
     const ctx: ShareContext = {
-      brand: ad.brand, title: ad.title, description: ad.description,
-      url: ad.url,
+      brand: ad.brand, title: ad.title, description: ad.description, url: ad.url,
       profileUrl: `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email)}`,
       category: ad.category, country: ad.country, isChampion: ad.is_country_champion,
     };
     const { url: intentUrl, text } = getShareAction(platform, ctx);
-
-    // Facebook: copy caption first — sharer ignores pre-filled text by design
     if (platformKey === 'facebook') {
       try { await navigator.clipboard.writeText(text); } catch {}
       showToast(ad.id, '📋 Caption copied — paste it in Facebook');
@@ -311,12 +334,10 @@ export default function ArenaUniversalClient() {
       try { await navigator.clipboard.writeText(text); } catch {}
       showToast(ad.id, 'Copied!');
     }
-
     await recordAdShare(ad, platform.label);
     setShareAd(null);
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   }
-
 
   async function handleMegaCopy(ad: Ad) {
     try {
@@ -346,21 +367,20 @@ export default function ArenaUniversalClient() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
-  <ArenaNav
-  role={user.role as 'super' | 'admin' | 'team' | 'user'}
-  userName={user.name}
-  userEmail={user.email}
-  userBrand={user.brand}
-  trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
-  onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
-  />
+      <ArenaNav
+        role={user.role as 'super' | 'admin' | 'team' | 'user'}
+        userName={user.name}
+        userEmail={user.email}
+        userBrand={user.brand}
+        trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
+        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
+      />
 
-
-      {/* ── Preview modal ── */}
+      {/* ── Preview modal (unchanged) ── */}
       {preview && (() => {
-        const color   = getBrandColor(preview.brand);
-        const heat    = Math.round(((preview.points || 0) / maxPoints) * 100);
-        const flag    = getFlag(preview.country);
+        const color = getBrandColor(preview.brand);
+        const heat  = Math.round(((preview.points || 0) / maxPoints) * 100);
+        const flag  = getFlag(preview.country);
         return (
           <>
             <div onClick={() => setPreview(null)}
@@ -368,8 +388,6 @@ export default function ArenaUniversalClient() {
             <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
               width: '92vw', maxWidth: 480, background: '#111', border: `1px solid ${color}40`,
               borderRadius: '16px', padding: '1.5rem', zIndex: 1000, maxHeight: '85vh', overflowY: 'auto' }}>
-
-              {/* Header */}
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
                   {getBrandImage(preview) && (
@@ -393,19 +411,13 @@ export default function ArenaUniversalClient() {
                 <button onClick={() => setPreview(null)}
                   style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '1.4rem', flexShrink: 0 }}>✕</button>
               </div>
-
-              {/* Heat bar */}
               <div style={{ height: 3, background: '#1a1a1a', borderRadius: 2, marginBottom: '1rem', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${heat}%`, background: color, borderRadius: 2, transition: 'width 0.4s' }} />
               </div>
-
-              {/* Title + description */}
               <div style={{ marginBottom: '1rem' }}>
                 <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '0.5rem' }}>{preview.title}</div>
                 <div style={{ fontSize: '0.85rem', color: '#aaa', lineHeight: 1.6 }}>{preview.description}</div>
               </div>
-
-              {/* Stats */}
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.75rem', color: muted, marginBottom: '1rem' }}>
                 <span>👆 {preview.click_count || 0}</span>
                 <span>↗ {preview.share_count || 0}</span>
@@ -415,8 +427,6 @@ export default function ArenaUniversalClient() {
                 <span style={{ color }}>⚡ {preview.points || 0} pts</span>
                 {preview.rank_position && <span style={{ color: gold }}>#{preview.rank_position}</span>}
               </div>
-
-              {/* Reactions */}
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 {REACTIONS.map(r => {
                   const active = reacted[preview.id] === r.type;
@@ -432,10 +442,7 @@ export default function ArenaUniversalClient() {
                   );
                 })}
               </div>
-
-              {/* Preview actions */}
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {/* Share — primary */}
                 <button onClick={() => { setShareAd(preview); setPreview(null); }}
                   style={{ flex: 2, background: `${color}20`, border: `1px solid ${color}60`,
                     borderRadius: '8px', color, fontWeight: 700, fontSize: '0.85rem',
@@ -447,12 +454,9 @@ export default function ArenaUniversalClient() {
                     color: '#000', fontWeight: 700, fontSize: '0.85rem', padding: '0.7rem', cursor: 'pointer' }}>
                   🔗
                 </button>
-                <button onClick={e => handleBookmark(preview, e)}
-                  style={iconBtn(!!bookmarked[preview.id], gold)}>🔖</button>
-                <button onClick={e => handleLike(preview, e)}
-                  style={iconBtn(!!liked[preview.id], color)}>😊</button>
-                <button onClick={e => handleBoost(preview, e)}
-                  style={iconBtn(!!boosted[preview.id], gold)}>⚡</button>
+                <button onClick={e => handleBookmark(preview, e)} style={iconBtn(!!bookmarked[preview.id], gold)}>🔖</button>
+                <button onClick={e => handleLike(preview, e)}     style={iconBtn(!!liked[preview.id], color)}>😊</button>
+                <button onClick={e => handleBoost(preview, e)}    style={iconBtn(!!boosted[preview.id], gold)}>⚡</button>
                 <button onClick={() => router.push(`/profile/${encodeURIComponent(preview.email)}`)}
                   style={iconBtn(false, muted)}>👤</button>
               </div>
@@ -461,7 +465,7 @@ export default function ArenaUniversalClient() {
         );
       })()}
 
-      {/* ── Share modal ── */}
+      {/* ── Share modal (unchanged) ── */}
       {shareAd && (() => {
         const brandColor = getBrandColor(shareAd.brand);
         return (
@@ -471,8 +475,6 @@ export default function ArenaUniversalClient() {
             <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
               width: '92vw', maxWidth: 400, background: '#111', border: `1px solid ${brandColor}40`,
               borderRadius: '16px', padding: '1.5rem', zIndex: 1002, maxHeight: '85vh', overflowY: 'auto' }}>
-
-              {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', color: brandColor }}>Share {shareAd.brand}</div>
@@ -481,8 +483,6 @@ export default function ArenaUniversalClient() {
                 <button onClick={() => setShareAd(null)}
                   style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '1.4rem' }}>✕</button>
               </div>
-
-                            {/* Toast */}
               {toast?.id === shareAd.id && (
                 <div style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px',
                   padding: '0.5rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.82rem',
@@ -490,11 +490,8 @@ export default function ArenaUniversalClient() {
                   {toast.msg}
                 </div>
               )}
-
-              {/* Native share — one tap, mobile only */}
               {typeof navigator !== 'undefined' && 'share' in navigator && (
-                <button
-                  onClick={() => handleNativeShare(shareAd)}
+                <button onClick={() => handleNativeShare(shareAd)}
                   style={{ width: '100%', padding: '0.9rem', background: '#2563eb',
                     border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 800,
                     fontSize: '0.95rem', cursor: 'pointer', marginBottom: '12px',
@@ -502,50 +499,37 @@ export default function ArenaUniversalClient() {
                   📱 Share Now
                 </button>
               )}
-
-              {/* Top 3 platforms */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                {PLATFORMS
-                  .filter(p => MOBILE_PLATFORMS.includes(p.key))
-                  .map(platform => (
-                    <button key={platform.key}
-                      onClick={() => executePlatformShare(shareAd, platform.key)}
-                      style={{ background: `${platform.color}15`, border: `1px solid ${platform.color}30`,
-                        borderRadius: '10px', padding: '0.75rem 0.5rem', cursor: 'pointer',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
-                      <span style={{ fontSize: '1.2rem' }}>{platform.icon}</span>
-                      <span style={{ fontSize: '0.68rem', color: '#aaa' }}>{platform.label}</span>
-                    </button>
-                  ))}
+                {PLATFORMS.filter(p => MOBILE_PLATFORMS.includes(p.key)).map(platform => (
+                  <button key={platform.key} onClick={() => executePlatformShare(shareAd, platform.key)}
+                    style={{ background: `${platform.color}15`, border: `1px solid ${platform.color}30`,
+                      borderRadius: '10px', padding: '0.75rem 0.5rem', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ fontSize: '1.2rem' }}>{platform.icon}</span>
+                    <span style={{ fontSize: '0.68rem', color: '#aaa' }}>{platform.label}</span>
+                  </button>
+                ))}
               </div>
-
-              {/* More platforms — collapsed */}
               <details style={{ marginBottom: '0.75rem' }}>
                 <summary style={{ fontSize: '0.72rem', color: muted, cursor: 'pointer',
                   padding: '0.4rem 0', listStyle: 'none', textAlign: 'center' }}>
                   ··· More platforms
                 </summary>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  {PLATFORMS
-                    .filter(p => !MOBILE_PLATFORMS.includes(p.key))
-                    .map(platform => (
-                      <button key={platform.key}
-                        onClick={() => executePlatformShare(shareAd, platform.key)}
-                        style={{ background: `${platform.color}15`, border: `1px solid ${platform.color}30`,
-                          borderRadius: '10px', padding: '0.75rem 0.5rem', cursor: 'pointer',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
-                        <span style={{ fontSize: '1.2rem' }}>{platform.icon}</span>
-                        <span style={{ fontSize: '0.68rem', color: '#aaa' }}>{platform.label}</span>
-                        {!platform.supportsIntent && <span style={{ fontSize: '0.6rem', color: muted }}>copy</span>}
-                      </button>
-                    ))}
+                  {PLATFORMS.filter(p => !MOBILE_PLATFORMS.includes(p.key)).map(platform => (
+                    <button key={platform.key} onClick={() => executePlatformShare(shareAd, platform.key)}
+                      style={{ background: `${platform.color}15`, border: `1px solid ${platform.color}30`,
+                        borderRadius: '10px', padding: '0.75rem 0.5rem', cursor: 'pointer',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{platform.icon}</span>
+                      <span style={{ fontSize: '0.68rem', color: '#aaa' }}>{platform.label}</span>
+                      {!platform.supportsIntent && <span style={{ fontSize: '0.6rem', color: muted }}>copy</span>}
+                    </button>
+                  ))}
                 </div>
               </details>
-
-              {/* Mega Copy */}
               <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '0.75rem' }}>
-                <button
-                  onClick={() => handleMegaCopy(shareAd)}
+                <button onClick={() => handleMegaCopy(shareAd)}
                   style={{ width: '100%', background: `${brandColor}15`, border: `1px solid ${brandColor}40`,
                     borderRadius: '10px', padding: '0.75rem', cursor: 'pointer', color: '#fff',
                     fontWeight: 700, fontSize: '0.85rem', display: 'flex',
@@ -556,7 +540,6 @@ export default function ArenaUniversalClient() {
                   Copies caption + hashtags + link{shareAd.image_url ? ' + image' : ''}
                 </div>
               </div>
-
             </div>
           </>
         );
@@ -568,9 +551,9 @@ export default function ArenaUniversalClient() {
         {/* Header stats */}
         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {[
-           { label: 'Brands', value: totalBrands,                    color: '#0070f3' },
-           { label: 'Ads',    value: ads.length,                     color: orange    },
-           { label: 'Points', value: totalPoints.toLocaleString(),   color: gold      },
+            { label: 'Brands', value: totalBrands,                  color: '#0070f3' },
+            { label: 'Ads',    value: ads.length,                   color: orange    },
+            { label: 'Points', value: totalPoints.toLocaleString(), color: gold      },
           ].map(s => (
             <div key={s.label}>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -587,7 +570,7 @@ export default function ArenaUniversalClient() {
           </div>
         )}
 
-        {/* Ad grid */}
+        {/* Ad grid (unchanged) */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>Loading the Arena...</div>
         ) : ads.length === 0 ? (
@@ -595,25 +578,22 @@ export default function ArenaUniversalClient() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {ads.map(ad => {
-              const color      = getBrandColor(ad.brand);
-              const heat       = Math.round(((ad.points || 0) / maxPoints) * 100);
+              const color         = getBrandColor(ad.brand);
+              const heat          = Math.round(((ad.points || 0) / maxPoints) * 100);
               const hasLiked      = !!liked[ad.id];
               const hasBoosted    = !!boosted[ad.id];
               const hasReacted    = !!reacted[ad.id];
               const hasBookmarked = !!bookmarked[ad.id];
-              const flag       = getFlag(ad.country);
-
+              const flag          = getFlag(ad.country);
               return (
                 <div key={ad.id}>
-                  <div
-                    onClick={() => setPreview(ad)}
+                  <div onClick={() => setPreview(ad)}
                     style={{ background: card, border: `1px solid ${ad.pinned ? color + '60' : border}`,
                       borderRadius: '14px', padding: '1.25rem', cursor: 'pointer',
                       transition: 'border-color 0.15s', position: 'relative', overflow: 'hidden' }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = color + '80')}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? color + '60' : border)}
                   >
-                    {/* Pinned badge */}
                     {ad.pinned && (
                       <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem',
                         background: `${color}20`, border: `1px solid ${color}40`, borderRadius: '999px',
@@ -621,15 +601,11 @@ export default function ArenaUniversalClient() {
                         ⭐ FEATURED
                       </div>
                     )}
-
-                    {/* Rank badge */}
                     {ad.rank_position && ad.rank_position >= 1 && ad.rank_position <= 3 && (
                       <div style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', fontSize: '1.1rem' }}>
                         {ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}
                       </div>
                     )}
-
-                    {/* Brand row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem', minHeight: 36 }}>
                       {getBrandImage(ad) && (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -659,21 +635,15 @@ export default function ArenaUniversalClient() {
                         </span>
                       </div>
                     </div>
-
-                    {/* Title + description */}
                     <div style={{ marginBottom: '0.75rem' }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.3rem' }}>{ad.title}</div>
                       <div style={{ fontSize: '0.8rem', color: '#888', lineHeight: 1.5 }}>
                         {ad.description.length > 100 ? ad.description.slice(0, 100) + '…' : ad.description}
                       </div>
                     </div>
-
-                    {/* Heat bar */}
                     <div style={{ height: 2, background: '#1a1a1a', borderRadius: 1, marginBottom: '0.75rem', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${heat}%`, background: color, borderRadius: 1, transition: 'width 0.4s' }} />
                     </div>
-
-                    {/* Stats */}
                     <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', fontSize: '0.7rem', color: muted, marginBottom: '0.6rem' }}>
                       {(ad.click_count    || 0) > 0 && <span>👆 {ad.click_count}</span>}
                       {(ad.share_count    || 0) > 0 && <span>↗ {ad.share_count}</span>}
@@ -682,15 +652,12 @@ export default function ArenaUniversalClient() {
                       {(ad.reaction_count || 0) > 0 && <span>🔥 {ad.reaction_count}</span>}
                       {(ad.points         || 0) > 0 && <span style={{ color }}>⚡ {ad.points}</span>}
                     </div>
-
-                    {/* Reaction strip */}
                     <div style={{ marginBottom: '0.6rem' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                         {REACTIONS.map(r => {
                           const active = reacted[ad.id] === r.type;
                           return (
-                            <button key={r.type}
-                              onClick={e => handleReaction(ad, r.type, e)}
+                            <button key={r.type} onClick={e => handleReaction(ad, r.type, e)}
                               style={{ background: active ? `${color}20` : 'transparent',
                                 border: `1px solid ${active ? color : '#222'}`, borderRadius: '999px',
                                 padding: '0.2rem 0.55rem', fontSize: '0.68rem',
@@ -703,95 +670,39 @@ export default function ArenaUniversalClient() {
                         })}
                       </div>
                     </div>
-
-                    {/* Actions */}
                     <div onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '6px' }}>
-
-                        {/* Share — primary */}
-                        <button
-                          onClick={e => { e.stopPropagation(); setShareAd(ad); }}
+                        <button onClick={e => { e.stopPropagation(); setShareAd(ad); }}
                           style={{ flex: 2, background: `${color}20`, border: `1px solid ${color}60`,
                             borderRadius: '8px', color, fontWeight: 700, fontSize: '0.78rem',
                             padding: '0.55rem 0', cursor: 'pointer', transition: 'all 0.15s' }}>
                           ↗ Share
                         </button>
-
-                        {/* Bookmark */}
-                        <button
-                          onClick={e => handleBookmark(ad, e)}
-                          title={hasBookmarked ? 'Saved' : 'Save'}
-                          style={iconBtn(hasBookmarked, gold)}>
-                          🔖
-                        </button>
-
-                        {/* Like */}
-                        <button
-                          onClick={e => handleLike(ad, e)}
-                          title={hasLiked ? 'Liked' : 'Like'}
-                          style={iconBtn(hasLiked, color)}>
-                          😊
-                        </button>
-
-                        {/* Boost */}
-                        <button
-                          onClick={e => handleBoost(ad, e)}
-                          title={hasBoosted ? 'Boosted' : 'Boost'}
-                          style={iconBtn(hasBoosted, gold)}>
-                          ⚡
-                        </button>
-
-                        {/* Visit — icon only */}
-                        <button
-                          onClick={e => { e.stopPropagation(); handleClick(ad); }}
-                          title="Visit"
-                          style={iconBtn(false, muted)}>
-                          🔗
-                        </button>
-
+                        <button onClick={e => handleBookmark(ad, e)} title={hasBookmarked ? 'Saved' : 'Save'} style={iconBtn(hasBookmarked, gold)}>🔖</button>
+                        <button onClick={e => handleLike(ad, e)}     title={hasLiked    ? 'Liked'  : 'Like'} style={iconBtn(hasLiked, color)}>😊</button>
+                        <button onClick={e => handleBoost(ad, e)}    title={hasBoosted  ? 'Boosted': 'Boost'} style={iconBtn(hasBoosted, gold)}>⚡</button>
+                        <button onClick={e => { e.stopPropagation(); handleClick(ad); }} title="Visit" style={iconBtn(false, muted)}>🔗</button>
                       </div>
                     </div>
-
                   </div>
                 </div>
               );
             })}
           </div>
         )}
-        {/* ── Module Zone ── */}
-{!loading && (
-  <div style={{
-    marginTop: '2.5rem',
-    borderTop: '1px solid #1a1a1a',
-    paddingTop: '2rem',
-  }}>
-    
-    {/* ── Module Zone ── */}
-{!loading && (
-  <div style={{
-    marginTop: '2.5rem',
-    borderTop: '1px solid #1a1a1a',
-    paddingTop: '2rem',
-  }}>
-    <ShareModule
-      slug="arena"
-      user={{ email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus }}
-      ads={ads}
-      supabase={supabase}
-      isSuper={isSuper}
-    />
-    <ArchiveModule
-      slug="arena"
-      user={{ email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus }}
-      ads={ads}
-      supabase={supabase}
-      isSuper={isSuper}
-    />
-  </div>
-)}
 
-  </div>
-)}
+        {/* ── Module Zone — registry-driven, reads arena_modules table ── */}
+        {!loading && moduleIds.length > 0 && (
+          <div style={{ marginTop: '2.5rem', borderTop: '1px solid #1a1a1a', paddingTop: '2rem',
+            display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {moduleIds.map(id => {
+              const def = MODULE_REGISTRY.find(m => m.id === id);
+              if (!def) return null;
+              const ModuleComponent = def.component;
+              return <ModuleComponent key={id} {...moduleCtx} />;
+            })}
+          </div>
+        )}
 
         {/* Bottom CTA */}
         {!loading && (
@@ -800,8 +711,7 @@ export default function ArenaUniversalClient() {
             <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.5rem' }}>Join the Network</div>
             <div style={{ fontSize: '0.85rem', color: muted, marginBottom: '0.35rem' }}>Get your brand in the Arena.</div>
             <div style={{ fontSize: '0.75rem', color: '#333', marginBottom: '1.25rem' }}>Free to join · No contracts</div>
-            <button
-              onClick={() => router.push('/login')}
+            <button onClick={() => router.push('/login')}
               style={{ background: orange, border: 'none', borderRadius: '10px', color: '#000',
                 fontWeight: 800, fontSize: '1rem', padding: '0.9rem 2.5rem', cursor: 'pointer' }}>
               Join the Arena →
@@ -809,16 +719,15 @@ export default function ArenaUniversalClient() {
           </div>
         )}
 
-        {/* Back to dashboard */}
-        <button
-          onClick={() => router.push('/dashboard/user')}
+        <button onClick={() => router.push('/dashboard/user')}
           style={{ marginTop: '2rem', background: 'none', border: 'none', color: orange,
             cursor: 'pointer', fontSize: '0.82rem', padding: 0, display: 'block', margin: '2rem auto 0' }}>
           ← Back to Dashboard
         </button>
-
       </div>
+
       <ArenaFooter />
     </div>
   );
 }
+
