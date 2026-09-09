@@ -21,7 +21,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// 🔒 Internal helper — routes all Discord calls through /api/discord-notify
 function pingDiscord(content: string, event: string, embed?: object) {
   fetch('/api/discord-notify', {
     method:  'POST',
@@ -46,6 +45,17 @@ type ActiveAd = {
 
 type EditForm = { title: string; description: string; url: string };
 
+type ArenaFlag = {
+  id:          string;
+  label:       string;
+  description: string;
+  version:     string;
+  status:      string;
+  enabled:     boolean;
+  notes?:      string;
+  source?:     string;
+};
+
 // ─── Rank medal helper ────────────────────────────────────────────────────────
 
 function rankMedal(rank?: number): string {
@@ -56,10 +66,21 @@ function rankMedal(rank?: number): string {
   return '';
 }
 
+// ─── Version tab meta ─────────────────────────────────────────────────────────
+
+const VERSION_TABS = [
+  { id: 'beta',      label: '🧪 Beta'      },
+  { id: 'v1',        label: '✅ v1'         },
+  { id: 'v1testing', label: '🔬 v1 Test'   },
+  { id: 'v2',        label: '🚀 v2'         },
+  { id: 'v2testing', label: '🔭 v2 Test'   },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AntcpuDashboard() {
   const router = useRouter();
+
   const [hydrated,      setHydrated]      = useState(false);
   const [user,          setUser]          = useState<any>(null);
   const [pendingAds,    setPendingAds]    = useState<PendingAd[]>([]);
@@ -74,6 +95,12 @@ export default function AntcpuDashboard() {
   const [editForm,      setEditForm]      = useState<EditForm>({ title: '', description: '', url: '' });
   const [savingId,      setSavingId]      = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+
+  // ── Flags state ──────────────────────────────────────────────────────────
+  const [flags,        setFlags]        = useState<ArenaFlag[]>([]);
+  const [flagsLoading, setFlagsLoading] = useState(false);
+  const [flagVersion,  setFlagVersion]  = useState('beta');
+  const [savingFlag,   setSavingFlag]   = useState<string | null>(null);
 
   // ─── Data loaders ─────────────────────────────────────────────────────────
 
@@ -104,6 +131,16 @@ export default function AntcpuDashboard() {
     setArchivedAds(archived || []);
   }, []);
 
+  const loadFlags = useCallback(async () => {
+    setFlagsLoading(true);
+    try {
+      const res  = await fetch('/api/flags');
+      const json = await res.json();
+      if (json.flags) setFlags(json.flags);
+    } catch {}
+    setFlagsLoading(false);
+  }, []);
+
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     if (!stored) { router.push('/'); return; }
@@ -115,9 +152,10 @@ export default function AntcpuDashboard() {
     setHydrated(true);
     loadPending();
     loadActive();
-  }, [loadPending, loadActive]);
+    loadFlags();
+  }, [loadPending, loadActive, loadFlags]);
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────
+  // ─── Ad handlers ──────────────────────────────────────────────────────────
 
   async function approveAd(id: string) {
     setActionId(id);
@@ -130,10 +168,9 @@ export default function AntcpuDashboard() {
 
     const ad = pendingAds.find(a => a.id === id);
     if (ad) {
-      // 🔒 Discord via API
       pingDiscord('', 'ad_approved', {
         title:  '✅ Ad Approved',
-        color:  0x2E7D32, // DC.green
+        color:  0x2E7D32,
         fields: [
           { name: 'Brand',    value: ad.brand,    inline: true  },
           { name: 'Tier',     value: ad.tier,     inline: true  },
@@ -144,8 +181,6 @@ export default function AntcpuDashboard() {
         footer:    'Aria reviewed · approved by admin',
         timestamp: true,
       });
-
-      // In-app notification
       fetch('/api/notify', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -157,7 +192,6 @@ export default function AntcpuDashboard() {
         }),
       }).catch(() => {});
     }
-
     await loadPending();
     await loadActive();
     setActionId(null);
@@ -170,11 +204,9 @@ export default function AntcpuDashboard() {
     const ad = pendingAds.find(a => a.id === id);
     if (ad) {
       const verdict = ariaVerdict(ad);
-
-      // 🔒 Discord via API
       pingDiscord('', 'ad_rejected', {
         title:  '❌ Ad Rejected',
-        color:  0xEF4444, // DC.red
+        color:  0xEF4444,
         fields: [
           { name: 'Brand',    value: ad.brand,     inline: true  },
           { name: 'Tier',     value: ad.tier,      inline: true  },
@@ -186,8 +218,6 @@ export default function AntcpuDashboard() {
         footer:    'ANTCPU ADS · Aria Review',
         timestamp: true,
       });
-
-      // In-app notification
       fetch('/api/notify', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -199,7 +229,6 @@ export default function AntcpuDashboard() {
         }),
       }).catch(() => {});
     }
-
     await loadPending();
     setActionId(null);
   }
@@ -213,10 +242,9 @@ export default function AntcpuDashboard() {
 
     const ad = activeAds.find(a => a.id === id);
     if (ad) {
-      // 🔒 Discord via API
       pingDiscord('', 'ad_archived', {
         title:  '📦 Ad Archived',
-        color:  0xF0883E, // DC.orange
+        color:  0xF0883E,
         fields: [
           { name: 'Brand', value: ad.brand, inline: true  },
           { name: 'Tier',  value: ad.tier,  inline: true  },
@@ -226,7 +254,6 @@ export default function AntcpuDashboard() {
         timestamp: true,
       });
     }
-
     await loadActive();
     setArchivingId(null);
   }
@@ -275,6 +302,36 @@ export default function AntcpuDashboard() {
     setRecalculating(false);
   }
 
+  // ─── Flag handlers ────────────────────────────────────────────────────────
+
+  async function toggleFlag(id: string, currentEnabled: boolean) {
+    setSavingFlag(id);
+    const newEnabled = !currentEnabled;
+    const newStatus  = newEnabled ? 'on' : 'off';
+    await fetch('/api/flags', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id, enabled: newEnabled, status: newStatus }),
+    });
+    setFlags(prev => prev.map(f =>
+      f.id === id ? { ...f, enabled: newEnabled, status: newStatus } : f
+    ));
+    setSavingFlag(null);
+  }
+
+  async function markKilled(id: string) {
+    setSavingFlag(id);
+    await fetch('/api/flags', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id, enabled: false, status: 'killed' }),
+    });
+    setFlags(prev => prev.map(f =>
+      f.id === id ? { ...f, enabled: false, status: 'killed' } : f
+    ));
+    setSavingFlag(null);
+  }
+
   if (!hydrated || !user) return null;
 
   const moduleCtx = {
@@ -284,6 +341,11 @@ export default function AntcpuDashboard() {
     supabase,
     isSuper:  true,
   };
+
+  // ─── Derived ──────────────────────────────────────────────────────────────
+
+  const visibleFlags  = flags.filter(f => f.version === flagVersion);
+  const killedCount   = flags.filter(f => f.status === 'killed').length;
 
   // ─── Styles ───────────────────────────────────────────────────────────────
 
@@ -295,14 +357,14 @@ export default function AntcpuDashboard() {
   };
 
   const rowBtn = (color: string, disabled = false): React.CSSProperties => ({
-    background:  'transparent',
-    border:      `1px solid ${disabled ? '#e5e5e5' : color}`,
+    background:   'transparent',
+    border:       `1px solid ${disabled ? '#e5e5e5' : color}`,
     borderRadius: '8px',
-    color:       disabled ? '#ccc' : color,
-    fontSize:    '0.72rem', fontWeight: 700,
-    padding:     '0.35rem 0.6rem',
-    cursor:      disabled ? 'default' : 'pointer',
-    whiteSpace:  'nowrap', transition: 'all 0.15s', flexShrink: 0,
+    color:        disabled ? '#ccc' : color,
+    fontSize:     '0.72rem', fontWeight: 700,
+    padding:      '0.35rem 0.6rem',
+    cursor:       disabled ? 'default' : 'pointer',
+    whiteSpace:   'nowrap', transition: 'all 0.15s', flexShrink: 0,
   });
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -502,6 +564,181 @@ export default function AntcpuDashboard() {
           <MessageComposer dark={false} />
         </Card>
 
+        {/* ── ARENA FLAGS ── */}
+        <Card>
+          <SectionHeader
+            title="⚡ Arena Flags"
+            sub="Toggle features by version — DB overrides code defaults instantly"
+          />
+
+          {/* Version tabs */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            {VERSION_TABS.map(v => (
+              <button key={v.id} onClick={() => setFlagVersion(v.id)}
+                style={{
+                  background:   flagVersion === v.id ? '#0a0a0a' : 'transparent',
+                  border:       `1px solid ${flagVersion === v.id ? '#0a0a0a' : '#e5e5e5'}`,
+                  borderRadius: '6px', padding: '0.25rem 0.65rem',
+                  fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                  color: flagVersion === v.id ? '#fff' : '#aaa',
+                  transition: 'all 0.15s',
+                }}>
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Flag rows */}
+          {flagsLoading ? (
+            <div style={{ fontSize: '0.82rem', color: '#aaa' }}>Loading flags...</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {visibleFlags.length === 0 ? (
+                <div style={{ fontSize: '0.82rem', color: '#aaa' }}>
+                  No flags in this version yet.
+                </div>
+              ) : (
+                visibleFlags.map(f => {
+                  const busy    = savingFlag === f.id;
+                  const killed  = f.status === 'killed';
+                  const testing = f.status === 'testing';
+                  return (
+                    <div key={f.id} style={{
+                      display:     'flex',
+                      alignItems:  'center',
+                      gap:         '0.75rem',
+                      padding:     '0.65rem 0.75rem',
+                      background:  killed ? '#fff8f8' : '#fafafa',
+                      border:      `1px solid ${killed ? '#fecaca' : '#f0f0f0'}`,
+                      borderRadius: '8px',
+                      opacity:     killed ? 0.7 : 1,
+                      transition:  'opacity 0.15s',
+                    }}>
+
+                      {/* Toggle switch */}
+                      <button
+                        onClick={() => !killed && !busy && toggleFlag(f.id, f.enabled)}
+                        disabled={killed || busy}
+                        title={killed ? 'Killed — cannot toggle' : f.enabled ? 'Turn off' : 'Turn on'}
+                        style={{
+                          position:   'relative',
+                          width:      '36px',
+                          height:     '20px',
+                          borderRadius: '999px',
+                          border:     'none',
+                          cursor:     killed || busy ? 'default' : 'pointer',
+                          background: busy    ? '#ddd' :
+                                      killed  ? '#fecaca' :
+                                      f.enabled ? '#22c55e' : '#ddd',
+                          flexShrink: 0,
+                          transition: 'background 0.2s',
+                          padding:    0,
+                        }}>
+                        <span style={{
+                          position:     'absolute',
+                          top:          '2px',
+                          left:         f.enabled && !killed ? '18px' : '2px',
+                          width:        '16px',
+                          height:       '16px',
+                          borderRadius: '50%',
+                          background:   '#fff',
+                          transition:   'left 0.2s',
+                          display:      'block',
+                        }} />
+                      </button>
+
+                      {/* Label + description */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontSize:       '0.82rem',
+                          fontWeight:     700,
+                          color:          killed ? '#aaa' : '#0a0a0a',
+                          textDecoration: killed ? 'line-through' : 'none',
+                          marginBottom:   '0.1rem',
+                        }}>
+                          {f.label}
+                        </div>
+                        <div style={{
+                          fontSize:     '0.7rem',
+                          color:        '#888',
+                          overflow:     'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace:   'nowrap',
+                        }}>
+                          {f.description}
+                        </div>
+                      </div>
+
+                      {/* Status pill */}
+                      <span style={{
+                        fontSize:     '0.6rem',
+                        fontWeight:   700,
+                        flexShrink:   0,
+                        padding:      '0.15rem 0.5rem',
+                        borderRadius: '999px',
+                        letterSpacing: '0.05em',
+                        background:   killed  ? '#fecaca' :
+                                      testing ? '#fff3e0' :
+                                      f.enabled ? '#dcfce7' : '#f5f5f5',
+                        color:        killed  ? '#ef4444' :
+                                      testing ? '#f0883e' :
+                                      f.enabled ? '#16a34a' : '#aaa',
+                      }}>
+                        {busy ? '…' : f.status.toUpperCase()}
+                      </span>
+
+                      {/* Kill button — hidden if already killed */}
+                      {!killed ? (
+                        <button
+                          onClick={() => !busy && markKilled(f.id)}
+                          disabled={busy}
+                          title="Mark as killed — flag for cleanup"
+                          style={{
+                            background:   'none',
+                            border:       '1px solid #fecaca',
+                            borderRadius: '6px',
+                            color:        '#ef4444',
+                            fontSize:     '0.65rem',
+                            fontWeight:   700,
+                            padding:      '0.2rem 0.45rem',
+                            cursor:       busy ? 'default' : 'pointer',
+                            flexShrink:   0,
+                            transition:   'all 0.15s',
+                          }}>
+                          ✕
+                        </button>
+                      ) : (
+                        <span style={{
+                          fontSize:   '0.65rem',
+                          color:      '#fca5a5',
+                          flexShrink: 0,
+                          fontWeight: 700,
+                        }}>
+                          KILL
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* Killed summary footer */}
+          {killedCount > 0 && (
+            <div style={{
+              marginTop:   '1rem',
+              paddingTop:  '0.75rem',
+              borderTop:   '1px solid #f0f0f0',
+              fontSize:    '0.72rem',
+              color:       '#ef4444',
+              fontWeight:  600,
+            }}>
+              ✕ {killedCount} flag{killedCount !== 1 ? 's' : ''} marked for cleanup
+            </div>
+          )}
+        </Card>
+
         {/* ── POSTS MODULE ── */}
         <Card>
           <PostsModule {...moduleCtx} />
@@ -512,3 +749,4 @@ export default function AntcpuDashboard() {
     </div>
   );
 }
+
