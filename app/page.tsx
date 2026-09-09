@@ -1,22 +1,19 @@
 'use client';
-import VaultModal from './components/VaultModal';
+
+import VaultModal      from './components/VaultModal';
 import React, { useState, useEffect } from 'react';
 import { Locale, t, isRTL } from './lib/i18n/index';
 import LanguageSwitcher from './components/LanguageSwitcher';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
   bg: '#0a0a0a', card: '#111', border: '#1a1a1a', border2: '#222',
   blue: '#0070f3', orange: '#f0883e', purple: '#7928ca',
   gold: '#D4AF37', teal: '#00ffcc', white: '#fff', muted: '#888', muted2: '#555',
+  green: '#22c55e',
 };
 
+// Map of Pi stats — static partner data, not from API
 const MAP_STATS = [
   { v: '2.1M+', l: 'Users'        },
   { v: '148K',  l: 'Sellers'      },
@@ -27,38 +24,46 @@ const MAP_STATS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
-  const [scrolled,       setScrolled]       = useState(false);
-  const [vaultOpen,      setVaultOpen]      = useState(false);
-  const [piPrice,        setPiPrice]        = useState('...');
-  const [liveAds,        setLiveAds]        = useState<number | null>(null);
-  const [liveBrands,     setLiveBrands]     = useState<number | null>(null);
-  const [liveCountries,  setLiveCountries]  = useState<number | null>(null);
-  const [livePoints,     setLivePoints]     = useState<number | null>(null);
+  const [scrolled,      setScrolled]      = useState(false);
+  const [vaultOpen,     setVaultOpen]     = useState(false);
+  const [piPrice,       setPiPrice]       = useState('...');
+
+  // ── Live stats from /api/stats ────────────────────────────────────────────
+  const [liveAds,       setLiveAds]       = useState<number | null>(null);
+  const [liveBrands,    setLiveBrands]    = useState<number | null>(null);
+  const [liveCountries, setLiveCountries] = useState<number | null>(null);
+  const [livePoints,    setLivePoints]    = useState<number | null>(null);
+  const [liveReactions, setLiveReactions] = useState<number | null>(null);
+  const [liveShares,    setLiveShares]    = useState<number | null>(null);
 
   useEffect(() => {
-    fetch('/pi-price').then(r => r.json()).then(d => {
-      const pi = d['pi-network']?.usd;
-      if (pi) setPiPrice(`$${pi.toFixed(4)}`);
-    }).catch(() => {});
+    // Pi price
+    fetch('/pi-price')
+      .then(r => r.json())
+      .then(d => {
+        const pi = d['pi-network']?.usd;
+        if (pi) setPiPrice(`$${pi.toFixed(4)}`);
+      }).catch(() => {});
 
+    // Live network stats
     fetch('/api/stats', { cache: 'no-store' })
-  .then(r => r.json())
-  .then(d => {
-    setLiveAds(d.liveAds          ?? null);
-    setLiveBrands(d.liveBrands    ?? null);
-    setLiveCountries(d.liveCountries ?? null);
-    setLivePoints(d.livePoints    ?? null);
-  })
-  .catch(() => {});
+      .then(r => r.json())
+      .then(d => {
+        setLiveAds(d.liveAds             ?? null);
+        setLiveBrands(d.liveBrands       ?? null);
+        setLiveCountries(d.liveCountries ?? null);
+        setLivePoints(d.livePoints       ?? null);
+        setLiveReactions(d.totalReactions ?? null);
+        setLiveShares(d.totalShares       ?? null);
+      }).catch(() => {});
 
-
+    // Scroll nav
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // ── Locale-aware data arrays — defined inside component so t() has locale ──
-
+  // ── Locale-aware arrays ───────────────────────────────────────────────────
   const STEPS = [
     { n: '01', title: t(locale, 'step_01_title'), desc: t(locale, 'step_01_desc') },
     { n: '02', title: t(locale, 'step_02_title'), desc: t(locale, 'step_02_desc') },
@@ -75,7 +80,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
   const PLANS = [
     {
-      name: t(locale, 'plan_trial_name'), price: t(locale, 'plan_trial_price'),
+      name: t(locale, 'plan_trial_name'),   price: t(locale, 'plan_trial_price'),
       period: t(locale, 'plan_trial_period'), color: C.teal,
       badge: '', badgeColor: '',
       features: [
@@ -85,7 +90,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
       cta: t(locale, 'plan_trial_cta'), disabled: false,
     },
     {
-      name: t(locale, 'plan_arena_name'), price: t(locale, 'plan_arena_price'),
+      name: t(locale, 'plan_arena_name'),   price: t(locale, 'plan_arena_price'),
       period: t(locale, 'plan_arena_period'), color: C.orange,
       badge: t(locale, 'plan_arena_badge'), badgeColor: C.orange,
       features: [
@@ -96,9 +101,9 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
       cta: t(locale, 'plan_arena_cta'), disabled: false,
     },
     {
-      name: t(locale, 'plan_pro_name'), price: t(locale, 'plan_pro_price'),
+      name: t(locale, 'plan_pro_name'),     price: t(locale, 'plan_pro_price'),
       period: t(locale, 'plan_pro_period'), color: C.purple,
-      badge: t(locale, 'plan_pro_badge'), badgeColor: C.purple,
+      badge: t(locale, 'plan_pro_badge'),   badgeColor: C.purple,
       features: [
         t(locale, 'plan_pro_f1'), t(locale, 'plan_pro_f2'),
         t(locale, 'plan_pro_f3'), t(locale, 'plan_pro_f4'),
@@ -107,7 +112,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
       cta: t(locale, 'plan_pro_cta'), disabled: true,
     },
     {
-      name: t(locale, 'plan_deluxe_name'), price: t(locale, 'plan_deluxe_price'),
+      name: t(locale, 'plan_deluxe_name'),  price: t(locale, 'plan_deluxe_price'),
       period: t(locale, 'plan_deluxe_period'), color: C.gold,
       badge: t(locale, 'plan_deluxe_badge'), badgeColor: C.gold,
       features: [
@@ -119,19 +124,19 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     },
   ];
 
-  // ── Style helpers ──────────────────────────────────────────────────────────
-  const rtl  = isRTL(locale);
-  const sec  = { maxWidth: '1100px', margin: '0 auto', padding: '0 clamp(16px,5vw,48px)' };
-  const pad  = { padding: 'clamp(60px,8vw,100px) 0' };
-  const tag  = { fontSize: '11px', fontWeight: 700, letterSpacing: '3px',
-                 textTransform: 'uppercase' as const, color: C.muted2, marginBottom: '14px' };
-  const h2   = { fontSize: 'clamp(26px,4vw,40px)', fontWeight: 800,
-                 letterSpacing: '-1px', color: C.white, lineHeight: 1.1, marginBottom: '14px' };
-  const pill = (color: string) => ({
+  // ── Style helpers ─────────────────────────────────────────────────────────
+  const rtl      = isRTL(locale);
+  const sec      = { maxWidth: '1100px', margin: '0 auto', padding: '0 clamp(16px,5vw,48px)' };
+  const pad      = { padding: 'clamp(60px,8vw,100px) 0' };
+  const tag      = { fontSize: '11px', fontWeight: 700, letterSpacing: '3px',
+                     textTransform: 'uppercase' as const, color: C.muted2, marginBottom: '14px' };
+  const h2       = { fontSize: 'clamp(26px,4vw,40px)', fontWeight: 800,
+                     letterSpacing: '-1px', color: C.white, lineHeight: 1.1, marginBottom: '14px' };
+  const pill     = (color: string) => ({
     background: `${color}15`, border: `1px solid ${color}40`, color,
     borderRadius: '999px', padding: '4px 14px', fontSize: '12px', fontWeight: 700,
   });
-  const btn  = (bg: string, color = '#000') => ({
+  const btn      = (bg: string, color = '#000') => ({
     background: bg, color, border: 'none', borderRadius: '10px',
     padding: '13px 28px', fontWeight: 800, fontSize: '15px',
     textDecoration: 'none', cursor: 'pointer', display: 'inline-block',
@@ -153,6 +158,16 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     .row-hover:hover  { background:#161616 !important; }
     .nav-a:hover      { color:#ccc !important; }
   `;
+
+  // ── Derived hero badge text ───────────────────────────────────────────────
+  const heroBadge = liveAds !== null
+    ? `${liveAds} ads live · ${liveBrands} brands · ${liveCountries} countries`
+    : t(locale, 'hero_badge');
+
+  // ── Final CTA subtext ─────────────────────────────────────────────────────
+  const finalSub = liveAds !== null
+    ? `${liveAds} ads live. ${liveBrands} brands competing.${liveReactions ? ` ${liveReactions.toLocaleString()} reactions.` : ''} Join them.`
+    : t(locale, 'final_sub');
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -177,17 +192,13 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           ⚡ ANTCPU ADS
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* ── Language switcher ──
-              Visible to all visitors including first-time / unauthenticated.
-              Routes to /${locale} pages which pass locale prop back to this
-              component. t() then renders all content in the selected language. */}
           <LanguageSwitcher />
           <button onClick={() => setVaultOpen(true)} className="nav-a"
             style={{ background: 'none', border: 'none', color: C.muted2,
               cursor: 'pointer', fontSize: '13px', transition: 'color 0.2s' }}>
             {t(locale, 'nav_signin')}
           </button>
-          <a href="/login" className="cta"
+          <a href="/login?ref=homepage" className="cta"
             style={{ ...btn(C.orange), padding: '8px 18px', fontSize: '13px' }}>
             {t(locale, 'nav_start')}
           </a>
@@ -206,6 +217,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               left: `${p}%`, width: 1,
               background: 'linear-gradient(to bottom,transparent,#ffffff06,transparent)' }} />
           ))}
+
           {/* Glow */}
           <div style={{ position: 'absolute', top: '30%', left: '50%',
             transform: 'translate(-50%,-50%)', width: 700, height: 700,
@@ -222,9 +234,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               <span style={{ width: 7, height: 7, borderRadius: '50%',
                 background: C.teal, animation: 'pulse 2s infinite',
                 display: 'inline-block' }} />
-              {liveAds !== null
-                ? `${liveAds} ads live · ${liveBrands} brands · ${liveCountries} countries`
-                : t(locale, 'hero_badge')}
+              {heroBadge}
             </div>
 
             <h1 style={{ fontSize: 'clamp(38px,6.5vw,76px)', fontWeight: 900,
@@ -246,7 +256,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
             </p>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-              <a href="/login" className="cta" style={btn(C.orange)}>
+              <a href="/login?ref=homepage" className="cta" style={btn(C.orange)}>
                 {t(locale, 'hero_cta_primary')}
               </a>
               <a href="/arena" className="ghost" style={ghostBtn}>
@@ -265,16 +275,18 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ borderTop: `1px solid ${C.border}`,
           borderBottom: `1px solid ${C.border}`, background: '#0d0d0d' }}>
           <div style={{ ...sec, display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 1 }}>
+            gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 1 }}>
             {[
-              { v: liveAds        !== null ? String(liveAds)             : '…', l: 'Live Ads',     c: C.blue   },
-              { v: liveBrands     !== null ? String(liveBrands)          : '…', l: 'Brands',       c: C.orange },
-              { v: liveCountries  !== null ? String(liveCountries)       : '…', l: 'Countries',    c: C.gold   },
-              { v: livePoints     !== null ? livePoints.toLocaleString() : '…', l: 'Total Points', c: C.teal   },
+              { v: liveAds        !== null ? String(liveAds)                    : '…', l: 'Live Ads',   c: C.blue   },
+              { v: liveBrands     !== null ? String(liveBrands)                 : '…', l: 'Brands',     c: C.orange },
+              { v: liveCountries  !== null ? String(liveCountries)              : '…', l: 'Countries',  c: C.gold   },
+              { v: livePoints     !== null ? livePoints.toLocaleString()        : '…', l: 'Points',     c: C.teal   },
+              { v: liveReactions  !== null ? liveReactions.toLocaleString()     : '…', l: 'Reactions',  c: C.purple },
+              { v: liveShares     !== null ? liveShares.toLocaleString()        : '…', l: 'Shares',     c: C.green  },
             ].map(s => (
               <div key={s.l} style={{ textAlign: 'center', padding: '28px 16px',
                 borderRight: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 'clamp(30px,4vw,44px)', fontWeight: 900,
+                <div style={{ fontSize: 'clamp(24px,3.5vw,40px)', fontWeight: 900,
                   color: s.c, letterSpacing: '-1px' }}>{s.v}</div>
                 <div style={{ fontSize: 11, color: C.muted2, marginTop: 4,
                   letterSpacing: '0.06em' }}>{s.l}</div>
@@ -385,7 +397,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                       {plan.cta}
                     </div>
                   ) : (
-                    <a href="/login" className="cta"
+                    <a href="/login?ref=pricing" className="cta"
                       style={{ ...btn(plan.color), textAlign: 'center',
                         padding: '11px', fontSize: 14, display: 'block' }}>
                       {plan.cta}
@@ -414,13 +426,10 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 width: 200, height: 200, borderRadius: '50%', pointerEvents: 'none',
                 background: `radial-gradient(circle,${C.gold}18 0%,transparent 70%)` }} />
 
-              <div style={{ display: 'flex', alignItems: 'center',
-                gap: 16, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
                 <span style={{ fontSize: '2.2rem' }}>🗺️</span>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 20, color: C.white }}>
-                    Map of Pi
-                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 20, color: C.white }}>Map of Pi</div>
                   <div style={{ fontSize: 12, color: C.gold }}>
                     Featured Partner · 🏆 2024 Pi Commerce Hackathon Winner
                   </div>
@@ -447,11 +456,9 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 ))}
               </div>
 
-              <div style={{ background: `${C.gold}08`,
-                border: `1px solid ${C.gold}20`, borderRadius: 12,
-                padding: '18px 22px', marginBottom: 24 }}>
-                <div style={{ fontWeight: 700, color: C.gold,
-                  marginBottom: 6, fontSize: 14 }}>
+              <div style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}20`,
+                borderRadius: 12, padding: '18px 22px', marginBottom: 24 }}>
+                <div style={{ fontWeight: 700, color: C.gold, marginBottom: 6, fontSize: 14 }}>
                   🏆 Country Champion Program
                 </div>
                 <p style={{ color: C.muted, fontSize: 13, lineHeight: 1.65, margin: 0 }}>
@@ -493,13 +500,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
             </h2>
             <p style={{ color: C.muted, fontSize: 15, lineHeight: 1.7,
               maxWidth: 460, margin: '0 auto 36px' }}>
-              {liveAds !== null
-                ? `${liveAds} ads live. ${liveBrands} brands competing. Join them.`
-                : t(locale, 'final_sub')}
+              {finalSub}
             </p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap',
               justifyContent: 'center', marginBottom: 20 }}>
-              <a href="/login" className="cta"
+              <a href="/login?ref=final-cta" className="cta"
                 style={{ ...btn(C.orange), fontSize: 16, padding: '14px 36px' }}>
                 {t(locale, 'final_cta')}
               </a>
@@ -512,8 +517,8 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 cursor: 'pointer', fontSize: 13, marginTop: 4 }}>
               {t(locale, 'final_signin')}
             </button>
-            </div>
-          </section>
+          </div>
+        </section>
 
         {/* ── FOOTER ── */}
         <footer style={{ borderTop: `1px solid ${C.border}`,
@@ -525,9 +530,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </span>
           <div style={{ display: 'flex', gap: 24 }}>
             {[
-              ['Arena',   '/arena'  ],
-              ['About',   '/about'  ],
-              ['Profile', '/profile'],
+              ['Arena',     '/arena'    ],
+              ['Guide',     '/guide'    ],
+              ['Champions', '/champions'],
+              ['About',     '/about'    ],
+              ['Profile',   '/profile'  ],
             ].map(([l, h]) => (
               <a key={l} href={h} className="nav-a"
                 style={{ fontSize: 13, color: C.muted2,
