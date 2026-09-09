@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { checkAndAwardPointsBadges } from '../../../lib/badges';
+import { checkAndAwardPointsBadges, awardBadge } from '../../../lib/badges';
 import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membership';
 
 const supabase = createClient(
