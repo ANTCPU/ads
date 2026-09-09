@@ -1,8 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient }              from '@supabase/supabase-js';
-import { awardBadge, checkAndAwardPointsBadges } from '../../../lib/badges';
-import { calcMembershipTier, upgradeMembershipTier, MembershipTier } from '../../../lib/membership';
-
+// app/api/session/set/route.ts
 // ─── Session Set ──────────────────────────────────────────────────────────────
 // Called from persistSession() in login/page.tsx — every login path hits this.
 // PIN users, no-PIN users, Pi auth, super admin — all flow through here.
@@ -11,37 +7,59 @@ import { calcMembershipTier, upgradeMembershipTier, MembershipTier } from '../..
 // sameSite: 'none' — required for cross-origin reads from antcpu.com/cloud/
 // secure: true     — required when sameSite is 'none' (browser enforced)
 //
-// Badge sync runs server-side after cookie is set — fire and forget.
-// Uses SERVICE_ROLE_KEY — never exposed to client.
-// Tier 4 manual badges handled separately via Vault (future).
+// syncBadges() now returns enriched session data:
+//   { membershipTier, streakDays, trialStatus, lastActiveDate }
+// This is returned to the caller so persistSession() can write it to localStorage.
 // ─────────────────────────────────────────────────────────────────────────────
+
+import { NextRequest, NextResponse }                          from 'next/server';
+import { createClient }                                       from '@supabase/supabase-js';
+import { awardBadge, checkAndAwardPointsBadges,
+         checkAndAwardActivityBadge }                        from '../../../lib/badges';
+import { calcMembershipTier, upgradeMembershipTier,
+         MembershipTier }                                    from '../../../lib/membership';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ─── Badge + membership sync ──────────────────────────────────────────────────
+// ─── Enriched session data returned to caller ─────────────────────────────────
+
+type SyncResult = {
+  membershipTier:  MembershipTier;
+  streakDays:      number;
+  trialStatus:     string;
+  lastActiveDate:  string | null;
+};
+
+// ─── syncBadges ───────────────────────────────────────────────────────────────
 // Fires on every session establishment regardless of login path.
 // Idempotent — safe to run on every login, never duplicates.
-// Silent fail — never blocks session or redirects.
+// Now returns enriched data for localStorage sync.
 
-async function syncBadges(email: string): Promise<void> {
+async function syncBadges(email: string): Promise<SyncResult> {
+  const fallback: SyncResult = {
+    membershipTier: 'trial',
+    streakDays:     0,
+    trialStatus:    'trial',
+    lastActiveDate: null,
+  };
+
   try {
-    // Fetch user data needed for badge + tier checks
+    // ── Fetch full user row ───────────────────────────────────────────────────
     const { data: user } = await supabase
       .from('ad_signups')
-      .select('promo_code, points, membership_tier')
+      .select('promo_code, points, membership_tier, status, streak_days, last_active_date')
       .eq('email', email)
       .maybeSingle();
 
-    if (!user) return;
+    if (!user) return fallback;
 
     const checks: Promise<unknown>[] = [];
 
-    // ── Tier 1 — Identity ──────────────────────────────────────────────────
+    // ── Tier 1 — Identity badges ──────────────────────────────────────────────
 
-    // arena-original — awarded if ≤100 users total
     checks.push(
       (async () => {
         const { count } = await supabase
@@ -53,21 +71,71 @@ async function syncBadges(email: string): Promise<void> {
       })()
     );
 
-    // promo-based identity badges
     const promo = user.promo_code?.toUpperCase();
     if (promo === 'MAPOFPI')    checks.push(awardBadge(supabase, email, 'pi-pioneer'));
     if (promo === 'INTERNSHIP') checks.push(awardBadge(supabase, email, 'challenger'));
 
-    // ── Tier 3 — Points milestones ─────────────────────────────────────────
-    // Catches any users who crossed thresholds before badge system existed
+    // ── Tier 3 — Points milestones ────────────────────────────────────────────
     if ((user.points || 0) > 0) {
       checks.push(checkAndAwardPointsBadges(supabase, email, user.points || 0));
     }
 
     await Promise.all(checks);
 
-    // ── Membership tier recalculation — runs after all badge checks ────────
-    // Catches any tier upgrades missed between logins.
+    // ── Streak logic ──────────────────────────────────────────────────────────
+    // today / yesterday as 'YYYY-MM-DD' strings — timezone-safe via UTC
+    const now       = new Date();
+    const today     = now.toISOString().slice(0, 10);
+    const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+
+    const lastActive  = user.last_active_date || null;   // 'YYYY-MM-DD' or null
+    let   streakDays  = user.streak_days      || 0;
+
+    // Count today's shares for this user
+    const todayStart = `${today}T00:00:00.000Z`;
+    const { count: sharesToday } = await supabase
+      .from('ad_shares')
+      .select('*', { count: 'exact', head: true })
+      .eq('email', email)
+      .gte('created_at', todayStart);
+
+    const activeToday = (sharesToday || 0) >= 3;
+
+    let newLastActive = lastActive;
+
+    if (lastActive === today) {
+      // Already counted today — no change to streak
+    } else if (activeToday) {
+      if (lastActive === yesterday) {
+        // Consecutive day — extend streak
+        streakDays   = streakDays + 1;
+        newLastActive = today;
+      } else {
+        // Gap or first active day — start/restart streak at 1
+        streakDays   = 1;
+        newLastActive = today;
+      }
+    } else if (lastActive && lastActive < yesterday) {
+      // No shares today AND gap in streak — reset
+      streakDays = 0;
+    }
+    // else: no shares today, lastActive = yesterday → streak intact, just waiting
+
+    // Write streak back if anything changed
+    if (newLastActive !== lastActive || streakDays !== (user.streak_days || 0)) {
+      await supabase
+        .from('ad_signups')
+        .update({
+          streak_days:      streakDays,
+          last_active_date: newLastActive,
+        })
+        .eq('email', email);
+    }
+
+    // Award arena-active badge if streak qualifies
+    await checkAndAwardActivityBadge(supabase, email, streakDays);
+
+    // ── Membership tier recalculation ─────────────────────────────────────────
     const { data: badgeRows } = await supabase
       .from('user_badges')
       .select('badge_slug')
@@ -81,8 +149,15 @@ async function syncBadges(email: string): Promise<void> {
       await upgradeMembershipTier(supabase, email, newTier, currentTier);
     }
 
+    return {
+      membershipTier:  newTier !== currentTier ? newTier : currentTier,
+      streakDays,
+      trialStatus:     user.status || 'trial',
+      lastActiveDate:  newLastActive,
+    };
+
   } catch {
-    // Silent fail — badge sync never blocks session
+    return fallback;
   }
 }
 
@@ -104,7 +179,24 @@ export async function POST(req: NextRequest) {
       ? 90 * 86400
       :  3 * 86400;
 
-    const res = NextResponse.json({ ok: true });
+    // ── Run syncBadges and await result ───────────────────────────────────────
+    // Previously fire-and-forget. Now awaited so we can return enriched data.
+    // Still silent-fails internally — never blocks session.
+    const sync = await syncBadges(email).catch(() => ({
+      membershipTier:  'trial' as MembershipTier,
+      streakDays:      0,
+      trialStatus:     trialStatus || 'trial',
+      lastActiveDate:  null,
+    }));
+
+    const res = NextResponse.json({
+      ok:             true,
+      membershipTier: sync.membershipTier,
+      streakDays:     sync.streakDays,
+      trialStatus:    sync.trialStatus,
+      lastActiveDate: sync.lastActiveDate,
+    });
+
     res.cookies.set('arena_session', session, {
       httpOnly: true,
       secure:   true,
@@ -112,11 +204,6 @@ export async function POST(req: NextRequest) {
       maxAge,
       path:     '/',
     });
-
-    // ── Badge + membership sync — fire and forget, never awaited ──────────
-    // Runs after cookie is set — session already established before this.
-    // Tier 4 manual badges handled via Vault (future).
-    syncBadges(email).catch(() => {});
 
     return res;
 
