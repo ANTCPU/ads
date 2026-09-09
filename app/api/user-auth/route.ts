@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { awardBadge } from '../../lib/badges';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,52 +39,42 @@ export async function POST(req: NextRequest) {
   if (!data.pin) return NextResponse.json({ ok: false, error: 'No PIN set' }, { status: 400 });
   if (data.pin !== pin) return NextResponse.json({ ok: false, error: 'Invalid PIN' }, { status: 401 });
 
-  // ── Successful auth — fire nudges + update last_login ─────────────────────
+  // ── Successful auth ────────────────────────────────────────────────────────
 
-  const now       = new Date();
-  const lastLogin = data.last_login ? new Date(data.last_login) : null;
-  const createdAt = data.created_at ? new Date(data.created_at) : null;
-  const daysSince = lastLogin
+  const now        = new Date();
+  const lastLogin  = data.last_login ? new Date(data.last_login) : null;
+  const createdAt  = data.created_at ? new Date(data.created_at) : null;
+  const daysSince  = lastLogin
     ? (now.getTime() - lastLogin.getTime()) / 86_400_000
     : null;
-  const isNewUser = createdAt
+  const isNewUser  = createdAt
     ? (now.getTime() - createdAt.getTime()) < 86_400_000
     : false;
   const userPoints = data.points || 0;
   const firstName  = data.name?.split(' ')[0] || 'there';
 
-  // New user — first login nudge
+  // ── Login nudges ──────────────────────────────────────────────────────────
+
   if (isNewUser && !lastLogin) {
     notify(norm, 'nudge',
       '🎉 You\'re in the Arena',
       `Welcome ${firstName}. Create your first ad and Aria will have it live within hours. Every share earns points — the ladder starts now.`
     );
-  }
-
-  // Returning user — away 7+ days
-  else if (daysSince !== null && daysSince >= 7) {
+  } else if (daysSince !== null && daysSince >= 7) {
     const days = Math.floor(daysSince);
     notify(norm, 'nudge',
-      `👋 Welcome back to the Arena`,
+      '👋 Welcome back to the Arena',
       `It's been ${days} day${days === 1 ? '' : 's'}, ${firstName}. Your brand has ${userPoints} pts. Share your ad today to climb the ranks — the Arena never stops.`
     );
   }
 
-  // Update last_login — non-blocking, silent fail
-  Promise.resolve(
-    supabase
-      .from('ad_signups')
-      .update({ last_login: now.toISOString() })
-      .eq('email', norm)
-  ).catch(() => {});
-
-  // ── Badge awards — fire and forget, never block auth ──────────────────────
- supabase
-  .from('ad_signups')
-  .update({ last_login: now.toISOString() })
-  .eq('email', norm)
-  .then(() => {})
-  .catch(() => {});
+  // ── Update last_login — fire and forget, single write ─────────────────────
+  // Badges + membership tier handled by session/set → syncBadges on every login.
+  supabase
+    .from('ad_signups')
+    .update({ last_login: now.toISOString() })
+    .eq('email', norm)
+    .then(() => {}, () => {});
 
   return NextResponse.json({
     ok: true,
