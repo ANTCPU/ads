@@ -1,28 +1,39 @@
-// ============================================================
-// api/ads-agent/route.ts — ADS Agent API Route
+// app/api/ads-agent/route.ts
+// ─── ADS Agent LLM Runner ─────────────────────────────────────────────────────
 // Model: Google Gemini 2.5 Flash
 // Handles: antbot task runs + agent chat
 // Logs every run to Tower via /api/beacon
-// ============================================================
+//
+// Agent routing:
+//   botId 1 → Scout   (ranking + points)
+//   botId 2 → Aria    (ad review)
+//   botId 3 → Herald  (notifications)
+//   botId 4 → Ledger  (analytics)
+//   botId 5 → MAC     (Map of Pi)
+//   botId 0 → Antbot  (human-in-the-loop challenger)
+//   no botId → Arena assistant
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
+import { buildAgentPrompt, getAgentByNum, AGENT_REGISTRY } from '../../lib/agents';
+import type { AgentId } from '../../lib/agents';
 
 const TOWER_BEACON = 'https://antcpu.com/api/beacon';
 
-async function logToTower(botName: string, channel: string, status: string, tokens: number) {
+async function logToTower(agentName: string, channel: string, status: string, tokens: number) {
   try {
     await fetch(TOWER_BEACON, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        node_id: 'ads-agent',
-        action: 'gemini_call',
-        message: `[gemini-2.5-flash] ${botName} · ${channel} — ${status} — ${tokens} tokens`,
-        status: status === 'complete' ? 'active' : 'warn',
-        priority: 3,
-        reward: '0',
+        node_id:   'ads-agent',
+        action:    'gemini_call',
+        message:   `[gemini-2.5-flash] ${agentName} · ${channel} — ${status} — ${tokens} tokens`,
+        status:    status === 'complete' ? 'active' : 'warn',
+        priority:  3,
+        reward:    '0',
         reward_type: 'test',
-        session: 'ads',
+        session:   'ads',
         sprint_id: null,
       }),
     });
@@ -45,18 +56,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
 
-    const botName = botId ? `ANT-${String(botId).padStart(2,'0')}` : 'chat';
+    // ── Resolve agent identity ────────────────────────────────────────────────
+    const agent     = botId != null ? getAgentByNum(Number(botId)) : null;
+    const agentName = agent ? agent.name : 'Arena';
+    const agentId   = agent ? agent.id as AgentId : null;
 
+    // ── Build context-aware prompt ────────────────────────────────────────────
+    const fullPrompt = buildAgentPrompt(agentId, prompt);
+
+    // ── Call Gemini ───────────────────────────────────────────────────────────
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: fullPrompt }] }],
           generationConfig: {
             maxOutputTokens: 2000,
-            temperature: 0.7,
+            temperature:     0.7,
           },
         }),
       }
@@ -66,18 +84,20 @@ export async function POST(req: NextRequest) {
 
     if (!res.ok) {
       const errMsg = data.error?.message || 'Gemini error';
-      await logToTower(botName, channel || 'chat', `error — ${errMsg}`, 0);
+      await logToTower(agentName, channel || 'chat', `error — ${errMsg}`, 0);
       return NextResponse.json({ error: errMsg }, { status: 500 });
     }
 
     const result = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No output.';
     const tokens = data.usageMetadata?.totalTokenCount || 0;
 
-    await logToTower(botName, channel || 'chat', 'ok', tokens);
+    await logToTower(agentName, channel || 'chat', 'complete', tokens);
 
     return NextResponse.json({
       result,
-      botId: botId || null,
+      agent:   agentName,
+      agentId: agentId || null,
+      botId:   botId   || null,
       channel: channel || null,
       tokens,
     });
