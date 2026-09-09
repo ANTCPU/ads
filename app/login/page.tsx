@@ -6,6 +6,7 @@ import { getLocation } from '../lib/location';
 import { getBrandConfig } from '../lib/brandConfig';
 import { tokens } from '../lib/shopAdStyles';
 import { sanitizeText } from '../lib/sanitize';
+import { detectAndStoreLocale, setStoredLocale } from '../lib/locale';
 import VaultModal from '../components/VaultModal';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
@@ -24,6 +25,13 @@ const AD_CATEGORIES = [
   'Service Offering',
   'Event',
   'Other',
+];
+
+const LANGUAGES = [
+  { code: 'en', label: 'EN' }, { code: 'ar', label: 'AR' },
+  { code: 'zh', label: 'ZH' }, { code: 'es', label: 'ES' },
+  { code: 'hi', label: 'HI' }, { code: 'pt', label: 'PT' },
+  { code: 'fr', label: 'FR' }, { code: 'it', label: 'IT' },
 ];
 
 const { bg, card, border, white, muted, muted2 } = tokens;
@@ -91,6 +99,11 @@ async function persistSession(session: SessionUser, redirect: string | null) {
     lastActiveDate: sync.lastActiveDate  || null,
   }));
 
+  // Write preferred_locale to localStorage if returned from session sync
+  if (sync.preferredLocale) {
+    setStoredLocale(sync.preferredLocale);
+  }
+
   window.location.href = redirect || (
     session.role === 'super' ? '/dashboard/antcpu' :
     session.role === 'admin' ? '/dashboard/users'  :
@@ -110,21 +123,22 @@ async function fetchRole(email: string): Promise<string> {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Page() {
-  const [hydrated, setHydrated]   = useState(false);
-  const [promo, setPromo]         = useState('');
-  const [step, setStep]           = useState(0);
-  const [vaultOpen, setVaultOpen] = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [email, setEmail]         = useState('');
-  const [form, setForm]           = useState({
+  const [hydrated,    setHydrated]    = useState(false);
+  const [promo,       setPromo]       = useState('');
+  const [step,        setStep]        = useState(0);
+  const [vaultOpen,   setVaultOpen]   = useState(false);
+  const [loading,     setLoading]     = useState(false);
+  const [email,       setEmail]       = useState('');
+  const [form,        setForm]        = useState({
     name: '', email: '', brand_name: '', ad_category: '', message: '',
+    preferred_locale: 'en',
   });
 
-  const [pinTarget, setPinTarget]   = useState<PinTarget | null>(null);
-  const [pinInput, setPinInput]     = useState('');
-  const [pinError, setPinError]     = useState('');
-  const [pinLoading, setPinLoading] = useState(false);
-  const [showPin, setShowPin]       = useState(false);
+  const [pinTarget,   setPinTarget]   = useState<PinTarget | null>(null);
+  const [pinInput,    setPinInput]    = useState('');
+  const [pinError,    setPinError]    = useState('');
+  const [pinLoading,  setPinLoading]  = useState(false);
+  const [showPin,     setShowPin]     = useState(false);
 
   useEffect(() => {
     fetch('/api/doorbell', {
@@ -137,8 +151,18 @@ export default function Page() {
         ua:   navigator.userAgent,
       }),
     }).catch(() => {});
+
     const params = new URLSearchParams(window.location.search);
     setPromo((params.get('promo') || params.get('ref') || '').toUpperCase());
+
+    // Auto-detect locale from IP — pre-fills selector, only sets if not already chosen
+    getLocation().then(loc => {
+      if (loc.country) {
+        const detected = detectAndStoreLocale(loc.country);
+        setForm(f => ({ ...f, preferred_locale: detected }));
+      }
+    });
+
     setHydrated(true);
   }, []);
 
@@ -273,18 +297,19 @@ export default function Page() {
       .maybeSingle();
     if (!existing) {
       await supabase.from('ad_signups').insert([{
-        email:        norm,
-        name:         '',
-        brand_name:   brand.name,
-        status:       'team',
-        role:         'user',
-        trial_days:   brand.trialDays,
-        trial_expiry: getTrialExpiry(brand.trialDays),
-        promo_code:   promo,
-        country:      loc.country,
-        city:         loc.city,
-        region:       loc.region,
-        ip:           loc.ip,
+        email:            norm,
+        name:             '',
+        brand_name:       brand.name,
+        status:           'team',
+        role:             'user',
+        trial_days:       brand.trialDays,
+        trial_expiry:     getTrialExpiry(brand.trialDays),
+        promo_code:       promo,
+        country:          loc.country,
+        city:             loc.city,
+        region:           loc.region,
+        ip:               loc.ip,
+        preferred_locale: form.preferred_locale,
       }]);
       fireWelcomeEmail('', norm, brand.name, 'team');
     }
@@ -325,6 +350,8 @@ export default function Page() {
         region:       loc.region,
         ip:           loc.ip,
       }]);
+      // Write locale to localStorage immediately after new signup
+      setStoredLocale(form.preferred_locale as any);
       fireWelcomeEmail(form.name, emailNorm, form.brand_name, 'trial');
     }
     const role = await fetchRole(emailNorm);
@@ -471,6 +498,25 @@ export default function Page() {
                   <input style={inp} type="email" inputMode="email" autoComplete="email" value={form.email} onChange={e => set('email', e.target.value)} />
                   <label style={lbl}>Brand Name</label>
                   <input style={inp} type="text" value={form.brand_name} onChange={e => set('brand_name', sanitizeText(e.target.value))} />
+
+                  {/* ── Language selector — pre-filled from IP detection ── */}
+                  <label style={lbl}>Language</label>
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
+                    {LANGUAGES.map(l => (
+                      <button key={l.code} type="button"
+                        onClick={() => set('preferred_locale', l.code)}
+                        style={{
+                          background:   form.preferred_locale === l.code ? accent : 'transparent',
+                          border:       `1px solid ${form.preferred_locale === l.code ? accent : '#333'}`,
+                          color:        form.preferred_locale === l.code ? '#000' : muted,
+                          borderRadius: '8px', padding: '0.35rem 0.75rem',
+                          fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                        }}>
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <button onClick={() => form.name && form.email && form.brand_name && setStep(1)} disabled={!form.name || !form.email || !form.brand_name} style={btn(!!(form.name && form.email && form.brand_name))}>
                     Next →
                   </button>
