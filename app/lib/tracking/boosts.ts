@@ -10,6 +10,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TrackingSource } from './sources';
+import { awardBadge } from '../badges';
 
 // ✅ notifyDiscord REMOVED — routed through /api/discord-notify
 // This file is imported by client components — must never import discord.ts
@@ -72,6 +73,9 @@ export async function recordBoost(
       }),
     }).catch(() => {});
   }
-
+  // first-boost badge — fire and forget
+if (newCount === 1 && ad.email && ad.email !== 'visitor') {
+  awardBadge(supabase, ad.email, 'first-boost').catch(() => {});
+}
   return newCount;
 }
