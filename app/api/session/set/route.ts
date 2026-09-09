@@ -135,6 +135,28 @@ async function syncBadges(email: string): Promise<SyncResult> {
     // Award arena-active badge if streak qualifies
     await checkAndAwardActivityBadge(supabase, email, streakDays);
 
+// ── Retroactive first-reaction badge ─────────────────────────────────────
+// Covers existing users whose past reactions had no email attached.
+// Checks if this user owns any ad that has received reactions.
+(async () => {
+  try {
+    const { data: userAds } = await supabase
+      .from('ads')
+      .select('id')
+      .eq('email', email);
+    if (userAds && userAds.length > 0) {
+      const adIds = userAds.map((a: { id: string }) => a.id);
+      const { count } = await supabase
+        .from('ad_reactions')
+        .select('*', { count: 'exact', head: true })
+        .in('ad_id', adIds);
+      if ((count || 0) > 0) {
+        await awardBadge(supabase, email, 'first-reaction');
+      }
+    }
+  } catch {}
+})();
+           
     // ── Membership tier recalculation ─────────────────────────────────────────
     const { data: badgeRows } = await supabase
       .from('user_badges')
