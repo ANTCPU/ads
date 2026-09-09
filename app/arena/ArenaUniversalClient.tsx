@@ -139,6 +139,9 @@ export default function ArenaUniversalClient() {
   const [reacted,    setReacted]    = useState<Record<string, ReactionType>>({});
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
 
+  // ── Anon nudge — tracks which ad triggered the join banner ───────────────
+  const [nudgedAd, setNudgedAd] = useState<string | null>(null);
+
   // ─── Derived ─────────────────────────────────────────────────────────────
   const maxPoints   = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
   const isSuper     = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
@@ -198,7 +201,7 @@ export default function ArenaUniversalClient() {
     setLoading(false);
   }
 
-  // ─── Module loader — reads arena_modules table, falls back to defaults ────
+  // ─── Module loader ────────────────────────────────────────────────────────
   async function fetchModules() {
     const { data } = await supabase
       .from('arena_modules')
@@ -210,7 +213,6 @@ export default function ArenaUniversalClient() {
     if (data && data.length > 0) {
       setModuleIds(data.map((r: { module_id: string }) => r.module_id));
     } else {
-      // Table empty or no rows for 'arena' — use defaults
       setModuleIds(DEFAULT_ARENA_MODULES);
     }
   }
@@ -223,7 +225,7 @@ export default function ArenaUniversalClient() {
     setTimeout(() => setToast(null), 2000);
   }
 
-  // ─── Handlers (unchanged) ─────────────────────────────────────────────────
+  // ─── Handlers ─────────────────────────────────────────────────────────────
   async function handleClick(ad: Ad) {
     if (!ad.url || ad.url.trim() === '') { router.push('/guide?ref=champion-ad'); return; }
     window.open(ad.url, '_blank', 'noopener,noreferrer');
@@ -248,6 +250,8 @@ export default function ArenaUniversalClient() {
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, like_count: n } : p);
+    // ── Nudge anonymous users — membership is free ────────────────────────
+    if (!user.email) setNudgedAd(ad.id);
   }
 
   async function handleBoost(ad: Ad, e: React.MouseEvent) {
@@ -364,6 +368,38 @@ export default function ArenaUniversalClient() {
     }
   }
 
+  // ─── Nudge banner — reusable for card + modal ─────────────────────────────
+  function NudgeBanner({ adId }: { adId: string }) {
+    if (nudgedAd !== adId || user.email) return null;
+    return (
+      <div style={{
+        marginTop: '0.6rem',
+        background: '#0a0a0a',
+        border: '1px solid #f0883e30',
+        borderRadius: '8px',
+        padding: '0.6rem 0.85rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '0.75rem',
+      }}>
+        <span style={{ fontSize: '0.75rem', color: '#aaa', lineHeight: 1.4 }}>
+          😊 Membership is free — join to earn badges and track your activity.
+        </span>
+        <button
+          onClick={() => router.push('/login')}
+          style={{
+            background: orange, border: 'none', borderRadius: '6px',
+            color: '#000', fontWeight: 800, fontSize: '0.72rem',
+            padding: '0.4rem 0.75rem', cursor: 'pointer', flexShrink: 0,
+          }}
+        >
+          Join Free →
+        </button>
+      </div>
+    );
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif' }}>
@@ -376,7 +412,7 @@ export default function ArenaUniversalClient() {
         onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
 
-      {/* ── Preview modal (unchanged) ── */}
+      {/* ── Preview modal ── */}
       {preview && (() => {
         const color = getBrandColor(preview.brand);
         const heat  = Math.round(((preview.points || 0) / maxPoints) * 100);
@@ -460,12 +496,14 @@ export default function ArenaUniversalClient() {
                 <button onClick={() => router.push(`/profile/${encodeURIComponent(preview.email)}`)}
                   style={iconBtn(false, muted)}>👤</button>
               </div>
+              {/* ── Nudge banner in preview modal ── */}
+              <NudgeBanner adId={preview.id} />
             </div>
           </>
         );
       })()}
 
-      {/* ── Share modal (unchanged) ── */}
+      {/* ── Share modal ── */}
       {shareAd && (() => {
         const brandColor = getBrandColor(shareAd.brand);
         return (
@@ -570,7 +608,7 @@ export default function ArenaUniversalClient() {
           </div>
         )}
 
-        {/* Ad grid (unchanged) */}
+        {/* Ad grid */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>Loading the Arena...</div>
         ) : ads.length === 0 ? (
@@ -684,6 +722,8 @@ export default function ArenaUniversalClient() {
                         <button onClick={e => { e.stopPropagation(); handleClick(ad); }} title="Visit" style={iconBtn(false, muted)}>🔗</button>
                       </div>
                     </div>
+                    {/* ── Nudge banner — anon like conversion ── */}
+                    <NudgeBanner adId={ad.id} />
                   </div>
                 </div>
               );
@@ -691,7 +731,7 @@ export default function ArenaUniversalClient() {
           </div>
         )}
 
-        {/* ── Module Zone — registry-driven, reads arena_modules table ── */}
+        {/* ── Module Zone ── */}
         {!loading && moduleIds.length > 0 && (
           <div style={{ marginTop: '2.5rem', borderTop: '1px solid #1a1a1a', paddingTop: '2rem',
             display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -730,4 +770,3 @@ export default function ArenaUniversalClient() {
     </div>
   );
 }
-
