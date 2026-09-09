@@ -169,6 +169,20 @@ export const hi: Record<string, string> = {
   signin_loading:           'साइन इन हो रहा है...',
   signin_error_prefix:      'इस ईमेल के लिए कोई अकाउंट नहीं मिला: ',
   signin_error_suffix:      ' — कृपया ऊपर साइन अप करें।',
+  // ARENA
+  arena_loading:            'अखाड़ा लोड हो रहा है...',
+  arena_empty:              'अभी कोई सक्रिय विज्ञापन नहीं।',
+  arena_join_title:         'नेटवर्क से जुड़ें',
+  arena_join_sub:           'अपने ब्रांड को अखाड़े में लाएं।',
+  arena_join_note:          'शामिल होना मुफ़्त · कोई अनुबंध नहीं',
+  arena_join_cta:           'अखाड़े में शामिल हों →',
+  arena_back:               '← डैशबोर्ड पर वापस',
+  arena_nudge:              'सदस्यता मुफ़्त है — बैज अर्जित करने और गतिविधि ट्रैक करने के लिए जुड़ें।',
+  arena_nudge_cta:          'मुफ़्त जुड़ें →',
+  arena_super_badge:        '⚡ सुपर एडमिन — पूर्ण अखाड़ा दृश्य',
+  arena_stat_brands:        'ब्रांड',
+  arena_stat_ads:           'विज्ञापन',
+  arena_stat_points:        'अंक',
 
   // RTL FLAG
   rtl:                      'false',
