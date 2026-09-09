@@ -182,7 +182,10 @@ export async function POST(req: NextRequest) {
         notify(adEmail, 'points',
           '⚡ 100 points — Rising tier unlocked',
           `"${adTitle}" hit 100 points. Rising tier is now active — keep sharing.`);
-
+      // ── Country champion badge — award when rank = 1 ──────────────────────
+if (finalRank === 1) {
+  awardBadge(supabase, adEmail, 'country-champion').catch(() => {});
+}
       // ── Points badge awards — idempotent, fire and forget ──────────────────
       checkAndAwardPointsBadges(supabase, adEmail, finalPoints).catch(() => {});
     }
