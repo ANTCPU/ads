@@ -47,7 +47,7 @@ const TIER_CONFIG: Record<string, { color: string; label: string }> = {
 const TABS = ['About', 'Ads', 'Performance', 'Connect'] as const;
 type Tab = typeof TABS[number];
 
-const ANTCPU_FALLBACK_VIDEO = 'https://www.youtube.com/embed/PNoY1ffzciI?autoplay=0&rel=0';
+const FALLBACK_VIDEO = 'https://www.youtube.com/watch?v=uBN8MqWn3yY';
 
 const CONNECT_SOCIALS: { key: keyof Profile; label: string; icon: string }[] = [
   { key: 'website',   label: 'Website',     icon: '🌐' },
@@ -97,9 +97,7 @@ function getYouTubeEmbedUrl(url?: string): string {
 
 function buildShareText(profile: Profile): string {
   const url = `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(profile.email)}`;
-  const hashtags = profile.brand === 'Map of Pi'
-    ? '#mapofpi #marketing #ads #profile'
-    : '#antcpuads #marketing #ads #profile';
+  const hashtags = '#antcpuads #marketing #ads #profile';
   return `Check out ${profile.brand} on ANTCPU ADS\n${profile.bio || ''}\n→ ${url}\n${hashtags}`;
 }
 
