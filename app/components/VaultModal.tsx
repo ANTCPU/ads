@@ -17,28 +17,55 @@ const VAULT_MSGS = [
 type VaultStep = 'email' | 'pin' | 'success';
 
 type VaultUser = {
-  email: string;
-  name: string;
-  brand: string;
+  email:       string;
+  name:        string;
+  brand:       string;
   trialStatus: string;
-  role: string;
+  role:        string;
 };
 
 type Props = {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: (user: VaultUser) => void;
+  open:       boolean;
+  onClose:    () => void;
+  onSuccess:  (user: VaultUser) => void;
   redirectTo?: string;
 };
 
 // ─── Session writer ───────────────────────────────────────────────────────────
+// Writes enriched localStorage — membershipTier, streakDays, lastActiveDate
+// included when available from session/set response.
 
-function writeSession(session: VaultUser) {
-  const encoded = encodeURIComponent(JSON.stringify(session));
-  const days = session.role === 'super' || session.trialStatus === 'team' ? 90 : 3;
+function writeSession(
+  session: VaultUser & {
+    membershipTier?: string;
+    streakDays?:     number;
+    lastActiveDate?: string | null;
+  }
+) {
+  // HttpOnly cookie written server-side via /api/session/set
+  // Client cookie kept for legacy cross-origin reads
+  const encoded = encodeURIComponent(JSON.stringify({
+    email:       session.email,
+    name:        session.name,
+    brand:       session.brand,
+    trialStatus: session.trialStatus,
+    role:        session.role,
+  }));
+  const days    = session.role === 'super' || session.trialStatus === 'team' ? 90 : 3;
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   document.cookie = `arena_session=${encoded}; path=/; expires=${expires}; SameSite=Lax`;
-  localStorage.setItem('arena_user', JSON.stringify(session));
+
+  // Full enriched object to localStorage
+  localStorage.setItem('arena_user', JSON.stringify({
+    email:          session.email,
+    name:           session.name,
+    brand:          session.brand,
+    trialStatus:    session.trialStatus,
+    role:           session.role,
+    membershipTier: session.membershipTier || 'trial',
+    streakDays:     session.streakDays     || 0,
+    lastActiveDate: session.lastActiveDate || null,
+  }));
 }
 
 // ─── Role-based redirect ──────────────────────────────────────────────────────
@@ -98,9 +125,9 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
       }
 
       const res  = await fetch('/api/user-auth', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: norm, pin: '__check__' }),
+        body:    JSON.stringify({ email: norm, pin: '__check__' }),
       });
       const data = await res.json();
 
@@ -124,10 +151,8 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
   }
 
   // ─── Step 2: PIN verify ───────────────────────────────────────────────────
-  // All three paths now go through /api/user-auth — single route, single
-  // source of truth. Super path sends { email, pin } just like regular users.
-  // user-auth returns the full user object — no separate DB fetch needed.
-  // /api/admin-auth removed — no longer needed, no env var dependency.
+  // All paths call /api/session/set after auth to trigger syncBadges
+  // and get enriched data (membershipTier, streakDays, lastActiveDate).
 
   async function handlePin() {
     const norm = email.trim().toLowerCase();
@@ -139,11 +164,10 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
       let session: VaultUser;
 
       if (isSuper || hasPinSet) {
-        // ── Super + regular PIN users — same route, same shape ──────────────
         const res = await fetch('/api/user-auth', {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: norm, pin }),
+          body:    JSON.stringify({ email: norm, pin }),
         });
 
         if (!res.ok) {
@@ -160,17 +184,15 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
           name:        user.name        || '',
           brand:       user.brand       || '',
           trialStatus: user.trialStatus || 'team',
-          // Force super role for super email — DB role is the fallback
-          role: isSuper ? 'super' : (user.role || 'user'),
+          role:        isSuper ? 'super' : (user.role || 'user'),
         };
 
       } else {
-        // ── No PIN set — user-auth already returned profile on __check__ ────
-        // Re-fetch cleanly to get full user object
-        const res = await fetch('/api/user-auth', {
-          method: 'POST',
+        // No PIN — re-fetch to get full user object
+        const res  = await fetch('/api/user-auth', {
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: norm, pin: '__check__' }),
+          body:    JSON.stringify({ email: norm, pin: '__check__' }),
         });
         const data = await res.json();
 
@@ -184,7 +206,32 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
       }
 
       setVaultMsg(VAULT_MSGS[4]);
-      writeSession(session);
+
+      // ── Call session/set — triggers syncBadges, returns enriched data ─────
+      let enriched = {
+        membershipTier: 'trial',
+        streakDays:     0,
+        lastActiveDate: null as string | null,
+        trialStatus:    session.trialStatus,
+      };
+      try {
+        const syncRes  = await fetch('/api/session/set', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(session),
+        });
+        const syncData = await syncRes.json();
+        if (syncData.ok) {
+          enriched = {
+            membershipTier: syncData.membershipTier  || 'trial',
+            streakDays:     syncData.streakDays      || 0,
+            lastActiveDate: syncData.lastActiveDate  || null,
+            trialStatus:    syncData.trialStatus     || session.trialStatus,
+          };
+        }
+      } catch {}
+
+      writeSession({ ...session, ...enriched });
       setStep('success');
 
       setTimeout(() => {
@@ -212,9 +259,9 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
   const btnStyle = (active: boolean): React.CSSProperties => ({
     width: '100%', padding: '0.9rem', borderRadius: '10px', border: 'none',
     background: active ? '#f0883e' : '#1a1a1a',
-    color: active ? '#000' : '#555',
+    color:      active ? '#000'    : '#555',
     fontWeight: 700, fontSize: '0.95rem',
-    cursor: active ? 'pointer' : 'not-allowed',
+    cursor:     active ? 'pointer' : 'not-allowed',
     transition: 'background 0.2s', marginTop: '0.5rem',
   });
 
