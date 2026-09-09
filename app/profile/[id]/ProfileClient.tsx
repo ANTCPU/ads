@@ -47,7 +47,7 @@ const TIER_CONFIG: Record<string, { color: string; label: string }> = {
 const TABS = ['About', 'Ads', 'Performance', 'Connect'] as const;
 type Tab = typeof TABS[number];
 
-const FALLBACK_VIDEO = 'https://www.youtube.com/watch?v=uBN8MqWn3yY';
+const FALLBACK_VIDEO_URL = 'https://www.youtube.com/embed/uBN8MqWn3yY?autoplay=0&rel=0';
 
 const CONNECT_SOCIALS: { key: keyof Profile; label: string; icon: string }[] = [
   { key: 'website',   label: 'Website',     icon: '🌐' },
@@ -92,7 +92,7 @@ function getYouTubeEmbedUrl(url?: string): string {
     const channelId = url.match(/channel\/([\w-]+)/)?.[1];
     if (channelId) return `https://www.youtube.com/embed?listType=user_uploads&list=${channelId}&autoplay=0`;
   }
-  return ANTCPU_FALLBACK_VIDEO;
+  return FALLBACK_VIDEO_URL;
 }
 
 function buildShareText(profile: Profile): string {
