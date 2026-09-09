@@ -265,8 +265,9 @@ export default function ArenaUniversalClient() {
       getSessionId(), SOURCE.ARENA_FEED, supabase
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
-    if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
-  }
+  if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
+  if (!user.email) setNudgedAd(ad.id);
+}
 
 async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
   e.stopPropagation();
