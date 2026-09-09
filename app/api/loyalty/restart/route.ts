@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 import { awardBadge }                from '../../../lib/badges';
+import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membership';
 
 // ─── Loyalty Restart ──────────────────────────────────────────────────────────
 // POST { email }
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     // ── Fetch user ────────────────────────────────────────────────────────
     const { data: user, error: fetchErr } = await supabase
       .from('ad_signups')
-      .select('email, name, status, created_at, points, trial_extended_at')
+      .select('email, name, status, created_at, points, trial_extended_at, membership_tier')
       .eq('email', norm)
       .maybeSingle();
 
@@ -83,7 +84,17 @@ export async function POST(req: NextRequest) {
 
     // ── Award loyal-member badge ──────────────────────────────────────────
     await awardBadge(supabase, norm, 'loyal-member');
+    
+    // ── Upgrade membership tier ───────────────────────────────────────────────
+    const { data: badges } = await supabase
+    .from('user_badges')
+    .select('badge_slug')
+    .eq('user_email', norm);
 
+    const badgeSlugs  = (badges || []).map((b: { badge_slug: string }) => b.badge_slug);
+    const newTier     = calcMembershipTier(user.points || 0, badgeSlugs, user.membership_tier || 'trial');
+    await upgradeMembershipTier(supabase, norm, newTier, user.membership_tier || 'trial');
+    
     // ── In-app notification ───────────────────────────────────────────────
     const firstName = user.name?.split(' ')[0] || 'there';
     fetch(`${BASE_URL}/api/notify`, {
@@ -92,7 +103,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         email:   norm,
         type:    'points',
-        title:   '⚡ Trial Extended — 7 More Days',
+        title: '⚡ Trial Extended — You\'re now a Member',
         message: `Your points kept your ad alive, ${firstName}. You've earned a 7-day extension and the Loyal Member badge. Keep sharing to climb the Arena.`,
       }),
     }).catch(() => {});
