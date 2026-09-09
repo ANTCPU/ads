@@ -5,6 +5,7 @@ import { useRouter }                   from 'next/navigation';
 import { createClient }                from '@supabase/supabase-js';
 import ArenaNav                        from '../../components/ArenaNav';
 import ArenaFooter                     from '../../components/ArenaFooter';
+import LoyaltyCard                     from '../../components/LoyaltyCard';
 import { clearSessionCookie }          from '../../lib/session';
 import { recordShare, detectPlatform } from '../../lib/tracking/shares';
 import { trackClick as libTrackClick } from '../../lib/tracking/clicks';
@@ -128,20 +129,23 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
 
 export default function UserDashboard() {
   const router = useRouter();
-  const [hydrated,       setHydrated]       = useState(false);
-  const [user,           setUser]           = useState<SessionUser | null>(null);
-  const [myAd,           setMyAd]           = useState<Ad | null>(null);
-  const [arenaAds,       setArenaAds]       = useState<Ad[]>([]);
-  const [referralCode,   setReferralCode]   = useState('');
-  const [referralCopied, setReferralCopied] = useState(false);
-  const [loading,        setLoading]        = useState(true);
-  const [sharedId,       setSharedId]       = useState<string | null>(null);
-  const [hasProfile,     setHasProfile]     = useState(false);
-  const [myRank,         setMyRank]         = useState<number | null>(null);
-  const [showCount,      setShowCount]      = useState(10);
-  const [userCreatedAt,  setUserCreatedAt]  = useState<string | null>(null);
-  const [membershipTier, setMembershipTier] = useState<MembershipTier>('trial');
-  const [streakDays,     setStreakDays]     = useState(0);
+  const [hydrated,          setHydrated]          = useState(false);
+  const [user,              setUser]              = useState<SessionUser | null>(null);
+  const [myAd,              setMyAd]              = useState<Ad | null>(null);
+  const [arenaAds,          setArenaAds]          = useState<Ad[]>([]);
+  const [referralCode,      setReferralCode]      = useState('');
+  const [referralCopied,    setReferralCopied]    = useState(false);
+  const [loading,           setLoading]           = useState(true);
+  const [sharedId,          setSharedId]          = useState<string | null>(null);
+  const [hasProfile,        setHasProfile]        = useState(false);
+  const [myRank,            setMyRank]            = useState<number | null>(null);
+  const [showCount,         setShowCount]         = useState(10);
+  const [userCreatedAt,     setUserCreatedAt]     = useState<string | null>(null);
+  const [trialExtendedAt,   setTrialExtendedAt]   = useState<string | null>(null);
+  const [dbPoints,          setDbPoints]          = useState(0);
+  const [loyaltyRestarting, setLoyaltyRestarting] = useState(false);
+  const [membershipTier,    setMembershipTier]    = useState<MembershipTier>('trial');
+  const [streakDays,        setStreakDays]        = useState(0);
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -169,7 +173,6 @@ export default function UserDashboard() {
       fetchData(u.email);
 
       // ── Read enriched fields from localStorage first ───────────────────
-      // Written by session/set on every login — always fresh
       if (u.membershipTier) setMembershipTier(u.membershipTier as MembershipTier);
       if (u.streakDays)     setStreakDays(u.streakDays);
 
@@ -178,19 +181,19 @@ export default function UserDashboard() {
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
 
-      // DB query — fallback + referral code + created_at
-      // membership_tier from DB only used if localStorage is missing it
+      // DB query — includes trial_extended_at + points now
       supabase
         .from('ad_signups')
-        .select('promo_code, created_at, membership_tier, streak_days')
+        .select('promo_code, created_at, membership_tier, streak_days, trial_extended_at, points')
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => {
           setReferralCode(
             data?.promo_code ||
             u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || ''
           );
-          if (data?.created_at) setUserCreatedAt(data.created_at);
-          // Only override if localStorage didn't have it
+          if (data?.created_at)        setUserCreatedAt(data.created_at);
+          if (data?.trial_extended_at) setTrialExtendedAt(data.trial_extended_at);
+          if (data?.points)            setDbPoints(data.points);
           if (!u.membershipTier && data?.membership_tier) {
             setMembershipTier(data.membership_tier as MembershipTier);
           }
@@ -238,6 +241,26 @@ export default function UserDashboard() {
     setMyAd(enrichedMine[0] || null);
     setArenaAds(enrich(arena || []));
     setLoading(false);
+  }
+
+  // ── Loyalty restart ────────────────────────────────────────────────────────
+
+  async function handleLoyaltyRestart() {
+    if (!user || loyaltyRestarting) return;
+    setLoyaltyRestarting(true);
+    try {
+      const res  = await fetch('/api/loyalty/restart', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: user.email }),
+      });
+      const data = await res.json();
+      if (data.ok && data.extended) {
+        setTrialExtendedAt(new Date().toISOString());
+        setMembershipTier('member');
+      }
+    } catch {}
+    setLoyaltyRestarting(false);
   }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -311,12 +334,10 @@ export default function UserDashboard() {
   const ptsToNext      = nextTier ? nextTier.threshold - myPoints : 0;
   const showStrip      = !!myAd;
 
-  // Membership tier display — uses membership.ts getTierDef()
-  const tierDef        = getTierDef(membershipTier);
-  const showTierPill   = membershipTier !== 'trial';
+  const tierDef      = getTierDef(membershipTier);
+  const showTierPill = membershipTier !== 'trial';
 
-  // Streak display
-  const showStreak     = streakDays >= 1;
+  const showStreak      = streakDays >= 1;
   const streakNearBadge = streakDays >= 1 && streakDays < 3;
   const streakHasBadge  = streakDays >= 3;
 
@@ -369,7 +390,6 @@ export default function UserDashboard() {
             <span>·</span>
             <span>{isTeam ? 'Team — Unlimited' : 'Free'}</span>
 
-            {/* Membership tier pill — from getTierDef() */}
             {showTierPill && (
               <>
                 <span>·</span>
@@ -425,6 +445,17 @@ export default function UserDashboard() {
             <TierStrip points={myPoints} tier={myTierKey} />
           </div>
         )}
+
+        {/* ── Loyalty Card ── */}
+        <LoyaltyCard
+          status={user.trialStatus}
+          createdAt={userCreatedAt}
+          points={dbPoints || myPoints}
+          trialExtendedAt={trialExtendedAt}
+          restarting={loyaltyRestarting}
+          onRestart={handleLoyaltyRestart}
+          onUpgrade={() => router.push('/?upgrade=1')}
+        />
 
         {/* ── Points to next tier nudge ── */}
         {showStrip && nextTier && ptsToNext <= 30 && (
@@ -539,7 +570,7 @@ export default function UserDashboard() {
             <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem' }}>
               One share = 10 points. Shares are the fastest way to climb the Arena.
             </div>
-            <button onClick={() => shareAd(myAd)} style={btn('#f0883e', '#000')}>
+            <button onClick={() => shareAd(myAd)} style={btn('#f0883e',
               ↗ Share My Ad Now
             </button>
           </div>
