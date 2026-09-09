@@ -169,6 +169,20 @@ export const pt: Record<string, string> = {
   signin_loading:           'Entrando...',
   signin_error_prefix:      'Nenhuma conta encontrada para ',
   signin_error_suffix:      ' — Por favor cadastre-se acima.',
+  // ARENA
+  arena_loading:            'Carregando a Arena...',
+  arena_empty:              'Nenhum anúncio ativo ainda.',
+  arena_join_title:         'Junte-se à Rede',
+  arena_join_sub:           'Coloque sua marca na Arena.',
+  arena_join_note:          'Grátis para entrar · Sem contratos',
+  arena_join_cta:           'Entrar na Arena →',
+  arena_back:               '← Voltar ao Painel',
+  arena_nudge:              'A adesão é gratuita — junte-se para ganhar emblemas e acompanhar sua atividade.',
+  arena_nudge_cta:          'Entrar Grátis →',
+  arena_super_badge:        '⚡ Super Admin — Visão Completa da Arena',
+  arena_stat_brands:        'Marcas',
+  arena_stat_ads:           'Anúncios',
+  arena_stat_points:        'Pontos',
 
   // RTL FLAG
   rtl:                      'false',
