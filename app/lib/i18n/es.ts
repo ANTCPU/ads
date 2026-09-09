@@ -170,6 +170,21 @@ export const es: Record<string, string> = {
   signin_error_prefix:      'No se encontro cuenta para ',
   signin_error_suffix:      ' — Por favor registrate arriba.',
 
+    // ARENA
+  arena_loading:            'Cargando la Arena...',
+  arena_empty:              'No hay anuncios activos aún.',
+  arena_join_title:         'Únete a la Red',
+  arena_join_sub:           'Lleva tu marca a la Arena.',
+  arena_join_note:          'Gratis unirse · Sin contratos',
+  arena_join_cta:           'Únete a la Arena →',
+  arena_back:               '← Volver al Panel',
+  arena_nudge:              'La membresía es gratis — únete para ganar insignias y rastrear tu actividad.',
+  arena_nudge_cta:          'Únete Gratis →',
+  arena_super_badge:        '⚡ Super Admin — Vista Completa de la Arena',
+  arena_stat_brands:        'Marcas',
+  arena_stat_ads:           'Anuncios',
+  arena_stat_points:        'Puntos',
+  
   // RTL FLAG
   rtl:                      'false',
 };
