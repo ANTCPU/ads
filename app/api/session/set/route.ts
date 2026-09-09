@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 import { awardBadge, checkAndAwardPointsBadges } from '../../../lib/badges';
-import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membership';
+import { calcMembershipTier, upgradeMembershipTier, MembershipTier } from '../../../lib/membership';
 
 // ─── Session Set ──────────────────────────────────────────────────────────────
 // Called from persistSession() in login/page.tsx — every login path hits this.
@@ -16,23 +16,22 @@ import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membersh
 // Tier 4 manual badges handled separately via Vault (future).
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Service role client — server-side only, never sent to browser
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// ─── Badge sync ───────────────────────────────────────────────────────────────
+// ─── Badge + membership sync ──────────────────────────────────────────────────
 // Fires on every session establishment regardless of login path.
 // Idempotent — safe to run on every login, never duplicates.
 // Silent fail — never blocks session or redirects.
 
 async function syncBadges(email: string): Promise<void> {
   try {
-    // Fetch user data needed for badge checks
+    // Fetch user data needed for badge + tier checks
     const { data: user } = await supabase
       .from('ad_signups')
-      .select('promo_code, points')
+      .select('promo_code, points, membership_tier')
       .eq('email', email)
       .maybeSingle();
 
@@ -67,6 +66,21 @@ async function syncBadges(email: string): Promise<void> {
 
     await Promise.all(checks);
 
+    // ── Membership tier recalculation — runs after all badge checks ────────
+    // Catches any tier upgrades missed between logins.
+    const { data: badgeRows } = await supabase
+      .from('user_badges')
+      .select('badge_slug')
+      .eq('user_email', email);
+
+    const currentTier = (user.membership_tier || 'trial') as MembershipTier;
+    const badgeSlugs  = (badgeRows || []).map((b: { badge_slug: string }) => b.badge_slug);
+    const newTier     = calcMembershipTier(user.points || 0, badgeSlugs, currentTier);
+
+    if (newTier !== currentTier) {
+      await upgradeMembershipTier(supabase, email, newTier, currentTier);
+    }
+
   } catch {
     // Silent fail — badge sync never blocks session
   }
@@ -99,8 +113,8 @@ export async function POST(req: NextRequest) {
       path:     '/',
     });
 
-    // ── Badge sync — fire and forget, never awaited ────────────────────────
-    // Runs after cookie is set — session is already established before this.
+    // ── Badge + membership sync — fire and forget, never awaited ──────────
+    // Runs after cookie is set — session already established before this.
     // Tier 4 manual badges handled via Vault (future).
     syncBadges(email).catch(() => {});
 
