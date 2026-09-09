@@ -169,6 +169,20 @@ export const fr: Record<string, string> = {
   signin_loading:           'Connexion en cours...',
   signin_error_prefix:      'Aucun compte trouve pour ',
   signin_error_suffix:      ' — Veuillez vous inscrire ci-dessus.',
+  // ARENA
+  arena_loading:            'Chargement de l\'Arène...',
+  arena_empty:              'Aucune annonce active pour l\'instant.',
+  arena_join_title:         'Rejoignez le Réseau',
+  arena_join_sub:           'Mettez votre marque dans l\'Arène.',
+  arena_join_note:          'Gratuit · Sans contrat',
+  arena_join_cta:           'Rejoindre l\'Arène →',
+  arena_back:               '← Retour au Tableau de bord',
+  arena_nudge:              'L\'adhésion est gratuite — rejoignez pour gagner des badges et suivre votre activité.',
+  arena_nudge_cta:          'Rejoindre Gratuitement →',
+  arena_super_badge:        '⚡ Super Admin — Vue Complète de l\'Arène',
+  arena_stat_brands:        'Marques',
+  arena_stat_ads:           'Annonces',
+  arena_stat_points:        'Points',
 
   // RTL FLAG
   rtl:                      'false',
