@@ -169,6 +169,20 @@ export const ar: Record<string, string> = {
   signin_loading:           'جارٍ تسجيل الدخول...',
   signin_error_prefix:      'لم يتم العثور على حساب لـ ',
   signin_error_suffix:      ' — يرجى التسجيل أعلاه.',
+  // ARENA
+  arena_loading:            'جارٍ تحميل الساحة...',
+  arena_empty:              'لا توجد إعلانات نشطة بعد.',
+  arena_join_title:         'انضم إلى الشبكة',
+  arena_join_sub:           'احصل على علامتك التجارية في الساحة.',
+  arena_join_note:          'مجاني للانضمام · بدون عقود',
+  arena_join_cta:           'انضم إلى الساحة ←',
+  arena_back:               '→ العودة إلى لوحة التحكم',
+  arena_nudge:              'العضوية مجانية — انضم لكسب الشارات وتتبع نشاطك.',
+  arena_nudge_cta:          'انضم مجاناً ←',
+  arena_super_badge:        '⚡ مشرف عام — عرض الساحة الكامل',
+  arena_stat_brands:        'العلامات التجارية',
+  arena_stat_ads:           'الإعلانات',
+  arena_stat_points:        'النقاط',
 
   // RTL FLAG — read by i18n engine to set dir attribute
   rtl:                      'true',
