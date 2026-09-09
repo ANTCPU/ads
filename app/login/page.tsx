@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getLocation } from '../lib/location';
@@ -30,18 +31,17 @@ const { bg, card, border, white, muted, muted2 } = tokens;
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SessionUser = {
-  email: string;
-  name: string;
-  brand: string;
+  email:       string;
+  name:        string;
+  brand:       string;
   trialStatus: string;
-  role: string;
+  role:        string;
 };
 
-// PIN modal target — tracks who is being authenticated and in what mode
 type PinTarget = {
-  email: string;
+  email:    string;
   redirect: string | null;
-  mode: 'super' | 'user';
+  mode:     'super' | 'user';
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -52,12 +52,11 @@ function getTrialExpiry(days: number): string {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-// Fire welcome email + update sent_at — fire and forget, never blocks login
 function fireWelcomeEmail(name: string, email: string, brand: string, trialStatus: string) {
   fetch('/api/send-welcome', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, brand, trialStatus }),
+    body:    JSON.stringify({ name, email, brand, trialStatus }),
   }).catch(() => {});
   supabase
     .from('ad_signups')
@@ -66,25 +65,39 @@ function fireWelcomeEmail(name: string, email: string, brand: string, trialStatu
     .then(() => {});
 }
 
-// Build session cookie + localStorage — single source of truth for all login paths
+// ─── persistSession ───────────────────────────────────────────────────────────
+// Single source of truth for all login paths.
+// Calls /api/session/set → runs syncBadges → returns enriched data.
+// Writes full enriched object to localStorage so ArenaNav + agents read it live.
+
 async function persistSession(session: SessionUser, redirect: string | null) {
-  // Set HttpOnly cookie server-side — not readable by JS, survives mobile Safari
-  await fetch('/api/session/set', {
-    method: 'POST',
+  const res  = await fetch('/api/session/set', {
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(session),
+    body:    JSON.stringify(session),
   });
-  // Keep localStorage as UI cache only — for instant name/brand display
-  localStorage.setItem('arena_user', JSON.stringify(session));
+  const sync = await res.json().catch(() => ({}));
+
+  // Write enriched localStorage — membershipTier, streakDays, lastActiveDate
+  // trialStatus from sync is authoritative — fixes stale status after restart
+  localStorage.setItem('arena_user', JSON.stringify({
+    email:          session.email,
+    name:           session.name,
+    brand:          session.brand,
+    role:           session.role,
+    trialStatus:    sync.trialStatus     || session.trialStatus,
+    membershipTier: sync.membershipTier  || 'trial',
+    streakDays:     sync.streakDays      || 0,
+    lastActiveDate: sync.lastActiveDate  || null,
+  }));
+
   window.location.href = redirect || (
     session.role === 'super' ? '/dashboard/antcpu' :
-    session.role === 'admin' ? '/dashboard/users' :
+    session.role === 'admin' ? '/dashboard/users'  :
     '/dashboard/user'
   );
 }
 
-
-// Fetch role from ad_signups — defaults to 'user' if not found
 async function fetchRole(email: string): Promise<string> {
   const { data } = await supabase
     .from('ad_signups')
@@ -107,7 +120,6 @@ export default function Page() {
     name: '', email: '', brand_name: '', ad_category: '', message: '',
   });
 
-  // ── PIN modal state ──────────────────────────────────────────────────────
   const [pinTarget, setPinTarget]   = useState<PinTarget | null>(null);
   const [pinInput, setPinInput]     = useState('');
   const [pinError, setPinError]     = useState('');
@@ -116,13 +128,13 @@ export default function Page() {
 
   useEffect(() => {
     fetch('/api/doorbell', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      body:    JSON.stringify({
         page: '/login',
-        ref: document.referrer || 'direct',
-        ts: new Date().toISOString(),
-        ua: navigator.userAgent,
+        ref:  document.referrer || 'direct',
+        ts:   new Date().toISOString(),
+        ua:   navigator.userAgent,
       }),
     }).catch(() => {});
     const params = new URLSearchParams(window.location.search);
@@ -137,9 +149,7 @@ export default function Page() {
   const isBrand = promo !== '' && promo !== 'FREETRIAL';
   const set     = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
-  // ─── Auth flow ─────────────────────────────────────────────────────────────
-  // Determines whether to show PIN modal or proceed directly.
-  // No hardcoded names, no prompt() — all identity resolved from DB.
+  // ─── Auth flow ────────────────────────────────────────────────────────────
 
   async function handleLoginOrSignup(emailInput: string, redirect: string | null) {
     const norm = emailInput.trim().toLowerCase();
@@ -147,27 +157,23 @@ export default function Page() {
 
     const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
-    // — super admin: show PIN modal, profile fetched from DB after verify
     if (SUPER_EMAIL && norm === SUPER_EMAIL) {
       setPinTarget({ email: norm, redirect, mode: 'super' });
       return;
     }
 
-    // — check if user has a PIN set
     const pinCheck = await fetch('/api/user-auth', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: norm, pin: '__check__' }),
+      body:    JSON.stringify({ email: norm, pin: '__check__' }),
     });
     const pinData = await pinCheck.json();
 
     if (pinData.error !== 'No PIN set') {
-      // PIN exists — show PIN modal
       setPinTarget({ email: norm, redirect, mode: 'user' });
       return;
     }
 
-    // — no PIN — look up profile from ad_signups directly
     const { data: userData } = await supabase
       .from('ad_signups')
       .select('name, brand_name, status, role')
@@ -176,19 +182,17 @@ export default function Page() {
 
     persistSession(
       {
-        email: norm,
-        name: userData?.name || '',
-        brand: userData?.brand_name || '',
-        trialStatus: userData?.status || 'trial',
-        role: userData?.role || 'user',
+        email:       norm,
+        name:        userData?.name       || '',
+        brand:       userData?.brand_name || '',
+        trialStatus: userData?.status     || 'trial',
+        role:        userData?.role       || 'user',
       },
       redirect
     );
   }
 
-  // ─── PIN submit ────────────────────────────────────────────────────────────
-  // Super: verify PIN server-side → fetch profile from DB (zero hardcoding).
-  // User: verify PIN server-side → use returned user object.
+  // ─── PIN submit ───────────────────────────────────────────────────────────
 
   async function submitPin() {
     if (!pinTarget || !pinInput.trim()) return;
@@ -198,38 +202,37 @@ export default function Page() {
     try {
       if (pinTarget.mode === 'super') {
         const res = await fetch('/api/user-auth', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email: pinTarget.email, pin: pinInput }),
-});
-if (!res.ok) {
-  setPinError('Invalid PIN. Access denied.');
-  setPinLoading(false);
-  return;
-}
-const { data: profile } = await supabase
-  .from('ad_signups')
-  .select('name, brand_name, status')
-  .eq('email', pinTarget.email)
-  .maybeSingle();
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ email: pinTarget.email, pin: pinInput }),
+        });
+        if (!res.ok) {
+          setPinError('Invalid PIN. Access denied.');
+          setPinLoading(false);
+          return;
+        }
+        const { data: profile } = await supabase
+          .from('ad_signups')
+          .select('name, brand_name, status')
+          .eq('email', pinTarget.email)
+          .maybeSingle();
 
-await persistSession(
-  {
-    email: pinTarget.email,
-    name: profile?.name || '',
-    brand: profile?.brand_name || '',
-    trialStatus: profile?.status || 'team',
-    role: 'super',
-  },
-  pinTarget.redirect
-);
-
+        await persistSession(
+          {
+            email:       pinTarget.email,
+            name:        profile?.name       || '',
+            brand:       profile?.brand_name || '',
+            trialStatus: profile?.status     || 'team',
+            role:        'super',
+          },
+          pinTarget.redirect
+        );
 
       } else {
         const res = await fetch('/api/user-auth', {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: pinTarget.email, pin: pinInput }),
+          body:    JSON.stringify({ email: pinTarget.email, pin: pinInput }),
         });
         if (!res.ok) {
           setPinError('Invalid PIN. Access denied.');
@@ -256,7 +259,7 @@ await persistSession(
     setShowPin(false);
   }
 
-  // ─── Brand CTA (team signup via promo code) ────────────────────────────────
+  // ─── Brand CTA ────────────────────────────────────────────────────────────
 
   async function handleBrandCTA() {
     if (!email.trim()) return;
@@ -270,18 +273,18 @@ await persistSession(
       .maybeSingle();
     if (!existing) {
       await supabase.from('ad_signups').insert([{
-        email: norm,
-        name: '',
-        brand_name: brand.name,
-        status: 'team',
-        role: 'user',
-        trial_days: brand.trialDays,
+        email:        norm,
+        name:         '',
+        brand_name:   brand.name,
+        status:       'team',
+        role:         'user',
+        trial_days:   brand.trialDays,
         trial_expiry: getTrialExpiry(brand.trialDays),
-        promo_code: promo,
-        country: loc.country,
-        city: loc.city,
-        region: loc.region,
-        ip: loc.ip,
+        promo_code:   promo,
+        country:      loc.country,
+        city:         loc.city,
+        region:       loc.region,
+        ip:           loc.ip,
       }]);
       fireWelcomeEmail('', norm, brand.name, 'team');
     }
@@ -293,7 +296,7 @@ await persistSession(
     setLoading(false);
   }
 
-  // ─── Standard free trial signup ────────────────────────────────────────────
+  // ─── Standard signup ──────────────────────────────────────────────────────
 
   async function handleSubmit() {
     setLoading(true);
@@ -312,15 +315,15 @@ await persistSession(
     } else {
       await supabase.from('ad_signups').insert([{
         ...form,
-        email: emailNorm,
-        status: 'trial',
-        role: 'user',
-        trial_days: 3,
+        email:        emailNorm,
+        status:       'trial',
+        role:         'user',
+        trial_days:   3,
         trial_expiry: getTrialExpiry(3),
-        country: loc.country,
-        city: loc.city,
-        region: loc.region,
-        ip: loc.ip,
+        country:      loc.country,
+        city:         loc.city,
+        region:       loc.region,
+        ip:           loc.ip,
       }]);
       fireWelcomeEmail(form.name, emailNorm, form.brand_name, 'trial');
     }
@@ -332,7 +335,7 @@ await persistSession(
     setLoading(false);
   }
 
-  // ─── Styles ────────────────────────────────────────────────────────────────
+  // ─── Styles ───────────────────────────────────────────────────────────────
 
   const inp: React.CSSProperties = {
     width: '100%', background: bg, border: '1px solid #222',
@@ -352,7 +355,7 @@ await persistSession(
     marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em',
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div style={{ minHeight: '100vh', background: bg, color: white, fontFamily: 'system-ui, sans-serif' }}>
@@ -383,77 +386,67 @@ await persistSession(
         <p style={{ color: muted, fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>{brand.subText}</p>
 
         {/* ── PI LOGIN ── */}
-{!isBrand && (
-  <div style={{ marginBottom: '1.5rem' }}>
-   <button
-  onClick={async () => {
-    try {
-      setLoading(true);
-      const { piAuthenticate } = await import('../lib/pi/sdk');
-      const auth = await piAuthenticate();
-      const res = await fetch('/api/pi/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(auth),
-      });
-      if (!res.ok) throw new Error('Pi auth failed');
-      const { user: piUser } = await res.json();
-      localStorage.setItem('arena_user', JSON.stringify(piUser));
-      window.location.href =
-        piUser.role === 'super' ? '/dashboard/antcpu' :
-        piUser.role === 'admin' ? '/dashboard/users' :
-        '/dashboard/user';
-    } catch (err: any) {
-      console.error('[Pi Login]', err);
-      setLoading(false);
-      if (err?.message?.includes('timeout') || err?.message?.includes('Pi Browser')) {
-        alert('Open this page in Pi Browser to sign in with Pi.');
-      }
-    }
-  }}
-  disabled={loading}
-  style={{
-    width: '100%', background: loading ? '#1a1a1a' : '#7928ca20',
-    border: '1px solid #7928ca60', color: loading ? muted : '#b388ff',
-    borderRadius: '8px', padding: '1rem', fontWeight: 700,
-    fontSize: '1rem', cursor: loading ? 'not-allowed' : 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
-  }}
->
-  <span style={{ fontSize: '1.2rem' }}>π</span>
-  {loading ? 'Connecting...' : 'Sign in with Pi'}
-</button>
+        {!isBrand && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  const { piAuthenticate } = await import('../lib/pi/sdk');
+                  const auth = await piAuthenticate();
+                  const res = await fetch('/api/pi/auth', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify(auth),
+                  });
+                  if (!res.ok) throw new Error('Pi auth failed');
+                  const { user: piUser } = await res.json();
+                  localStorage.setItem('arena_user', JSON.stringify(piUser));
+                  window.location.href =
+                    piUser.role === 'super' ? '/dashboard/antcpu' :
+                    piUser.role === 'admin' ? '/dashboard/users'  :
+                    '/dashboard/user';
+                } catch (err: any) {
+                  console.error('[Pi Login]', err);
+                  setLoading(false);
+                  if (err?.message?.includes('timeout') || err?.message?.includes('Pi Browser')) {
+                    alert('Open this page in Pi Browser to sign in with Pi.');
+                  }
+                }
+              }}
+              disabled={loading}
+              style={{
+                width: '100%', background: loading ? '#1a1a1a' : '#7928ca20',
+                border: '1px solid #7928ca60', color: loading ? muted : '#b388ff',
+                borderRadius: '8px', padding: '1rem', fontWeight: 700,
+                fontSize: '1rem', cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>π</span>
+              {loading ? 'Connecting...' : 'Sign in with Pi'}
+            </button>
 
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
+              <div style={{ flex: 1, height: '1px', background: '#222' }} />
+              <span style={{ fontSize: '0.72rem', color: muted, letterSpacing: '0.1em' }}>OR</span>
+              <div style={{ flex: 1, height: '1px', background: '#222' }} />
+            </div>
+          </div>
+        )}
 
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0',
-    }}>
-      <div style={{ flex: 1, height: '1px', background: '#222' }} />
-      <span style={{ fontSize: '0.72rem', color: muted, letterSpacing: '0.1em' }}>OR</span>
-      <div style={{ flex: 1, height: '1px', background: '#222' }} />
-    </div>
-  </div>
-)}
-
-        
         {/* Form card */}
         <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1.75rem' }}>
 
           {isBrand ? (
-            /* ── Brand CTA flow ── */
             <>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.25rem' }}>{brand.ctaLabel}</div>
               <div style={{ fontSize: '0.78rem', color: muted, marginBottom: '1.5rem' }}>{brand.trialLabel}</div>
               <label style={lbl}>Your Email</label>
               <input
-                style={inp}
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleBrandCTA()}
-                autoFocus
+                style={inp} type="email" inputMode="email" autoComplete="email"
+                value={email} onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleBrandCTA()} autoFocus
               />
               <button onClick={handleBrandCTA} disabled={loading || !email.trim()} style={btn(!loading && !!email.trim())}>
                 {loading ? 'Setting up...' : brand.ctaLabel}
@@ -461,11 +454,9 @@ await persistSession(
               <div style={{ fontSize: '0.72rem', color: muted, textAlign: 'center', marginTop: '0.75rem' }}>{brand.trialLabel}</div>
             </>
           ) : (
-            /* ── Free trial multi-step flow ── */
             <>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '1rem' }}>Start Free</div>
 
-              {/* Step progress */}
               <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.5rem' }}>
                 {[0, 1, 2].map(i => (
                   <div key={i} style={{ flex: 1, height: '3px', background: step >= i ? accent : '#222', borderRadius: '2px', transition: 'background 0.2s' }} />
@@ -504,8 +495,7 @@ await persistSession(
                   <label style={lbl}>Message (optional)</label>
                   <textarea
                     style={{ ...inp, minHeight: '80px', resize: 'vertical' }}
-                    value={form.message}
-                    onChange={e => set('message', e.target.value)}
+                    value={form.message} onChange={e => set('message', e.target.value)}
                     placeholder="Anything you'd like us to know..."
                   />
                   <button onClick={handleSubmit} disabled={loading} style={btn(!loading)}>
@@ -528,7 +518,7 @@ await persistSession(
         </div>
       </div>
 
-      {/* ── Vault Modal (returning users) ── */}
+      {/* ── Vault Modal ── */}
       <VaultModal
         open={vaultOpen}
         onClose={() => setVaultOpen(false)}
@@ -536,7 +526,7 @@ await persistSession(
         redirectTo={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') || undefined}
       />
 
-      {/* ── PIN Modal (super admin + PIN users) ── */}
+      {/* ── PIN Modal ── */}
       {pinTarget && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
@@ -548,19 +538,16 @@ await persistSession(
             padding: '2rem', width: '100%', maxWidth: '360px', boxSizing: 'border-box',
             boxShadow: '0 0 60px rgba(0,0,0,0.8)',
           }}>
-            {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔐</div>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', color: white }}>Enter PIN</div>
               <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.25rem' }}>{pinTarget.email}</div>
             </div>
 
-            {/* PIN input */}
             <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
               <input
                 type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
-                autoFocus
+                inputMode="numeric" autoFocus
                 value={pinInput}
                 onChange={e => setPinInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && submitPin()}
@@ -573,22 +560,19 @@ await persistSession(
                 }}
               />
               <button
-                onClick={() => setShowPin(v => !v)}
-                tabIndex={-1}
+                onClick={() => setShowPin(v => !v)} tabIndex={-1}
                 style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '1rem', padding: '0.25rem', lineHeight: 1 }}
               >
                 {showPin ? '🙈' : '👁️'}
               </button>
             </div>
 
-            {/* Error */}
             {pinError && (
               <div style={{ color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.75rem', textAlign: 'center' }}>
                 {pinError}
               </div>
             )}
 
-            {/* Confirm */}
             <button
               onClick={submitPin}
               disabled={pinLoading || !pinInput.trim()}
@@ -603,7 +587,6 @@ await persistSession(
               {pinLoading ? 'Verifying...' : 'Confirm'}
             </button>
 
-            {/* Cancel */}
             <button
               onClick={closePinModal}
               style={{ width: '100%', background: 'transparent', border: 'none', color: '#555', fontSize: '0.82rem', cursor: 'pointer', padding: '0.5rem' }}
