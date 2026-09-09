@@ -1,4 +1,5 @@
 // app/api/session/set/route.ts
+
 // ─── Session Set ──────────────────────────────────────────────────────────────
 // Called from persistSession() in login/page.tsx — every login path hits this.
 // PIN users, no-PIN users, Pi auth, super admin — all flow through here.
@@ -8,7 +9,7 @@
 // secure: true     — required when sameSite is 'none' (browser enforced)
 //
 // syncBadges() now returns enriched session data:
-//   { membershipTier, streakDays, trialStatus, lastActiveDate }
+//   { membershipTier, streakDays, trialStatus, lastActiveDate, preferredLocale }
 // This is returned to the caller so persistSession() can write it to localStorage.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -31,26 +32,28 @@ type SyncResult = {
   streakDays:      number;
   trialStatus:     string;
   lastActiveDate:  string | null;
+  preferredLocale: string;
 };
 
 // ─── syncBadges ───────────────────────────────────────────────────────────────
 // Fires on every session establishment regardless of login path.
 // Idempotent — safe to run on every login, never duplicates.
-// Now returns enriched data for localStorage sync.
+// Returns enriched data for localStorage sync including preferredLocale.
 
 async function syncBadges(email: string): Promise<SyncResult> {
   const fallback: SyncResult = {
-    membershipTier: 'trial',
-    streakDays:     0,
-    trialStatus:    'trial',
-    lastActiveDate: null,
+    membershipTier:  'trial',
+    streakDays:      0,
+    trialStatus:     'trial',
+    lastActiveDate:  null,
+    preferredLocale: 'en',
   };
 
   try {
     // ── Fetch full user row ───────────────────────────────────────────────────
     const { data: user } = await supabase
       .from('ad_signups')
-      .select('promo_code, points, membership_tier, status, streak_days, last_active_date')
+      .select('promo_code, points, membership_tier, status, streak_days, last_active_date, preferred_locale')
       .eq('email', email)
       .maybeSingle();
 
@@ -88,8 +91,8 @@ async function syncBadges(email: string): Promise<SyncResult> {
     const today     = now.toISOString().slice(0, 10);
     const yesterday = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
 
-    const lastActive  = user.last_active_date || null;   // 'YYYY-MM-DD' or null
-    let   streakDays  = user.streak_days      || 0;
+    const lastActive = user.last_active_date || null;  // 'YYYY-MM-DD' or null
+    let   streakDays = user.streak_days      || 0;
 
     // Count today's shares for this user
     const todayStart = `${today}T00:00:00.000Z`;
@@ -108,11 +111,11 @@ async function syncBadges(email: string): Promise<SyncResult> {
     } else if (activeToday) {
       if (lastActive === yesterday) {
         // Consecutive day — extend streak
-        streakDays   = streakDays + 1;
+        streakDays    = streakDays + 1;
         newLastActive = today;
       } else {
         // Gap or first active day — start/restart streak at 1
-        streakDays   = 1;
+        streakDays    = 1;
         newLastActive = today;
       }
     } else if (lastActive && lastActive < yesterday) {
@@ -135,28 +138,28 @@ async function syncBadges(email: string): Promise<SyncResult> {
     // Award arena-active badge if streak qualifies
     await checkAndAwardActivityBadge(supabase, email, streakDays);
 
-// ── Retroactive first-reaction badge ─────────────────────────────────────
-// Covers existing users whose past reactions had no email attached.
-// Checks if this user owns any ad that has received reactions.
-(async () => {
-  try {
-    const { data: userAds } = await supabase
-      .from('ads')
-      .select('id')
-      .eq('email', email);
-    if (userAds && userAds.length > 0) {
-      const adIds = userAds.map((a: { id: string }) => a.id);
-      const { count } = await supabase
-        .from('ad_reactions')
-        .select('*', { count: 'exact', head: true })
-        .in('ad_id', adIds);
-      if ((count || 0) > 0) {
-        await awardBadge(supabase, email, 'first-reaction');
-      }
-    }
-  } catch {}
-})();
-           
+    // ── Retroactive first-reaction badge ──────────────────────────────────────
+    // Covers existing users whose past reactions had no email attached.
+    // Checks if this user owns any ad that has received reactions.
+    (async () => {
+      try {
+        const { data: userAds } = await supabase
+          .from('ads')
+          .select('id')
+          .eq('email', email);
+        if (userAds && userAds.length > 0) {
+          const adIds = userAds.map((a: { id: string }) => a.id);
+          const { count } = await supabase
+            .from('ad_reactions')
+            .select('*', { count: 'exact', head: true })
+            .in('ad_id', adIds);
+          if ((count || 0) > 0) {
+            await awardBadge(supabase, email, 'first-reaction');
+          }
+        }
+      } catch {}
+    })();
+
     // ── Membership tier recalculation ─────────────────────────────────────────
     const { data: badgeRows } = await supabase
       .from('user_badges')
@@ -174,8 +177,9 @@ async function syncBadges(email: string): Promise<SyncResult> {
     return {
       membershipTier:  newTier !== currentTier ? newTier : currentTier,
       streakDays,
-      trialStatus:     user.status || 'trial',
+      trialStatus:     user.status           || 'trial',
       lastActiveDate:  newLastActive,
+      preferredLocale: user.preferred_locale || 'en',
     };
 
   } catch {
@@ -209,14 +213,16 @@ export async function POST(req: NextRequest) {
       streakDays:      0,
       trialStatus:     trialStatus || 'trial',
       lastActiveDate:  null,
+      preferredLocale: 'en',
     }));
 
     const res = NextResponse.json({
-      ok:             true,
-      membershipTier: sync.membershipTier,
-      streakDays:     sync.streakDays,
-      trialStatus:    sync.trialStatus,
-      lastActiveDate: sync.lastActiveDate,
+      ok:              true,
+      membershipTier:  sync.membershipTier,
+      streakDays:      sync.streakDays,
+      trialStatus:     sync.trialStatus,
+      lastActiveDate:  sync.lastActiveDate,
+      preferredLocale: sync.preferredLocale,
     });
 
     res.cookies.set('arena_session', session, {
