@@ -1,7 +1,7 @@
 //
 //  en.ts
 //
-//  Created by Joseph Antony Ciccone on 5/16/26.
+//  Updated by Joseph Antony Ciccone on 8/9/26.
 //
 // English — en
 // LTR language
@@ -164,6 +164,21 @@ export const en: Record<string, string> = {
   signin_loading:           'Checking...',
   signin_error_prefix:      'No account found for',
   signin_error_suffix:      '— please sign up first.',
+
+  // ARENA
+  arena_loading:            'Loading the Arena...',
+  arena_empty:              'No active ads yet.',
+  arena_join_title:         'Join the Network',
+  arena_join_sub:           'Get your brand in the Arena.',
+  arena_join_note:          'Free to join · No contracts',
+  arena_join_cta:           'Join the Arena →',
+  arena_back:               '← Back to Dashboard',
+  arena_nudge:              'Membership is free — join to earn badges and track your activity.',
+  arena_nudge_cta:          'Join Free →',
+  arena_super_badge:        '⚡ Super Admin — Full Arena View',
+  arena_stat_brands:        'Brands',
+  arena_stat_ads:           'Ads',
+  arena_stat_points:        'Points',
 
   // RTL FLAG
   rtl:                      'false',
