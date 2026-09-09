@@ -9,6 +9,8 @@ import { clearSessionCookie }          from '../../lib/session';
 import { recordShare, detectPlatform } from '../../lib/tracking/shares';
 import { trackClick as libTrackClick } from '../../lib/tracking/clicks';
 import { SOURCE }                      from '../../lib/tracking/sources';
+import { getTierDef, getNextTier,
+         MembershipTier }              from '../../lib/membership';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,7 +32,7 @@ type Ad = {
   share_count: number; points: number; rank_position: number;
 };
 
-// ─── Tier ladder ──────────────────────────────────────────────────────────────
+// ─── Tier ladder (ad tier — separate from membership tier) ────────────────────
 
 const TIERS = [
   { key: 'entry',    label: 'Entry',    color: '#0070f3', threshold: 0   },
@@ -58,7 +60,7 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
   const current    = TIERS[currentIdx] || TIERS[0];
   const next       = TIERS[currentIdx + 1] || null;
 
-  const progress = next
+  const progress  = next
     ? Math.min(((points - current.threshold) / (next.threshold - current.threshold)) * 100, 100)
     : 100;
   const ptsToNext = next ? next.threshold - points : 0;
@@ -79,12 +81,11 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
           </span>
           <span style={{ fontSize: '0.72rem', color: '#555' }}>⚡ {points} pts</span>
         </div>
-        {next && (
+        {next ? (
           <span style={{ fontSize: '0.68rem', color: '#444' }}>
             {ptsToNext} pts → <span style={{ color: next.color }}>{next.label}</span>
           </span>
-        )}
-        {!next && (
+        ) : (
           <span style={{ fontSize: '0.68rem', color: current.color, fontWeight: 700 }}>
             🏆 Top Tier
           </span>
@@ -139,7 +140,8 @@ export default function UserDashboard() {
   const [myRank,         setMyRank]         = useState<number | null>(null);
   const [showCount,      setShowCount]      = useState(10);
   const [userCreatedAt,  setUserCreatedAt]  = useState<string | null>(null);
-  const [membershipTier, setMembershipTier] = useState<string>('trial');
+  const [membershipTier, setMembershipTier] = useState<MembershipTier>('trial');
+  const [streakDays,     setStreakDays]     = useState(0);
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -159,28 +161,42 @@ export default function UserDashboard() {
     if (!stored) { router.push('/'); return; }
 
     try {
-      const u: SessionUser = JSON.parse(stored);
+      const u = JSON.parse(stored);
       if (u.role === 'super') { router.push('/dashboard/antcpu'); return; }
       if (u.role === 'admin') { router.push('/dashboard/users');  return; }
       setUser(u);
       setHydrated(true);
       fetchData(u.email);
 
+      // ── Read enriched fields from localStorage first ───────────────────
+      // Written by session/set on every login — always fresh
+      if (u.membershipTier) setMembershipTier(u.membershipTier as MembershipTier);
+      if (u.streakDays)     setStreakDays(u.streakDays);
+
       supabase
         .from('ad_profiles').select('bio')
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
 
+      // DB query — fallback + referral code + created_at
+      // membership_tier from DB only used if localStorage is missing it
       supabase
-        .from('ad_signups').select('promo_code, created_at, membership_tier')
+        .from('ad_signups')
+        .select('promo_code, created_at, membership_tier, streak_days')
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => {
           setReferralCode(
             data?.promo_code ||
             u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || ''
           );
-          if (data?.created_at)      setUserCreatedAt(data.created_at);
-          if (data?.membership_tier) setMembershipTier(data.membership_tier);
+          if (data?.created_at) setUserCreatedAt(data.created_at);
+          // Only override if localStorage didn't have it
+          if (!u.membershipTier && data?.membership_tier) {
+            setMembershipTier(data.membership_tier as MembershipTier);
+          }
+          if (!u.streakDays && data?.streak_days) {
+            setStreakDays(data.streak_days);
+          }
         });
     } catch { router.push('/'); return; }
   }, []);
@@ -295,6 +311,15 @@ export default function UserDashboard() {
   const ptsToNext      = nextTier ? nextTier.threshold - myPoints : 0;
   const showStrip      = !!myAd;
 
+  // Membership tier display — uses membership.ts getTierDef()
+  const tierDef        = getTierDef(membershipTier);
+  const showTierPill   = membershipTier !== 'trial';
+
+  // Streak display
+  const showStreak     = streakDays >= 1;
+  const streakNearBadge = streakDays >= 1 && streakDays < 3;
+  const streakHasBadge  = streakDays >= 3;
+
   // ── Styles ────────────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
@@ -343,24 +368,49 @@ export default function UserDashboard() {
             <span style={pill(accent)}>{user.brand}</span>
             <span>·</span>
             <span>{isTeam ? 'Team — Unlimited' : 'Free'}</span>
-            {membershipTier !== 'trial' && (
+
+            {/* Membership tier pill — from getTierDef() */}
+            {showTierPill && (
               <>
                 <span>·</span>
-                <span style={pill(
-                  membershipTier === 'champion' ? '#D4AF37' :
-                  membershipTier === 'veteran'  ? '#ff0080' :
-                  membershipTier === 'rising'   ? '#7928ca' : '#0070f3'
-                )}>
-                  {membershipTier === 'rising'   ? '🚀 Rising Member'   :
-                   membershipTier === 'veteran'  ? '🏅 Arena Veteran'   :
-                   membershipTier === 'champion' ? '🏆 Arena Champion'  :
-                   membershipTier === 'subscriber' ? '💎 Subscriber'    :
-                   '⚡ Member'}
+                <span style={pill(tierDef.color)}>
+                  {tierDef.icon} {tierDef.label}
                 </span>
               </>
             )}
-            {myRank && <><span>·</span><span style={{ color: '#f0883e' }}>#{myRank} in the Arena</span></>}
+
+            {myRank && (
+              <><span>·</span><span style={{ color: '#f0883e' }}>#{myRank} in the Arena</span></>
+            )}
           </div>
+
+          {/* ── Streak display ── */}
+          {showStreak && (
+            <div style={{
+              marginTop: '0.75rem',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: '#0a0a0a', border: '1px solid #1a1a1a',
+              borderRadius: '8px', padding: '0.5rem 0.75rem',
+            }}>
+              <span style={{ fontSize: '1rem' }}>🔥</span>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f0883e' }}>
+                  {streakDays}d streak
+                </span>
+                {streakNearBadge && (
+                  <span style={{ fontSize: '0.7rem', color: '#555', marginLeft: '0.5rem' }}>
+                    · {3 - streakDays} more day{3 - streakDays !== 1 ? 's' : ''} to unlock Arena Active badge
+                  </span>
+                )}
+                {streakHasBadge && (
+                  <span style={{ fontSize: '0.7rem', color: '#22c55e', marginLeft: '0.5rem' }}>
+                    · 🏅 Arena Active badge unlocked
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
             <button onClick={() => router.push('/create-ad')} style={btn(accent)}>📢 Create Ad</button>
             <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)} style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
@@ -532,7 +582,7 @@ export default function UserDashboard() {
                       {ad.pinned          && <span style={pill('#f0883e')}>⭐ Featured</span>}
                       {isOwn              && <span style={pill('#22c55e')}>Your Ad</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
-                                            {ad.rank_position && ad.rank_position <= 3 && (
+                      {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
                       )}
                     </div>
