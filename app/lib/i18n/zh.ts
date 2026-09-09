@@ -169,6 +169,20 @@ export const zh: Record<string, string> = {
   signin_loading:           '登录中...',
   signin_error_prefix:      '未找到账户：',
   signin_error_suffix:      ' — 请在上方注册。',
+  // ARENA
+  arena_loading:            '正在加载竞技场...',
+  arena_empty:              '暂无活跃广告。',
+  arena_join_title:         '加入网络',
+  arena_join_sub:           '让您的品牌进入竞技场。',
+  arena_join_note:          '免费加入 · 无合同',
+  arena_join_cta:           '加入竞技场 →',
+  arena_back:               '← 返回仪表板',
+  arena_nudge:              '会员资格免费 — 加入以获得徽章并跟踪您的活动。',
+  arena_nudge_cta:          '免费加入 →',
+  arena_super_badge:        '⚡ 超级管理员 — 完整竞技场视图',
+  arena_stat_brands:        '品牌',
+  arena_stat_ads:           '广告',
+  arena_stat_points:        '积分',
 
   // RTL FLAG
   rtl:                      'false',
