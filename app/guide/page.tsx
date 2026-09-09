@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ArenaFooter from '../components/ArenaFooter';
@@ -18,6 +19,8 @@ function ping(path: string) {
 }
 
 type PathId = 'create' | 'share' | 'find' | null;
+
+type LiveBrand = { brand: string; pts: number; slug: string };
 
 // ─── Path definitions ─────────────────────────────────────────────────────────
 const PATHS = [
@@ -43,10 +46,10 @@ const PATHS = [
     sub:    'Share ads. Earn points. Climb the leaderboard.',
     accent: '#f0883e',
     steps: [
-      { n: '01', title: 'Browse the Arena',       desc: '39 live ads from 8 brands competing right now. All public, no login needed.' },
-      { n: '02', title: 'Hit ↗ Share on any ad',  desc: 'WhatsApp, X, Telegram, clipboard — your choice. One tap.' },
-      { n: '03', title: 'The brand earns points',  desc: '5 pts per share. 3 pts per click. Top ads get pinned for 50 bonus pts.' },
-      { n: '04', title: 'Watch the board move',    desc: 'Rankings update live. See who\'s rising, who\'s falling, who just got pinned.' },
+      { n: '01', title: 'Browse the Arena',      desc: 'Live ads from real brands competing right now. All public, no login needed.' },
+      { n: '02', title: 'Hit ↗ Share on any ad', desc: 'WhatsApp, X, Telegram, clipboard — your choice. One tap.' },
+      { n: '03', title: 'The brand earns points', desc: '5 pts per share. 3 pts per click. Top ads get pinned for 50 bonus pts.' },
+      { n: '04', title: 'Watch the board move',   desc: 'Rankings update live. See who\'s rising, who\'s falling, who just got pinned.' },
     ],
     cta:    '🏟 Browse the Arena →',
     href:   '/arena',
@@ -58,34 +61,48 @@ const PATHS = [
     sub:    'Find brands, explore profiles, make connections.',
     accent: '#7928ca',
     steps: [
-      { n: '01', title: 'Go to the Arena',       desc: '8 brands. 39 live ads. Real businesses competing for real reach.' },
-      { n: '02', title: 'Click any brand name',  desc: 'Every brand name is a link. Opens their full public profile instantly.' },
-      { n: '03', title: 'See their full story',  desc: 'Bio, website, all their ads, social links, performance stats.' },
-      { n: '04', title: 'Share or connect',      desc: 'Share their profile with one tap. Or reach out directly via their links.' },
+      { n: '01', title: 'Go to the Arena',      desc: 'Real businesses competing for real reach.' },
+      { n: '02', title: 'Click any brand name', desc: 'Every brand name is a link. Opens their full public profile instantly.' },
+      { n: '03', title: 'See their full story', desc: 'Bio, website, all their ads, social links, performance stats.' },
+      { n: '04', title: 'Share or connect',     desc: 'Share their profile with one tap. Or reach out directly via their links.' },
     ],
     cta:    '👤 Explore Profiles →',
     href:   '/arena',
   },
 ];
 
-// ─── Top 3 brand tiles ────────────────────────────────────────────────────────
-const BRANDS = [
-  { name: 'ANTCPU ADS',          emoji: '⚡', pts: 380, href: '/arena/antcpu',                          color: '#f0883e' },
-  { name: 'Map of Pi',           emoji: '🗺️', pts: 115, href: '/arena/mapofpi',                         color: '#22c55e' },
-  { name: 'Amanda Photography',  emoji: '📸', pts:  70, href: '/profile/mishoemanda%40gmail.com',        color: '#0070f3' },
-];
+// ─── Brand color fallback ─────────────────────────────────────────────────────
+const BRAND_COLORS: Record<string, string> = {
+  'map-of-pi':           '#D4AF37',
+  'antcpu-ads':          '#f0883e',
+  'antcpu':              '#f0883e',
+  'amanda-photography':  '#e91e8c',
+  'pipioneersx':         '#7928ca',
+};
+function getBrandColor(slug: string): string {
+  return BRAND_COLORS[slug] || '#0070f3';
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function GuidePage() {
   const router = useRouter();
-  const [active, setActive] = useState<PathId>(null);
-  const [ref,    setRef]    = useState('');
+
+  const [active,     setActive]     = useState<PathId>(null);
+  const [ref,        setRef]        = useState('');
+  const [liveBrands, setLiveBrands] = useState<LiveBrand[]>([]);
 
   useEffect(() => {
+    // Ref tracking + doorbell
     const params = new URLSearchParams(window.location.search);
     const r = params.get('ref') || params.get('from') || 'direct';
     setRef(r);
     ping(`?ref=${r}`);
+
+    // Live top brands from /api/stats
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(d => { if (d.topBrands?.length) setLiveBrands(d.topBrands); })
+      .catch(() => {});
   }, []);
 
   function handleCTA(href: string, pathId: PathId) {
@@ -107,17 +124,12 @@ export default function GuidePage() {
       overflow: 'hidden',
     }}>
 
-      {/* Radial glow behind hero */}
+      {/* Radial glow */}
       <div style={{
-        position: 'absolute',
-        top: '-120px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '600px',
-        height: '400px',
+        position: 'absolute', top: '-120px', left: '50%',
+        transform: 'translateX(-50%)', width: '600px', height: '400px',
         background: 'radial-gradient(ellipse at center, rgba(0,112,243,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none',
-        zIndex: 0,
+        pointerEvents: 'none', zIndex: 0,
       }} />
 
       {/* ── Nav ── */}
@@ -127,45 +139,30 @@ export default function GuidePage() {
         padding: '1rem 1.5rem',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        <button
-          onClick={() => router.push('/')}
-          style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', letterSpacing: '0.02em' }}
-        >
+        <button onClick={() => router.push('/')}
+          style={{ background: 'none', border: 'none', color: '#fff',
+            fontWeight: 800, fontSize: '1rem', cursor: 'pointer', letterSpacing: '0.02em' }}>
           ⚡ ANTCPU ADS
         </button>
-        <button
-          onClick={() => { ping('/nav?to=arena'); router.push('/arena'); }}
-          style={{ background: 'none', border: '1px solid #2a2d35', color: '#888', borderRadius: '8px', padding: '0.4rem 0.9rem', fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}
-        >
+        <button onClick={() => { ping('/nav?to=arena'); router.push('/arena'); }}
+          style={{ background: 'none', border: '1px solid #2a2d35', color: '#888',
+            borderRadius: '8px', padding: '0.4rem 0.9rem',
+            fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}>
           🏟 Live Arena →
         </button>
       </div>
 
       {/* ── Hero ── */}
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '3rem 1.5rem 2rem' }}>
-
-        {/* Pulse symbol */}
-        <div style={{
-          fontSize: '1.1rem',
-          color: '#0070f3',
-          marginBottom: '1rem',
-          letterSpacing: '0.15em',
-          animation: 'pulse 3s ease-in-out infinite',
-        }}>
+        <div style={{ fontSize: '1.1rem', color: '#0070f3', marginBottom: '1rem',
+          letterSpacing: '0.15em', animation: 'pulse 3s ease-in-out infinite' }}>
           ◈ &nbsp; ARENA GUIDE
         </div>
-
-        <h1 style={{
-          fontSize: 'clamp(1.75rem, 5vw, 2.5rem)',
-          fontWeight: 900,
-          margin: '0 0 0.75rem',
-          lineHeight: 1.15,
-          letterSpacing: '-0.02em',
-        }}>
+        <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 2.5rem)', fontWeight: 900,
+          margin: '0 0 0.75rem', lineHeight: 1.15, letterSpacing: '-0.02em' }}>
           Get your brand in front<br />
           <span style={{ color: '#0070f3' }}>of real people.</span> Today.
         </h1>
-
         <p style={{ color: '#555', fontSize: '0.95rem', margin: '0 0 0.5rem', lineHeight: 1.6 }}>
           Three paths. Pick yours.
         </p>
@@ -175,70 +172,63 @@ export default function GuidePage() {
       </div>
 
       {/* ── Path cards ── */}
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: '640px', margin: '0 auto', padding: '0 1.25rem 1.5rem' }}>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: '640px',
+        margin: '0 auto', padding: '0 1.25rem 1.5rem' }}>
 
-        <div style={{ fontSize: '0.62rem', color: '#333', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+        <div style={{ fontSize: '0.62rem', color: '#333', fontWeight: 700,
+          letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
           Choose your path
         </div>
 
         {PATHS.map(path => {
           const isOpen = active === path.id;
           return (
-            <div
-              key={path.id}
-              onClick={() => toggle(path.id)}
+            <div key={path.id} onClick={() => toggle(path.id)}
               style={{
-                background: isOpen ? `${path.accent}06` : '#111318',
-                border: `1px solid ${isOpen ? path.accent + '40' : '#2a2d35'}`,
-                borderLeft: `3px solid ${path.accent}`,
-                boxShadow: isOpen ? `0 0 20px ${path.accent}15` : 'none',
+                background:   isOpen ? `${path.accent}06` : '#111318',
+                border:       `1px solid ${isOpen ? path.accent + '40' : '#2a2d35'}`,
+                borderLeft:   `3px solid ${path.accent}`,
+                boxShadow:    isOpen ? `0 0 20px ${path.accent}15` : 'none',
                 borderRadius: '12px',
-                padding: '1.1rem 1.25rem',
+                padding:      '1.1rem 1.25rem',
                 marginBottom: '0.65rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {/* Header row */}
+                cursor:       'pointer',
+                transition:   'all 0.2s ease',
+              }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', flex: 1 }}>
                   <span style={{ fontSize: '1.25rem', lineHeight: 1, marginTop: '0.1rem' }}>{path.emoji}</span>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: isOpen ? '#fff' : '#ccc', marginBottom: '0.2rem', lineHeight: 1.3 }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem',
+                      color: isOpen ? '#fff' : '#ccc', marginBottom: '0.2rem', lineHeight: 1.3 }}>
                       {path.title}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#444' }}>{path.sub}</div>
                   </div>
                 </div>
-                <span style={{ color: '#333', fontSize: '0.75rem', marginLeft: '0.75rem', flexShrink: 0, marginTop: '0.2rem' }}>
+                <span style={{ color: '#333', fontSize: '0.75rem',
+                  marginLeft: '0.75rem', flexShrink: 0, marginTop: '0.2rem' }}>
                   {isOpen ? '▲' : '▼'}
                 </span>
               </div>
 
-              {/* Expanded content */}
               {isOpen && (
                 <div onClick={e => e.stopPropagation()}>
-                  <div style={{ borderTop: '1px solid #1e2130', margin: '1rem 0', }} />
-
+                  <div style={{ borderTop: '1px solid #1e2130', margin: '1rem 0' }} />
                   {path.steps.map(step => (
-                    <div key={step.n} style={{ display: 'flex', gap: '0.85rem', marginBottom: '1rem', alignItems: 'flex-start' }}>
+                    <div key={step.n} style={{ display: 'flex', gap: '0.85rem',
+                      marginBottom: '1rem', alignItems: 'flex-start' }}>
                       <div style={{
-                        background: `${path.accent}18`,
-                        border: `1px solid ${path.accent}35`,
-                        color: path.accent,
-                        borderRadius: '6px',
-                        padding: '0.2rem 0.5rem',
-                        fontSize: '0.62rem',
-                        fontWeight: 800,
-                        letterSpacing: '0.08em',
-                        flexShrink: 0,
-                        marginTop: '0.15rem',
-                        fontFamily: 'monospace',
+                        background: `${path.accent}18`, border: `1px solid ${path.accent}35`,
+                        color: path.accent, borderRadius: '6px', padding: '0.2rem 0.5rem',
+                        fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.08em',
+                        flexShrink: 0, marginTop: '0.15rem', fontFamily: 'monospace',
                       }}>
                         {step.n}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#e0e0e0', marginBottom: '0.2rem' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem',
+                          color: '#e0e0e0', marginBottom: '0.2rem' }}>
                           {step.title}
                         </div>
                         <div style={{ fontSize: '0.78rem', color: '#555', lineHeight: 1.55 }}>
@@ -247,25 +237,15 @@ export default function GuidePage() {
                       </div>
                     </div>
                   ))}
-
-                  <button
-                    onClick={() => handleCTA(path.href, path.id)}
+                  <button onClick={() => handleCTA(path.href, path.id)}
                     style={{
-                      width: '100%',
-                      background: path.accent,
+                      width: '100%', background: path.accent,
                       color: path.accent === '#f0883e' ? '#000' : '#fff',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '0.9rem',
-                      fontWeight: 800,
-                      fontSize: '0.95rem',
-                      cursor: 'pointer',
-                      marginTop: '0.25rem',
-                      letterSpacing: '0.01em',
-                      boxShadow: `0 4px 20px ${path.accent}30`,
-                      transition: 'opacity 0.15s',
-                    }}
-                  >
+                      border: 'none', borderRadius: '10px', padding: '0.9rem',
+                      fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer',
+                      marginTop: '0.25rem', letterSpacing: '0.01em',
+                      boxShadow: `0 4px 20px ${path.accent}30`, transition: 'opacity 0.15s',
+                    }}>
                     {path.cta}
                   </button>
                 </div>
@@ -274,49 +254,45 @@ export default function GuidePage() {
           );
         })}
 
-        {/* ── Brand tiles ── */}
-        <div style={{ marginTop: '1.75rem' }}>
-          <div style={{ fontSize: '0.62rem', color: '#333', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-            Live in the Arena now
+        {/* ── Brand tiles — live top 3 ── */}
+        {liveBrands.length > 0 && (
+          <div style={{ marginTop: '1.75rem' }}>
+            <div style={{ fontSize: '0.62rem', color: '#333', fontWeight: 700,
+              letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+              Live in the Arena now
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
+              {liveBrands.map(b => {
+                const color = getBrandColor(b.slug);
+                return (
+                  <button key={b.brand}
+                    onClick={() => { ping(`/brand?name=${b.brand}&ref=${ref}`); router.push(`/arena`); }}
+                    style={{
+                      background: '#111318', border: `1px solid #2a2d35`,
+                      borderTop: `2px solid ${color}`, borderRadius: '10px',
+                      padding: '0.85rem 0.75rem', cursor: 'pointer', textAlign: 'left',
+                      transition: 'border-color 0.15s, box-shadow 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 0 12px ${color}20`)}
+                    onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
+                    <div style={{ fontWeight: 700, fontSize: '0.75rem',
+                      color: '#ccc', marginBottom: '0.25rem', lineHeight: 1.3 }}>
+                      {b.brand}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color, fontWeight: 700 }}>
+                      ⚡ {b.pts} pts
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-            {BRANDS.map(b => (
-              <button
-                key={b.name}
-                onClick={() => { ping(`/brand?name=${b.name}&ref=${ref}`); router.push(b.href); }}
-                style={{
-                  background: '#111318',
-                  border: `1px solid #2a2d35`,
-                  borderTop: `2px solid ${b.color}`,
-                  borderRadius: '10px',
-                  padding: '0.85rem 0.75rem',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'border-color 0.15s, box-shadow 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 0 12px ${b.color}20`)}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
-              >
-                <div style={{ fontSize: '1.1rem', marginBottom: '0.35rem' }}>{b.emoji}</div>
-                <div style={{ fontWeight: 700, fontSize: '0.75rem', color: '#ccc', marginBottom: '0.25rem', lineHeight: 1.3 }}>
-                  {b.name}
-                </div>
-                <div style={{ fontSize: '0.68rem', color: b.color, fontWeight: 700 }}>
-                  ⚡ {b.pts} pts
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* ── Bottom fallback ── */}
         <div style={{
-          marginTop: '1.75rem',
-          background: '#111318',
-          border: '1px solid #2a2d35',
-          borderRadius: '12px',
-          padding: '1.5rem',
-          textAlign: 'center',
+          marginTop: '1.75rem', background: '#111318', border: '1px solid #2a2d35',
+          borderRadius: '12px', padding: '1.5rem', textAlign: 'center',
         }}>
           <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.4rem', color: '#ccc' }}>
             Not sure yet?
@@ -325,26 +301,18 @@ export default function GuidePage() {
             Browse the Arena first — no signup needed.<br />
             See what's live. See who's winning.
           </div>
-          <button
-            onClick={() => { ping('/cta?path=browse&ref=bottom'); router.push('/arena'); }}
+          <button onClick={() => { ping('/cta?path=browse&ref=bottom'); router.push('/arena'); }}
             style={{
-              background: 'transparent',
-              border: '1px solid #2a2d35',
-              color: '#666',
-              borderRadius: '8px',
-              padding: '0.7rem 1.5rem',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
+              background: 'transparent', border: '1px solid #2a2d35', color: '#666',
+              borderRadius: '8px', padding: '0.7rem 1.5rem',
+              fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+            }}>
             See What's Live →
           </button>
         </div>
 
       </div>
 
-      {/* ── Pulse keyframe ── */}
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
