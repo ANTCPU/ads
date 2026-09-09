@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndAwardPointsBadges } from '../../../lib/badges';
+import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membership';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -188,6 +189,31 @@ if (finalRank === 1) {
 }
       // ── Points badge awards — idempotent, fire and forget ──────────────────
       checkAndAwardPointsBadges(supabase, adEmail, finalPoints).catch(() => {});
+      // ── Upgrade membership tier ───────────────────────────────────────────────
+(async () => {
+  try {
+    const [{ data: userRow }, { data: badges }] = await Promise.all([
+      supabase.from('ad_signups')
+        .select('membership_tier')
+        .eq('email', adEmail)
+        .maybeSingle(),
+      supabase.from('user_badges')
+        .select('badge_slug')
+        .eq('user_email', adEmail),
+    ]);
+    const currentTier = userRow?.membership_tier || 'trial';
+    const badgeSlugs  = (badges || []).map((b: { badge_slug: string }) => b.badge_slug);
+    const newTier     = calcMembershipTier(finalPoints, badgeSlugs, currentTier);
+    if (newTier !== currentTier) {
+      await upgradeMembershipTier(supabase, adEmail, newTier, currentTier);
+      // Notify user of tier upgrade
+      notify(adEmail, 'points',
+        `${newTier === 'rising' ? '🚀' : newTier === 'veteran' ? '🏅' : newTier === 'champion' ? '🏆' : '⚡'} You're now a ${newTier.charAt(0).toUpperCase() + newTier.slice(1)} Member`,
+        `Your engagement earned you a membership upgrade. Keep going.`
+      );
+    }
+  } catch {}
+})();
     }
   }
 
