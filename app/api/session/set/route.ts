@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 import { awardBadge, checkAndAwardPointsBadges } from '../../../lib/badges';
+import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membership';
 
 // ─── Session Set ──────────────────────────────────────────────────────────────
 // Called from persistSession() in login/page.tsx — every login path hits this.
