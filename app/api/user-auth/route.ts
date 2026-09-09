@@ -1,5 +1,6 @@
+// app/api/user-auth/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient }              from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,13 +25,13 @@ export async function POST(req: NextRequest) {
 
   const { data } = await supabase
     .from('ad_signups')
-    .select('pin, name, brand_name, status, role, last_login, created_at, points, promo_code')
+    .select('pin, name, brand_name, status, role, last_login, created_at, points, promo_code, membership_tier, streak_days')
     .eq('email', norm)
     .maybeSingle();
 
   if (!data) return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 });
 
-  // ── PIN check probe — VaultModal calls with pin: '__check__' to test existence
+  // ── PIN check probe ───────────────────────────────────────────────────────
   if (pin === '__check__') {
     if (!data.pin) return NextResponse.json({ ok: false, error: 'No PIN set' }, { status: 400 });
     return NextResponse.json({ ok: true, hasPinSet: true });
@@ -54,7 +55,6 @@ export async function POST(req: NextRequest) {
   const firstName  = data.name?.split(' ')[0] || 'there';
 
   // ── Login nudges ──────────────────────────────────────────────────────────
-
   if (isNewUser && !lastLogin) {
     notify(norm, 'nudge',
       '🎉 You\'re in the Arena',
@@ -68,8 +68,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Update last_login — fire and forget, single write ─────────────────────
-  // Badges + membership tier handled by session/set → syncBadges on every login.
+  // ── Update last_login — fire and forget ───────────────────────────────────
   supabase
     .from('ad_signups')
     .update({ last_login: now.toISOString() })
@@ -79,11 +78,13 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     user: {
-      email:       norm,
-      name:        data.name       || '',
-      brand:       data.brand_name || '',
-      trialStatus: data.status     || 'trial',
-      role:        data.role       || 'user',
+      email:          norm,
+      name:           data.name           || '',
+      brand:          data.brand_name     || '',
+      trialStatus:    data.status         || 'trial',
+      role:           data.role           || 'user',
+      membershipTier: data.membership_tier || 'trial',
+      streakDays:     data.streak_days    || 0,
     }
   });
 }
