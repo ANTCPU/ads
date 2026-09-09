@@ -7,15 +7,15 @@ import ArenaNav                           from '../components/ArenaNav';
 import ArenaFooter                        from '../components/ArenaFooter';
 import { clearSessionCookie }             from '../lib/session';
 import { tokens, inp as baseInp }         from '../lib/shopAdStyles';
-
-// ✅ notifyDiscord import REMOVED — now routed through /api/discord-notify
+import { setStoredLocale }                from '../lib/locale';
+import { BADGE_REGISTRY }                 from '../lib/badges';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// 🔒 Internal helper — routes all Discord calls through /api/discord-notify
+// 🔒 Internal routes Discord calls 
 function pingDiscord(content: string, event = 'general') {
   fetch('/api/discord-notify', {
     method:  'POST',
@@ -38,6 +38,11 @@ type ProfileForm = {
   antcoin_wallet: string; preferred_locale: string;
 };
 
+type UserBadge = {
+  badge_slug: string;
+  awarded_at: string;
+};
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SOCIAL_DOMAINS: Record<string, string> = {
@@ -48,27 +53,27 @@ const SOCIAL_DOMAINS: Record<string, string> = {
 };
 
 const SOCIALS: { key: keyof ProfileForm; label: string; placeholder: string }[] = [
-  { key: 'website',        label: 'Website',        placeholder: 'https://yoursite.com' },
-  { key: 'twitter',        label: 'Twitter / X',    placeholder: 'https://twitter.com/yourhandle' },
-  { key: 'instagram',      label: 'Instagram',      placeholder: 'https://instagram.com/yourhandle' },
-  { key: 'facebook',       label: 'Facebook',       placeholder: 'https://facebook.com/yourpage' },
-  { key: 'tiktok',         label: 'TikTok',         placeholder: 'https://tiktok.com/@yourhandle' },
-  { key: 'youtube',        label: 'YouTube',        placeholder: 'https://youtube.com/@yourchannel' },
-  { key: 'linkedin',       label: 'LinkedIn',       placeholder: 'https://linkedin.com/in/yourprofile' },
-  { key: 'discord',        label: 'Discord',        placeholder: 'https://discord.gg/yourserver' },
-  { key: 'telegram',       label: 'Telegram',       placeholder: 'https://t.me/yourhandle' },
-  { key: 'antcoin_wallet', label: 'Antcoin Wallet', placeholder: 'your@wallet.com' },
+  { key: 'website',        label: 'Website',        placeholder: 'https://yoursite.com'                    },
+  { key: 'twitter',        label: 'Twitter / X',    placeholder: 'https://twitter.com/yourhandle'          },
+  { key: 'instagram',      label: 'Instagram',      placeholder: 'https://instagram.com/yourhandle'        },
+  { key: 'facebook',       label: 'Facebook',       placeholder: 'https://facebook.com/yourpage'           },
+  { key: 'tiktok',         label: 'TikTok',         placeholder: 'https://tiktok.com/@yourhandle'          },
+  { key: 'youtube',        label: 'YouTube',        placeholder: 'https://youtube.com/@yourchannel'        },
+  { key: 'linkedin',       label: 'LinkedIn',       placeholder: 'https://linkedin.com/in/yourprofile'     },
+  { key: 'discord',        label: 'Discord',        placeholder: 'https://discord.gg/yourserver'           },
+  { key: 'telegram',       label: 'Telegram',       placeholder: 'https://t.me/yourhandle'                 },
+  { key: 'antcoin_wallet', label: 'Antcoin Wallet', placeholder: 'wallet@antcoin.store'                    },
 ];
 
 const LANGUAGES = [
-  { code: 'en', label: 'EN', name: 'English'    },
-  { code: 'ar', label: 'AR', name: 'العربية'    },
-  { code: 'zh', label: 'ZH', name: '中文'        },
-  { code: 'es', label: 'ES', name: 'Español'    },
-  { code: 'hi', label: 'HI', name: 'हिन्दी'     },
-  { code: 'pt', label: 'PT', name: 'Português'  },
-  { code: 'fr', label: 'FR', name: 'Français'   },
-  { code: 'it', label: 'IT', name: 'Italiano'   },
+  { code: 'en', label: 'EN', name: 'English'   },
+  { code: 'ar', label: 'AR', name: 'العربية'   },
+  { code: 'zh', label: 'ZH', name: '中文'       },
+  { code: 'es', label: 'ES', name: 'Español'   },
+  { code: 'hi', label: 'HI', name: 'हिन्दी'    },
+  { code: 'pt', label: 'PT', name: 'Português' },
+  { code: 'fr', label: 'FR', name: 'Français'  },
+  { code: 'it', label: 'IT', name: 'Italiano'  },
 ];
 
 const EMPTY_FORM: ProfileForm = {
@@ -83,10 +88,15 @@ function FavIcon({ url, socialKey }: { url: string; socialKey: string }) {
   const domain = socialKey === 'website'
     ? (() => { try { return new URL(url).hostname; } catch { return 'globe'; } })()
     : SOCIAL_DOMAINS[socialKey];
-  return <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} width={16} height={16} style={{ borderRadius: 3 }} alt="" />;
+  return (
+    <img
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+      width={16} height={16} style={{ borderRadius: 3 }} alt=""
+    />
+  );
 }
 
-const ARENA_FALLBACK_VIDEO = 'PNoY1ffzciI';
+const ARENA_FALLBACK_VIDEO = 'KuSW1xT8jmo';
 
 function getYouTubeEmbedUrl(url: string): string {
   if (url) {
@@ -112,6 +122,7 @@ export default function ProfilePage() {
   const [editing,    setEditing]    = useState(false);
   const [hydrated,   setHydrated]   = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
+  const [badges,     setBadges]     = useState<UserBadge[]>([]);
 
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
@@ -119,9 +130,12 @@ export default function ProfilePage() {
     try {
       const u: SessionUser = JSON.parse(stored);
       setUser(u);
+
+      const email = u.email.trim().toLowerCase();
+
+      // ── Profile + badges in parallel ──────────────────────────────────────
       supabase.from('ad_profiles').select('*')
-        .eq('email', u.email.trim().toLowerCase())
-        .maybeSingle()
+        .eq('email', email).maybeSingle()
         .then(({ data }) => {
           if (data) {
             const keys   = Object.keys(EMPTY_FORM) as (keyof ProfileForm)[];
@@ -135,6 +149,13 @@ export default function ProfilePage() {
             setEditing(true);
           }
         });
+
+      supabase.from('user_badges')
+        .select('badge_slug, awarded_at')
+        .eq('user_email', email)
+        .order('awarded_at', { ascending: false })
+        .then(({ data }) => { if (data) setBadges(data); });
+
     } catch { router.push('/'); return; }
     setHydrated(true);
   }, []);
@@ -152,6 +173,9 @@ export default function ProfilePage() {
     );
 
     localStorage.setItem('arena_profile', JSON.stringify(form));
+
+    // Write locale to localStorage so Arena reflects it immediately
+    setStoredLocale(form.preferred_locale as any);
 
     // 🔒 Routed through API
     if (isDirty) {
@@ -180,11 +204,19 @@ export default function ProfilePage() {
   const accent   = isAdmin ? '#f0883e' : isTeam ? '#7928ca' : '#0070f3';
   const langName = LANGUAGES.find(l => l.code === form.preferred_locale)?.name || 'English';
 
+  const knownBadges = badges.filter(b => BADGE_REGISTRY.find(r => r.slug === b.badge_slug));
+
   // ─── Styles ───────────────────────────────────────────────────────────────
 
-  const card: React.CSSProperties = { background: tokens.card, border: `1px solid ${tokens.border}`, borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem' };
-  const lbl:  React.CSSProperties = { fontSize: '0.68rem', color: '#555', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' };
-  const inp:  React.CSSProperties = { ...baseInp, background: tokens.bg, marginBottom: '0.75rem' };
+  const card: React.CSSProperties = {
+    background: tokens.card, border: `1px solid ${tokens.border}`,
+    borderRadius: '12px', padding: '1.25rem', marginBottom: '1rem',
+  };
+  const lbl: React.CSSProperties = {
+    fontSize: '0.68rem', color: '#555', fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem',
+  };
+  const inp: React.CSSProperties = { ...baseInp, background: tokens.bg, marginBottom: '0.75rem' };
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -201,7 +233,7 @@ export default function ProfilePage() {
 
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '2rem 1.25rem' }}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{ marginBottom: '1.5rem' }}>
           <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.25rem' }}>👤 Profile</div>
           <div style={{ fontSize: '0.78rem', color: '#555', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -217,12 +249,15 @@ export default function ProfilePage() {
         {/* ── VIEW MODE ── */}
         {hasProfile && !editing && (
           <>
+            {/* About */}
             <div style={card}>
               <div style={lbl}>About</div>
               <div style={{ fontSize: '0.88rem', color: '#aaa', lineHeight: 1.6, marginBottom: '0.75rem' }}>
                 {form.bio || '—'}
               </div>
-              {form.contact && <div style={{ fontSize: '0.82rem', color: '#555' }}>📧 {form.contact}</div>}
+              {form.contact && (
+                <div style={{ fontSize: '0.82rem', color: '#555' }}>📧 {form.contact}</div>
+              )}
               {form.preferred_locale !== 'en' && (
                 <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.5rem' }}>
                   🤖 Agent language: <strong style={{ color: accent }}>{langName}</strong>
@@ -230,6 +265,7 @@ export default function ProfilePage() {
               )}
             </div>
 
+            {/* Video */}
             <div style={card}>
               <div style={lbl}>▶ {form.youtube ? 'YouTube' : 'Arena Video'}</div>
               <iframe
@@ -242,6 +278,7 @@ export default function ProfilePage() {
               />
             </div>
 
+            {/* Links */}
             <div style={card}>
               <div style={lbl}>Links</div>
               {SOCIALS.filter(s => form[s.key]).map(s => (
@@ -258,6 +295,43 @@ export default function ProfilePage() {
                 <div style={{ fontSize: '0.82rem', color: '#555' }}>No links added yet.</div>
               )}
             </div>
+
+            {/* ── Badges ── */}
+            {knownBadges.length > 0 && (
+              <div style={card}>
+                <div style={lbl}>Your Badges</div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {knownBadges.map(b => {
+                    const def      = BADGE_REGISTRY.find(r => r.slug === b.badge_slug)!;
+                    const isManual = def.tier === 4;
+                    return (
+                      <div
+                        key={b.badge_slug}
+                        title={def.desc}
+                        style={{
+                          display:      'flex',
+                          alignItems:   'center',
+                          gap:          '0.3rem',
+                          background:   isManual ? '#D4AF3715' : '#ffffff08',
+                          border:       `1px solid ${isManual ? '#D4AF3740' : '#ffffff15'}`,
+                          borderRadius: '999px',
+                          padding:      '0.25rem 0.65rem',
+                          cursor:       'default',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.85rem' }}>{def.icon}</span>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: isManual ? '#D4AF37' : '#888' }}>
+                          {def.label}
+                        </span>
+                        {isManual && (
+                          <span style={{ fontSize: '0.6rem', color: '#D4AF37', opacity: 0.7 }}>✦</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <button
               onClick={() => setEditing(true)}
@@ -280,7 +354,12 @@ export default function ProfilePage() {
                 style={{ ...inp, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
               />
               <div style={lbl}>Contact Email</div>
-              <input value={form.contact} onChange={e => set('contact', e.target.value)} placeholder="hello@yourbrand.com" style={{ ...inp, width: '100%', boxSizing: 'border-box' }} />
+              <input
+                value={form.contact}
+                onChange={e => set('contact', e.target.value)}
+                placeholder="hello@yourbrand.com"
+                style={{ ...inp, width: '100%', boxSizing: 'border-box' }}
+              />
             </div>
 
             <div style={card}>
@@ -291,9 +370,9 @@ export default function ProfilePage() {
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 {LANGUAGES.map(l => (
                   <button key={l.code} onClick={() => set('preferred_locale', l.code)} style={{
-                    background: form.preferred_locale === l.code ? accent : 'transparent',
-                    border:     `1px solid ${form.preferred_locale === l.code ? accent : '#333'}`,
-                    color:      form.preferred_locale === l.code ? '#fff' : '#555',
+                    background:   form.preferred_locale === l.code ? accent : 'transparent',
+                    border:       `1px solid ${form.preferred_locale === l.code ? accent : '#333'}`,
+                    color:        form.preferred_locale === l.code ? '#fff' : '#555',
                     borderRadius: '8px', padding: '0.35rem 0.75rem',
                     fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
                   }}>
@@ -339,7 +418,7 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* Public profile link */}
+        {/* ── Public profile link ── */}
         <div style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <div style={lbl}>Your Public Profile</div>
@@ -353,6 +432,7 @@ export default function ProfilePage() {
             View →
           </button>
         </div>
+
       </div>
 
       <ArenaFooter />
