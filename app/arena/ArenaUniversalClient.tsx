@@ -14,6 +14,9 @@ import { PLATFORMS, getShareAction, ShareContext } from '../lib/socialShare';
 import { trackClick, recordShare, recordLike, recordBoost, recordReaction, SOURCE } from '../lib/tracking';
 import { clearSessionCookie } from '../lib/session';
 import { MODULE_REGISTRY } from '../modules';
+import { getStoredLocale } from '../lib/locale';
+import { t } from '../lib/i18n/index';
+import type { Locale } from '../lib/i18n/index';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -132,6 +135,7 @@ export default function ArenaUniversalClient() {
   const [shareAd,     setShareAd]     = useState<Ad | null>(null);
   const [brandConfig, setBrandConfig] = useState<Record<string, BrandCfg>>({});
   const [moduleIds,   setModuleIds]   = useState<string[]>([]);
+  const [locale,      setLocale]      = useState<Locale>('en');
 
   // ─── Interaction state ───────────────────────────────────────────────────
   const [liked,      setLiked]      = useState<Record<string, boolean>>({});
@@ -159,6 +163,8 @@ export default function ArenaUniversalClient() {
 
   // ─── Boot ─────────────────────────────────────────────────────────────────
   useEffect(() => {
+    setLocale(getStoredLocale());
+
     const stored = localStorage.getItem('arena_user');
     if (stored) { try { setUser(JSON.parse(stored)); } catch {} }
 
@@ -250,7 +256,6 @@ export default function ArenaUniversalClient() {
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, like_count: n } : p);
-    // ── Nudge anonymous users — membership is free ────────────────────────
     if (!user.email) setNudgedAd(ad.id);
   }
 
@@ -265,29 +270,29 @@ export default function ArenaUniversalClient() {
       getSessionId(), SOURCE.ARENA_FEED, supabase
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
-  if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
-  if (!user.email) setNudgedAd(ad.id);
-}
+    if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
+    if (!user.email) setNudgedAd(ad.id);
+  }
 
-async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
-  e.stopPropagation();
-  if (reacted[ad.id]) return;
-  localStorage.setItem(`reacted_${ad.id}`, type);
-  setReacted(prev => ({ ...prev, [ad.id]: type }));
-  showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
-  const newCount = await recordReaction(
-    { id: ad.id, brand: ad.brand, title: ad.title,
-      email: ad.email, reaction_count: ad.reaction_count || 0 },
-    type,
-    getSessionId(),
-    user.email || null,
-    SOURCE.ARENA_FEED,
-    supabase,
-  );
-  setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a));
-  if (preview?.id === ad.id) setPreview(p => p ? { ...p, reaction_count: newCount } : p);
-  if (!user.email) setNudgedAd(ad.id);
-}
+  async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (reacted[ad.id]) return;
+    localStorage.setItem(`reacted_${ad.id}`, type);
+    setReacted(prev => ({ ...prev, [ad.id]: type }));
+    showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
+    const newCount = await recordReaction(
+      { id: ad.id, brand: ad.brand, title: ad.title,
+        email: ad.email, reaction_count: ad.reaction_count || 0 },
+      type,
+      getSessionId(),
+      user.email || null,
+      SOURCE.ARENA_FEED,
+      supabase,
+    );
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a));
+    if (preview?.id === ad.id) setPreview(p => p ? { ...p, reaction_count: newCount } : p);
+    if (!user.email) setNudgedAd(ad.id);
+  }
 
   function handleBookmark(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
@@ -385,7 +390,7 @@ async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
         gap: '0.75rem',
       }}>
         <span style={{ fontSize: '0.75rem', color: '#aaa', lineHeight: 1.4 }}>
-          😊 Membership is free — join to earn badges and track your activity.
+          😊 {t(locale, 'arena_nudge')}
         </span>
         <button
           onClick={() => router.push('/login')}
@@ -395,7 +400,7 @@ async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
             padding: '0.4rem 0.75rem', cursor: 'pointer', flexShrink: 0,
           }}
         >
-          Join Free →
+          {t(locale, 'arena_nudge_cta')}
         </button>
       </div>
     );
@@ -590,9 +595,9 @@ async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
         {/* Header stats */}
         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {[
-            { label: 'Brands', value: totalBrands,                  color: '#0070f3' },
-            { label: 'Ads',    value: ads.length,                   color: orange    },
-            { label: 'Points', value: totalPoints.toLocaleString(), color: gold      },
+            { label: t(locale, 'arena_stat_brands'), value: totalBrands,                  color: '#0070f3' },
+            { label: t(locale, 'arena_stat_ads'),    value: ads.length,                   color: orange    },
+            { label: t(locale, 'arena_stat_points'), value: totalPoints.toLocaleString(), color: gold      },
           ].map(s => (
             <div key={s.label}>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -605,15 +610,15 @@ async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
         {isSuper && (
           <div style={{ background: `${orange}15`, border: `1px solid ${orange}30`, borderRadius: '8px',
             padding: '0.5rem 0.75rem', marginBottom: '1rem', fontSize: '0.78rem', color: orange, fontWeight: 700 }}>
-            ⚡ Super Admin — Full Arena View
+            {t(locale, 'arena_super_badge')}
           </div>
         )}
 
         {/* Ad grid */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>Loading the Arena...</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>{t(locale, 'arena_loading')}</div>
         ) : ads.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>No active ads yet.</div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>{t(locale, 'arena_empty')}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {ads.map(ad => {
@@ -749,13 +754,13 @@ async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
         {!loading && (
           <div style={{ marginTop: '2.5rem', background: '#111', border: '1px solid #1a1a1a',
             borderRadius: '14px', padding: '2rem', textAlign: 'center' }}>
-            <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.5rem' }}>Join the Network</div>
-            <div style={{ fontSize: '0.85rem', color: muted, marginBottom: '0.35rem' }}>Get your brand in the Arena.</div>
-            <div style={{ fontSize: '0.75rem', color: '#333', marginBottom: '1.25rem' }}>Free to join · No contracts</div>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.5rem' }}>{t(locale, 'arena_join_title')}</div>
+            <div style={{ fontSize: '0.85rem', color: muted, marginBottom: '0.35rem' }}>{t(locale, 'arena_join_sub')}</div>
+            <div style={{ fontSize: '0.75rem', color: '#333', marginBottom: '1.25rem' }}>{t(locale, 'arena_join_note')}</div>
             <button onClick={() => router.push('/login')}
               style={{ background: orange, border: 'none', borderRadius: '10px', color: '#000',
                 fontWeight: 800, fontSize: '1rem', padding: '0.9rem 2.5rem', cursor: 'pointer' }}>
-              Join the Arena →
+              {t(locale, 'arena_join_cta')}
             </button>
           </div>
         )}
@@ -763,7 +768,7 @@ async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
         <button onClick={() => router.push('/dashboard/user')}
           style={{ marginTop: '2rem', background: 'none', border: 'none', color: orange,
             cursor: 'pointer', fontSize: '0.82rem', padding: 0, display: 'block', margin: '2rem auto 0' }}>
-          ← Back to Dashboard
+          {t(locale, 'arena_back')}
         </button>
       </div>
 
