@@ -10,13 +10,14 @@ import { clearSessionCookie }          from '../../lib/session';
 import { recordShare, detectPlatform } from '../../lib/tracking/shares';
 import { trackClick as libTrackClick } from '../../lib/tracking/clicks';
 import { SOURCE }                      from '../../lib/tracking/sources';
-import { getTierDef, getNextTier,
-         MembershipTier }              from '../../lib/membership';
+import { getTierDef, MembershipTier }  from '../../lib/membership';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,25 @@ type Ad = {
   tier: string; pinned: boolean; email: string;
   promo_code: string | null; click_count: number;
   share_count: number; points: number; rank_position: number;
+};
+
+type UserBadge = {
+  badge_slug: string;
+  awarded_at: string;
+};
+
+// ─── Badge Registry ───────────────────────────────────────────────────────────
+
+const BADGE_REGISTRY: Record<string, { label: string; icon: string; color: string; desc: string }> = {
+  'arena-original':  { label: 'Arena Original',  icon: '🏛',  color: '#D4AF37', desc: 'One of the first 100 members'         },
+  'pi-pioneer':      { label: 'Pi Pioneer',       icon: 'π',   color: '#7928ca', desc: 'Joined via Map of Pi'                 },
+  'challenger':      { label: 'Challenger',        icon: '⚔️',  color: '#ff0080', desc: 'Joined via Internship program'        },
+  'first-reaction':  { label: 'First Reaction',   icon: '🔥',  color: '#f0883e', desc: 'Your ad received its first reaction'  },
+  'arena-active':    { label: 'Arena Active',      icon: '🏅',  color: '#22c55e', desc: '3-day share streak achieved'          },
+  'points-10':       { label: '10 Points',         icon: '⚡',  color: '#0070f3', desc: 'Earned 10 points'                    },
+  'points-50':       { label: '50 Points',         icon: '⚡',  color: '#7928ca', desc: 'Earned 50 points'                    },
+  'points-100':      { label: '100 Points',        icon: '⚡',  color: '#f0883e', desc: 'Earned 100 points'                   },
+  'points-500':      { label: '500 Points',        icon: '🏆',  color: '#D4AF37', desc: 'Earned 500 points'                   },
 };
 
 // ─── Tier ladder (ad tier — separate from membership tier) ────────────────────
@@ -146,6 +166,7 @@ export default function UserDashboard() {
   const [loyaltyRestarting, setLoyaltyRestarting] = useState(false);
   const [membershipTier,    setMembershipTier]    = useState<MembershipTier>('trial');
   const [streakDays,        setStreakDays]        = useState(0);
+  const [badges,            setBadges]            = useState<UserBadge[]>([]);
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -176,16 +197,18 @@ export default function UserDashboard() {
       if (u.membershipTier) setMembershipTier(u.membershipTier as MembershipTier);
       if (u.streakDays)     setStreakDays(u.streakDays);
 
+      const email = u.email.trim().toLowerCase();
+
+      // ── Parallel profile + signups + badges queries ────────────────────
       supabase
         .from('ad_profiles').select('bio')
-        .eq('email', u.email.trim().toLowerCase()).maybeSingle()
+        .eq('email', email).maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
 
-      // DB query — includes trial_extended_at + points now
       supabase
         .from('ad_signups')
         .select('promo_code, created_at, membership_tier, streak_days, trial_extended_at, points')
-        .eq('email', u.email.trim().toLowerCase()).maybeSingle()
+        .eq('email', email).maybeSingle()
         .then(({ data }) => {
           setReferralCode(
             data?.promo_code ||
@@ -201,6 +224,14 @@ export default function UserDashboard() {
             setStreakDays(data.streak_days);
           }
         });
+
+      supabase
+        .from('user_badges')
+        .select('badge_slug, awarded_at')
+        .eq('user_email', email)
+        .order('awarded_at', { ascending: false })
+        .then(({ data }) => { if (data) setBadges(data); });
+
     } catch { router.push('/'); return; }
   }, []);
 
@@ -341,6 +372,9 @@ export default function UserDashboard() {
   const streakNearBadge = streakDays >= 1 && streakDays < 3;
   const streakHasBadge  = streakDays >= 3;
 
+  const knownBadges = badges.filter(b => BADGE_REGISTRY[b.badge_slug]);
+  const showBadges  = knownBadges.length > 0;
+
   // ── Styles ────────────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
@@ -457,6 +491,39 @@ export default function UserDashboard() {
           onUpgrade={() => router.push('/?upgrade=1')}
         />
 
+        {/* ── Badges ── */}
+        {showBadges && (
+          <div style={card}>
+            <div style={lbl}>Your Badges</div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {knownBadges.map(b => {
+                const def = BADGE_REGISTRY[b.badge_slug];
+                return (
+                  <div
+                    key={b.badge_slug}
+                    title={def.desc}
+                    style={{
+                      display:      'flex',
+                      alignItems:   'center',
+                      gap:          '0.35rem',
+                      background:   `${def.color}12`,
+                      border:       `1px solid ${def.color}35`,
+                      borderRadius: '999px',
+                      padding:      '0.3rem 0.75rem',
+                      cursor:       'default',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.9rem' }}>{def.icon}</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: def.color }}>
+                      {def.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── Points to next tier nudge ── */}
         {showStrip && nextTier && ptsToNext <= 30 && (
           <div style={{ ...card, border: `1px solid ${nextTier.color}40`, background: `${nextTier.color}08` }}>
@@ -550,7 +617,7 @@ export default function UserDashboard() {
               </span>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`https://antcpu-ads.vercel.app/login?ref=${referralCode}`);
+                  navigator.clipboard.writeText(`${APP_URL}/login?ref=${referralCode}`);
                   setReferralCopied(true);
                   setTimeout(() => setReferralCopied(false), 2000);
                 }}
@@ -586,6 +653,10 @@ export default function UserDashboard() {
           </div>
           {loading ? (
             <div style={{ color: '#555', fontSize: '0.85rem', padding: '1rem 0' }}>Loading arena...</div>
+          ) : arenaAds.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#555', fontSize: '0.85rem' }}>
+              No active ads yet — be the first.
+            </div>
           ) : (
             <div>
               {arenaAds.slice(0, showCount).map(ad => {
@@ -610,8 +681,8 @@ export default function UserDashboard() {
                         style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color, cursor: 'pointer' }}>
                         {ad.brand}
                       </span>
-                      {ad.pinned          && <span style={pill('#f0883e')}>⭐ Featured</span>}
-                      {isOwn              && <span style={pill('#22c55e')}>Your Ad</span>}
+                      {ad.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
+                      {isOwn     && <span style={pill('#22c55e')}>Your Ad</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
                       {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
