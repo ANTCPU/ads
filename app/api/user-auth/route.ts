@@ -80,20 +80,12 @@ export async function POST(req: NextRequest) {
   ).catch(() => {});
 
   // ── Badge awards — fire and forget, never block auth ──────────────────────
-  Promise.all([
-    // arena-original — awarded if 100 or fewer users at time of login
-    (async () => {
-      const { count } = await supabase
-        .from('ad_signups')
-        .select('*', { count: 'exact', head: true });
-      if ((count || 0) <= 100) {
-        await awardBadge(supabase, norm, 'arena-original');
-      }
-    })(),
-    // promo-based identity badges — case-insensitive
-    data.promo_code?.toUpperCase() === 'MAPOFPI'    && awardBadge(supabase, norm, 'pi-pioneer'),
-    data.promo_code?.toUpperCase() === 'INTERNSHIP' && awardBadge(supabase, norm, 'challenger'),
-  ]).catch(() => {});
+ supabase
+  .from('ad_signups')
+  .update({ last_login: now.toISOString() })
+  .eq('email', norm)
+  .then(() => {})
+  .catch(() => {});
 
   return NextResponse.json({
     ok: true,
