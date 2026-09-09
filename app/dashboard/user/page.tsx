@@ -570,10 +570,8 @@ export default function UserDashboard() {
             <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem' }}>
               One share = 10 points. Shares are the fastest way to climb the Arena.
             </div>
-            <button onClick={() => shareAd(myAd)} style={btn('#f0883e',
-              ↗ Share My Ad Now
-            </button>
-          </div>
+            <button onClick={() => shareAd(myAd)} style={btn('#f0883e', '#000')}>
+            </div>
         )}
 
         {/* ── Arena feed ── */}
