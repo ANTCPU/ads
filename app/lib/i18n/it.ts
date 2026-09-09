@@ -169,6 +169,20 @@ export const it: Record<string, string> = {
   signin_loading:           'Accesso in corso...',
   signin_error_prefix:      'Nessun account trovato per ',
   signin_error_suffix:      ' — Registrati sopra.',
+  // ARENA
+  arena_loading:            'Caricamento dell\'Arena...',
+  arena_empty:              'Nessun annuncio attivo ancora.',
+  arena_join_title:         'Unisciti alla Rete',
+  arena_join_sub:           'Porta il tuo brand nell\'Arena.',
+  arena_join_note:          'Gratis · Nessun contratto',
+  arena_join_cta:           'Entra nell\'Arena →',
+  arena_back:               '← Torna alla Dashboard',
+  arena_nudge:              'L\'iscrizione è gratuita — unisciti per guadagnare badge e tracciare la tua attività.',
+  arena_nudge_cta:          'Unisciti Gratis →',
+  arena_super_badge:        '⚡ Super Admin — Vista Completa dell\'Arena',
+  arena_stat_brands:        'Brand',
+  arena_stat_ads:           'Annunci',
+  arena_stat_points:        'Punti',
 
   // RTL FLAG
   rtl:                      'false',
