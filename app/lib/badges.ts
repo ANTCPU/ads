@@ -39,6 +39,7 @@ export type BadgeSlug =
   | 'points-100'
   | 'points-300'
   | 'points-750'
+  | 'arena-active'
   // Tier 4 — Status (manual admin only)
   | 'country-champion'
   | 'verified-brand'
@@ -53,8 +54,7 @@ export type BadgeDef = {
   label:      string;
   desc:       string;
   tier:       1 | 2 | 3 | 4;
-  auto:       boolean;   // true = system awards · false = admin only
-  // Tier 2 only — which field on the ads table to use as the counter
+  auto:       boolean;
   counterKey?: 'share_count' | 'like_count' | 'boost_count' | 'click_count' | 'reaction_count';
 };
 
@@ -93,11 +93,10 @@ export const BADGE_REGISTRY: BadgeDef[] = [
     label: 'Arena Builder',
     desc:  'Joined via direct invite from the ANTCPU team.',
     tier:  1,
-    auto:  false, // admin assigns — direct invite only
+    auto:  false,
   },
 
   // ── Tier 2 — Action ────────────────────────────────────────────────────────
-  // Badge awarded on first action. Counter shown live from ads table.
   {
     slug:       'first-share',
     icon:       '↗',
@@ -177,10 +176,16 @@ export const BADGE_REGISTRY: BadgeDef[] = [
     tier:  3,
     auto:  true,
   },
+  {
+    slug:  'arena-active',
+    icon:  '🔥',
+    label: 'Arena Active',
+    desc:  'Active in the Arena for 3+ consecutive days with 3+ shares each day.',
+    tier:  3,
+    auto:  true,
+  },
 
   // ── Tier 4 — Status (manual admin only) ───────────────────────────────────
-  // Never auto-awarded. awarded_by = admin email always.
-  // Admin flow: dashboard/antcpu → /api/admin/award-badge (built later)
   {
     slug:  'country-champion',
     icon:  '🏆',
@@ -233,9 +238,6 @@ export const getManualBadges = (): BadgeDef[] =>
 // Idempotent — safe to call multiple times. Never duplicates.
 // Silent fail — never blocks user flow.
 // Server-side only — never call from client components directly.
-//
-// For Tier 4 manual awards: pass awardedBy = admin email.
-// For all auto awards: awardedBy defaults to 'system'.
 
 export async function awardBadge(
   supabase:  SupabaseClient,
@@ -257,15 +259,12 @@ export async function awardBadge(
       );
     return !error;
   } catch {
-    // Silent fail — badge award never blocks user flow
     return false;
   }
 }
 
-// ─── checkAndAwardPoints ──────────────────────────────────────────────────────
-// Call from scout/score/route.ts after points update.
-// Awards points milestone badges automatically.
-// Pass the NEW points total after the score run.
+// ─── checkAndAwardPointsBadges ────────────────────────────────────────────────
+// Called from scout/score after points update.
 
 export async function checkAndAwardPointsBadges(
   supabase:  SupabaseClient,
@@ -275,4 +274,19 @@ export async function checkAndAwardPointsBadges(
   if (points >= 100) await awardBadge(supabase, userEmail, 'points-100');
   if (points >= 300) await awardBadge(supabase, userEmail, 'points-300');
   if (points >= 750) await awardBadge(supabase, userEmail, 'points-750');
+}
+
+// ─── checkAndAwardActivityBadge ───────────────────────────────────────────────
+// Called from api/session/set → syncBadges() after streak update.
+// Awards arena-active when streak reaches 3+ consecutive active days.
+// Active day = logged in AND shared 3+ times that day.
+
+export async function checkAndAwardActivityBadge(
+  supabase:  SupabaseClient,
+  userEmail: string,
+  streakDays: number,
+): Promise<void> {
+  if (streakDays >= 3) {
+    await awardBadge(supabase, userEmail, 'arena-active');
+  }
 }
