@@ -11,7 +11,7 @@ import { createClient } from '@supabase/supabase-js';
 import ArenaNav from '../components/ArenaNav';
 import ArenaFooter from '../components/ArenaFooter';
 import { PLATFORMS, getShareAction, ShareContext } from '../lib/socialShare';
-import { trackClick, recordShare, recordLike, recordBoost, SOURCE } from '../lib/tracking';
+import { trackClick, recordShare, recordLike, recordBoost, recordReaction, SOURCE } from '../lib/tracking';
 import { clearSessionCookie } from '../lib/session';
 import { MODULE_REGISTRY } from '../modules';
 
@@ -268,25 +268,25 @@ export default function ArenaUniversalClient() {
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
   }
 
-  async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (reacted[ad.id]) return;
-    const sid = getSessionId();
-    localStorage.setItem(`reacted_${ad.id}`, type);
-    setReacted(prev => ({ ...prev, [ad.id]: type }));
-    showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
-    const newCount = (ad.reaction_count || 0) + 1;
-    await Promise.all([
-      supabase.from('ad_reactions').insert([{ ad_id: ad.id, reaction_type: type, session_id: sid }]),
-      supabase.from('ads').update({ reaction_count: newCount }).eq('id', ad.id),
-    ]);
-    fetch('/api/scout/score', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ad_id: ad.id }),
-    }).catch(() => {});
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a));
-    if (preview?.id === ad.id) setPreview(p => p ? { ...p, reaction_count: newCount } : p);
-  }
+async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
+  e.stopPropagation();
+  if (reacted[ad.id]) return;
+  localStorage.setItem(`reacted_${ad.id}`, type);
+  setReacted(prev => ({ ...prev, [ad.id]: type }));
+  showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
+  const newCount = await recordReaction(
+    { id: ad.id, brand: ad.brand, title: ad.title,
+      email: ad.email, reaction_count: ad.reaction_count || 0 },
+    type,
+    getSessionId(),
+    user.email || null,
+    SOURCE.ARENA_FEED,
+    supabase,
+  );
+  setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a));
+  if (preview?.id === ad.id) setPreview(p => p ? { ...p, reaction_count: newCount } : p);
+  if (!user.email) setNudgedAd(ad.id);
+}
 
   function handleBookmark(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
