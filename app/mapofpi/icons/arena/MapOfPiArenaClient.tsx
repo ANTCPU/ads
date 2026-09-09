@@ -159,10 +159,13 @@ export default function MapOfPiArenaClient() {
     const platform = PLATFORMS.find(p => p.key === platformKey);
     if (!platform) return;
     const ctx: ShareContext = {
-      brand: 'Map of Pi', title: 'Country Champions Arena — Map of Pi',
-      description: 'Real sellers. Real Pi commerce. Every country has one champion seat.',
-      url: ARENA_URL, category: 'Pi Commerce',
-    };
+     brand:      'Map of Pi',
+     title:      'Country Champions Arena — Map of Pi',
+     description:'Real sellers. Real Pi commerce. Every country has one champion seat.',
+     url:         ARENA_URL,
+     profileUrl:  ARENA_URL,   // ← add this line
+     category:   'Pi Commerce',
+     };
     const { url: intentUrl, text } = getShareAction(platform, ctx);
     if (intentUrl) window.open(intentUrl, '_blank', 'noopener,noreferrer');
     else { try { await navigator.clipboard.writeText(text); } catch {} }
