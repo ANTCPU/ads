@@ -6,22 +6,14 @@ import { createClient }                from '@supabase/supabase-js';
 import ArenaNav                        from '../../components/ArenaNav';
 import ArenaFooter                     from '../../components/ArenaFooter';
 import { clearSessionCookie }          from '../../lib/session';
-
-// ✅ notifyDiscord import REMOVED — now routed through /api/discord-notify
+import { recordShare, detectPlatform } from '../../lib/tracking/shares';
+import { trackClick as libTrackClick } from '../../lib/tracking/clicks';
+import { SOURCE }                      from '../../lib/tracking/sources';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
-
-// 🔒 Internal helper — routes all Discord calls through /api/discord-notify
-function pingDiscord(content: string, event = 'general') {
-  fetch('/api/discord-notify', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ content, event }),
-  }).catch(() => {});
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -146,6 +138,8 @@ export default function UserDashboard() {
   const [hasProfile,     setHasProfile]     = useState(false);
   const [myRank,         setMyRank]         = useState<number | null>(null);
   const [showCount,      setShowCount]      = useState(10);
+  const [userCreatedAt,  setUserCreatedAt]  = useState<string | null>(null);
+  const [membershipTier, setMembershipTier] = useState<string>('trial');
 
   // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -178,13 +172,15 @@ export default function UserDashboard() {
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
 
       supabase
-        .from('ad_signups').select('promo_code')
+        .from('ad_signups').select('promo_code, created_at, membership_tier')
         .eq('email', u.email.trim().toLowerCase()).maybeSingle()
         .then(({ data }) => {
           setReferralCode(
             data?.promo_code ||
             u.brand?.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || ''
           );
+          if (data?.created_at)      setUserCreatedAt(data.created_at);
+          if (data?.membership_tier) setMembershipTier(data.membership_tier);
         });
     } catch { router.push('/'); return; }
   }, []);
@@ -230,56 +226,53 @@ export default function UserDashboard() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  async function trackClick(ad: Ad) {
+  async function handleClick(ad: Ad) {
     if (ad.id.startsWith('sample-') || !user) return;
+    window.open(ad.url, '_blank', 'noopener,noreferrer');
     try {
-      const n = (ad.click_count || 0) + 1;
-      await Promise.all([
-        supabase.from('ad_clicks').insert([{ ad_id: ad.id, email: user.email, source: 'dashboard_feed' }]),
-        supabase.from('ads').update({ click_count: n }).eq('id', ad.id),
-      ]);
-      fetch('/api/scout/score', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ad_id: ad.id }),
-      }).catch(() => {});
-
-      // 🔒 Routed through API
-      if (n % 10 === 0) {
-        pingDiscord(
-          `👆 **Click Milestone** — ${ad.brand} hit **${n} clicks**\n**Ad:** "${ad.title}"\n**Email:** ${ad.email}`,
-          'click_milestone'
-        );
-      }
+      const newCount = await libTrackClick(
+        { id: ad.id, brand: ad.brand, title: ad.title,
+          email: ad.email, click_count: ad.click_count || 0 },
+        user.email,
+        SOURCE.USER_DASHBOARD,
+        supabase,
+      );
+      setArenaAds(prev => prev.map(a =>
+        a.id === ad.id ? { ...a, click_count: newCount } : a
+      ));
     } catch {}
   }
 
   async function shareAd(ad: Ad) {
+    if (!user) return;
     const tags = CATEGORY_TAGS[ad.category] || '#marketing #ads #antcpu';
     const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n${tags} #antcpuads`;
 
-    let shared = false;
+    let usedNative = false;
     if (typeof navigator !== 'undefined' && navigator.share) {
-      try { await navigator.share({ title: ad.title, text, url: ad.url }); shared = true; } catch {}
+      try { await navigator.share({ title: ad.title, text, url: ad.url }); usedNative = true; } catch {}
     }
-    if (!shared) navigator.clipboard.writeText(text).catch(() => {});
+    if (!usedNative) navigator.clipboard.writeText(text).catch(() => {});
 
     setSharedId(ad.id);
     setTimeout(() => setSharedId(null), 2500);
 
-    if (!ad.id.startsWith('sample-') && user) {
-      const n = (ad.share_count || 0) + 1;
-      supabase.from('ads').update({ share_count: n }).eq('id', ad.id).then(() => {
-        fetch('/api/scout/score', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ad_id: ad.id }),
-        }).catch(() => {});
-      });
-
-      // 🔒 Routed through API
-      pingDiscord(
-        `↗ **Ad Shared** — ${ad.brand}\n**Title:** "${ad.title}"\n**By:** ${user.email}\n**Shares:** ${n}`,
-        'share'
-      );
+    if (!ad.id.startsWith('sample-')) {
+      try {
+        const platform = detectPlatform(usedNative);
+        const newCount = await recordShare(
+          { id: ad.id, brand: ad.brand, title: ad.title,
+            email: ad.email, share_count: ad.share_count || 0, url: ad.url },
+          user.email,
+          platform,
+          SOURCE.USER_DASHBOARD,
+          supabase,
+        );
+        setMyAd(prev  => prev?.id  === ad.id ? { ...prev,  share_count: newCount } : prev);
+        setArenaAds(prev => prev.map(a =>
+          a.id === ad.id ? { ...a, share_count: newCount } : a
+        ));
+      } catch {}
     }
   }
 
@@ -350,6 +343,22 @@ export default function UserDashboard() {
             <span style={pill(accent)}>{user.brand}</span>
             <span>·</span>
             <span>{isTeam ? 'Team — Unlimited' : 'Free'}</span>
+            {membershipTier !== 'trial' && (
+              <>
+                <span>·</span>
+                <span style={pill(
+                  membershipTier === 'champion' ? '#D4AF37' :
+                  membershipTier === 'veteran'  ? '#ff0080' :
+                  membershipTier === 'rising'   ? '#7928ca' : '#0070f3'
+                )}>
+                  {membershipTier === 'rising'   ? '🚀 Rising Member'   :
+                   membershipTier === 'veteran'  ? '🏅 Arena Veteran'   :
+                   membershipTier === 'champion' ? '🏆 Arena Champion'  :
+                   membershipTier === 'subscriber' ? '💎 Subscriber'    :
+                   '⚡ Member'}
+                </span>
+              </>
+            )}
             {myRank && <><span>·</span><span style={{ color: '#f0883e' }}>#{myRank} in the Arena</span></>}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
@@ -504,7 +513,7 @@ export default function UserDashboard() {
                 return (
                   <div
                     key={ad.id}
-                    onClick={() => trackClick(ad)}
+                    onClick={() => handleClick(ad)}
                     style={{
                       background: '#0a0a0a',
                       border: `1px solid ${ad.pinned ? '#f0883e40' : '#1a1a1a'}`,
@@ -523,7 +532,7 @@ export default function UserDashboard() {
                       {ad.pinned          && <span style={pill('#f0883e')}>⭐ Featured</span>}
                       {isOwn              && <span style={pill('#22c55e')}>Your Ad</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
-                      {ad.rank_position && ad.rank_position <= 3 && (
+                                            {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
                       )}
                     </div>
