@@ -140,14 +140,14 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    const emailsToUpdate = [...new Set(pass2.map((a: any) => a.email).filter(Boolean))];
+   const emailsToUpdate = [...new Set(pass2.map((a: any) => a.email).filter(Boolean))];
     await Promise.all(
-      emailsToUpdate.map(async (email: string) => {
-        const userAds = pass2.filter((a: any) => a.email === adEmail);
-        const total = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
-        await supabase.from('ad_signups').update({ points: total }).eq('email', adEmail);
-      })
-    );
+    emailsToUpdate.map(async (email: string) => {
+    const userAds = pass2.filter((a: any) => a.email === email);
+    const total   = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
+    await supabase.from('ad_signups').update({ points: total }).eq('email', email);
+    })
+   );
 
     if (!adIsSystem && adEmail) {
 
