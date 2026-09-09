@@ -42,15 +42,24 @@ type UserBadge = {
 // ─── Badge Registry ───────────────────────────────────────────────────────────
 
 const BADGE_REGISTRY: Record<string, { label: string; icon: string; color: string; desc: string }> = {
-  'arena-original':  { label: 'Arena Original',  icon: '🏛',  color: '#D4AF37', desc: 'One of the first 100 members'         },
-  'pi-pioneer':      { label: 'Pi Pioneer',       icon: 'π',   color: '#7928ca', desc: 'Joined via Map of Pi'                 },
-  'challenger':      { label: 'Challenger',        icon: '⚔️',  color: '#ff0080', desc: 'Joined via Internship program'        },
-  'first-reaction':  { label: 'First Reaction',   icon: '🔥',  color: '#f0883e', desc: 'Your ad received its first reaction'  },
-  'arena-active':    { label: 'Arena Active',      icon: '🏅',  color: '#22c55e', desc: '3-day share streak achieved'          },
-  'points-10':       { label: '10 Points',         icon: '⚡',  color: '#0070f3', desc: 'Earned 10 points'                    },
-  'points-50':       { label: '50 Points',         icon: '⚡',  color: '#7928ca', desc: 'Earned 50 points'                    },
-  'points-100':      { label: '100 Points',        icon: '⚡',  color: '#f0883e', desc: 'Earned 100 points'                   },
-  'points-500':      { label: '500 Points',        icon: '🏆',  color: '#D4AF37', desc: 'Earned 500 points'                   },
+  'arena-original': { label: 'Arena Original',   icon: '🔥',  color: '#D4AF37', desc: 'One of the first 100 members'                    },
+  'pi-pioneer':     { label: 'Pi Pioneer',        icon: '🗺️',  color: '#7928ca', desc: 'Joined via Map of Pi'                            },
+  'challenger':     { label: 'Challenger',         icon: '🚀',  color: '#ff0080', desc: 'Enrolled in the internship challenge'            },
+  'arena-builder':  { label: 'Arena Builder',      icon: '⚙️',  color: '#0070f3', desc: 'Direct invite from the ANTCPU team'             },
+  'first-share':    { label: 'Sharer',             icon: '↗',   color: '#22c55e', desc: 'Shared your first ad'                           },
+  'first-like':     { label: 'Supporter',          icon: '😊',  color: '#0070f3', desc: 'Liked your first ad'                            },
+  'first-boost':    { label: 'Booster',            icon: '⚡',  color: '#D4AF37', desc: 'Boosted your first ad'                          },
+  'first-click':    { label: 'Explorer',           icon: '👆',  color: '#7928ca', desc: 'Clicked your first ad'                          },
+  'first-reaction': { label: 'Reactor',            icon: '🔥',  color: '#f0883e', desc: 'Left your first reaction'                       },
+  'loyal-member':   { label: 'Loyal Member',       icon: '🔄',  color: '#0070f3', desc: 'Restarted trial through Arena activity'         },
+  'points-100':     { label: 'Century',            icon: '💯',  color: '#f0883e', desc: 'Crossed 100 points'                             },
+  'points-300':     { label: 'Rising Star',        icon: '🚀',  color: '#7928ca', desc: 'Crossed 300 points'                             },
+  'points-750':     { label: 'Top Tier',           icon: '🏆',  color: '#D4AF37', desc: 'Crossed 750 points'                             },
+  'arena-active':   { label: 'Arena Active',       icon: '🔥',  color: '#22c55e', desc: '3-day share streak'                             },
+  'country-champion':{ label: 'Country Champion',  icon: '🏆',  color: '#D4AF37', desc: 'Top-ranked brand in their country'              },
+  'verified-brand': { label: 'Verified Brand',     icon: '✅',  color: '#22c55e', desc: 'Identity verified by ANTCPU'                    },
+  'top-brand':      { label: 'Top Brand',          icon: '🥇',  color: '#f0883e', desc: 'Ranked #1 across the entire Arena'              },
+  'arena-staff':    { label: 'Arena Staff',        icon: '⚡',  color: '#f0883e', desc: 'ANTCPU team member or official partner'         },
 };
 
 // ─── Tier ladder (ad tier — separate from membership tier) ────────────────────
