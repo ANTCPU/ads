@@ -45,6 +45,7 @@ export default function LoyaltyCard({
 
   // Hidden: active with no restart, or trial day 0–1
   if (status === 'active' && !trialExtendedAt) return null;
+  if (status === 'team') return null;
   if (!isWarning && !isExpired && !isSuccess)  return null;
 
   // ── Shared styles ───────────────────────────────────────────────────────────
