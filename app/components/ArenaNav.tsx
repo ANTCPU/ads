@@ -14,35 +14,38 @@ const supabase = createClient(
 type Role = 'super' | 'admin' | 'team' | 'user' | 'mod';
 
 type Notification = {
-  id: string;
-  type: string;
-  title: string;
-  message: string;
-  created_at: string;
+  id: string; type: string; title: string;
+  message: string; created_at: string;
 };
 
 type Brand = {
-  slug: string;
-  label: string;
-  icon: string;
-  dashboard: string | null;
+  slug: string; label: string; icon: string; dashboard: string | null;
 };
 
 type MenuItem = {
-  label: string;
-  icon: string;
-  color?: string;
-  action: () => void;
+  label: string; icon: string; color?: string; action: () => void;
 };
 
 type ArenaNavProps = {
-  role: Role;
-  userName?: string;
-  userEmail?: string;
-  userBrand?: string;
-  trialStatus?: 'team' | 'trial' | 'pending';
-  onLogout?: () => void;
+  role:          Role;
+  userName?:     string;
+  userEmail?:    string;
+  userBrand?:    string;
+  trialStatus?:  'team' | 'trial' | 'pending';
+  onLogout?:     () => void;
   onDrawerOpen?: () => void;
+};
+
+// ─── Membership tier display ──────────────────────────────────────────────────
+
+const TIER_DISPLAY: Record<string, { label: string; color: string }> = {
+  trial:      { label: '🌱 Trial',    color: '#555'    },
+  member:     { label: '⚡ Member',   color: '#0070f3' },
+  rising:     { label: '🚀 Rising',   color: '#7928ca' },
+  veteran:    { label: '🏅 Veteran',  color: '#ff0080' },
+  champion:   { label: '🏆 Champion', color: '#D4AF37' },
+  subscriber: { label: '💎 Pro',      color: '#f0883e' },
+  team:       { label: '🔵 Team',     color: '#7928ca' },
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -55,7 +58,6 @@ const ALL_BRANDS: Brand[] = [
   { slug: 'pipioneers',  label: 'PiPioneersX',        icon: '🚀', dashboard: null },
 ];
 
-// Notification type → accent color
 const NOTIF_COLOR: Record<string, string> = {
   aria:     '#f0883e',
   approved: '#22c55e',
@@ -70,35 +72,49 @@ const NOTIF_COLOR: Record<string, string> = {
 
 export default function ArenaNav({
   role,
-  userName = '',
-  userEmail = '',
-  userBrand = '',
-  trialStatus = 'trial',
+  userName     = '',
+  userEmail    = '',
+  userBrand    = '',
+  trialStatus  = 'trial',
   onLogout,
   onDrawerOpen,
 }: ArenaNavProps) {
   const router = useRouter();
 
-  // ── Nav state ──
-  const [open, setOpen]             = useState(false);
-  const [brandsOpen, setBrandsOpen] = useState(false);
-  const [notifOpen, setNotifOpen]   = useState(false);
-  const [brandSearch, setBrandSearch] = useState('');
-  const [lastVisited, setLastVisited] = useState<string[]>([]);
-  const [isPrevAdmin, setIsPrevAdmin] = useState(false);
+  const [open,         setOpen]         = useState(false);
+  const [brandsOpen,   setBrandsOpen]   = useState(false);
+  const [notifOpen,    setNotifOpen]    = useState(false);
+  const [brandSearch,  setBrandSearch]  = useState('');
+  const [lastVisited,  setLastVisited]  = useState<string[]>([]);
+  const [isPrevAdmin,  setIsPrevAdmin]  = useState(false);
 
-  // ── Notification state ──
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unread, setUnread]               = useState(0);
-  const [markingRead, setMarkingRead]     = useState(false);
+  const [unread,        setUnread]        = useState(0);
+  const [markingRead,   setMarkingRead]   = useState(false);
 
-  // ── Boot ──
+  // ── Membership tier — read from localStorage on boot ─────────────────────
+  const [membershipTier, setMembershipTier] = useState('trial');
+  const [streakDays,     setStreakDays]     = useState(0);
+
   React.useEffect(() => {
     setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
     try {
       const lv = JSON.parse(localStorage.getItem('arena_last_visited') || '[]');
       setLastVisited(Array.isArray(lv) ? lv : []);
     } catch {}
+
+    // Read enriched user data from localStorage
+    try {
+      const stored = localStorage.getItem('arena_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        if (u.membershipTier) setMembershipTier(u.membershipTier);
+        if (u.streakDays)     setStreakDays(u.streakDays);
+        // team status overrides tier display
+        if (u.trialStatus === 'team') setMembershipTier('team');
+      }
+    } catch {}
+
     if (!userEmail) return;
     supabase
       .from('notifications')
@@ -112,7 +128,6 @@ export default function ArenaNav({
       });
   }, [userEmail]);
 
-  // ── Helpers ──
   function visitBrand(slug: string) {
     const updated = [slug, ...lastVisited.filter(s => s !== slug)].slice(0, 3);
     setLastVisited(updated);
@@ -142,7 +157,6 @@ export default function ArenaNav({
     setMarkingRead(false);
   }
 
-  // ── Derived ──
   const filteredBrands = ALL_BRANDS.filter(b =>
     b.label.toLowerCase().includes(brandSearch.toLowerCase()) ||
     b.slug.toLowerCase().includes(brandSearch.toLowerCase())
@@ -152,9 +166,13 @@ export default function ArenaNav({
     .map(s => ALL_BRANDS.find(b => b.slug === s))
     .filter(Boolean) as Brand[];
 
-  const accentColor = trialStatus === 'team' ? '#7928ca' : '#0070f3';
+  // ── Tier pill ─────────────────────────────────────────────────────────────
+  // team overrides everything — always shows TEAM
+  // trialStatus='team' prop also forces team display
+  const effectiveTier = trialStatus === 'team' ? 'team' : membershipTier;
+  const tierDef       = TIER_DISPLAY[effectiveTier] || TIER_DISPLAY.trial;
 
-  // ── Menu items by role ──
+  // ── Menu items by role ────────────────────────────────────────────────────
   const menuItems: MenuItem[] = [];
 
   if (role === 'super') {
@@ -191,7 +209,7 @@ export default function ArenaNav({
       { label: 'Leaderboard', icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
-    const slug = userBrand?.toLowerCase().trim();
+    const slug    = userBrand?.toLowerCase().trim();
     const matched = ALL_BRANDS.find(b => b.slug === slug || b.label.toLowerCase() === slug);
     if (matched?.dashboard) {
       menuItems.push({ label: matched.label, icon: matched.icon, action: () => router.push(matched.dashboard!) });
@@ -227,7 +245,6 @@ export default function ArenaNav({
               zIndex: 1101, overflowY: 'auto', padding: '1.5rem 1rem',
               display: 'flex', flexDirection: 'column', gap: '0' }}
           >
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between',
               alignItems: 'center', marginBottom: '1rem' }}>
               <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>
@@ -242,14 +259,13 @@ export default function ArenaNav({
                     border: '1px solid #333', color: '#555', cursor: 'pointer',
                     fontSize: '0.68rem', borderRadius: '6px', padding: '0.2rem 0.5rem' }}>
                     {markingRead ? '...' : 'Mark all read'}
-                  </button>
+                                    </button>
                 )}
                 <button onClick={() => setNotifOpen(false)} style={{ background: 'none',
                   border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
               </div>
             </div>
 
-            {/* Messages */}
             {notifications.length === 0 ? (
               <div style={{ color: '#444', fontSize: '0.82rem',
                 textAlign: 'center', marginTop: '3rem', lineHeight: 1.6 }}>
@@ -297,7 +313,6 @@ export default function ArenaNav({
               padding: '1.5rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>🏷 Brands</div>
               <button onClick={() => setBrandsOpen(false)}
@@ -305,7 +320,6 @@ export default function ArenaNav({
                   cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
             </div>
 
-            {/* Search */}
             <input
               autoFocus
               placeholder="Search brands..."
@@ -316,7 +330,6 @@ export default function ArenaNav({
                 fontSize: '0.9rem', boxSizing: 'border-box', outline: 'none' }}
             />
 
-            {/* Recently visited */}
             {recentBrands.length > 0 && brandSearch === '' && (
               <div>
                 <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em',
@@ -329,7 +342,6 @@ export default function ArenaNav({
               </div>
             )}
 
-            {/* All brands */}
             <div>
               <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em',
                 textTransform: 'uppercase', marginBottom: '0.5rem' }}>
@@ -346,7 +358,6 @@ export default function ArenaNav({
               ))}
             </div>
 
-            {/* Footer */}
             <div style={{ marginTop: 'auto', fontSize: '0.72rem',
               color: '#333', textAlign: 'center' }}>
               {ALL_BRANDS.length} brands in the Arena
@@ -354,7 +365,8 @@ export default function ArenaNav({
           </div>
         </div>
       )}
-          {/* ── NAV BAR ── */}
+
+      {/* ── NAV BAR ── */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a',
         background: '#0a0a0a', position: 'sticky', top: 0, zIndex: 50 }}>
@@ -395,15 +407,31 @@ export default function ArenaNav({
           )}
         </div>
 
-        {/* RIGHT — envelope + hamburger */}
+        {/* RIGHT — tier pill + envelope + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
 
-          {/* Trial badge */}
+          {/* ── MEMBERSHIP TIER PILL ── */}
+          {/* Shows for user + team roles. Reads from localStorage via state. */}
           {(role === 'user' || role === 'team') && (
-            <span style={{ fontSize: '0.7rem', background: `${accentColor}15`,
-              border: `1px solid ${accentColor}40`, color: accentColor,
-              borderRadius: '999px', padding: '0.25rem 0.85rem' }}>
-              {trialStatus === 'team' ? '🔵 Team' : '🟢 Trial'}
+            <span style={{
+              fontSize:     '0.7rem',
+              background:   `${tierDef.color}15`,
+              border:       `1px solid ${tierDef.color}40`,
+              color:        tierDef.color,
+              borderRadius: '999px',
+              padding:      '0.25rem 0.85rem',
+              fontWeight:   600,
+              display:      'flex',
+              alignItems:   'center',
+              gap:          '0.3rem',
+            }}>
+              {tierDef.label}
+              {/* Streak indicator — shows when 3+ day streak active */}
+              {streakDays >= 3 && (
+                <span style={{ fontSize: '0.65rem', color: '#f0883e' }}>
+                  🔥{streakDays}d
+                </span>
+              )}
             </span>
           )}
 
@@ -456,6 +484,18 @@ export default function ArenaNav({
                   <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '0.1rem' }}>
                     {userEmail}
                   </div>
+                  {/* Tier in dropdown too */}
+                  {(role === 'user' || role === 'team') && (
+                    <div style={{ fontSize: '0.65rem', color: tierDef.color,
+                      marginTop: '0.3rem', fontWeight: 600 }}>
+                      {tierDef.label}
+                      {streakDays >= 3 && (
+                        <span style={{ marginLeft: '0.4rem', color: '#f0883e' }}>
+                          🔥 {streakDays}d streak
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Menu items */}
@@ -473,7 +513,6 @@ export default function ArenaNav({
 
                 <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
 
-                {/* Back to admin */}
                 {isPrevAdmin && (
                   <button
                     onClick={() => { setOpen(false); localStorage.removeItem('arena_prev_admin'); router.push('/dashboard/antcpu'); }}
@@ -486,7 +525,6 @@ export default function ArenaNav({
                   </button>
                 )}
 
-                {/* Logout */}
                 <button
                   onClick={() => { setOpen(false); handleLogout(); }}
                   style={{ display: 'flex', alignItems: 'center', gap: '0.6rem',
@@ -501,18 +539,16 @@ export default function ArenaNav({
         </div>
       </nav>
 
-     
     </>
   );
 }
 
 // ─── BrandRow sub-component ───────────────────────────────────────────────────
-// Extracted to keep the brands panel DRY — used for both recent + all brands
 
 function BrandRow({ b, onVisit, onDash }: {
-  b: Brand;
-  onVisit: (slug: string) => void;
-  onDash: () => void;
+  b:        Brand;
+  onVisit:  (slug: string) => void;
+  onDash:   () => void;
 }) {
   return (
     <div
