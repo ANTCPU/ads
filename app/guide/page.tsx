@@ -1,324 +1,381 @@
 'use client';
+// app/guide/page.tsx
+// ─── Arena Guide — single page, anchor sections per feature ──────────────────
+// Pills on /profile/[slug] link here with #anchor when feature is locked.
+// Each section tells the user: what it is, what unlocks it, what to do next.
+// Future: anchors become pin IDs on a map — URL structure stays identical.
+// ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import ArenaFooter from '../components/ArenaFooter';
+import React, { useEffect, useState } from 'react';
+import { useRouter }                  from 'next/navigation';
+import ArenaNav                       from '../components/ArenaNav';
+import ArenaFooter                    from '../components/ArenaFooter';
 
-// ─── Doorbell tracking ────────────────────────────────────────────────────────
-function ping(path: string) {
-  fetch('/api/doorbell', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      page: `/guide${path}`,
-      ref:  typeof document !== 'undefined' ? document.referrer || 'direct' : 'direct',
-      ts:   new Date().toISOString(),
-      ua:   typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-    }),
-  }).catch(() => {});
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type PathId = 'create' | 'share' | 'find' | null;
+type Viewer = {
+  email: string; name: string; brand: string;
+  trialStatus: string; role: string;
+};
 
-type LiveBrand = { brand: string; pts: number; slug: string };
+// ─── Tokens ───────────────────────────────────────────────────────────────────
 
-// ─── Path definitions ─────────────────────────────────────────────────────────
-const PATHS = [
+const bg     = '#0a0a0a';
+const card   = '#111';
+const border = '#1a1a1a';
+const muted  = '#555';
+const white  = '#fff';
+
+// ─── Tier ladder — mirrors membership.ts ─────────────────────────────────────
+
+const TIERS = [
+  { key: 'trial',      label: 'Trial',          icon: '🌱', color: '#555',    pts: 0,   badge: null              },
+  { key: 'member',     label: 'Member',          icon: '⚡', color: '#0070f3', pts: 0,   badge: 'any action badge' },
+  { key: 'rising',     label: 'Rising Member',   icon: '🚀', color: '#7928ca', pts: 100, badge: null              },
+  { key: 'veteran',    label: 'Arena Veteran',   icon: '🏅', color: '#ff0080', pts: 300, badge: 'Loyal Member'    },
+  { key: 'champion',   label: 'Arena Champion',  icon: '🏆', color: '#D4AF37', pts: 750, badge: 'Country Champion' },
+  { key: 'subscriber', label: 'Subscriber',      icon: '💎', color: '#f0883e', pts: 0,   badge: null              },
+];
+
+// ─── Guide sections — one per pill anchor ────────────────────────────────────
+
+const SECTIONS = [
   {
-    id:     'create' as PathId,
-    emoji:  '📢',
-    title:  'Create an Ad',
-    sub:    'Your brand. Live today. Free trial.',
-    accent: '#0070f3',
-    steps: [
-      { n: '01', title: 'Sign up free',      desc: 'Name, email, brand. No credit card. 3-day trial starts immediately.' },
-      { n: '02', title: 'Build your ad',     desc: 'Title, description, link. Aria reviews it live — usually under a minute.' },
-      { n: '03', title: 'Go live same day',  desc: 'Your ad enters the Arena and starts competing for points immediately.' },
-      { n: '04', title: 'Share to climb',    desc: 'Every share earns 5 pts. Every click earns 3 pts. Pinned ads earn 50 pts.' },
-    ],
-    cta:    '⚡ Create an Ad →',
-    href:   '/create-ad',
+    id:       'arena',
+    icon:     '🏟',
+    label:    'Arena',
+    minTier:  'trial',
+    color:    '#0070f3',
+    what:     'The Arena is the live feed of every active ad on the network. Browse brands, click ads, share what you like, and earn points for every action.',
+    unlocks:  'Available to everyone — no tier required.',
+    howTo:    null,
+    cta:      { label: 'Open the Arena', href: '/arena' },
   },
   {
-    id:     'share' as PathId,
-    emoji:  '↗',
-    title:  'Join the Sharing. Watch Your Ad Perform.',
-    sub:    'Share ads. Earn points. Climb the leaderboard.',
-    accent: '#f0883e',
-    steps: [
-      { n: '01', title: 'Browse the Arena',      desc: 'Live ads from real brands competing right now. All public, no login needed.' },
-      { n: '02', title: 'Hit ↗ Share on any ad', desc: 'WhatsApp, X, Telegram, clipboard — your choice. One tap.' },
-      { n: '03', title: 'The brand earns points', desc: '5 pts per share. 3 pts per click. Top ads get pinned for 50 bonus pts.' },
-      { n: '04', title: 'Watch the board move',   desc: 'Rankings update live. See who\'s rising, who\'s falling, who just got pinned.' },
-    ],
-    cta:    '🏟 Browse the Arena →',
-    href:   '/arena',
+    id:       'create-ad',
+    icon:     '📢',
+    label:    'Create Ad',
+    minTier:  'trial',
+    color:    '#0070f3',
+    what:     'Build and submit your ad to the Arena. Title, description, URL, category — Aria reviews it and you go live same day.',
+    unlocks:  'Available to everyone — no tier required.',
+    howTo:    null,
+    cta:      { label: 'Create Your Ad', href: '/create-ad' },
   },
   {
-    id:     'find' as PathId,
-    emoji:  '👤',
-    title:  'Who else is in the Arena?',
-    sub:    'Find brands, explore profiles, make connections.',
-    accent: '#7928ca',
-    steps: [
-      { n: '01', title: 'Go to the Arena',      desc: 'Real businesses competing for real reach.' },
-      { n: '02', title: 'Click any brand name', desc: 'Every brand name is a link. Opens their full public profile instantly.' },
-      { n: '03', title: 'See their full story', desc: 'Bio, website, all their ads, social links, performance stats.' },
-      { n: '04', title: 'Share or connect',     desc: 'Share their profile with one tap. Or reach out directly via their links.' },
+    id:       'campaign-hub',
+    icon:     '🗺️',
+    label:    'Campaign Hub',
+    minTier:  'rising',
+    color:    '#7928ca',
+    what:     'Campaign Hub groups your active ads by tier, shows performance across all campaigns, and lets you manage everything from one place.',
+    unlocks:  'Unlocks at Rising Member — 100 points.',
+    howTo: [
+      'Share your ad once to earn 10 points',
+      'Get a click on your ad for 5 points',
+      'Leave a reaction on another ad for 2 points',
+      'Reach 100 points total → Rising Member tier unlocks automatically',
     ],
-    cta:    '👤 Explore Profiles →',
-    href:   '/arena',
+    cta:      { label: 'Go to Arena — Start Earning', href: '/arena' },
+  },
+  {
+    id:       'posts',
+    icon:     '📝',
+    label:    'Posts',
+    minTier:  'veteran',
+    color:    '#ff0080',
+    what:     'Posts lets you publish brand updates, announcements, and content directly to your Arena profile. Followers see your posts in their feed.',
+    unlocks:  'Unlocks at Arena Veteran — 300 points + Loyal Member badge.',
+    howTo: [
+      'Reach 300 points through shares, clicks, and reactions',
+      'Earn the Loyal Member badge — restart your trial through Arena activity',
+      'Both conditions met → Arena Veteran tier unlocks automatically',
+      'Posts module appears on your profile',
+    ],
+    cta:      { label: 'Go to Arena — Start Earning', href: '/arena' },
+  },
+  {
+    id:       'aria-chat',
+    icon:     '💬',
+    label:    'Aria Chat',
+    minTier:  'veteran',
+    color:    '#ff0080',
+    what:     'A direct line to Aria — the Arena\'s AI agent. Ask her to write ad copy, analyse your performance, suggest improvements, or answer any Arena question.',
+    unlocks:  'Unlocks at Arena Veteran — 300 points + Loyal Member badge.',
+    howTo: [
+      'Reach 300 points through shares, clicks, and reactions',
+      'Earn the Loyal Member badge — restart your trial through Arena activity',
+      'Both conditions met → Arena Veteran tier unlocks automatically',
+      'Aria Chat appears on your profile',
+    ],
+    cta:      { label: 'Go to Arena — Start Earning', href: '/arena' },
+  },
+  {
+    id:       'video-feed',
+    icon:     '🎥',
+    label:    'Video Feed',
+    minTier:  'subscriber',
+    color:    '#f0883e',
+    what:     'Video Feed lets you run media ads — short video clips, YouTube embeds, and live streams — directly in the Arena feed. Maximum visibility.',
+    unlocks:  'Unlocks at Subscriber tier — paid plan.',
+    howTo: [
+      'Subscriber tier is a paid plan — $9.99/mo',
+      'Currently in Phase 4 development — not yet live',
+      'Join the Arena now to be first in line when it launches',
+    ],
+    cta:      { label: 'Join the Arena', href: '/arena' },
   },
 ];
 
-// ─── Brand color fallback ─────────────────────────────────────────────────────
-const BRAND_COLORS: Record<string, string> = {
-  'map-of-pi':           '#D4AF37',
-  'antcpu-ads':          '#f0883e',
-  'antcpu':              '#f0883e',
-  'amanda-photography':  '#e91e8c',
-  'pipioneersx':         '#7928ca',
-};
-function getBrandColor(slug: string): string {
-  return BRAND_COLORS[slug] || '#0070f3';
-}
+// ─── Points actions table ─────────────────────────────────────────────────────
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+const POINT_ACTIONS = [
+  { action: 'Share an ad',          pts: '+10', color: '#7928ca' },
+  { action: 'Click an ad',          pts: '+5',  color: '#0070f3' },
+  { action: 'React to an ad',       pts: '+2',  color: '#f0883e' },
+  { action: 'Like an ad',           pts: '+2',  color: '#22c55e' },
+  { action: 'Boost an ad',          pts: '+5',  color: '#D4AF37' },
+  { action: 'Your ad gets clicked', pts: '+3',  color: '#0070f3' },
+  { action: 'Your ad gets shared',  pts: '+8',  color: '#7928ca' },
+];
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function GuidePage() {
-  const router = useRouter();
-
-  const [active,     setActive]     = useState<PathId>(null);
-  const [ref,        setRef]        = useState('');
-  const [liveBrands, setLiveBrands] = useState<LiveBrand[]>([]);
+  const router  = useRouter();
+  const [viewer, setViewer] = useState<Viewer | null>(null);
 
   useEffect(() => {
-    // Ref tracking + doorbell
-    const params = new URLSearchParams(window.location.search);
-    const r = params.get('ref') || params.get('from') || 'direct';
-    setRef(r);
-    ping(`?ref=${r}`);
+    // Read viewer — guide is public but nav needs session if present
+    const stored = localStorage.getItem('arena_user');
+    if (stored) { try { setViewer(JSON.parse(stored)); } catch {} }
 
-    // Live top brands from /api/stats
-    fetch('/api/stats')
-      .then(res => res.json())
-      .then(d => { if (d.topBrands?.length) setLiveBrands(d.topBrands); })
-      .catch(() => {});
+    // Scroll to anchor if present in URL
+    const hash = window.location.hash;
+    if (hash) {
+      setTimeout(() => {
+        const el = document.querySelector(hash);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
   }, []);
 
-  function handleCTA(href: string, pathId: PathId) {
-    ping(`/cta?path=${pathId}&ref=${ref}`);
-    router.push(href);
-  }
+  const accent = viewer?.role === 'super' ? '#f0883e'
+    : viewer?.trialStatus === 'team' ? '#7928ca'
+    : '#0070f3';
 
-  function toggle(id: PathId) {
-    setActive(prev => prev === id ? null : id);
-  }
+  // ── Styles ──────────────────────────────────────────────────────────────────
+
+  const cardStyle: React.CSSProperties = {
+    background: card, border: `1px solid ${border}`,
+    borderRadius: '12px', padding: '1.5rem', marginBottom: '1.25rem',
+    scrollMarginTop: '2rem',
+  };
+  const lbl: React.CSSProperties = {
+    fontSize: '0.65rem', color: muted, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem',
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{
-      background: '#0d0f14',
-      color: '#fff',
-      minHeight: '100vh',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
+    <div style={{ background: bg, minHeight: '100vh', color: white, fontFamily: 'system-ui, sans-serif' }}>
+      <ArenaNav
+        role={(viewer?.role as any) || 'user'}
+        userName={viewer?.name || ''}
+        userEmail={viewer?.email || ''}
+        userBrand={viewer?.brand || ''}
+        trialStatus={(viewer?.trialStatus as any) || 'trial'}
+      />
 
-      {/* Radial glow */}
-      <div style={{
-        position: 'absolute', top: '-120px', left: '50%',
-        transform: 'translateX(-50%)', width: '600px', height: '400px',
-        background: 'radial-gradient(ellipse at center, rgba(0,112,243,0.08) 0%, transparent 70%)',
-        pointerEvents: 'none', zIndex: 0,
-      }} />
+      <div style={{ maxWidth: '640px', margin: '0 auto', padding: '2rem 1.25rem 4rem' }}>
 
-      {/* ── Nav ── */}
-      <div style={{
-        position: 'relative', zIndex: 1,
-        borderBottom: '1px solid #1e2130',
-        padding: '1rem 1.5rem',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      }}>
-        <button onClick={() => router.push('/')}
-          style={{ background: 'none', border: 'none', color: '#fff',
-            fontWeight: 800, fontSize: '1rem', cursor: 'pointer', letterSpacing: '0.02em' }}>
-          ⚡ ANTCPU ADS
+        {/* ── Back ── */}
+        <button onClick={() => router.back()}
+          style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '0.78rem', padding: 0, marginBottom: '1.5rem' }}>
+          ← Back
         </button>
-        <button onClick={() => { ping('/nav?to=arena'); router.push('/arena'); }}
-          style={{ background: 'none', border: '1px solid #2a2d35', color: '#888',
-            borderRadius: '8px', padding: '0.4rem 0.9rem',
-            fontSize: '0.78rem', cursor: 'pointer', fontWeight: 600 }}>
-          🏟 Live Arena →
-        </button>
-      </div>
 
-      {/* ── Hero ── */}
-      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '3rem 1.5rem 2rem' }}>
-        <div style={{ fontSize: '1.1rem', color: '#0070f3', marginBottom: '1rem',
-          letterSpacing: '0.15em', animation: 'pulse 3s ease-in-out infinite' }}>
-          ◈ &nbsp; ARENA GUIDE
-        </div>
-        <h1 style={{ fontSize: 'clamp(1.75rem, 5vw, 2.5rem)', fontWeight: 900,
-          margin: '0 0 0.75rem', lineHeight: 1.15, letterSpacing: '-0.02em' }}>
-          Get your brand in front<br />
-          <span style={{ color: '#0070f3' }}>of real people.</span> Today.
-        </h1>
-        <p style={{ color: '#555', fontSize: '0.95rem', margin: '0 0 0.5rem', lineHeight: 1.6 }}>
-          Three paths. Pick yours.
-        </p>
-        <p style={{ color: '#333', fontSize: '0.82rem', margin: 0 }}>
-          You're 3 minutes from live.
-        </p>
-      </div>
-
-      {/* ── Path cards ── */}
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: '640px',
-        margin: '0 auto', padding: '0 1.25rem 1.5rem' }}>
-
-        <div style={{ fontSize: '0.62rem', color: '#333', fontWeight: 700,
-          letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-          Choose your path
+        {/* ── Header ── */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.4rem' }}>
+            ⚡ Arena Guide
+          </h1>
+          <p style={{ fontSize: '0.85rem', color: muted, margin: 0 }}>
+            How the Arena works, what each feature does, and exactly how to unlock it.
+          </p>
         </div>
 
-        {PATHS.map(path => {
-          const isOpen = active === path.id;
-          return (
-            <div key={path.id} onClick={() => toggle(path.id)}
-              style={{
-                background:   isOpen ? `${path.accent}06` : '#111318',
-                border:       `1px solid ${isOpen ? path.accent + '40' : '#2a2d35'}`,
-                borderLeft:   `3px solid ${path.accent}`,
-                boxShadow:    isOpen ? `0 0 20px ${path.accent}15` : 'none',
-                borderRadius: '12px',
-                padding:      '1.1rem 1.25rem',
-                marginBottom: '0.65rem',
-                cursor:       'pointer',
-                transition:   'all 0.2s ease',
+        {/* ── TIER LADDER ── */}
+        <div style={{ ...cardStyle, marginBottom: '2rem' }}>
+          <div style={lbl}>Tier Ladder</div>
+          <p style={{ fontSize: '0.82rem', color: '#888', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+            Every action in the Arena earns points. Points unlock tiers. Tiers unlock features.
+            You never lose a tier — progress only goes up.
+          </p>
+
+          {/* Tier rows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+            {TIERS.map((t, i) => (
+              <div key={t.key} style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                background: bg, border: `1px solid ${t.color}25`,
+                borderLeft: `3px solid ${t.color}`,
+                borderRadius: '8px', padding: '0.65rem 0.85rem',
               }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', flex: 1 }}>
-                  <span style={{ fontSize: '1.25rem', lineHeight: 1, marginTop: '0.1rem' }}>{path.emoji}</span>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem',
-                      color: isOpen ? '#fff' : '#ccc', marginBottom: '0.2rem', lineHeight: 1.3 }}>
-                      {path.title}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#444' }}>{path.sub}</div>
+                <span style={{ fontSize: '1rem', flexShrink: 0 }}>{t.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: t.color }}>{t.label}</div>
+                  <div style={{ fontSize: '0.7rem', color: muted, marginTop: '0.1rem' }}>
+                    {t.key === 'trial'      && 'Start here — 3 days free'}
+                    {t.key === 'member'     && 'Earn any action badge — share, click, react, like, or boost'}
+                    {t.key === 'rising'     && '100 points'}
+                    {t.key === 'veteran'    && '300 points + Loyal Member badge'}
+                    {t.key === 'champion'   && '750 points + Country Champion or Top Brand badge'}
+                    {t.key === 'subscriber' && 'Paid plan — $9.99/mo · Phase 4'}
                   </div>
                 </div>
-                <span style={{ color: '#333', fontSize: '0.75rem',
-                  marginLeft: '0.75rem', flexShrink: 0, marginTop: '0.2rem' }}>
-                  {isOpen ? '▲' : '▼'}
-                </span>
+                {i < TIERS.length - 1 && (
+                  <span style={{ fontSize: '0.65rem', color: muted, flexShrink: 0 }}>
+                    {t.pts > 0 ? `${t.pts} pts` : t.key === 'subscriber' ? '$9.99' : 'action'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Points table */}
+          <div style={lbl}>How to Earn Points</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {POINT_ACTIONS.map(a => (
+              <div key={a.action} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.4rem 0', borderBottom: `1px solid ${border}`,
+              }}>
+                <span style={{ fontSize: '0.8rem', color: '#aaa' }}>{a.action}</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: a.color }}>{a.pts}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── FEATURE SECTIONS ── */}
+        {SECTIONS.map(s => {
+          const tierDef = TIERS.find(t => t.key === s.minTier)!;
+          return (
+            <div key={s.id} id={s.id} style={{ ...cardStyle, border: `1px solid ${s.color}25`, position: 'relative', overflow: 'hidden' }}>
+
+              {/* Accent bar */}
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, ${s.color}, transparent)` }} />
+
+              {/* Header row */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>{s.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: white }}>{s.label}</div>
+                  <span style={{
+                    fontSize: '0.62rem', fontWeight: 700,
+                    color: tierDef.color,
+                    background: `${tierDef.color}15`,
+                    border: `1px solid ${tierDef.color}35`,
+                    borderRadius: '999px', padding: '0.1rem 0.5rem',
+                  }}>
+                    {tierDef.icon} {tierDef.label}+
+                  </span>
+                </div>
               </div>
 
-              {isOpen && (
-                <div onClick={e => e.stopPropagation()}>
-                  <div style={{ borderTop: '1px solid #1e2130', margin: '1rem 0' }} />
-                  {path.steps.map(step => (
-                    <div key={step.n} style={{ display: 'flex', gap: '0.85rem',
-                      marginBottom: '1rem', alignItems: 'flex-start' }}>
-                      <div style={{
-                        background: `${path.accent}18`, border: `1px solid ${path.accent}35`,
-                        color: path.accent, borderRadius: '6px', padding: '0.2rem 0.5rem',
-                        fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.08em',
-                        flexShrink: 0, marginTop: '0.15rem', fontFamily: 'monospace',
-                      }}>
-                        {step.n}
+              {/* What it is */}
+              <p style={{ fontSize: '0.85rem', color: '#aaa', lineHeight: 1.65, marginBottom: '1rem' }}>
+                {s.what}
+              </p>
+
+              {/* Unlock condition */}
+              <div style={{
+                background: `${s.color}08`, border: `1px solid ${s.color}25`,
+                borderRadius: '8px', padding: '0.65rem 0.85rem', marginBottom: s.howTo ? '1rem' : '1.25rem',
+              }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: s.color, marginBottom: '0.2rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Unlock condition
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#aaa' }}>{s.unlocks}</div>
+              </div>
+
+              {/* How to unlock steps */}
+              {s.howTo && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={lbl}>How to get there</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {s.howTo.map((step, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                        <span style={{
+                          flexShrink: 0, width: '18px', height: '18px',
+                          background: `${s.color}20`, border: `1px solid ${s.color}40`,
+                          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '0.6rem', fontWeight: 800, color: s.color, marginTop: '0.1rem',
+                        }}>
+                          {i + 1}
+                        </span>
+                        <span style={{ fontSize: '0.82rem', color: '#aaa', lineHeight: 1.5 }}>{step}</span>
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem',
-                          color: '#e0e0e0', marginBottom: '0.2rem' }}>
-                          {step.title}
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: '#555', lineHeight: 1.55 }}>
-                          {step.desc}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <button onClick={() => handleCTA(path.href, path.id)}
-                    style={{
-                      width: '100%', background: path.accent,
-                      color: path.accent === '#f0883e' ? '#000' : '#fff',
-                      border: 'none', borderRadius: '10px', padding: '0.9rem',
-                      fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer',
-                      marginTop: '0.25rem', letterSpacing: '0.01em',
-                      boxShadow: `0 4px 20px ${path.accent}30`, transition: 'opacity 0.15s',
-                    }}>
-                    {path.cta}
-                  </button>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* CTA */}
+              <button
+                onClick={() => router.push(s.cta.href)}
+                style={{
+                  background: `${s.color}15`, border: `1px solid ${s.color}40`,
+                  borderRadius: '8px', color: s.color,
+                  fontSize: '0.82rem', fontWeight: 700,
+                  padding: '0.6rem 1.1rem', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}>
+                {s.cta.label} →
+              </button>
             </div>
           );
         })}
 
-        {/* ── Brand tiles — live top 3 ── */}
-        {liveBrands.length > 0 && (
-          <div style={{ marginTop: '1.75rem' }}>
-            <div style={{ fontSize: '0.62rem', color: '#333', fontWeight: 700,
-              letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-              Live in the Arena now
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-              {liveBrands.map(b => {
-                const color = getBrandColor(b.slug);
-                return (
-                  <button key={b.brand}
-                    onClick={() => { ping(`/brand?name=${b.brand}&ref=${ref}`); router.push(`/arena`); }}
-                    style={{
-                      background: '#111318', border: `1px solid #2a2d35`,
-                      borderTop: `2px solid ${color}`, borderRadius: '10px',
-                      padding: '0.85rem 0.75rem', cursor: 'pointer', textAlign: 'left',
-                      transition: 'border-color 0.15s, box-shadow 0.15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 0 12px ${color}20`)}
-                    onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}>
-                    <div style={{ fontWeight: 700, fontSize: '0.75rem',
-                      color: '#ccc', marginBottom: '0.25rem', lineHeight: 1.3 }}>
-                      {b.brand}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color, fontWeight: 700 }}>
-                      ⚡ {b.pts} pts
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+        {/* ── BOTTOM CTA ── */}
+        <div style={{ ...cardStyle, textAlign: 'center', border: `1px solid ${accent}25` }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⚡</div>
+          <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: '0.4rem' }}>
+            Ready to climb?
           </div>
-        )}
-
-        {/* ── Bottom fallback ── */}
-        <div style={{
-          marginTop: '1.75rem', background: '#111318', border: '1px solid #2a2d35',
-          borderRadius: '12px', padding: '1.5rem', textAlign: 'center',
-        }}>
-          <div style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.4rem', color: '#ccc' }}>
-            Not sure yet?
+          <div style={{ fontSize: '0.82rem', color: muted, marginBottom: '1.25rem' }}>
+            Every share earns 10 points. One share a day gets you to Rising in 10 days.
           </div>
-          <div style={{ fontSize: '0.8rem', color: '#444', marginBottom: '1.1rem', lineHeight: 1.6 }}>
-            Browse the Arena first — no signup needed.<br />
-            See what's live. See who's winning.
-          </div>
-          <button onClick={() => { ping('/cta?path=browse&ref=bottom'); router.push('/arena'); }}
-            style={{
-              background: 'transparent', border: '1px solid #2a2d35', color: '#666',
-              borderRadius: '8px', padding: '0.7rem 1.5rem',
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => router.push('/arena')} style={{
+              background: accent, border: 'none', color: '#fff',
+              borderRadius: '8px', padding: '0.65rem 1.25rem',
               fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
             }}>
-            See What's Live →
-          </button>
+              🏟 Open Arena
+            </button>
+            <button onClick={() => router.push('/create-ad')} style={{
+              background: 'transparent', border: `1px solid ${accent}`,
+              color: accent, borderRadius: '8px', padding: '0.65rem 1.1rem',
+              fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+            }}>
+              📢 Create Ad
+            </button>
+            {viewer && (
+              <button onClick={() => router.push(`/profile/${encodeURIComponent(viewer.email)}`)} style={{
+                background: 'transparent', border: `1px solid ${border}`,
+                color: muted, borderRadius: '8px', padding: '0.65rem 1.1rem',
+                fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+              }}>
+                👤 My Profile
+              </button>
+            )}
+          </div>
         </div>
 
       </div>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50%       { opacity: 0.4; }
-        }
-      `}</style>
 
       <ArenaFooter />
     </div>
