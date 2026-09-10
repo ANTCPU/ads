@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { setStoredLocale }     from '../lib/locale';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -152,7 +153,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
 
   // ─── Step 2: PIN verify ───────────────────────────────────────────────────
   // All paths call /api/session/set after auth to trigger syncBadges
-  // and get enriched data (membershipTier, streakDays, lastActiveDate).
+  // and get enriched data (membershipTier, streakDays, lastActiveDate, preferredLocale).
 
   async function handlePin() {
     const norm = email.trim().toLowerCase();
@@ -228,6 +229,11 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
             lastActiveDate: syncData.lastActiveDate  || null,
             trialStatus:    syncData.trialStatus     || session.trialStatus,
           };
+          // ── Write preferred locale to localStorage ──────────────────────
+          // preferredLocale is fetched from ad_signups by syncBadges and
+          // returned here. Writing it now means every subsequent page load
+          // reads the correct language without any user action required.
+          if (syncData.preferredLocale) setStoredLocale(syncData.preferredLocale);
         }
       } catch {}
 
