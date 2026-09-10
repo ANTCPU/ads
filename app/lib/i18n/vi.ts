@@ -187,7 +187,7 @@ export const vi: Record<string, string> = {
   weekly_greeting:          'Đây là bản cập nhật Arena hàng tuần của bạn.',
   weekly_leaderboard:       'Bảng xếp hạng tuần này',
   weekly_tip_label:         'Mẹo nhanh',
-  weekly_tip_body:          'Chia sẻ quảng cáo của người khác — không chỉ của bạn. Arena thưởng cho sự寛大. Khi bạn chia sẻ quảng cáo của thành viên khác, bạn kiếm điểm VÀ xây dựng thiện chí. Đó là cách leo thang nhanh nhất.',
+  weekly_tip_body:          'Chia sẻ quảng cáo của người khác — không chỉ của bạn. Arena thưởng cho sự hào phóng. Khi bạn chia sẻ quảng cáo của thành viên khác, bạn kiếm điểm VÀ xây dựng thiện chí. Đó là cách leo thang nhanh nhất.',
   weekly_status_team:       'Thành viên nhóm',
 
   // RTL FLAG
