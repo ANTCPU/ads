@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter }                   from 'next/navigation';
-import { createClient }                from '@supabase/supabase-js';
-import ArenaNav                        from '../../components/ArenaNav';
-import ArenaFooter                     from '../../components/ArenaFooter';
-import LoyaltyCard                     from '../../components/LoyaltyCard';
-import { clearSessionCookie }          from '../../lib/session';
-import { recordShare, detectPlatform } from '../../lib/tracking/shares';
-import { trackClick as libTrackClick } from '../../lib/tracking/clicks';
-import { SOURCE }                      from '../../lib/tracking/sources';
-import { getTierDef, MembershipTier }  from '../../lib/membership';
+import React, { useState, useEffect }  from 'react';
+import { useRouter }                    from 'next/navigation';
+import { createClient }                 from '@supabase/supabase-js';
+import ArenaNav                         from '../../components/ArenaNav';
+import ArenaFooter                      from '../../components/ArenaFooter';
+import LoyaltyCard                      from '../../components/LoyaltyCard';
+import { clearSessionCookie }           from '../../lib/session';
+import { recordShare, detectPlatform }  from '../../lib/tracking/shares';
+import { trackClick as libTrackClick }  from '../../lib/tracking/clicks';
+import { SOURCE }                       from '../../lib/tracking/sources';
+import { getTierDef, MembershipTier }   from '../../lib/membership';
+import { PLATFORMS, getShareAction, ShareContext } from '../../lib/socialShare';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,6 +33,8 @@ type Ad = {
   tier: string; pinned: boolean; email: string;
   promo_code: string | null; click_count: number;
   share_count: number; points: number; rank_position: number;
+  is_country_champion?: boolean;
+  country?: string;
 };
 
 type UserBadge = {
@@ -42,24 +45,24 @@ type UserBadge = {
 // ─── Badge Registry ───────────────────────────────────────────────────────────
 
 const BADGE_REGISTRY: Record<string, { label: string; icon: string; color: string; desc: string }> = {
-  'arena-original': { label: 'Arena Original',   icon: '🔥',  color: '#D4AF37', desc: 'One of the first 100 members'                    },
-  'pi-pioneer':     { label: 'Pi Pioneer',        icon: '🗺️',  color: '#7928ca', desc: 'Joined via Map of Pi'                            },
-  'challenger':     { label: 'Challenger',         icon: '🚀',  color: '#ff0080', desc: 'Enrolled in the internship challenge'            },
-  'arena-builder':  { label: 'Arena Builder',      icon: '⚙️',  color: '#0070f3', desc: 'Direct invite from the ANTCPU team'             },
-  'first-share':    { label: 'Sharer',             icon: '↗',   color: '#22c55e', desc: 'Shared your first ad'                           },
-  'first-like':     { label: 'Supporter',          icon: '😊',  color: '#0070f3', desc: 'Liked your first ad'                            },
-  'first-boost':    { label: 'Booster',            icon: '⚡',  color: '#D4AF37', desc: 'Boosted your first ad'                          },
-  'first-click':    { label: 'Explorer',           icon: '👆',  color: '#7928ca', desc: 'Clicked your first ad'                          },
-  'first-reaction': { label: 'Reactor',            icon: '🔥',  color: '#f0883e', desc: 'Left your first reaction'                       },
-  'loyal-member':   { label: 'Loyal Member',       icon: '🔄',  color: '#0070f3', desc: 'Restarted trial through Arena activity'         },
-  'points-100':     { label: 'Century',            icon: '💯',  color: '#f0883e', desc: 'Crossed 100 points'                             },
-  'points-300':     { label: 'Rising Star',        icon: '🚀',  color: '#7928ca', desc: 'Crossed 300 points'                             },
-  'points-750':     { label: 'Top Tier',           icon: '🏆',  color: '#D4AF37', desc: 'Crossed 750 points'                             },
-  'arena-active':   { label: 'Arena Active',       icon: '🔥',  color: '#22c55e', desc: '3-day share streak'                             },
-  'country-champion':{ label: 'Country Champion',  icon: '🏆',  color: '#D4AF37', desc: 'Top-ranked brand in their country'              },
-  'verified-brand': { label: 'Verified Brand',     icon: '✅',  color: '#22c55e', desc: 'Identity verified by ANTCPU'                    },
-  'top-brand':      { label: 'Top Brand',          icon: '🥇',  color: '#f0883e', desc: 'Ranked #1 across the entire Arena'              },
-  'arena-staff':    { label: 'Arena Staff',        icon: '⚡',  color: '#f0883e', desc: 'ANTCPU team member or official partner'         },
+  'arena-original':  { label: 'Arena Original',  icon: '🔥',  color: '#D4AF37', desc: 'One of the first 100 members'               },
+  'pi-pioneer':      { label: 'Pi Pioneer',       icon: '🗺️',  color: '#7928ca', desc: 'Joined via Map of Pi'                       },
+  'challenger':      { label: 'Challenger',        icon: '🚀',  color: '#ff0080', desc: 'Enrolled in the internship challenge'       },
+  'arena-builder':   { label: 'Arena Builder',     icon: '⚙️',  color: '#0070f3', desc: 'Direct invite from the ANTCPU team'        },
+  'first-share':     { label: 'Sharer',            icon: '↗',   color: '#22c55e', desc: 'Shared your first ad'                      },
+  'first-like':      { label: 'Supporter',         icon: '😊',  color: '#0070f3', desc: 'Liked your first ad'                       },
+  'first-boost':     { label: 'Booster',           icon: '⚡',  color: '#D4AF37', desc: 'Boosted your first ad'                     },
+  'first-click':     { label: 'Explorer',          icon: '👆',  color: '#7928ca', desc: 'Clicked your first ad'                     },
+  'first-reaction':  { label: 'Reactor',           icon: '🔥',  color: '#f0883e', desc: 'Left your first reaction'                  },
+  'loyal-member':    { label: 'Loyal Member',      icon: '🔄',  color: '#0070f3', desc: 'Restarted trial through Arena activity'    },
+  'points-100':      { label: 'Century',           icon: '💯',  color: '#f0883e', desc: 'Crossed 100 points'                        },
+  'points-300':      { label: 'Rising Star',       icon: '🚀',  color: '#7928ca', desc: 'Crossed 300 points'                        },
+  'points-750':      { label: 'Top Tier',          icon: '🏆',  color: '#D4AF37', desc: 'Crossed 750 points'                        },
+  'arena-active':    { label: 'Arena Active',      icon: '🔥',  color: '#22c55e', desc: '3-day share streak'                        },
+  'country-champion':{ label: 'Country Champion',  icon: '🏆',  color: '#D4AF37', desc: 'Top-ranked brand in their country'         },
+  'verified-brand':  { label: 'Verified Brand',    icon: '✅',  color: '#22c55e', desc: 'Identity verified by ANTCPU'               },
+  'top-brand':       { label: 'Top Brand',         icon: '🥇',  color: '#f0883e', desc: 'Ranked #1 across the entire Arena'         },
+  'arena-staff':     { label: 'Arena Staff',       icon: '⚡',  color: '#f0883e', desc: 'ANTCPU team member or official partner'    },
 };
 
 // ─── Tier ladder (ad tier — separate from membership tier) ────────────────────
@@ -75,13 +78,21 @@ const TIER_CONFIG: Record<string, { color: string; label: string }> = Object.fro
   TIERS.map(t => [t.key, { color: t.color, label: t.label }])
 );
 
-const CATEGORY_TAGS: Record<string, string> = {
-  'Pi Commerce':     '#mapofpi #pinetwork #picommerce #crypto',
-  'Photography':     '#photography #portraits #memories #photographer',
-  'Brand Awareness': '#branding #marketing #growthhacking',
-  'Product Launch':  '#productlaunch #startup #newproduct',
-  'Other':           '#marketing #ads #business #antcpu',
-};
+// ─── ShareContext builder — single source for all share surfaces ──────────────
+
+function buildShareCtx(ad: Ad): ShareContext {
+  return {
+    brand:       ad.brand,
+    title:       ad.title,
+    description: ad.description,
+    url:         ad.url,
+    profileUrl:  `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email)}`,
+    category:    ad.category,
+    country:     ad.country,
+    isChampion:  ad.is_country_champion,
+    pointsLabel: ad.points > 0 ? `⚡ ${ad.points} pts` : undefined,
+  };
+}
 
 // ─── TierStrip ────────────────────────────────────────────────────────────────
 
@@ -202,13 +213,11 @@ export default function UserDashboard() {
       setHydrated(true);
       fetchData(u.email);
 
-      // ── Read enriched fields from localStorage first ───────────────────
       if (u.membershipTier) setMembershipTier(u.membershipTier as MembershipTier);
       if (u.streakDays)     setStreakDays(u.streakDays);
 
       const email = u.email.trim().toLowerCase();
 
-      // ── Parallel profile + signups + badges queries ────────────────────
       supabase
         .from('ad_profiles').select('bio')
         .eq('email', email).maybeSingle()
@@ -322,10 +331,12 @@ export default function UserDashboard() {
     } catch {}
   }
 
+  // ── Share — uses share layer throughout ───────────────────────────────────
+
   async function shareAd(ad: Ad) {
     if (!user) return;
-    const tags = CATEGORY_TAGS[ad.category] || '#marketing #ads #antcpu';
-    const text = `Check out ${ad.brand} on ANTCPU ADS ⚡\n\n"${ad.title}"\n\n${ad.description}\n\n→ ${ad.url}\n\n${tags} #antcpuads`;
+    const waPlatform = PLATFORMS.find(p => p.key === 'whatsapp')!;
+    const { text }   = getShareAction(waPlatform, buildShareCtx(ad));
 
     let usedNative = false;
     if (typeof navigator !== 'undefined' && navigator.share) {
@@ -347,7 +358,7 @@ export default function UserDashboard() {
           SOURCE.USER_DASHBOARD,
           supabase,
         );
-        setMyAd(prev  => prev?.id  === ad.id ? { ...prev,  share_count: newCount } : prev);
+        setMyAd(prev     => prev?.id  === ad.id ? { ...prev,  share_count: newCount } : prev);
         setArenaAds(prev => prev.map(a =>
           a.id === ad.id ? { ...a, share_count: newCount } : a
         ));
@@ -363,6 +374,7 @@ export default function UserDashboard() {
 
   const isTeam    = user.trialStatus === 'team';
   const accent    = isTeam ? '#7928ca' : '#0070f3';
+  const isPiUser  = badges.some(b => b.badge_slug === 'pi-pioneer');
   const firstName = user.name?.includes('@')
     ? user.brand || user.email.split('@')[0]
     : user.name?.split(' ')[0];
@@ -383,7 +395,6 @@ export default function UserDashboard() {
 
   const knownBadges = badges.filter(b => BADGE_REGISTRY[b.badge_slug]);
   const showBadges  = knownBadges.length > 0;
-
   // ── Styles ────────────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
@@ -432,7 +443,6 @@ export default function UserDashboard() {
             <span style={pill(accent)}>{user.brand}</span>
             <span>·</span>
             <span>{isTeam ? 'Team — Unlimited' : 'Free'}</span>
-
             {showTierPill && (
               <>
                 <span>·</span>
@@ -441,7 +451,6 @@ export default function UserDashboard() {
                 </span>
               </>
             )}
-
             {myRank && (
               <><span>·</span><span style={{ color: '#f0883e' }}>#{myRank} in the Arena</span></>
             )}
@@ -474,10 +483,18 @@ export default function UserDashboard() {
             </div>
           )}
 
+          {/* ── Nav buttons — Map of Pi shown for Pi Pioneer users ── */}
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-            <button onClick={() => router.push('/create-ad')} style={btn(accent)}>📢 Create Ad</button>
-            <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)} style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
-            <button onClick={() => router.push('/arena')} style={btn('transparent', '#555', '1px solid #333')}>🏟 Arena</button>
+            <button onClick={() => router.push('/create-ad')}
+              style={btn(accent)}>📢 Create Ad</button>
+            <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)}
+              style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
+            <button onClick={() => router.push('/arena')}
+              style={btn('transparent', '#555', '1px solid #333')}>🏟 Arena</button>
+            {isPiUser && (
+              <button onClick={() => router.push('/mapofpi/arena')}
+                style={btn('transparent', '#D4AF37', '1px solid #D4AF3740')}>🗺️ Map of Pi</button>
+            )}
           </div>
         </div>
 
@@ -605,9 +622,11 @@ export default function UserDashboard() {
                 {myAd.description}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>🏟 View in Arena</button>
+                <button onClick={() => router.push('/arena')}
+                  style={btn('transparent', accent, `1px solid ${accent}`)}>🏟 View in Arena</button>
                 <button onClick={() => shareAd(myAd)} style={btn(accent)}>↗ Share</button>
-                <button onClick={() => router.push('/create-ad')} style={btn('transparent', '#555', '1px solid #333')}>✏️ Edit</button>
+                <button onClick={() => router.push('/create-ad')}
+                  style={btn('transparent', '#555', '1px solid #333')}>✏️ Edit</button>
               </div>
             </div>
           )}
@@ -656,7 +675,8 @@ export default function UserDashboard() {
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
             <div style={lbl}>The Arena</div>
-            <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>
+            <button onClick={() => router.push('/arena')}
+              style={btn('transparent', accent, `1px solid ${accent}`)}>
               View All →
             </button>
           </div>
@@ -671,6 +691,10 @@ export default function UserDashboard() {
               {arenaAds.slice(0, showCount).map(ad => {
                 const tier  = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
                 const isOwn = ad.email === user.email;
+                // ── word-boundary truncation ──
+                const preview = ad.description.length > 90
+                  ? ad.description.slice(0, ad.description.lastIndexOf(' ', 90)) + '…'
+                  : ad.description;
                 return (
                   <div
                     key={ad.id}
@@ -684,6 +708,8 @@ export default function UserDashboard() {
                     }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = tier.color + '60')}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? '#f0883e40' : '#1a1a1a')}>
+
+                    {/* ── Brand row ── */}
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.4rem' }}>
                       <span
                         onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
@@ -692,15 +718,32 @@ export default function UserDashboard() {
                       </span>
                       {ad.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
                       {isOwn     && <span style={pill('#22c55e')}>Your Ad</span>}
+                      {/* ── Enhancement 3 — champion badge ── */}
+                      {ad.is_country_champion && ad.country && (
+                        <span style={pill('#D4AF37')}>🏆 {ad.country}</span>
+                      )}
                       <span style={pill(tier.color)}>{tier.label}</span>
                       {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
                       )}
                     </div>
+
+                    {/* ── Title ── */}
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.3rem' }}>{ad.title}</div>
-                    <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem', lineHeight: 1.4 }}>
-                      {ad.description.length > 90 ? ad.description.slice(0, 90) + '…' : ad.description}
+
+                    {/* ── Description — word-boundary truncation ── */}
+                    <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.5rem', lineHeight: 1.4 }}>
+                      {preview}
                     </div>
+
+                    {/* ── Enhancement 2 — engagement stats ── */}
+                    <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.7rem', color: '#444', marginBottom: '0.65rem', flexWrap: 'wrap' }}>
+                      {(ad.click_count || 0) > 0 && <span>👆 {ad.click_count}</span>}
+                      {(ad.share_count || 0) > 0 && <span>↗ {ad.share_count}</span>}
+                      {(ad.points      || 0) > 0 && <span style={{ color: tier.color }}>⚡ {ad.points}</span>}
+                    </div>
+
+                    {/* ── Actions ── */}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
                         onClick={e => { e.stopPropagation(); window.open(ad.url, '_blank', 'noopener,noreferrer'); }}
