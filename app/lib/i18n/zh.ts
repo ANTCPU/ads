@@ -185,6 +185,12 @@ export const zh: Record<string, string> = {
   arena_stat_points:        '积分',
   arena_stat_reactions:     '反应',
   arena_stat_shares:        '分享',
+  weekly_digest_label:      '每周竞技场摘要',
+  weekly_greeting:          '这是您的每周竞技场更新。',
+  weekly_leaderboard:       '本周排行榜',
+  weekly_tip_label:         '快速提示',
+  weekly_tip_body:          '分享别人的广告——不只是您自己的。竞技场奖励慷慨。当您分享其他成员的广告时，您既能赚取积分，又能建立良好关系。这是最快攀登阶梯的方式。',
+  weekly_status_team:       '团队成员',
 
   // RTL FLAG
   rtl:                      'false',
