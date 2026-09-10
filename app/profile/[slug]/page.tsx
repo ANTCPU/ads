@@ -460,7 +460,7 @@ export default function ProfileClient() {
                   <div key={b.badge_slug} title={def.desc} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: `${defColor}12`, border: `1px solid ${defColor}35`, borderRadius: '999px', padding: '0.25rem 0.65rem', cursor: 'default' }}>
                     <span style={{ fontSize: '0.85rem' }}>{def.icon}</span>
                     <span style={{ fontSize: '0.7rem', fontWeight: 700, color: defColor }}>{def.label}</span>
-                    {def.tier === 4 && <span style={{ fontSize: '0.6rem', color: gold, opacity: 0.7 }}>✦</span>
+                    {def.tier === 4 && <span style={{ fontSize: '0.6rem', color: gold, opacity: 0.7 }}>✦</span>}
                   </div>
                 );
               })}
