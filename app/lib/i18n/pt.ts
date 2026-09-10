@@ -183,6 +183,8 @@ export const pt: Record<string, string> = {
   arena_stat_brands:        'Marcas',
   arena_stat_ads:           'Anúncios',
   arena_stat_points:        'Pontos',
+  arena_stat_reactions:     'Reações',
+  arena_stat_shares:        'Compartilhamentos',
 
   // RTL FLAG
   rtl:                      'false',
