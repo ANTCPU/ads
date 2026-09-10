@@ -2,6 +2,10 @@
 // Types and core logic only.
 // Platform implementations live in app/lib/platforms/
 // Content (hashtags, emojis, templates) lives in app/lib/content/
+//
+// getShareAction always passes ctx.url (ad destination) to intentUrl.
+// ctx.profileUrl is available to buildPost for platforms that want it (LinkedIn etc.)
+// but is never used as the intent target — that is always the ad URL.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AdType =
@@ -14,15 +18,16 @@ export type AdType =
   | 'Other';
 
 export interface ShareContext {
-  brand:       string;
-  title:       string;
-  description: string;
-  url:         string;       // destination URL
-  profileUrl:  string;       // /profile/[email]
-  category:    AdType | string;
-  country?:    string;
-  isChampion?: boolean;
-  promoCode?:  string;
+  brand:        string;
+  title:        string;
+  description:  string;
+  url:          string;        // ad destination URL — always used as intent target
+  profileUrl:   string;        // /profile/[email] — available to buildPost, never the intent target
+  category:     AdType | string;
+  country?:     string;
+  isChampion?:  boolean;
+  promoCode?:   string;
+  pointsLabel?: string;        // optional social proof e.g. "⚡ 395 pts" — opt-in per platform
 }
 
 export interface Platform {
@@ -37,8 +42,11 @@ export interface Platform {
 }
 
 // ─── Core action resolver ─────────────────────────────────────────────────────
-// Given a platform and context, returns the intent URL (if supported)
-// and the post text for clipboard fallback.
+// Returns the intent URL (if platform supports it) and the post text.
+//
+// Intent URL always uses ctx.url — the ad destination.
+// Post text is built by the platform's buildPost — it may use ctx.profileUrl
+// if the platform wants to include a profile link in the copy.
 
 export function getShareAction(
   platform: Platform,
@@ -46,7 +54,7 @@ export function getShareAction(
 ): { url: string | null; text: string } {
   const text = platform.buildPost(ctx);
   const url  = platform.supportsIntent
-    ? platform.intentUrl(text, ctx.profileUrl)
+    ? platform.intentUrl(text, ctx.url)   // ← always the ad destination URL
     : null;
   return { url, text };
 }
