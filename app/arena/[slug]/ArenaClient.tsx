@@ -1,12 +1,25 @@
 'use client';
-import { useRouter, useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import ArenaNav from '../../components/ArenaNav';
-import ArenaFooter from '../../components/ArenaFooter';
-import ModuleSlots from '../../components/ModuleSlots';
-import { PLATFORMS, getShareAction, ShareContext } from '../../lib/socialShare';
-import { trackClick, recordShare, recordLike, recordBoost, SOURCE } from '../../lib/tracking';
+// app/arena/[slug]/ArenaClient.tsx
+// Brand-specific arena — /arena/mapofpi, /arena/antcpu, etc.
+//
+// CHANGELOG v2 (Sep 2026):
+//   — recordReaction() now routes through tracking layer (was inline)
+//   — handleLike/handleBoost pass user.email for badge + notification funnel
+//   — handleReaction passes user.email || null for first-reaction badge
+//   — Stats bar adds Reactions + Shares (parity with Universal)
+//   — clearSessionCookie() on logout (parity with Universal)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { useRouter, useParams }                               from 'next/navigation';
+import { useState, useEffect }                                from 'react';
+import { createClient }                                       from '@supabase/supabase-js';
+import ArenaNav                                               from '../../components/ArenaNav';
+import ArenaFooter                                            from '../../components/ArenaFooter';
+import ModuleSlots                                            from '../../components/ModuleSlots';
+import { PLATFORMS, getShareAction, ShareContext }            from '../../lib/socialShare';
+import { trackClick, recordShare, recordLike,
+         recordBoost, recordReaction, SOURCE }                from '../../lib/tracking';
+import { clearSessionCookie }                                 from '../../lib/session';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
@@ -17,75 +30,49 @@ const supabase = createClient(
 
 // ─── Env ──────────────────────────────────────────────────────────────────────
 
-const APP_URL     = process.env.NEXT_PUBLIC_APP_URL  || 'https://antcpu-ads.vercel.app';
+const APP_URL     = process.env.NEXT_PUBLIC_APP_URL     || 'https://antcpu-ads.vercel.app';
 const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Ad = {
-  id: string;
-  brand: string;
-  title: string;
-  url: string;
-  description: string;
-  category: string;
-  status: string;
-  tier: string;
-  pinned: boolean;
-  email: string;
-  points: number;
-  click_count: number;
-  share_count: number;
-  like_count: number;
-  boost_count: number;
-  reaction_count: number;
-  rank_position?: number;
-  image_url: string | null;
-  is_country_champion?: boolean;
-  country?: string;
+  id: string; brand: string; title: string; url: string;
+  description: string; category: string; status: string;
+  tier: string; pinned: boolean; email: string; points: number;
+  click_count: number; share_count: number; like_count: number;
+  boost_count: number; reaction_count: number; rank_position?: number;
+  image_url: string | null; is_country_champion?: boolean; country?: string;
 };
 
 type SessionUser = {
-  name: string;
-  email: string;
-  brand: string;
-  trialStatus: string;
-  role?: string;
+  name: string; email: string; brand: string;
+  trialStatus: string; role?: string;
 };
 
 type BrandConfig = {
-  name: string;
-  primary: string;
-  logo?: string;
-  site?: string;
+  name: string; primary: string; logo?: string; site?: string;
 };
 
 type ReactionType = 'hot' | 'watching' | 'interesting';
-type Toast = { id: string; msg: string };
+type Toast        = { id: string; msg: string };
 
 // ─── Brand Registry ───────────────────────────────────────────────────────────
 
 const BRANDS: Record<string, BrandConfig> = {
-  antcpu:      { name: 'ANTCPU ADS',        primary: '#f0883e', logo: '/brands/antcpu/adsnetwork.jpg',       site: 'https://antcpu.com'         },
-  mapofpi:     { name: 'Map of Pi',          primary: '#D4AF37', logo: '/brands/mapofpi/map-of-pi-logo.png', site: 'https://mapofpi.com'        },
-  pipioneers:  { name: 'PiPioneersX',        primary: '#7928ca',                                              site: 'https://x.com/PiPioneersX'  },
-  photography: { name: 'Amanda Photography', primary: '#ff0080',                                              site: 'https://antcpu.com/manda/'  },
+  antcpu:      { name: 'ANTCPU ADS',        primary: '#f0883e', logo: '/brands/antcpu/adsnetwork.jpg',       site: 'https://antcpu.com'        },
+  mapofpi:     { name: 'Map of Pi',          primary: '#D4AF37', logo: '/brands/mapofpi/map-of-pi-logo.png', site: 'https://mapofpi.com'       },
+  pipioneers:  { name: 'PiPioneersX',        primary: '#7928ca',                                              site: 'https://x.com/PiPioneersX' },
+  photography: { name: 'Amanda Photography', primary: '#ff0080',                                              site: 'https://antcpu.com/manda/' },
 };
 
 const SLUG_ALIAS: Record<string, string> = {
-  'ads-network':   'antcpu',
-  'antcpuads':     'antcpu',
-  'adsnetwork':    'antcpu',
-  'amanda':        'photography',
-  'amandaphoto':   'photography',
-  'pipioneersx':   'pipioneers',
+  'ads-network': 'antcpu', 'antcpuads': 'antcpu', 'adsnetwork': 'antcpu',
+  'amanda': 'photography', 'amandaphoto': 'photography',
+  'pipioneersx': 'pipioneers',
 };
 
 const TIER_COLOR: Record<string, string> = {
-  toptier:  '#f0883e',
-  featured: '#ff0080',
-  rising:   '#7928ca',
-  entry:    '#0070f3',
+  toptier: '#f0883e', featured: '#ff0080', rising: '#7928ca', entry: '#0070f3',
 };
 
 const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
@@ -121,29 +108,29 @@ function getSessionId(): string {
 
 function countryFlag(country: string): string {
   const flags: Record<string, string> = {
-    'Nigeria': '🇳🇬', 'Ghana': '🇬🇭', 'Kenya': '🇰🇪', 'South Africa': '🇿🇦',
-    'Ethiopia': '🇪🇹', 'Tanzania': '🇹🇿', 'Uganda': '🇺🇬', 'Cameroon': '🇨🇲',
-    'Senegal': '🇸🇳', 'Ivory Coast': '🇨🇮', 'Zimbabwe': '🇿🇼', 'Zambia': '🇿🇲',
-    'Rwanda': '🇷🇼', 'Morocco': '🇲🇦', 'Algeria': '🇩🇿', 'Tunisia': '🇹🇳',
-    'Egypt': '🇪🇬', 'Mozambique': '🇲🇿', 'DR Congo': '🇨🇩', 'Togo': '🇹🇬',
-    'Benin': '🇧🇯', 'Sierra Leone': '🇸🇱', 'Liberia': '🇱🇷',
-    'Saudi Arabia': '🇸🇦', 'UAE': '🇦🇪', 'Israel': '🇮🇱',
-    'India': '🇮🇳', 'Pakistan': '🇵🇰', 'Bangladesh': '🇧🇩', 'Sri Lanka': '🇱🇰',
-    'Nepal': '🇳🇵', 'China': '🇨🇳', 'Japan': '🇯🇵', 'South Korea': '🇰🇷',
-    'Hong Kong': '🇭🇰', 'Taiwan': '🇹🇼', 'Singapore': '🇸🇬', 'Malaysia': '🇲🇾',
-    'Indonesia': '🇮🇩', 'Philippines': '🇵🇭', 'Vietnam': '🇻🇳', 'Thailand': '🇹🇭',
-    'Myanmar': '🇲🇲', 'Cambodia': '🇰🇭', 'Laos': '🇱🇦',
-    'Australia': '🇦🇺', 'New Zealand': '🇳🇿',
-    'United Kingdom': '🇬🇧', 'Germany': '🇩🇪', 'France': '🇫🇷', 'Spain': '🇪🇸',
-    'Italy': '🇮🇹', 'Netherlands': '🇳🇱', 'Portugal': '🇵🇹', 'Greece': '🇬🇷',
-    'Sweden': '🇸🇪', 'Norway': '🇳🇴', 'Denmark': '🇩🇰', 'Finland': '🇫🇮',
-    'Switzerland': '🇨🇭', 'Austria': '🇦🇹', 'Belgium': '🇧🇪', 'Poland': '🇵🇱',
-    'Czech Republic': '🇨🇿', 'Hungary': '🇭🇺', 'Romania': '🇷🇴', 'Bulgaria': '🇧🇬',
-    'Serbia': '🇷🇸', 'Croatia': '🇭🇷', 'Slovakia': '🇸🇰', 'Turkey': '🇹🇷',
-    'United States': '🇺🇸', 'Canada': '🇨🇦', 'Mexico': '🇲🇽', 'Brazil': '🇧🇷',
-    'Argentina': '🇦🇷', 'Colombia': '🇨🇴', 'Venezuela': '🇻🇪', 'Peru': '🇵🇪',
-    'Chile': '🇨🇱', 'Ecuador': '🇪🇨', 'Bolivia': '🇧🇴', 'Honduras': '🇭🇳',
-    'Guatemala': '🇬🇹', 'El Salvador': '🇸🇻',
+    'Nigeria':'🇳🇬','Ghana':'🇬🇭','Kenya':'🇰🇪','South Africa':'🇿🇦',
+    'Ethiopia':'🇪🇹','Tanzania':'🇹🇿','Uganda':'🇺🇬','Cameroon':'🇨🇲',
+    'Senegal':'🇸🇳','Ivory Coast':'🇨🇮','Zimbabwe':'🇿🇼','Zambia':'🇿🇲',
+    'Rwanda':'🇷🇼','Morocco':'🇲🇦','Algeria':'🇩🇿','Tunisia':'🇹🇳',
+    'Egypt':'🇪🇬','Mozambique':'🇲🇿','DR Congo':'🇨🇩','Togo':'🇹🇬',
+    'Benin':'🇧🇯','Sierra Leone':'🇸🇱','Liberia':'🇱🇷',
+    'Saudi Arabia':'🇸🇦','UAE':'🇦🇪','Israel':'🇮🇱',
+    'India':'🇮🇳','Pakistan':'🇵🇰','Bangladesh':'🇧🇩','Sri Lanka':'🇱🇰',
+    'Nepal':'🇳🇵','China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷',
+    'Hong Kong':'🇭🇰','Taiwan':'🇹🇼','Singapore':'🇸🇬','Malaysia':'🇲🇾',
+    'Indonesia':'🇮🇩','Philippines':'🇵🇭','Vietnam':'🇻🇳','Thailand':'🇹🇭',
+    'Myanmar':'🇲🇲','Cambodia':'🇰🇭','Laos':'🇱🇦',
+    'Australia':'🇦🇺','New Zealand':'🇳🇿',
+    'United Kingdom':'🇬🇧','Germany':'🇩🇪','France':'🇫🇷','Spain':'🇪🇸',
+    'Italy':'🇮🇹','Netherlands':'🇳🇱','Portugal':'🇵🇹','Greece':'🇬🇷',
+    'Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰','Finland':'🇫🇮',
+    'Switzerland':'🇨🇭','Austria':'🇦🇹','Belgium':'🇧🇪','Poland':'🇵🇱',
+    'Czech Republic':'🇨🇿','Hungary':'🇭🇺','Romania':'🇷🇴','Bulgaria':'🇧🇬',
+    'Serbia':'🇷🇸','Croatia':'🇭🇷','Slovakia':'🇸🇰','Turkey':'🇹🇷',
+    'United States':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷',
+    'Argentina':'🇦🇷','Colombia':'🇨🇴','Venezuela':'🇻🇪','Peru':'🇵🇪',
+    'Chile':'🇨🇱','Ecuador':'🇪🇨','Bolivia':'🇧🇴','Honduras':'🇭🇳',
+    'Guatemala':'🇬🇹','El Salvador':'🇸🇻',
   };
   return flags[country] || '🌍';
 }
@@ -153,12 +140,12 @@ function countryFlag(country: string): string {
 export default function ArenaClient() {
   const router = useRouter();
   const params = useParams();
-  const slug     = (params?.slug as string || '').toLowerCase();
-  const brandKey = SLUG_ALIAS[slug] || slug;
-  const config   = BRANDS[brandKey] || { name: slug, primary: '#f0883e' };
+  const slug      = (params?.slug as string || '').toLowerCase();
+  const brandKey  = SLUG_ALIAS[slug] || slug;
+  const config    = BRANDS[brandKey] || { name: slug, primary: '#f0883e' };
   const isMapOfPi = brandKey === 'mapofpi';
 
-  // — state
+  // ── State ─────────────────────────────────────────────────────────────────
   const [ads,     setAds]     = useState<Ad[]>([]);
   const [loading, setLoading] = useState(true);
   const [user,    setUser]    = useState<SessionUser>({ name: '', email: '', brand: '', trialStatus: 'trial' });
@@ -166,20 +153,20 @@ export default function ArenaClient() {
   const [shareAd, setShareAd] = useState<Ad | null>(null);
   const [toast,   setToast]   = useState<Toast | null>(null);
 
-  // — interaction state keyed by ad id
   const [liked,   setLiked]   = useState<Record<string, boolean>>({});
   const [boosted, setBoosted] = useState<Record<string, boolean>>({});
   const [reacted, setReacted] = useState<Record<string, ReactionType | null>>({});
 
-  // — derived
-  const isSuper      = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const isSuper       = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
   const dashboardHref = isSuper ? '/dashboard/admin' : user.role === 'admin' ? '/dashboard/users' : '/dashboard/user';
-  const maxPoints    = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
-  const totalPoints  = ads.reduce((s, a) => s + (a.points || 0), 0);
-  const totalClicks  = ads.reduce((s, a) => s + (a.click_count || 0), 0);
-  const totalShares  = ads.reduce((s, a) => s + (a.share_count || 0), 0);
+  const maxPoints     = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+  const totalPoints   = ads.reduce((s, a) => s + (a.points        || 0), 0);
+  const totalClicks   = ads.reduce((s, a) => s + (a.click_count   || 0), 0);
+  const totalShares   = ads.reduce((s, a) => s + (a.share_count   || 0), 0);
+  const totalReactions = ads.reduce((s, a) => s + (a.reaction_count || 0), 0);
 
-  // — country grouping for Map of Pi
+  // ── Map of Pi country grouping ────────────────────────────────────────────
   const champAds   = isMapOfPi ? ads.filter(a => a.is_country_champion && a.country) : [];
   const networkAds = isMapOfPi ? ads.filter(a => !a.is_country_champion || !a.country) : ads;
   const countryGroups: Record<string, Ad[]> = {};
@@ -194,13 +181,13 @@ export default function ArenaClient() {
     return bpts - apts;
   });
 
-  // — load user + interaction state
+  // ── Boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     if (stored) { try { setUser(JSON.parse(stored)); } catch {} }
 
-    const likedMap:   Record<string, boolean>            = {};
-    const boostedMap: Record<string, boolean>            = {};
+    const likedMap:   Record<string, boolean>             = {};
+    const boostedMap: Record<string, boolean>             = {};
     const reactedMap: Record<string, ReactionType | null> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i) || '';
@@ -211,11 +198,10 @@ export default function ArenaClient() {
     setLiked(likedMap);
     setBoosted(boostedMap);
     setReacted(reactedMap);
-
     fetchAds();
   }, [slug]);
 
-  // — load saved module slots
+  // ── Module slots ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user.email || !slug) return;
     supabase
@@ -227,6 +213,7 @@ export default function ArenaClient() {
       .then(({ data }) => { if (data?.slots) setSlots(data.slots); });
   }, [user.email, slug]);
 
+  // ── Data ──────────────────────────────────────────────────────────────────
   async function fetchAds() {
     setLoading(true);
     const { data } = await supabase
@@ -254,19 +241,17 @@ export default function ArenaClient() {
     setTimeout(() => setToast(null), 2000);
   }
 
-  // ─── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   async function handleClick(ad: Ad) {
     if (!ad.url || ad.url.trim() === '') return;
     window.open(ad.url, '_blank', 'noopener,noreferrer');
     showToast(ad.id, 'Clicked!');
-    const newCount = await trackClick(
+    const n = await trackClick(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, click_count: ad.click_count },
-      user.email || 'visitor',
-      SOURCE.BRAND_ARENA,
-      supabase
+      user.email || 'visitor', SOURCE.BRAND_ARENA, supabase
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: newCount } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: n } : a));
   }
 
   async function handleLike(ad: Ad, e: React.MouseEvent) {
@@ -276,11 +261,11 @@ export default function ArenaClient() {
     localStorage.setItem(`liked_${ad.id}`, '1');
     setLiked(prev => ({ ...prev, [ad.id]: true }));
     showToast(ad.id, 'Liked!');
-    const newCount = await recordLike(
+    const n = await recordLike(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count },
-      sid, SOURCE.BRAND_ARENA, supabase
+      sid, SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: newCount } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
   }
 
   async function handleBoost(ad: Ad, e: React.MouseEvent) {
@@ -290,11 +275,11 @@ export default function ArenaClient() {
     localStorage.setItem(`boosted_${ad.id}`, '1');
     setBoosted(prev => ({ ...prev, [ad.id]: true }));
     showToast(ad.id, 'Boosted!');
-    const newCount = await recordBoost(
+    const n = await recordBoost(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count },
-      sid, SOURCE.BRAND_ARENA, supabase
+      sid, SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: newCount } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
   }
 
   async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
@@ -303,19 +288,12 @@ export default function ArenaClient() {
     const sid = getSessionId();
     localStorage.setItem(`reacted_${ad.id}`, type);
     setReacted(prev => ({ ...prev, [ad.id]: type }));
-    const emoji = REACTIONS.find(r => r.type === type)?.emoji || '👍';
-    showToast(ad.id, emoji);
-    const newCount = (ad.reaction_count || 0) + 1;
-    await Promise.all([
-      supabase.from('ad_reactions').insert([{ ad_id: ad.id, reaction_type: type, session_id: sid }]),
-      supabase.from('ads').update({ reaction_count: newCount }).eq('id', ad.id),
-    ]);
-    fetch('/api/scout/score', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ad_id: ad.id }),
-    }).catch(() => {});
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a));
+    showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
+    const n = await recordReaction(
+      { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, reaction_count: ad.reaction_count || 0 },
+      type, sid, user.email || null, SOURCE.BRAND_ARENA, supabase
+    );
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: n } : a));
   }
 
   async function executePlatformShare(ad: Ad, platformKey: string) {
@@ -333,15 +311,15 @@ export default function ArenaClient() {
       try { await navigator.clipboard.writeText(text); } catch {}
       showToast(ad.id, 'Copied!');
     }
-    const newShares = await recordShare(
+    const n = await recordShare(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, share_count: ad.share_count },
       user.email || 'visitor', platform.label, SOURCE.BRAND_ARENA, supabase
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: newShares } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: n } : a));
     setShareAd(null);
   }
 
-  // ─── Ad Card ──────────────────────────────────────────────────────────────
+  // ── Ad Card ───────────────────────────────────────────────────────────────
 
   function AdCard({ ad }: { ad: Ad }) {
     const heat       = Math.round(((ad.points || 0) / maxPoints) * 100);
@@ -352,14 +330,15 @@ export default function ArenaClient() {
     const tierColor  = TIER_COLOR[ad.tier] || muted;
 
     return (
-      <div style={{ background: card, border: `1px solid ${ad.pinned ? config.primary + '60' : border}`, borderRadius: '14px', padding: '1.25rem', position: 'relative', overflow: 'hidden', marginBottom: '0.75rem' }}
+      <div
+        style={{ background: card, border: `1px solid ${ad.pinned ? config.primary + '60' : border}`, borderRadius: '14px', padding: '1.25rem', position: 'relative', overflow: 'hidden', marginBottom: '0.75rem' }}
         onMouseEnter={e => (e.currentTarget.style.borderColor = config.primary + '80')}
         onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? config.primary + '60' : border)}
       >
         {/* Pinned accent */}
         {ad.pinned && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, ${config.primary}, transparent)` }} />}
 
-        {/* Header row */}
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.4rem', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button onClick={() => router.push(`/profile/${encodeURIComponent(ad.email)}`)}
@@ -371,12 +350,15 @@ export default function ArenaClient() {
                 🏆 {ad.country}
               </span>
             )}
-            {ad.pinned && <span style={{ background: `${config.primary}20`, border: `1px solid ${config.primary}40`, color: config.primary, borderRadius: '999px', padding: '0.1rem 0.45rem', fontSize: '0.62rem', fontWeight: 700 }}>⭐ FEATURED</span>}
+            {ad.pinned && (
+              <span style={{ background: `${config.primary}20`, border: `1px solid ${config.primary}40`, color: config.primary, borderRadius: '999px', padding: '0.1rem 0.45rem', fontSize: '0.62rem', fontWeight: 700 }}>
+                ⭐ FEATURED
+              </span>
+            )}
             <span style={{ color: tierColor, fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>{ad.tier}</span>
             <span style={{ color: '#2a2a2a', fontSize: '0.65rem' }}>·</span>
             <span style={{ color: '#2a2a2a', fontSize: '0.65rem' }}>{ad.category}</span>
           </div>
-          {/* Rank badge */}
           {ad.rank_position && ad.rank_position >= 1 && ad.rank_position <= 3 && (
             <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>
               {ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}
@@ -387,14 +369,19 @@ export default function ArenaClient() {
           )}
         </div>
 
-        {/* Image — pinned or non-entry only */}
+        {/* Image */}
         {ad.image_url && (ad.pinned || ad.tier !== 'entry') && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={ad.image_url} alt={ad.title} style={{ width: '100%', borderRadius: '10px', marginBottom: '0.75rem', maxHeight: '200px', objectFit: 'cover' }} />
         )}
 
         {/* Title + description */}
         <div style={{ fontWeight: 700, fontSize: '0.92rem', color: white, marginBottom: '0.2rem' }}>{ad.title}</div>
-        <div style={{ fontSize: '0.8rem', color: muted, lineHeight: 1.5, marginBottom: '0.5rem' }}>{ad.description}</div>
+        <div style={{ fontSize: '0.8rem', color: muted, lineHeight: 1.5, marginBottom: '0.5rem' }}>
+          {ad.description.length > 100
+            ? ad.description.slice(0, ad.description.lastIndexOf(' ', 100)) + '…'
+            : ad.description}
+        </div>
 
         {/* Hot meter */}
         <div style={{ height: '2px', background: '#1a1a1a', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.6rem' }}>
@@ -415,17 +402,16 @@ export default function ArenaClient() {
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }} onClick={e => e.stopPropagation()}>
           {REACTIONS.map(r => {
             const active = reacted[ad.id] === r.type;
-            const done   = hasReacted;
             return (
               <button key={r.type} onClick={e => handleReaction(ad, r.type, e)} style={{
-                background: active ? `${config.primary}20` : 'transparent',
-                border: `1px solid ${active ? config.primary : '#222'}`,
+                background:   active ? `${config.primary}20` : 'transparent',
+                border:       `1px solid ${active ? config.primary : '#222'}`,
                 borderRadius: '999px', padding: '0.2rem 0.55rem',
-                fontSize: '0.68rem', color: active ? config.primary : '#333',
-                cursor: done ? 'default' : 'pointer',
-                fontWeight: active ? 700 : 400,
-                opacity: done && !active ? 0.35 : 1,
-                transition: 'all 0.15s',
+                fontSize:     '0.68rem', color: active ? config.primary : '#333',
+                cursor:       hasReacted ? 'default' : 'pointer',
+                fontWeight:   active ? 700 : 400,
+                opacity:      hasReacted && !active ? 0.35 : 1,
+                transition:   'all 0.15s',
               }}>
                 {r.emoji}
               </button>
@@ -439,13 +425,11 @@ export default function ArenaClient() {
             style={{ flex: 1, background: config.primary, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 700, fontSize: '0.78rem', padding: '0.55rem 0', cursor: 'pointer' }}>
             {isToast && toast?.msg === 'Clicked!' ? '✓' : 'Visit →'}
           </button>
-          <button onClick={e => handleLike(ad, e)}
-            title={hasLiked ? 'Liked' : 'Like'}
+          <button onClick={e => handleLike(ad, e)} title={hasLiked ? 'Liked' : 'Like'}
             style={{ background: hasLiked ? `${config.primary}20` : 'transparent', border: `1px solid ${hasLiked ? config.primary : border}`, borderRadius: '8px', color: hasLiked ? config.primary : muted, fontWeight: 600, fontSize: '0.78rem', padding: '0.55rem 0.65rem', cursor: hasLiked ? 'default' : 'pointer', transition: 'all 0.15s' }}>
             😊
           </button>
-          <button onClick={e => handleBoost(ad, e)}
-            title={hasBoosted ? 'Boosted' : 'Boost'}
+          <button onClick={e => handleBoost(ad, e)} title={hasBoosted ? 'Boosted' : 'Boost'}
             style={{ background: hasBoosted ? `${gold}15` : 'transparent', border: `1px solid ${hasBoosted ? gold : border}`, borderRadius: '8px', color: hasBoosted ? gold : muted, fontWeight: 600, fontSize: '0.78rem', padding: '0.55rem 0.65rem', cursor: hasBoosted ? 'default' : 'pointer', transition: 'all 0.15s' }}>
             ⚡
           </button>
@@ -461,22 +445,22 @@ export default function ArenaClient() {
       </div>
     );
   }
-    // ─── Render ───────────────────────────────────────────────────────────────
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ background: bg, minHeight: '100vh', color: white, fontFamily: 'system-ui, sans-serif' }}>
 
-      {/* Nav */}
       <ArenaNav
         role={(user.role as 'admin' | 'team' | 'user' | 'mod') || 'user'}
         userName={user.name}
         userEmail={user.email}
         userBrand={user.brand}
         trialStatus={(user.trialStatus as 'team' | 'trial' | 'pending') || 'trial'}
-        onLogout={() => { localStorage.removeItem('arena_user'); router.push('/'); }}
+        onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
 
-      {/* Share modal */}
+      {/* ── Share modal ── */}
       {shareAd && (
         <>
           <div onClick={() => setShareAd(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1001, backdropFilter: 'blur(4px)' }} />
@@ -489,7 +473,9 @@ export default function ArenaClient() {
               <button onClick={() => setShareAd(null)} style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '1.4rem' }}>✕</button>
             </div>
             {toast?.id === shareAd.id && (
-              <div style={{ background: '#22c55e20', border: '1px solid #22c55e40', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#22c55e' }}>{toast.msg}</div>
+              <div style={{ background: '#22c55e20', border: '1px solid #22c55e40', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem', color: '#22c55e' }}>
+                {toast.msg}
+              </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
               {PLATFORMS.map(platform => (
@@ -505,7 +491,7 @@ export default function ArenaClient() {
         </>
       )}
 
-      {/* Main content */}
+      {/* ── Main content ── */}
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1rem' }}>
 
         {/* Back */}
@@ -517,6 +503,7 @@ export default function ArenaClient() {
         {/* Brand header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           {config.logo && (
+            // eslint-disable-next-line @next/next/no-img-element
             <img src={config.logo} alt={config.name}
               style={{ width: '52px', height: '52px', borderRadius: '12px', objectFit: 'cover', border: `1px solid ${border}` }} />
           )}
@@ -538,12 +525,13 @@ export default function ArenaClient() {
         {!loading && ads.length > 0 && (
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             {[
-              { label: 'Ads',    value: ads.length,                   color: config.primary },
-              { label: 'Clicks', value: totalClicks,                  color: '#0070f3'      },
-              { label: 'Shares', value: totalShares,                  color: '#7928ca'      },
-              { label: 'Points', value: totalPoints.toLocaleString(), color: gold           },
+              { label: 'Ads',       value: ads.length,                    color: config.primary },
+              { label: 'Clicks',    value: totalClicks,                   color: '#0070f3'      },
+              { label: 'Shares',    value: totalShares,                   color: '#7928ca'      },
+              { label: 'Reactions', value: totalReactions,                color: '#f0883e'      },
+              { label: 'Points',    value: totalPoints.toLocaleString(),  color: gold           },
             ].map(s => (
-              <div key={s.label} style={{ background: card, border: `1px solid ${border}`, borderRadius: '10px', padding: '0.6rem 1rem', textAlign: 'center', flex: 1, minWidth: '70px' }}>
+              <div key={s.label} style={{ background: card, border: `1px solid ${border}`, borderRadius: '10px', padding: '0.6rem 1rem', textAlign: 'center', flex: 1, minWidth: '60px' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 800, color: s.color }}>{s.value}</div>
                 <div style={{ fontSize: '0.62rem', color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</div>
               </div>
@@ -577,22 +565,16 @@ export default function ArenaClient() {
 
         {/* Module slots */}
         <ModuleSlots
-  slots={slots}
-  onSave={saveModules}
-  context={{
-    slug,
-    user: {
-      email:       user.email,
-      name:        user.name,
-      brand:       user.brand,
-      trialStatus: user.trialStatus,
-    },
-    ads,
-    supabase,
-    isSuper,
-  }}
-/>
-
+          slots={slots}
+          onSave={saveModules}
+          context={{
+            slug,
+            user: { email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus },
+            ads,
+            supabase,
+            isSuper,
+          }}
+        />
 
         {/* Ads */}
         {loading ? (
@@ -605,19 +587,18 @@ export default function ArenaClient() {
           </div>
         ) : isMapOfPi ? (
           <>
-            {/* ── Country sections ── */}
+            {/* Country sections */}
             {sortedCountries.length > 0 && (
               <div style={{ marginBottom: '2rem' }}>
                 <div style={{ fontSize: '0.68rem', color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.25rem' }}>
                   🌍 Champions by Country
                 </div>
                 {sortedCountries.map(country => {
-                  const group   = countryGroups[country];
-                  const flag    = countryFlag(country);
+                  const group    = countryGroups[country];
+                  const flag     = countryFlag(country);
                   const groupPts = group.reduce((s, a) => s + (a.points || 0), 0);
                   return (
                     <div key={country} style={{ marginBottom: '2rem' }}>
-                      {/* Country header */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: `1px solid ${gold}20` }}>
                         <span style={{ fontSize: '1.4rem' }}>{flag}</span>
                         <span style={{ fontWeight: 800, fontSize: '0.95rem', color: white }}>{country}</span>
@@ -633,7 +614,7 @@ export default function ArenaClient() {
               </div>
             )}
 
-            {/* ── Network ads ── */}
+            {/* Network ads */}
             {networkAds.length > 0 && (
               <div>
                 <div style={{ fontSize: '0.68rem', color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
@@ -644,7 +625,6 @@ export default function ArenaClient() {
             )}
           </>
         ) : (
-          // ── All other brands — flat list ──
           <div>
             {ads.map(ad => <AdCard key={ad.id} ad={ad} />)}
           </div>
@@ -663,3 +643,4 @@ export default function ArenaClient() {
     </div>
   );
 }
+
