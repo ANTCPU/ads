@@ -184,7 +184,9 @@ export const es: Record<string, string> = {
   arena_stat_brands:        'Marcas',
   arena_stat_ads:           'Anuncios',
   arena_stat_points:        'Puntos',
-  
+  arena_stat_reactions:     'Reacciones',
+  arena_stat_shares:        'Compartidos',
+
   // RTL FLAG
   rtl:                      'false',
 };
