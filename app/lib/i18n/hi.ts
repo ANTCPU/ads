@@ -183,6 +183,8 @@ export const hi: Record<string, string> = {
   arena_stat_brands:        'ब्रांड',
   arena_stat_ads:           'विज्ञापन',
   arena_stat_points:        'अंक',
+  arena_stat_reactions:     'प्रतिक्रियाएं',
+  arena_stat_shares:        'शेयर',
 
   // RTL FLAG
   rtl:                      'false',
