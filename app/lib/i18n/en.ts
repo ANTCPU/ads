@@ -179,6 +179,8 @@ export const en: Record<string, string> = {
   arena_stat_brands:        'Brands',
   arena_stat_ads:           'Ads',
   arena_stat_points:        'Points',
+  arena_stat_reactions:     'Reactions',
+  arena_stat_shares:        'Shares',
 
   // RTL FLAG
   rtl:                      'false',
