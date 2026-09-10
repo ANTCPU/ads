@@ -167,14 +167,19 @@ export const tr: Record<string, string> = {
   signin_error_prefix:      'Şu adres için hesap bulunamadı: ',
   signin_error_suffix:      ' — Lütfen yukarıdan kaydolun.',
 
-  // ARENA
-  arena_loading:            'Arena yükleniyor...',
-  arena_empty:              'Henüz aktif reklam yok.',
-  arena_join_title:         'Ağa Katılın',
-  arena_join_sub:           'Markanızı Arena\'ya taşıyın.',
-  arena_join_note:          'Katılmak ücretsiz · Sözleşme yok',
-  arena_join_cta:           'Arena\'ya Katıl →',
-  arena_back:               '← Panoya Dön',
-  arena_nudge:              'Üyelik ücretsiz — rozet kazanmak ve aktivitenizi takip etmek için katılın.',
-  arena_nudge_cta:          'Ücretsiz Katıl →',
-  arena_super_badge:        '⚡ Sü
+   arena_super_badge:        '⚡ Süper Admin — Tam Arena Görünümü',
+  arena_stat_brands:        'Markalar',
+  arena_stat_ads:           'Reklamlar',
+  arena_stat_points:        'Puanlar',
+  arena_stat_reactions:     'Tepkiler',
+  arena_stat_shares:        'Paylaşımlar',
+  weekly_digest_label:      'Haftalık Arena Özeti',
+  weekly_greeting:          'İşte haftalık Arena güncellemenz.',
+  weekly_leaderboard:       'Bu Haftanın Lider Tablosu',
+  weekly_tip_label:         'Hızlı İpucu',
+  weekly_tip_body:          'Sadece kendi reklamlarınızı değil, başkalarının reklamlarını da paylaşın. Arena cömertliği ödüllendirir. Başka bir üyenin reklamını paylaştığınızda hem puan kazanırsınız hem de iyi niyet inşa edersiniz. Merdiveni en hızlı böyle tırmanırsınız.',
+  weekly_status_team:       'Takım Üyesi',
+
+  // RTL FLAG
+  rtl:                      'false',
+};
