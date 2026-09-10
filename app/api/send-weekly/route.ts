@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     // — role-aware dashboard URL
     function dashboardUrl(user: Signup): string {
-      if (user.role === 'super' || user.email === 'antcpu@gmail.com') return 'https://antcpu-ads.vercel.app/dashboard/admin';
+      if (user.role === 'super' || user.email === (process.env.NEXT_PUBLIC_SUPER_EMAIL || '')) return 'https://antcpu-ads.vercel.app/dashboard/admin';
       if (user.role === 'admin') return 'https://antcpu-ads.vercel.app/dashboard/users';
       return 'https://antcpu-ads.vercel.app/dashboard/user';
     }
