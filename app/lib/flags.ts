@@ -240,7 +240,6 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// resolveFlag — DB override first, code default fallback
 export function resolveFlag(
   id:      string,
   dbFlags: Record<string, boolean> = {},
@@ -251,8 +250,6 @@ export function resolveFlag(
   return def.status === 'on' || def.status === 'testing';
 }
 
-// Build dbFlags map from Supabase rows
-// Usage: const flags = buildFlagMap(await supabase.from('arena_flags').select('id,enabled'))
 export function buildFlagMap(rows: { id: string; enabled: boolean }[]): Record<string, boolean> {
   return Object.fromEntries((rows || []).map(r => [r.id, r.enabled]));
 }
@@ -272,11 +269,11 @@ export const VERSION_ORDER: FlagVersion[] = [
 ];
 
 export const VERSION_META: Record<FlagVersion, { label: string; color: string; desc: string }> = {
-  'beta':      { label: '🧪 Beta',        color: '#f0883e', desc: 'Active development' },
-  'v1':        { label: '✅ v1',           color: '#22c55e', desc: 'Stable — shipped'   },
-  'v1testing': { label: '🔬 v1 Testing',  color: '#0070f3', desc: 'Under test'          },
-  'v2':        { label: '🚀 v2',           color: '#7928ca', desc: 'Planned'             },
-  'v2testing': { label: '🔭 v2 Testing',  color: '#D4AF37', desc: 'Future test'         },
+  'beta':      { label: '🧪 Beta',       color: '#f0883e', desc: 'Active development' },
+  'v1':        { label: '✅ v1',          color: '#22c55e', desc: 'Stable — shipped'   },
+  'v1testing': { label: '🔬 v1 Testing', color: '#0070f3', desc: 'Under test'          },
+  'v2':        { label: '🚀 v2',          color: '#7928ca', desc: 'Planned'             },
+  'v2testing': { label: '🔭 v2 Testing', color: '#D4AF37', desc: 'Future test'         },
 };
 
 export const STATUS_META: Record<FlagStatus, { label: string; color: string }> = {
@@ -285,3 +282,60 @@ export const STATUS_META: Record<FlagStatus, { label: string; color: string }> =
   'testing': { label: 'TESTING', color: '#f0883e' },
   'killed':  { label: 'KILLED',  color: '#ef4444' },
 };
+
+// ─── Runtime flag fetcher ─────────────────────────────────────────────────────
+// Fetches live flags from /api/flags once per session, caches in module scope.
+// Used by ModuleSlots and agent routes to check flags at runtime.
+
+let _runtimeCache: Record<string, boolean> | null = null;
+
+export async function getFlags(): Promise<Record<string, boolean>> {
+  if (_runtimeCache) return _runtimeCache;
+  try {
+    const res  = await fetch('/api/flags');
+    const json = await res.json();
+    _runtimeCache = buildFlagMap(json.flags || []);
+  } catch {
+    _runtimeCache = {};
+  }
+  return _runtimeCache!;
+}
+
+// Check a single flag at runtime — default true if not found
+export function isEnabled(flags: Record<string, boolean>, id: string): boolean {
+  return flags[id] !== false;
+}
+
+// ─── Agent flag map ───────────────────────────────────────────────────────────
+// null = persistent — always active, never gated.
+// string = flag ID — agent only runs when that flag is enabled.
+
+export type AgentId = 'scout' | 'aria' | 'herald' | 'ledger' | 'mac' | 'antbot';
+
+export const AGENT_FLAG_MAP: Record<AgentId, string | null> = {
+  aria:    null,
+  herald:  null,
+  scout:   null,
+  ledger:  'ledger-agent',
+  mac:     'mac-agent',
+  antbot:  'antbot-assignment',
+};
+
+export function agentEnabled(
+  agentId: AgentId,
+  flags:   Record<string, boolean>
+): boolean {
+  const flagId = AGENT_FLAG_MAP[agentId];
+  if (!flagId) return true;
+  return flags[flagId] !== false;
+}
+
+// ─── Group constants ──────────────────────────────────────────────────────────
+
+export const MODULE_FLAG_IDS = FLAG_DEFAULTS
+  .filter(f => f.id.startsWith('module-'))
+  .map(f => f.id);
+
+export const PERSISTENT_AGENTS: AgentId[] = ['aria', 'herald', 'scout'];
+
+export const GATED_AGENTS: AgentId[] = ['ledger', 'mac', 'antbot'];
