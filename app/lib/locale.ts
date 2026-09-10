@@ -25,6 +25,10 @@ const COUNTRY_LOCALE: Record<string, Locale> = {
   'Cameroon': 'fr', 'Congo': 'fr',
   // Italian
   'Italy': 'it',
+  // Indonesian
+  'Indonesia': 'id',
+  // Vietnamese
+  'Vietnam': 'vi',
 };
 
 const STORAGE_KEY = 'arena_locale';
