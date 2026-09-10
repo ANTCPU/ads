@@ -183,6 +183,8 @@ export const ar: Record<string, string> = {
   arena_stat_brands:        'العلامات التجارية',
   arena_stat_ads:           'الإعلانات',
   arena_stat_points:        'النقاط',
+  arena_stat_reactions:     'التفاعلات',
+  arena_stat_shares:        'المشاركات',
 
   // RTL FLAG — read by i18n engine to set dir attribute
   rtl:                      'true',
