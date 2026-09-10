@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MODULE_REGISTRY } from '../modules/index';
 import { ModuleContext } from '../modules/types';
+import { getFlags, isEnabled } from '../lib/flags';
 
 type Props = {
   slots:   (string | null)[];
@@ -11,6 +12,12 @@ type Props = {
 
 export default function ModuleSlots({ slots, onSave, context }: Props) {
   const [picking, setPicking] = useState<number | null>(null);
+  const [flags,   setFlags]   = useState<Record<string, boolean>>({});
+
+  // Load flags once on mount — silent fail, defaults to all enabled
+  useEffect(() => {
+    getFlags().then(setFlags);
+  }, []);
 
   function addModule(slotIndex: number, id: string) {
     const next = [...slots];
@@ -26,7 +33,10 @@ export default function ModuleSlots({ slots, onSave, context }: Props) {
   }
 
   const used      = slots.filter(Boolean) as string[];
-  const available = MODULE_REGISTRY.filter(m => !used.includes(m.id));
+  // Only show modules whose flag is enabled in the picker
+  const available = MODULE_REGISTRY.filter(m =>
+    !used.includes(m.id) && isEnabled(flags, `module-${m.id}`)
+  );
 
   return (
     <div style={{ marginBottom: '1.5rem' }}>
@@ -36,8 +46,10 @@ export default function ModuleSlots({ slots, onSave, context }: Props) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {slots.map((slotId, i) => {
-          const def            = slotId ? MODULE_REGISTRY.find(m => m.id === slotId) : null;
-          const LiveComponent  = def?.component || null;
+          const def           = slotId ? MODULE_REGISTRY.find(m => m.id === slotId) : null;
+          const LiveComponent = def?.component || null;
+          // If flag was turned off after slot was saved — hide silently
+          const flagOk        = slotId ? isEnabled(flags, `module-${slotId}`) : true;
 
           return (
             <div key={i}>
@@ -57,9 +69,8 @@ export default function ModuleSlots({ slots, onSave, context }: Props) {
                   transition:     'border-color 0.2s',
                 }}
               >
-                {slotId && def && LiveComponent ? (
+                {slotId && def && LiveComponent && flagOk ? (
                   <>
-                    {/* ── Pass full context including isSuper ── */}
                     <LiveComponent {...context} />
                     <button
                       onClick={e => { e.stopPropagation(); removeModule(i); }}
