@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { checkAndAwardPointsBadges, awardBadge } from '../../../lib/badges';
-import { calcMembershipTier, upgradeMembershipTier } from '../../../lib/membership';
+import { NextRequest, NextResponse }                          from 'next/server';
+import { createClient }                                       from '@supabase/supabase-js';
+import { checkAndAwardPointsBadges, awardBadge }             from '../../../lib/badges';
+import { calcMembershipTier, upgradeMembershipTier }         from '../../../lib/membership';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,13 +33,13 @@ function notify(email: string, type: string, title: string, message: string) {
 }
 
 function calcRaw(
-  click_count:    number,
-  share_count:    number,
-  like_count:     number,
-  boost_count:    number,
-  reaction_count: number,
-  tier:           string,
-  is_system       = false,
+  click_count:     number,
+  share_count:     number,
+  like_count:      number,
+  boost_count:     number,
+  reaction_count:  number,
+  tier:            string,
+  is_system        = false,
   share_multiplier = 1,
 ): number {
   if (is_system) {
@@ -63,39 +63,39 @@ export async function POST(req: NextRequest) {
 
   const share_multiplier = DOUBLE_SHARE_SOURCES.has(source) ? 2 : 1;
 
-  const { data: before } = await supabase
+  // ── C-02 fix: single read — merged before + ad into one query ─────────────
+  const { data: ad, error } = await supabase
     .from('ads')
-    .select('points, rank_position, email, brand, title, is_system')
+    .select('id, tier, email, brand, title, country, click_count, share_count, like_count, boost_count, reaction_count, is_system, points, rank_position')
     .eq('id', ad_id)
     .single();
 
-  const prevPoints  = before?.points        || 0;
-  const prevRank    = before?.rank_position || 999;
-  const adEmail     = before?.email         || '';
-  const adBrand     = before?.brand         || '';
-  const adTitle     = before?.title         || '';
-  const adIsSystem  = before?.is_system     || false;
-
-  const { data: ad, error } = await supabase
-    .from('ads')
-    .select('id, tier, email, name, brand, click_count, share_count, like_count, boost_count, reaction_count, is_system')
-    .eq('id', ad_id).single();
   if (error || !ad) return NextResponse.json({ error: 'ad not found' }, { status: 404 });
 
-  const is_system = ad.is_system || false;
+  const prevPoints  = ad.points        || 0;
+  const prevRank    = ad.rank_position || 999;
+  const adEmail     = ad.email         || '';
+  const adBrand     = ad.brand         || '';
+  const adTitle     = ad.title         || '';
+  const adCountry   = ad.country       || '';
+  const is_system   = ad.is_system     || false;
 
+  // ── Fetch all active ads for ranking ──────────────────────────────────────
   const { data: allActive } = await supabase
     .from('ads')
-    .select('id, email, tier, click_count, share_count, like_count, boost_count, reaction_count, is_system')
+    .select('id, email, tier, country, click_count, share_count, like_count, boost_count, reaction_count, is_system')
     .eq('status', 'active');
 
   let finalPoints = 0;
   let finalRank   = 999;
 
   if (allActive && allActive.length > 0) {
+
+    // Pass 1 — raw scores
     const pass1 = allActive.map((a: any) => ({
       id:        a.id,
       email:     a.email,
+      country:   a.country || '',
       is_system: a.is_system || false,
       raw: calcRaw(
         a.click_count    || 0,
@@ -109,11 +109,13 @@ export async function POST(req: NextRequest) {
       ),
     }));
 
+    // Sort — system ads always last, then by raw score desc
     pass1.sort((a: any, b: any) => {
       if (a.is_system !== b.is_system) return a.is_system ? 1 : -1;
       return b.raw - a.raw;
     });
 
+    // Pass 2 — apply rank bonus
     const pass2 = pass1.map((a: any, i: number) => {
       const rank   = i + 1;
       const bonus  = (!a.is_system && RANK_BONUS[rank]) ? RANK_BONUS[rank] : 0;
@@ -125,12 +127,14 @@ export async function POST(req: NextRequest) {
       return {
         id:            a.id,
         email:         a.email,
+        country:       a.country || '',
         points,
         rank_position: rank,
         pinned:        !a.is_system && rank <= 10,
       };
     });
 
+    // Write all updated ranks + points
     await Promise.all(
       pass2.map((a: any) =>
         supabase.from('ads').update({
@@ -141,24 +145,25 @@ export async function POST(req: NextRequest) {
       )
     );
 
-   const emailsToUpdate = [...new Set(pass2.map((a: any) => a.email).filter(Boolean))];
+    // Update user total points
+    const emailsToUpdate = [...new Set(pass2.map((a: any) => a.email).filter(Boolean))];
     await Promise.all(
-    emailsToUpdate.map(async (email: string) => {
-    const userAds = pass2.filter((a: any) => a.email === email);
-    const total   = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
-    await supabase.from('ad_signups').update({ points: total }).eq('email', email);
-    })
-   );
+      emailsToUpdate.map(async (email: string) => {
+        const userAds = pass2.filter((a: any) => a.email === email);
+        const total   = userAds.reduce((sum: number, a: any) => sum + (a.points || 0), 0);
+        await supabase.from('ad_signups').update({ points: total }).eq('email', email);
+      })
+    );
 
-    if (!adIsSystem && adEmail) {
+    if (!is_system && adEmail) {
 
-      // ── Rank milestones ──
-      if      (prevRank > 1  && finalRank === 1)
+      // ── Rank milestone notifications ────────────────────────────────────
+      if (prevRank > 1 && finalRank === 1)
         notify(adEmail, 'rank',
           '🥇 Your ad is #1 in the Arena',
           `"${adTitle}" just hit the top spot. Share it to stay there.`);
 
-      else if (prevRank > 3  && finalRank <= 3)
+      else if (prevRank > 3 && finalRank <= 3)
         notify(adEmail, 'rank',
           `🥉 You're in the top 3`,
           `"${adTitle}" is now ranked #${finalRank}. One more share could take you to #1.`);
@@ -168,8 +173,8 @@ export async function POST(req: NextRequest) {
           '⭐ Your ad is now Featured',
           `"${adTitle}" entered the top 10 and is now Featured in the Arena.`);
 
-      // ── Points milestones ──
-      if      (prevPoints < 750 && finalPoints >= 750)
+      // ── Points milestone notifications ──────────────────────────────────
+      if (prevPoints < 750 && finalPoints >= 750)
         notify(adEmail, 'points',
           '🏆 750 points — Top Tier unlocked',
           `"${adTitle}" hit 750 points. Top Tier. You're at the top of the Arena.`);
@@ -183,37 +188,47 @@ export async function POST(req: NextRequest) {
         notify(adEmail, 'points',
           '⚡ 100 points — Rising tier unlocked',
           `"${adTitle}" hit 100 points. Rising tier is now active — keep sharing.`);
-      // ── Country champion badge — award when rank = 1 ──────────────────────
-if (finalRank === 1) {
-  awardBadge(supabase, adEmail, 'country-champion').catch(() => {});
-}
-      // ── Points badge awards — idempotent, fire and forget ──────────────────
+
+      // ── C-01 fix: country-champion badge — per-country rank #1 ──────────
+      // Award to the top-ranked ad owner in each country, not global rank #1.
+      // Only fires if this ad has a country set.
+      if (adCountry) {
+        const countryAds = pass2
+          .filter((a: any) => a.country === adCountry && !a.is_system)
+          .sort((a: any, b: any) => a.rank_position - b.rank_position);
+
+        if (countryAds.length > 0 && countryAds[0].id === ad_id) {
+          awardBadge(supabase, adEmail, 'country-champion').catch(() => {});
+        }
+      }
+
+      // ── Points badge awards — idempotent, fire and forget ───────────────
       checkAndAwardPointsBadges(supabase, adEmail, finalPoints).catch(() => {});
-      // ── Upgrade membership tier ───────────────────────────────────────────────
-(async () => {
-  try {
-    const [{ data: userRow }, { data: badges }] = await Promise.all([
-      supabase.from('ad_signups')
-        .select('membership_tier')
-        .eq('email', adEmail)
-        .maybeSingle(),
-      supabase.from('user_badges')
-        .select('badge_slug')
-        .eq('user_email', adEmail),
-    ]);
-    const currentTier = userRow?.membership_tier || 'trial';
-    const badgeSlugs  = (badges || []).map((b: { badge_slug: string }) => b.badge_slug);
-    const newTier     = calcMembershipTier(finalPoints, badgeSlugs, currentTier);
-    if (newTier !== currentTier) {
-      await upgradeMembershipTier(supabase, adEmail, newTier, currentTier);
-      // Notify user of tier upgrade
-      notify(adEmail, 'points',
-        `${newTier === 'rising' ? '🚀' : newTier === 'veteran' ? '🏅' : newTier === 'champion' ? '🏆' : '⚡'} You're now a ${newTier.charAt(0).toUpperCase() + newTier.slice(1)} Member`,
-        `Your engagement earned you a membership upgrade. Keep going.`
-      );
-    }
-  } catch {}
-})();
+
+      // ── Membership tier upgrade ─────────────────────────────────────────
+      (async () => {
+        try {
+          const [{ data: userRow }, { data: badges }] = await Promise.all([
+            supabase.from('ad_signups')
+              .select('membership_tier')
+              .eq('email', adEmail)
+              .maybeSingle(),
+            supabase.from('user_badges')
+              .select('badge_slug')
+              .eq('user_email', adEmail),
+          ]);
+          const currentTier = userRow?.membership_tier || 'trial';
+          const badgeSlugs  = (badges || []).map((b: { badge_slug: string }) => b.badge_slug);
+          const newTier     = calcMembershipTier(finalPoints, badgeSlugs, currentTier);
+          if (newTier !== currentTier) {
+            await upgradeMembershipTier(supabase, adEmail, newTier, currentTier);
+            notify(adEmail, 'points',
+              `${newTier === 'rising' ? '🚀' : newTier === 'veteran' ? '🏅' : newTier === 'champion' ? '🏆' : '⚡'} You're now a ${newTier.charAt(0).toUpperCase() + newTier.slice(1)} Member`,
+              `Your engagement earned you a membership upgrade. Keep going.`
+            );
+          }
+        } catch {}
+      })();
     }
   }
 
