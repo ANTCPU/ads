@@ -123,6 +123,21 @@ const iconBtn = (active: boolean, activeColor: string): React.CSSProperties => (
   transition:   'all 0.15s',
 });
 
+// ─── ShareContext builder — single source for all share surfaces ──────────────
+function buildShareCtx(ad: Ad): ShareContext {
+  return {
+    brand:       ad.brand,
+    title:       ad.title,
+    description: ad.description,
+    url:         ad.url,
+    profileUrl:  `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email)}`,
+    category:    ad.category,
+    country:     ad.country,
+    isChampion:  ad.is_country_champion,
+    pointsLabel: ad.points > 0 ? `⚡ ${ad.points} pts` : undefined,
+  };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ArenaUniversalClient() {
   const router = useRouter();
@@ -316,24 +331,23 @@ export default function ArenaUniversalClient() {
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: n } : a));
   }
 
+  // ── Native share — uses WhatsApp buildPost for consistent formatting ──────
   async function handleNativeShare(ad: Ad) {
     try {
-      await navigator.share({ title: ad.title, text: `${ad.brand} — ${ad.title}\n\n${ad.description}`, url: ad.url });
+      const platform = PLATFORMS.find(p => p.key === 'whatsapp')!;
+      const { text } = getShareAction(platform, buildShareCtx(ad));
+      await navigator.share({ title: ad.title, text, url: ad.url });
       await recordAdShare(ad, 'Native Share');
       setShareAd(null);
       if (typeof window !== 'undefined') window.scrollTo(0, 0);
     } catch {}
   }
 
+  // ── Platform share — uses share layer throughout ──────────────────────────
   async function executePlatformShare(ad: Ad, platformKey: string) {
     const platform = PLATFORMS.find(p => p.key === platformKey);
     if (!platform) return;
-    const ctx: ShareContext = {
-      brand: ad.brand, title: ad.title, description: ad.description, url: ad.url,
-      profileUrl: `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email)}`,
-      category: ad.category, country: ad.country, isChampion: ad.is_country_champion,
-    };
-    const { url: intentUrl, text } = getShareAction(platform, ctx);
+    const { url: intentUrl, text } = getShareAction(platform, buildShareCtx(ad));
     if (platformKey === 'facebook') {
       try { await navigator.clipboard.writeText(text); } catch {}
       showToast(ad.id, '📋 Caption copied — paste it in Facebook');
@@ -349,9 +363,10 @@ export default function ArenaUniversalClient() {
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   }
 
+  // ── Mega Copy — Telegram format for full package, social pack if image ────
   async function handleMegaCopy(ad: Ad) {
     try {
-      let megaText = `${ad.title}\n\n${ad.description}\n\n→ ${ad.url}`;
+      let megaText: string;
       if (ad.image_url) {
         const uploadIdx = ad.image_url.indexOf('/upload/');
         if (uploadIdx !== -1) {
@@ -363,9 +378,15 @@ export default function ArenaUniversalClient() {
           );
           if (res.ok) {
             const pack = await res.json();
-            megaText = pack.megaCopy?.text || megaText;
+            megaText = pack.megaCopy?.text || getShareAction(PLATFORMS.find(p => p.key === 'telegram')!, buildShareCtx(ad)).text;
+          } else {
+            megaText = getShareAction(PLATFORMS.find(p => p.key === 'telegram')!, buildShareCtx(ad)).text;
           }
+        } else {
+          megaText = getShareAction(PLATFORMS.find(p => p.key === 'telegram')!, buildShareCtx(ad)).text;
         }
+      } else {
+        megaText = getShareAction(PLATFORMS.find(p => p.key === 'telegram')!, buildShareCtx(ad)).text;
       }
       await navigator.clipboard.writeText(megaText);
       showToast(ad.id, '📋 Mega Copy!');
@@ -502,7 +523,6 @@ export default function ArenaUniversalClient() {
                 <button onClick={() => router.push(`/profile/${encodeURIComponent(preview.email)}`)}
                   style={iconBtn(false, muted)}>👤</button>
               </div>
-              {/* ── Nudge banner in preview modal ── */}
               <NudgeBanner adId={preview.id} />
             </div>
           </>
@@ -682,7 +702,10 @@ export default function ArenaUniversalClient() {
                     <div style={{ marginBottom: '0.75rem' }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.3rem' }}>{ad.title}</div>
                       <div style={{ fontSize: '0.8rem', color: '#888', lineHeight: 1.5 }}>
-                        {ad.description.length > 100 ? ad.description.slice(0, 100) + '…' : ad.description}
+                        {/* ── word-boundary truncation ── */}
+                        {ad.description.length > 100
+                          ? ad.description.slice(0, ad.description.lastIndexOf(' ', 100)) + '…'
+                          : ad.description}
                       </div>
                     </div>
                     <div style={{ height: 2, background: '#1a1a1a', borderRadius: 1, marginBottom: '0.75rem', overflow: 'hidden' }}>
@@ -728,7 +751,6 @@ export default function ArenaUniversalClient() {
                         <button onClick={e => { e.stopPropagation(); handleClick(ad); }} title="Visit" style={iconBtn(false, muted)}>🔗</button>
                       </div>
                     </div>
-                    {/* ── Nudge banner — anon like conversion ── */}
                     <NudgeBanner adId={ad.id} />
                   </div>
                 </div>
