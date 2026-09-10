@@ -166,6 +166,8 @@ export default function ArenaUniversalClient() {
   const isSuper     = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
   const totalBrands = new Set(ads.map(a => a.brand)).size;
   const totalPoints = ads.reduce((sum, a) => sum + (a.points || 0), 0);
+  const totalReactions = ads.reduce((sum, a) => sum + (a.reaction_count || 0), 0);
+  const totalShares    = ads.reduce((sum, a) => sum + (a.share_count    || 0), 0);
 
   // ─── Module context ───────────────────────────────────────────────────────
   const moduleCtx = {
@@ -615,9 +617,11 @@ export default function ArenaUniversalClient() {
         {/* Header stats */}
         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {[
-            { label: t(locale, 'arena_stat_brands'), value: totalBrands,                  color: '#0070f3' },
-            { label: t(locale, 'arena_stat_ads'),    value: ads.length,                   color: orange    },
-            { label: t(locale, 'arena_stat_points'), value: totalPoints.toLocaleString(), color: gold      },
+           { label: t(locale, 'arena_stat_brands'),    value: totalBrands,                     color: '#0070f3' },
+           { label: t(locale, 'arena_stat_ads'),        value: ads.length,                      color: orange    },
+           { label: t(locale, 'arena_stat_points'),     value: totalPoints.toLocaleString(),    color: gold      },
+           { label: t(locale, 'arena_stat_reactions'),  value: totalReactions.toLocaleString(), color: '#f0883e' },
+           { label: t(locale, 'arena_stat_shares'),     value: totalShares.toLocaleString(),    color: '#22c55e' },
           ].map(s => (
             <div key={s.label}>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.value}</div>
