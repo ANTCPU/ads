@@ -472,11 +472,11 @@ export default function ChampionsClient() {
             Get your brand in the Arena. Earn points. Become the champion of your nation.
           </div>
           <div style={{ fontSize: '0.75rem', color: '#2a2a2a', marginBottom: '1.25rem' }}>
-            3-day free trial · $9.99/mo · No contracts
+          90 days free · No credit card · No contracts
           </div>
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/mapofpi/create-shop-ad')}
               style={{ background: gold, border: 'none', borderRadius: '10px', color: '#000', fontWeight: 800, fontSize: '0.95rem', padding: '0.85rem 2rem', cursor: 'pointer' }}
             >
               Claim Your Country →
