@@ -269,7 +269,7 @@ export default function ArenaUniversalClient() {
     showToast(ad.id, 'Liked!');
     const n = await recordLike(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count },
-      getSessionId(), SOURCE.ARENA_FEED, supabase
+      getSessionId(), SOURCE.ARENA_FEED, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, like_count: n } : p);
@@ -284,7 +284,7 @@ export default function ArenaUniversalClient() {
     showToast(ad.id, 'Boosted!');
     const n = await recordBoost(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count },
-      getSessionId(), SOURCE.ARENA_FEED, supabase
+      getSessionId(), SOURCE.ARENA_FEED, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
