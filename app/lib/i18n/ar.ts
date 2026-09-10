@@ -185,6 +185,12 @@ export const ar: Record<string, string> = {
   arena_stat_points:        'النقاط',
   arena_stat_reactions:     'التفاعلات',
   arena_stat_shares:        'المشاركات',
+  weekly_digest_label:      'ملخص الساحة الأسبوعي',
+  weekly_greeting:          'إليك تحديثك الأسبوعي للساحة.',
+  weekly_leaderboard:       'لوحة المتصدرين هذا الأسبوع',
+  weekly_tip_label:         'نصيحة سريعة',
+  weekly_tip_body:          'شارك إعلانات الآخرين — ليس إعلاناتك فقط. الساحة تكافئ الكرم. عندما تشارك إعلان عضو آخر، تكسب نقاطاً وتبني علاقات. هكذا تتسلق السلم بأسرع طريقة.',
+  weekly_status_team:       'عضو الفريق',
 
   // RTL FLAG — read by i18n engine to set dir attribute
   rtl:                      'true',
