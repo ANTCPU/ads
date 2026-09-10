@@ -181,6 +181,12 @@ export const en: Record<string, string> = {
   arena_stat_points:        'Points',
   arena_stat_reactions:     'Reactions',
   arena_stat_shares:        'Shares',
+  weekly_digest_label:      'Weekly Arena Digest',
+  weekly_greeting:          "Here's your weekly Arena update.",
+  weekly_leaderboard:       "This Week's Leaderboard",
+  weekly_tip_label:         'Quick Tip',
+  weekly_tip_body:          "Share other people's ads — not just your own. The Arena rewards generosity. When you share another member's ad, you earn points AND build goodwill. That's how the ladder climbs fastest.",
+  weekly_status_team:       'Team Member',
 
   // RTL FLAG
   rtl:                      'false',
