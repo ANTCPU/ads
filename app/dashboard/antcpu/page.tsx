@@ -795,10 +795,10 @@ export default function AntcpuDashboard() {
           {/* ── Scroll box ── */}
           {pendingAds.length > 0 && (
             <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem',
-              paddingRight: '0.25rem',
-              scrollbarWidth: 'thin',
-              scrollbarColor: `${G.border2} transparent`,
-            }}>
+             paddingRight: '0.25rem',
+             scrollbarWidth: 'thin',
+             scrollbarColor: `${G.border2} transparent`,
+             } as any}>
               {pendingAds.map(ad => {
                 const verdict = ariaVerdict(ad);
                 const busy    = actionId === ad.id;
