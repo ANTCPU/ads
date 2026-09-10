@@ -185,6 +185,12 @@ export const it: Record<string, string> = {
   arena_stat_points:        'Punti',
   arena_stat_reactions:     'Reazioni',
   arena_stat_shares:        'Condivisioni',
+  weekly_digest_label:      'Riepilogo Settimanale dell\'Arena',
+  weekly_greeting:          'Ecco il tuo aggiornamento settimanale dell\'Arena.',
+  weekly_leaderboard:       'Classifica della Settimana',
+  weekly_tip_label:         'Consiglio Rapido',
+  weekly_tip_body:          'Condividi gli annunci degli altri — non solo i tuoi. L\'Arena premia la generosità. Quando condividi l\'annuncio di un altro membro, guadagni punti E costruisci buona volontà. È così che si sale più velocemente.',
+  weekly_status_team:       'Membro del Team',
 
   // RTL FLAG
   rtl:                      'false',
