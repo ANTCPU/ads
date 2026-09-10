@@ -117,10 +117,10 @@ export default function ChampionsClient() {
   const [shareAd,       setShareAd]       = useState<Ad | null>(null);
 
   // — derived
-  const isSuper      = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
-  const totalPoints  = champions.reduce((sum, a) => sum + (a.points || 0), 0);
-  const countryAds   = champions.filter(a => !!a.country);
-  const globalAds    = champions.filter(a => !a.country);
+  const isSuper         = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
+  const totalPoints     = champions.reduce((sum, a) => sum + (a.points || 0), 0);
+  const countryAds      = champions.filter(a => !!a.country);
+  const globalAds       = champions.filter(a => !a.country);
   const activeCountries = [...new Set(countryAds.map(a => a.country))].length;
   const totalMarketers  = new Set(champions.map(a => a.email)).size;
 
@@ -193,16 +193,31 @@ export default function ChampionsClient() {
     setChampions(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: newCount } : a));
   }
 
+  // ─── ShareContext builder ─────────────────────────────────────────────────
+  function buildShareCtx(ad: Ad): ShareContext {
+    return {
+      brand:       ad.brand,
+      title:       ad.title,
+      description: ad.description,
+      url:         ad.url,
+      profileUrl:  `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email)}`,
+      category:    ad.category,
+      country:     ad.country,
+      isChampion:  ad.is_country_champion,
+      pointsLabel: ad.points > 0 ? `⚡ ${ad.points} pts` : undefined,
+    };
+  }
+
+  // ─── Platform share ───────────────────────────────────────────────────────
   async function executePlatformShare(ad: Ad, platformKey: string) {
     const platform = PLATFORMS.find(p => p.key === platformKey);
     if (!platform) return;
-    const ctx: ShareContext = {
-      brand: ad.brand, title: ad.title, description: ad.description, url: ad.url,
-      profileUrl: `https://antcpu-ads.vercel.app/profile/${encodeURIComponent(ad.email)}`,
-      category: ad.category, country: ad.country, isChampion: ad.is_country_champion,
-    };
-    const { url: intentUrl, text } = getShareAction(platform, ctx);
-    if (intentUrl) {
+    const { url: intentUrl, text } = getShareAction(platform, buildShareCtx(ad));
+    if (platformKey === 'facebook') {
+      try { await navigator.clipboard.writeText(text); } catch {}
+      showToast(ad.id, '📋 Caption copied — paste it in Facebook');
+      setTimeout(() => window.open(intentUrl!, '_blank', 'noopener,noreferrer'), 800);
+    } else if (intentUrl) {
       window.open(intentUrl, '_blank', 'noopener,noreferrer');
     } else {
       try { await navigator.clipboard.writeText(text); } catch {}
@@ -221,6 +236,10 @@ export default function ChampionsClient() {
   function AdCard({ ad }: { ad: Ad }) {
     const color   = getBrandColor(ad.brand);
     const isToast = toast?.id === ad.id;
+    // ── word-boundary truncation ──
+    const preview = ad.description.length > 120
+      ? ad.description.slice(0, ad.description.lastIndexOf(' ', 120)) + '…'
+      : ad.description;
     return (
       <div style={{ background: card, border: `1px solid ${gold}30`, borderRadius: '14px', padding: '1.1rem 1.25rem', position: 'relative', overflow: 'hidden' }}>
         {/* Gold top accent */}
@@ -240,7 +259,7 @@ export default function ChampionsClient() {
         {/* Title + description */}
         <div style={{ fontWeight: 700, fontSize: '0.9rem', color: white, marginBottom: '0.2rem' }}>{ad.title}</div>
         <div style={{ fontSize: '0.78rem', color: muted, lineHeight: 1.5, marginBottom: '0.65rem' }}>
-          {ad.description.length > 120 ? ad.description.slice(0, 120) + '…' : ad.description}
+          {preview}
         </div>
 
         {/* Stats */}
@@ -271,7 +290,8 @@ export default function ChampionsClient() {
       </div>
     );
   }
-    // ─── Render ───────────────────────────────────────────────────────────────
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div style={{ background: bg, minHeight: '100vh', color: white, fontFamily: 'system-ui, sans-serif' }}>
@@ -382,12 +402,11 @@ export default function ChampionsClient() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                   {sortedCountries.map(country => {
-                    const group     = countryGroups[country];
-                    const flag      = countryFlag(country);
-                    const groupPts  = group.reduce((s, a) => s + (a.points || 0), 0);
+                    const group    = countryGroups[country];
+                    const flag     = countryFlag(country);
+                    const groupPts = group.reduce((s, a) => s + (a.points || 0), 0);
                     return (
                       <div key={country}>
-                        {/* Country header */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem', paddingBottom: '0.6rem', borderBottom: `1px solid ${gold}20` }}>
                           <span style={{ fontSize: '1.5rem' }}>{flag}</span>
                           <span style={{ fontWeight: 800, fontSize: '1rem', color: white }}>{country}</span>
@@ -396,7 +415,6 @@ export default function ChampionsClient() {
                             {group.length} ad{group.length !== 1 ? 's' : ''} · ⚡ {groupPts} pts
                           </span>
                         </div>
-                        {/* Ads */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           {group.map(ad => <AdCard key={ad.id} ad={ad} />)}
                         </div>
