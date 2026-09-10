@@ -195,3 +195,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// ─── Cron handler — Vercel fires GET on schedule ──────────────────────────────
+// Hobby plan: no automatic auth header — secret passed via query param.
+// Vercel cron path: /api/send-weekly?secret=<WEEKLY_SECRET>
+// vercel.json crons path must include the query string.
+
+export async function GET(req: NextRequest) {
+  const secret = req.nextUrl.searchParams.get('secret') || '';
+
+  if (!secret || secret !== process.env.WEEKLY_SECRET) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  // Delegate to POST logic
+  const internal = new NextRequest(req.url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ secret }),
+  });
+
+  return POST(internal);
+}
