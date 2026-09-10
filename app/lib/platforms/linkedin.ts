@@ -10,5 +10,5 @@ export const linkedin: Platform = {
   profileUrl:     h => `https://linkedin.com/in/${h}`,
   intentUrl:      (_text, url) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
   buildPost: ctx =>
-    `${championPrefix(ctx)}Excited to share ${ctx.brand} on ANTCPU ADS.\n\n${ctx.description}\n\nCategory: ${ctx.category}\n→ ${ctx.profileUrl}\n\n#advertising #brand #antcpuads`,
+    `${championPrefix(ctx)}${ctx.brand} — ${ctx.title}\n\n${ctx.description}\n\nCategory: ${ctx.category}\n→ ${ctx.url}\n\n#advertising #brand #antcpuads`,
 };
