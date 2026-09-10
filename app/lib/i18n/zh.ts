@@ -183,6 +183,8 @@ export const zh: Record<string, string> = {
   arena_stat_brands:        '品牌',
   arena_stat_ads:           '广告',
   arena_stat_points:        '积分',
+  arena_stat_reactions:     '反应',
+  arena_stat_shares:        '分享',
 
   // RTL FLAG
   rtl:                      'false',
