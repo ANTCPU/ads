@@ -185,6 +185,12 @@ export const hi: Record<string, string> = {
   arena_stat_points:        'अंक',
   arena_stat_reactions:     'प्रतिक्रियाएं',
   arena_stat_shares:        'शेयर',
+  weekly_digest_label:      'साप्ताहिक अखाड़ा सारांश',
+  weekly_greeting:          'यहाँ आपका साप्ताहिक अखाड़ा अपडेट है।',
+  weekly_leaderboard:       'इस सप्ताह का लीडरबोर्ड',
+  weekly_tip_label:         'त्वरित सुझाव',
+  weekly_tip_body:          'दूसरों के विज्ञापन शेयर करें — केवल अपने नहीं। अखाड़ा उदारता को पुरस्कृत करता है। जब आप किसी अन्य सदस्य का विज्ञापन शेयर करते हैं, तो आप अंक कमाते हैं और सद्भावना बनाते हैं। यही सबसे तेज़ तरीका है।',
+  weekly_status_team:       'टीम सदस्य',
 
   // RTL FLAG
   rtl:                      'false',
