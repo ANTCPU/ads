@@ -186,6 +186,12 @@ export const es: Record<string, string> = {
   arena_stat_points:        'Puntos',
   arena_stat_reactions:     'Reacciones',
   arena_stat_shares:        'Compartidos',
+  weekly_digest_label:      'Resumen Semanal de la Arena',
+  weekly_greeting:          'Aquí está tu actualización semanal de la Arena.',
+  weekly_leaderboard:       'Tabla de Clasificación de Esta Semana',
+  weekly_tip_label:         'Consejo Rápido',
+  weekly_tip_body:          'Comparte los anuncios de otros — no solo los tuyos. La Arena recompensa la generosidad. Cuando compartes el anuncio de otro miembro, ganas puntos Y construyes buena voluntad. Así es como se sube más rápido.',
+  weekly_status_team:       'Miembro del Equipo',
 
   // RTL FLAG
   rtl:                      'false',
