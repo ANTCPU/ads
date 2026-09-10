@@ -183,6 +183,8 @@ export const it: Record<string, string> = {
   arena_stat_brands:        'Brand',
   arena_stat_ads:           'Annunci',
   arena_stat_points:        'Punti',
+  arena_stat_reactions:     'Reazioni',
+  arena_stat_shares:        'Condivisioni',
 
   // RTL FLAG
   rtl:                      'false',
