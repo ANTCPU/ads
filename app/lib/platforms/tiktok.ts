@@ -9,6 +9,10 @@ export const tiktok: Platform = {
   supportsIntent: false,
   profileUrl:     h => `https://tiktok.com/@${h.replace('@', '')}`,
   intentUrl:      () => '',
-  buildPost: ctx =>
-    `Have you seen ${ctx.brand}? ⚡\n\n${ctx.title} 👀\n\n${ctx.description.slice(0, 80)}\n\nLink in bio!\n\n${getHashtags(ctx.category)} #fyp #viral`,
+  buildPost: ctx => {
+    const desc = ctx.description.length > 80
+      ? ctx.description.slice(0, ctx.description.lastIndexOf(' ', 80)) + '…'
+      : ctx.description;
+    return `Have you seen ${ctx.brand}? ⚡\n\n${ctx.title} 👀\n\n${desc}\n\n→ ${ctx.url}\n\nLink in bio!\n\n${getHashtags(ctx.category)} #fyp #viral`;
+  },
 };
