@@ -29,6 +29,10 @@ const COUNTRY_LOCALE: Record<string, Locale> = {
   'Indonesia': 'id',
   // Vietnamese
   'Vietnam': 'vi',
+    // Turkish
+  'Turkey': 'tr',
+  // Korean
+  'South Korea': 'ko',
 };
 
 const STORAGE_KEY = 'arena_locale';
