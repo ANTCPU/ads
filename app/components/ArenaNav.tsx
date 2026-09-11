@@ -1,8 +1,10 @@
 'use client';
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { clearSessionCookie } from '../lib/session';
-import { createClient } from '@supabase/supabase-js';
+
+import { useState, useEffect } from 'react';
+import { useRouter }           from 'next/navigation';
+import { clearSessionCookie }  from '../lib/session';
+import { createClient }        from '@supabase/supabase-js';
+import LanguageSwitcher        from './LanguageSwitcher';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,7 +98,7 @@ export default function ArenaNav({
   const [membershipTier, setMembershipTier] = useState('trial');
   const [streakDays,     setStreakDays]     = useState(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
     try {
       const lv = JSON.parse(localStorage.getItem('arena_last_visited') || '[]');
@@ -259,7 +261,7 @@ export default function ArenaNav({
                     border: '1px solid #333', color: '#555', cursor: 'pointer',
                     fontSize: '0.68rem', borderRadius: '6px', padding: '0.2rem 0.5rem' }}>
                     {markingRead ? '...' : 'Mark all read'}
-                                    </button>
+                  </button>
                 )}
                 <button onClick={() => setNotifOpen(false)} style={{ background: 'none',
                   border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
@@ -510,6 +512,16 @@ export default function ArenaNav({
                     {item.label}
                   </button>
                 ))}
+
+                <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
+
+                {/* ── LANGUAGE SWITCHER ── */}
+                {/* Reuses the fully-wired LanguageSwitcher component — reads  */}
+                {/* arena_locale on mount, writes on select, closes on outside */}
+                {/* click. No new locale logic needed here.                    */}
+                <div style={{ padding: '0.2rem 0.5rem 0.4rem' }}>
+                  <LanguageSwitcher />
+                </div>
 
                 <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
 
