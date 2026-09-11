@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getLocation } from '../lib/location';
 import { getBrandConfig } from '../lib/brandConfig';
@@ -32,6 +32,8 @@ const LANGUAGES = [
   { code: 'zh', label: 'ZH' }, { code: 'es', label: 'ES' },
   { code: 'hi', label: 'HI' }, { code: 'pt', label: 'PT' },
   { code: 'fr', label: 'FR' }, { code: 'it', label: 'IT' },
+  { code: 'id', label: 'ID' }, { code: 'vi', label: 'VI' },
+  { code: 'tr', label: 'TR' }, { code: 'ko', label: 'KO' },
 ];
 
 const { bg, card, border, white, muted, muted2 } = tokens;
