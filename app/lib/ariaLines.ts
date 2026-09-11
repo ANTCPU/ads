@@ -12,6 +12,7 @@ export const ARIA_LINES: Record<string, string> = {
   fr: '🦋 Aria ici — votre campagne est en direct. Les 10 antbots font tourner votre boutique sur le réseau.',
   ar: '🦋 أريا هنا — حملتك مباشرة الآن. جميع الـ 10 روبوتات تعمل على نشر متجرك عبر الشبكة.',
   zh: '🦋 Aria 在此 — 您的广告活动已上线。10 个蚂蚁机器人正在网络上运行您的店铺。',
+  it: '🦋 Aria qui — la tua campagna è live. Tutti i 10 antbot stanno gestendo il tuo negozio sulla rete.',
   id: '🦋 Aria di sini — kampanye Anda sudah live. Semua 10 antbot menjalankan toko Anda di seluruh jaringan.',
   vi: '🦋 Aria đây — chiến dịch của bạn đã phát sóng. Tất cả 10 antbot đang chạy cửa hàng của bạn trên mạng.',
   ko: '🦋 Aria입니다 — 캠페인이 시작되었습니다. 10개의 앤트봇이 네트워크 전체에서 귀하의 가게를 운영하고 있습니다.',
