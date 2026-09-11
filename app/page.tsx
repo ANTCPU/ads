@@ -1,9 +1,10 @@
 'use client';
 
-import VaultModal      from './components/VaultModal';
-import React, { useState, useEffect } from 'react';
-import { Locale, t, isRTL } from './lib/i18n/index';
-import LanguageSwitcher from './components/LanguageSwitcher';
+import VaultModal                  from './components/VaultModal';
+import { useState, useEffect }     from 'react';
+import { Locale, t, isRTL }        from './lib/i18n/index';
+import LanguageSwitcher            from './components/LanguageSwitcher';
+import { getStoredLocale }         from './lib/locale';
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -27,6 +28,8 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   const [scrolled,      setScrolled]      = useState(false);
   const [vaultOpen,     setVaultOpen]     = useState(false);
   const [piPrice,       setPiPrice]       = useState('...');
+  // ── Active locale — prop wins for route wrappers, localStorage for root / ──
+  const [activeLocale,  setActiveLocale]  = useState<Locale>(locale);
 
   // ── Live stats from /api/stats ────────────────────────────────────────────
   const [liveAds,       setLiveAds]       = useState<number | null>(null);
@@ -37,6 +40,13 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   const [liveShares,    setLiveShares]    = useState<number | null>(null);
 
   useEffect(() => {
+    // Read stored locale — only when on root / (locale prop defaults to 'en')
+    // Route wrappers (/fr, /ar etc.) pass locale directly — prop always wins
+    if (locale === 'en') {
+      const stored = getStoredLocale();
+      if (stored !== 'en') setActiveLocale(stored);
+    }
+
     // Pi price
     fetch('/pi-price')
       .then(r => r.json())
@@ -65,67 +75,67 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
   // ── Locale-aware arrays ───────────────────────────────────────────────────
   const STEPS = [
-    { n: '01', title: t(locale, 'step_01_title'), desc: t(locale, 'step_01_desc') },
-    { n: '02', title: t(locale, 'step_02_title'), desc: t(locale, 'step_02_desc') },
-    { n: '03', title: t(locale, 'step_03_title'), desc: t(locale, 'step_03_desc') },
-    { n: '04', title: t(locale, 'step_04_title'), desc: t(locale, 'step_04_desc') },
+    { n: '01', title: t(activeLocale, 'step_01_title'), desc: t(activeLocale, 'step_01_desc') },
+    { n: '02', title: t(activeLocale, 'step_02_title'), desc: t(activeLocale, 'step_02_desc') },
+    { n: '03', title: t(activeLocale, 'step_03_title'), desc: t(activeLocale, 'step_03_desc') },
+    { n: '04', title: t(activeLocale, 'step_04_title'), desc: t(activeLocale, 'step_04_desc') },
   ];
 
   const LADDER = [
-    { tier: 'Entry',    color: C.teal,   pts: t(locale, 'ladder_entry_pts'),    desc: t(locale, 'ladder_entry_desc')    },
-    { tier: 'Rising',   color: C.blue,   pts: t(locale, 'ladder_rising_pts'),   desc: t(locale, 'ladder_rising_desc')   },
-    { tier: 'Featured', color: C.orange, pts: t(locale, 'ladder_featured_pts'), desc: t(locale, 'ladder_featured_desc') },
-    { tier: 'Top Tier', color: C.gold,   pts: t(locale, 'ladder_top_pts'),      desc: t(locale, 'ladder_top_desc')      },
+    { tier: 'Entry',    color: C.teal,   pts: t(activeLocale, 'ladder_entry_pts'),    desc: t(activeLocale, 'ladder_entry_desc')    },
+    { tier: 'Rising',   color: C.blue,   pts: t(activeLocale, 'ladder_rising_pts'),   desc: t(activeLocale, 'ladder_rising_desc')   },
+    { tier: 'Featured', color: C.orange, pts: t(activeLocale, 'ladder_featured_pts'), desc: t(activeLocale, 'ladder_featured_desc') },
+    { tier: 'Top Tier', color: C.gold,   pts: t(activeLocale, 'ladder_top_pts'),      desc: t(activeLocale, 'ladder_top_desc')      },
   ];
 
   const PLANS = [
     {
-      name: t(locale, 'plan_trial_name'),   price: t(locale, 'plan_trial_price'),
-      period: t(locale, 'plan_trial_period'), color: C.teal,
+      name: t(activeLocale, 'plan_trial_name'),   price: t(activeLocale, 'plan_trial_price'),
+      period: t(activeLocale, 'plan_trial_period'), color: C.teal,
       badge: '', badgeColor: '',
       features: [
-        t(locale, 'plan_trial_f1'), t(locale, 'plan_trial_f2'),
-        t(locale, 'plan_trial_f3'), t(locale, 'plan_trial_f4'),
+        t(activeLocale, 'plan_trial_f1'), t(activeLocale, 'plan_trial_f2'),
+        t(activeLocale, 'plan_trial_f3'), t(activeLocale, 'plan_trial_f4'),
       ],
-      cta: t(locale, 'plan_trial_cta'), disabled: false,
+      cta: t(activeLocale, 'plan_trial_cta'), disabled: false,
     },
     {
-      name: t(locale, 'plan_arena_name'),   price: t(locale, 'plan_arena_price'),
-      period: t(locale, 'plan_arena_period'), color: C.orange,
-      badge: t(locale, 'plan_arena_badge'), badgeColor: C.orange,
+      name: t(activeLocale, 'plan_arena_name'),   price: t(activeLocale, 'plan_arena_price'),
+      period: t(activeLocale, 'plan_arena_period'), color: C.orange,
+      badge: t(activeLocale, 'plan_arena_badge'), badgeColor: C.orange,
       features: [
-        t(locale, 'plan_arena_f1'), t(locale, 'plan_arena_f2'),
-        t(locale, 'plan_arena_f3'), t(locale, 'plan_arena_f4'),
-        t(locale, 'plan_arena_f5'),
+        t(activeLocale, 'plan_arena_f1'), t(activeLocale, 'plan_arena_f2'),
+        t(activeLocale, 'plan_arena_f3'), t(activeLocale, 'plan_arena_f4'),
+        t(activeLocale, 'plan_arena_f5'),
       ],
-      cta: t(locale, 'plan_arena_cta'), disabled: false,
+      cta: t(activeLocale, 'plan_arena_cta'), disabled: false,
     },
     {
-      name: t(locale, 'plan_pro_name'),     price: t(locale, 'plan_pro_price'),
-      period: t(locale, 'plan_pro_period'), color: C.purple,
-      badge: t(locale, 'plan_pro_badge'),   badgeColor: C.purple,
+      name: t(activeLocale, 'plan_pro_name'),     price: t(activeLocale, 'plan_pro_price'),
+      period: t(activeLocale, 'plan_pro_period'), color: C.purple,
+      badge: t(activeLocale, 'plan_pro_badge'),   badgeColor: C.purple,
       features: [
-        t(locale, 'plan_pro_f1'), t(locale, 'plan_pro_f2'),
-        t(locale, 'plan_pro_f3'), t(locale, 'plan_pro_f4'),
-        t(locale, 'plan_pro_f5'),
+        t(activeLocale, 'plan_pro_f1'), t(activeLocale, 'plan_pro_f2'),
+        t(activeLocale, 'plan_pro_f3'), t(activeLocale, 'plan_pro_f4'),
+        t(activeLocale, 'plan_pro_f5'),
       ],
-      cta: t(locale, 'plan_pro_cta'), disabled: true,
+      cta: t(activeLocale, 'plan_pro_cta'), disabled: true,
     },
     {
-      name: t(locale, 'plan_deluxe_name'),  price: t(locale, 'plan_deluxe_price'),
-      period: t(locale, 'plan_deluxe_period'), color: C.gold,
-      badge: t(locale, 'plan_deluxe_badge'), badgeColor: C.gold,
+      name: t(activeLocale, 'plan_deluxe_name'),  price: t(activeLocale, 'plan_deluxe_price'),
+      period: t(activeLocale, 'plan_deluxe_period'), color: C.gold,
+      badge: t(activeLocale, 'plan_deluxe_badge'), badgeColor: C.gold,
       features: [
-        t(locale, 'plan_deluxe_f1'), t(locale, 'plan_deluxe_f2'),
-        t(locale, 'plan_deluxe_f3'), t(locale, 'plan_deluxe_f4'),
-        t(locale, 'plan_deluxe_f5'),
+        t(activeLocale, 'plan_deluxe_f1'), t(activeLocale, 'plan_deluxe_f2'),
+        t(activeLocale, 'plan_deluxe_f3'), t(activeLocale, 'plan_deluxe_f4'),
+        t(activeLocale, 'plan_deluxe_f5'),
       ],
-      cta: t(locale, 'plan_deluxe_cta'), disabled: true,
+      cta: t(activeLocale, 'plan_deluxe_cta'), disabled: true,
     },
   ];
 
   // ── Style helpers ─────────────────────────────────────────────────────────
-  const rtl      = isRTL(locale);
+  const rtl      = isRTL(activeLocale);
   const sec      = { maxWidth: '1100px', margin: '0 auto', padding: '0 clamp(16px,5vw,48px)' };
   const pad      = { padding: 'clamp(60px,8vw,100px) 0' };
   const tag      = { fontSize: '11px', fontWeight: 700, letterSpacing: '3px',
@@ -162,12 +172,12 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   // ── Derived hero badge text ───────────────────────────────────────────────
   const heroBadge = liveAds !== null
     ? `${liveAds} ads live · ${liveBrands} brands · ${liveCountries} countries`
-    : t(locale, 'hero_badge');
+    : t(activeLocale, 'hero_badge');
 
   // ── Final CTA subtext ─────────────────────────────────────────────────────
   const finalSub = liveAds !== null
     ? `${liveAds} ads live. ${liveBrands} brands competing.${liveReactions ? ` ${liveReactions.toLocaleString()} reactions.` : ''} Join them.`
-    : t(locale, 'final_sub');
+    : t(activeLocale, 'final_sub');
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -196,11 +206,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           <button onClick={() => setVaultOpen(true)} className="nav-a"
             style={{ background: 'none', border: 'none', color: C.muted2,
               cursor: 'pointer', fontSize: '13px', transition: 'color 0.2s' }}>
-            {t(locale, 'nav_signin')}
+            {t(activeLocale, 'nav_signin')}
           </button>
           <a href="/login?ref=homepage" className="cta"
             style={{ ...btn(C.orange), padding: '8px 18px', fontSize: '13px' }}>
-            {t(locale, 'nav_start')}
+            {t(activeLocale, 'nav_start')}
           </a>
         </div>
       </nav>
@@ -247,7 +257,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
             <p style={{ fontSize: 'clamp(15px,1.8vw,19px)', color: C.muted,
               maxWidth: 520, lineHeight: 1.7, marginBottom: 32 }}>
-              {t(locale, 'hero_sub')}
+              {t(activeLocale, 'hero_sub')}
               {liveBrands && (
                 <strong style={{ color: C.white }}>
                   {' '}Already working for {liveBrands}+ brands.
@@ -257,15 +267,15 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <a href="/login?ref=homepage" className="cta" style={btn(C.orange)}>
-                {t(locale, 'hero_cta_primary')}
+                {t(activeLocale, 'hero_cta_primary')}
               </a>
               <a href="/arena" className="ghost" style={ghostBtn}>
-                {t(locale, 'hero_cta_secondary')}
+                {t(activeLocale, 'hero_cta_secondary')}
               </a>
             </div>
 
             <p style={{ fontSize: 12, color: C.muted2 }}>
-              {t(locale, 'hero_trial')}
+              {t(activeLocale, 'hero_trial')}
             </p>
 
           </div>
@@ -298,8 +308,8 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         {/* ── HOW IT WORKS ── */}
         <section style={{ ...pad, borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>{t(locale, 'how_section_label')}</div>
-            <h2 style={h2}>{t(locale, 'how_title')}</h2>
+            <div style={tag}>{t(activeLocale, 'how_section_label')}</div>
+            <h2 style={h2}>{t(activeLocale, 'how_title')}</h2>
             <div style={{ display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16 }}>
               {STEPS.map((s, i) => (
@@ -323,11 +333,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ ...pad, background: '#0d0d0d',
           borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>{t(locale, 'ladder_section_label')}</div>
-            <h2 style={h2}>{t(locale, 'ladder_title')}</h2>
+            <div style={tag}>{t(activeLocale, 'ladder_section_label')}</div>
+            <h2 style={h2}>{t(activeLocale, 'ladder_title')}</h2>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 32,
               maxWidth: 480, lineHeight: 1.65 }}>
-              {t(locale, 'ladder_sub')}
+              {t(activeLocale, 'ladder_sub')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {LADDER.map((row, i) => (
@@ -352,10 +362,10 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         {/* ── PRICING ── */}
         <section style={{ ...pad, borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>{t(locale, 'pricing_section_label')}</div>
-            <h2 style={h2}>{t(locale, 'pricing_title')}</h2>
+            <div style={tag}>{t(activeLocale, 'pricing_section_label')}</div>
+            <h2 style={h2}>{t(activeLocale, 'pricing_title')}</h2>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 40 }}>
-              {t(locale, 'pricing_sub')}
+              {t(activeLocale, 'pricing_sub')}
             </p>
             <div style={{ display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: 16 }}>
@@ -413,7 +423,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         <section style={{ ...pad, background: '#0d0d0d',
           borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
-            <div style={tag}>{t(locale, 'partner_section_label')}</div>
+            <div style={tag}>{t(activeLocale, 'partner_section_label')}</div>
             <div style={{ background: C.card, border: `1px solid ${C.gold}30`,
               borderRadius: 20, padding: 'clamp(28px,4vw,48px)',
               position: 'relative', overflow: 'hidden' }}>
@@ -446,7 +456,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               <div style={{ display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit,minmax(90px,1fr))',
                 gap: 12, marginBottom: 28 }}>
-                {[...MAP_STATS, { v: piPrice, l: t(locale, 'partner_price_label') }].map((st, i) => (
+                {[...MAP_STATS, { v: piPrice, l: t(activeLocale, 'partner_price_label') }].map((st, i) => (
                   <div key={i} style={{ background: '#0a0a0a',
                     border: `1px solid ${C.border}`, borderRadius: 10,
                     padding: '14px 10px', textAlign: 'center' }}>
@@ -493,7 +503,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         {/* ── FINAL CTA ── */}
         <section style={{ ...pad }}>
           <div style={{ ...sec, textAlign: 'center' }}>
-            <div style={tag}>{t(locale, 'final_section_label')}</div>
+            <div style={tag}>{t(activeLocale, 'final_section_label')}</div>
             <h2 style={{ ...h2, textAlign: 'center', fontSize: 'clamp(28px,5vw,52px)' }}>
               The Arena is open.<br />
               <span style={{ color: C.orange }}>Your brand belongs here.</span>
@@ -506,16 +516,16 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
               justifyContent: 'center', marginBottom: 20 }}>
               <a href="/login?ref=final-cta" className="cta"
                 style={{ ...btn(C.orange), fontSize: 16, padding: '14px 36px' }}>
-                {t(locale, 'final_cta')}
+                {t(activeLocale, 'final_cta')}
               </a>
               <a href="/arena" className="ghost" style={{ ...ghostBtn, fontSize: 16 }}>
-                {t(locale, 'hero_cta_secondary')}
+                {t(activeLocale, 'hero_cta_secondary')}
               </a>
             </div>
             <button onClick={() => setVaultOpen(true)}
               style={{ background: 'none', border: 'none', color: C.muted2,
                 cursor: 'pointer', fontSize: 13, marginTop: 4 }}>
-              {t(locale, 'final_signin')}
+              {t(activeLocale, 'final_signin')}
             </button>
           </div>
         </section>
@@ -544,7 +554,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
             ))}
           </div>
           <span style={{ fontSize: 12, color: C.muted2 }}>
-            {t(locale, 'footer_copy')}
+            {t(activeLocale, 'footer_copy')}
           </span>
         </footer>
 
@@ -555,3 +565,4 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     </div>
   );
 }
+ 
