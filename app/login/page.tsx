@@ -62,11 +62,9 @@ function getTrialExpiry(days: number): string {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function fireWelcomeEmail(name: string, email: string, brand: string, trialStatus: string) {
+function fireWelcomeEmail(name: string, email: string, brand: string, trialStatus: string, locale = 'en') {
   fetch('/api/send-welcome', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ name, email, brand, trialStatus }),
+    body: JSON.stringify({ name, email, brand, trialStatus, preferred_locale: locale }),
   }).catch(() => {});
   supabase
     .from('ad_signups')
@@ -313,7 +311,7 @@ export default function Page() {
         ip:               loc.ip,
         preferred_locale: form.preferred_locale,
       }]);
-      fireWelcomeEmail('', norm, brand.name, 'team');
+      fireWelcomeEmail('', norm, brand.name, 'team', form.preferred_locale);
     }
     const role = await fetchRole(norm);
     persistSession(
@@ -354,7 +352,7 @@ export default function Page() {
       }]);
       // Write locale to localStorage immediately after new signup
       setStoredLocale(form.preferred_locale as any);
-      fireWelcomeEmail(form.name, emailNorm, form.brand_name, 'trial');
+      fireWelcomeEmail(form.name, emailNorm, form.brand_name, 'trial', form.preferred_locale);
     }
     const role = await fetchRole(emailNorm);
     persistSession(
