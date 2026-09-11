@@ -187,6 +187,23 @@ export const en: Record<string, string> = {
   weekly_tip_label:         'Quick Tip',
   weekly_tip_body:          "Share other people's ads — not just your own. The Arena rewards generosity. When you share another member's ad, you earn points AND build goodwill. That's how the ladder climbs fastest.",
   weekly_status_team:       'Team Member',
+  // WELCOME EMAIL
+  welcome_subject:          'Welcome to the Arena,',
+  welcome_hero:             'Welcome to the Arena,',
+  welcome_brand_live:       'is now live in the ANTCPU ADS network.',
+  welcome_trial_line_1:     'You have',
+  welcome_days:             'days',
+  welcome_trial_line_2:     'of',
+  welcome_access_team:      'team access — full features, no limits',
+  welcome_access_trial:     'free trial access — full features, no limits',
+  welcome_steps_label:      'Get Started in 3 Steps',
+  welcome_step1_title:      'Create Your First Ad',
+  welcome_step1_desc:       'Title, URL, description. 2 minutes. Go live immediately.',
+  welcome_step2_title:      'Share It Everywhere',
+  welcome_step2_desc:       'Use the ↗ Share button on your ad card. Pre-written post ready for every platform.',
+  welcome_step3_title:      'Climb the Ladder',
+  welcome_step3_desc:       'Entry → Rising → Featured → Top Tier. Engagement earns you higher placement automatically.',
+  welcome_tip_body:         'Your first share is your most powerful. The Arena rewards generosity. When you share another member\'s ad, you earn points AND build goodwill. That\'s how the ladder climbs fastest.',
 
   // RTL FLAG
   rtl:                      'false',
