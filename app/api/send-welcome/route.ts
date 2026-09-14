@@ -1,8 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { notifyDiscord }             from '../../lib/discord';
+// app/api/send-welcome/route.ts
+// ─── Welcome email — gated by emailGate ──────────────────────────────────────
+// Gate checks: account age (7d) · daily transactional budget (30/day) ·
+//              monthly cap (3,000) · welcome_email_sent_at idempotency
+//
+// If gate blocks → in-app notification fires + Discord gated ping
+// If gate passes → heraldSend fires + recordEmailSent increments counters
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { NextRequest, NextResponse }              from 'next/server';
+import { createClient }                           from '@supabase/supabase-js';
+import { notifyDiscord }                          from '../../lib/discord';
 import { heraldSend, heraldWrap, HERALD_VERSION } from '../../lib/herald';
-import { t }                         from '../../lib/i18n/index';
-import type { Locale }               from '../../lib/i18n/index';
+import { t }                                      from '../../lib/i18n/index';
+import type { Locale }                            from '../../lib/i18n/index';
+import { checkEmailGate, recordEmailSent,
+         gatedNotify }                            from '../../lib/emailGate';
+
+// ─── Service role client — required for gate + counter writes ─────────────────
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,21 +49,55 @@ export async function POST(req: NextRequest) {
     const days      = isTeam ? 90 : 3;
     const myDash    = dashboardUrl(role, email);
 
+    // ── Email gate ────────────────────────────────────────────────────────────
+    // Check before building HTML — if gated, fire in-app + return early.
+    // guardCol 'welcome_email_sent_at' prevents duplicate welcome sends.
+
+    const gate = await checkEmailGate(
+      supabase, email, 'transactional', 'welcome_email_sent_at'
+    );
+
+    if (!gate.allow) {
+      // In-app notification — user still gets the welcome signal
+      await gatedNotify(
+        supabase, email,
+        `⚡ ${t(locale, 'welcome_hero')} ${firstName}`,
+        `${brand} ${t(locale, 'welcome_brand_live')} ${t(locale, 'welcome_step1_desc')}`,
+        'nudge'
+      );
+
+      // Stamp sent_at so this path doesn't retry on next login
+      await supabase
+        .from('ad_signups')
+        .update({ welcome_email_sent_at: new Date().toISOString() })
+        .eq('email', email);
+
+      // Internal Discord ping — visible in admin feed, not an error
+      await notifyDiscord(
+        `📭 Welcome gated · **${email}** · reason: ${gate.reason} · locale: ${locale}`,
+        'general'
+      );
+
+      return NextResponse.json({ sent: false, reason: gate.reason });
+    }
+
+    // ── Gate passed — build + send email ─────────────────────────────────────
+
     const steps = [
       {
-        n:    '01',
+        n:     '01',
         title: t(locale, 'welcome_step1_title'),
         desc:  t(locale, 'welcome_step1_desc'),
         href:  'https://antcpu-ads.vercel.app/create-ad',
       },
       {
-        n:    '02',
+        n:     '02',
         title: t(locale, 'welcome_step2_title'),
         desc:  t(locale, 'welcome_step2_desc'),
         href:  myDash,
       },
       {
-        n:    '03',
+        n:     '03',
         title: t(locale, 'welcome_step3_title'),
         desc:  t(locale, 'welcome_step3_desc'),
         href:  'https://antcpu-ads.vercel.app/arena',
@@ -169,6 +222,9 @@ export async function POST(req: NextRequest) {
       html,
       locale,
     });
+
+    // Increment per-user email counters
+    await recordEmailSent(supabase, email);
 
     await notifyDiscord(
       `📧 Welcome email sent to **${name}** (${email}) · ${brand} · ` +
