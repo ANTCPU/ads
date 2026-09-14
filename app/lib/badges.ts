@@ -1,6 +1,6 @@
 // app/lib/badges.ts
 // ─── Badge Registry ───────────────────────────────────────────────────────────
-// Single source of truth for all badge slugs, labels, icons, and descriptions.
+// Single source of truth for all badge slugs, labels, icons, colors, and descriptions.
 //
 // TIERS:
 //   1 — Identity    auto on signup, based on how/when they joined
@@ -14,8 +14,6 @@
 //
 // awardBadge() is idempotent — safe to call multiple times, never duplicates.
 // Silent fail — badge award never blocks user flow.
-//
-// Tier 4 admin flow: built later in dashboard/antcpu via /api/admin/award-badge
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -23,38 +21,21 @@ import { SupabaseClient } from '@supabase/supabase-js';
 // ─── Badge slug type ──────────────────────────────────────────────────────────
 
 export type BadgeSlug =
-  // Tier 1 — Identity
-  | 'arena-original'
-  | 'pi-pioneer'
-  | 'challenger'
-  | 'arena-builder'
-  // Tier 2 — Action (first time, with live counter)
-  | 'first-share'
-  | 'first-like'
-  | 'first-boost'
-  | 'first-click'
-  | 'first-reaction'
-  // Tier 3 — Loyalty
-  | 'loyal-member'
-  | 'points-100'
-  | 'points-300'
-  | 'points-750'
-  | 'arena-active'
-  // Tier 4 — Status (manual admin only)
-  | 'country-champion'
-  | 'verified-brand'
-  | 'top-brand'
-  | 'arena-staff';
+  | 'arena-original' | 'pi-pioneer' | 'challenger' | 'arena-builder'
+  | 'first-share'    | 'first-like' | 'first-boost' | 'first-click' | 'first-reaction'
+  | 'loyal-member'   | 'points-100' | 'points-300'  | 'points-750'  | 'arena-active'
+  | 'country-champion' | 'verified-brand' | 'top-brand' | 'arena-staff';
 
 // ─── Badge definition ─────────────────────────────────────────────────────────
 
 export type BadgeDef = {
-  slug:       BadgeSlug;
-  icon:       string;
-  label:      string;
-  desc:       string;
-  tier:       1 | 2 | 3 | 4;
-  auto:       boolean;
+  slug:        BadgeSlug;
+  icon:        string;
+  label:       string;
+  desc:        string;
+  color:       string;           // ← added — used by UI pill rendering
+  tier:        1 | 2 | 3 | 4;
+  auto:        boolean;
   counterKey?: 'share_count' | 'like_count' | 'boost_count' | 'click_count' | 'reaction_count';
 };
 
@@ -63,181 +44,62 @@ export type BadgeDef = {
 export const BADGE_REGISTRY: BadgeDef[] = [
 
   // ── Tier 1 — Identity ──────────────────────────────────────────────────────
-  {
-    slug:  'arena-original',
-    icon:  '🔥',
-    label: 'Arena Original',
-    desc:  'Joined the Arena before 100 members. One of the first.',
-    tier:  1,
-    auto:  true,
-  },
-  {
-    slug:  'pi-pioneer',
-    icon:  '🗺️',
-    label: 'Pi Pioneer',
-    desc:  'Joined via the Map of Pi Country Champion program.',
-    tier:  1,
-    auto:  true,
-  },
-  {
-    slug:  'challenger',
-    icon:  '🚀',
-    label: 'Challenger',
-    desc:  'Enrolled in the ANTCPU Human in the Loop internship challenge.',
-    tier:  1,
-    auto:  true,
-  },
-  {
-    slug:  'arena-builder',
-    icon:  '⚙️',
-    label: 'Arena Builder',
-    desc:  'Joined via direct invite from the ANTCPU team.',
-    tier:  1,
-    auto:  false,
-  },
+  { slug: 'arena-original', icon: '🔥', label: 'Arena Original',  color: '#D4AF37', tier: 1, auto: true,
+    desc: 'Joined the Arena before 100 members. One of the first.' },
+  { slug: 'pi-pioneer',     icon: '🗺️', label: 'Pi Pioneer',      color: '#7928ca', tier: 1, auto: true,
+    desc: 'Joined via the Map of Pi Country Champion program.' },
+  { slug: 'challenger',     icon: '🚀', label: 'Challenger',       color: '#ff0080', tier: 1, auto: true,
+    desc: 'Enrolled in the ANTCPU Human in the Loop internship challenge.' },
+  { slug: 'arena-builder',  icon: '⚙️', label: 'Arena Builder',    color: '#0070f3', tier: 1, auto: false,
+    desc: 'Joined via direct invite from the ANTCPU team.' },
 
   // ── Tier 2 — Action ────────────────────────────────────────────────────────
-  {
-    slug:       'first-share',
-    icon:       '↗',
-    label:      'Sharer',
-    desc:       'Shared your first ad in the Arena.',
-    tier:       2,
-    auto:       true,
-    counterKey: 'share_count',
-  },
-  {
-    slug:       'first-like',
-    icon:       '😊',
-    label:      'Supporter',
-    desc:       'Liked your first ad in the Arena.',
-    tier:       2,
-    auto:       true,
-    counterKey: 'like_count',
-  },
-  {
-    slug:       'first-boost',
-    icon:       '⚡',
-    label:      'Booster',
-    desc:       'Boosted your first ad in the Arena.',
-    tier:       2,
-    auto:       true,
-    counterKey: 'boost_count',
-  },
-  {
-    slug:       'first-click',
-    icon:       '👆',
-    label:      'Explorer',
-    desc:       'Clicked your first ad in the Arena.',
-    tier:       2,
-    auto:       true,
-    counterKey: 'click_count',
-  },
-  {
-    slug:       'first-reaction',
-    icon:       '🔥',
-    label:      'Reactor',
-    desc:       'Left your first reaction in the Arena.',
-    tier:       2,
-    auto:       true,
-    counterKey: 'reaction_count',
-  },
+  { slug: 'first-share',    icon: '↗',  label: 'Sharer',           color: '#22c55e', tier: 2, auto: true,  counterKey: 'share_count',
+    desc: 'Shared your first ad in the Arena.' },
+  { slug: 'first-like',     icon: '😊', label: 'Supporter',        color: '#0070f3', tier: 2, auto: true,  counterKey: 'like_count',
+    desc: 'Liked your first ad in the Arena.' },
+  { slug: 'first-boost',    icon: '⚡', label: 'Booster',          color: '#D4AF37', tier: 2, auto: true,  counterKey: 'boost_count',
+    desc: 'Boosted your first ad in the Arena.' },
+  { slug: 'first-click',    icon: '👆', label: 'Explorer',         color: '#7928ca', tier: 2, auto: true,  counterKey: 'click_count',
+    desc: 'Clicked your first ad in the Arena.' },
+  { slug: 'first-reaction', icon: '🔥', label: 'Reactor',          color: '#f0883e', tier: 2, auto: true,  counterKey: 'reaction_count',
+    desc: 'Left your first reaction in the Arena.' },
 
   // ── Tier 3 — Loyalty ───────────────────────────────────────────────────────
-  {
-    slug:  'loyal-member',
-    icon:  '🔄',
-    label: 'Loyal Member',
-    desc:  'Restarted your trial through Arena activity. Committed.',
-    tier:  3,
-    auto:  true,
-  },
-  {
-    slug:  'points-100',
-    icon:  '💯',
-    label: 'Century',
-    desc:  'Crossed 100 points. Rising through the tiers.',
-    tier:  3,
-    auto:  true,
-  },
-  {
-    slug:  'points-300',
-    icon:  '🚀',
-    label: 'Rising Star',
-    desc:  'Crossed 300 points. Featured tier unlocked.',
-    tier:  3,
-    auto:  true,
-  },
-  {
-    slug:  'points-750',
-    icon:  '🏆',
-    label: 'Top Tier',
-    desc:  'Crossed 750 points. Maximum tier reached.',
-    tier:  3,
-    auto:  true,
-  },
-  {
-    slug:  'arena-active',
-    icon:  '🔥',
-    label: 'Arena Active',
-    desc:  'Active in the Arena for 3+ consecutive days with 3+ shares each day.',
-    tier:  3,
-    auto:  true,
-  },
+  { slug: 'loyal-member',   icon: '🔄', label: 'Loyal Member',     color: '#0070f3', tier: 3, auto: true,
+    desc: 'Restarted your trial through Arena activity. Committed.' },
+  { slug: 'points-100',     icon: '💯', label: 'Century',          color: '#f0883e', tier: 3, auto: true,
+    desc: 'Crossed 100 points. Rising through the tiers.' },
+  { slug: 'points-300',     icon: '🚀', label: 'Rising Star',      color: '#7928ca', tier: 3, auto: true,
+    desc: 'Crossed 300 points. Featured tier unlocked.' },
+  { slug: 'points-750',     icon: '🏆', label: 'Top Tier',         color: '#D4AF37', tier: 3, auto: true,
+    desc: 'Crossed 750 points. Maximum tier reached.' },
+  { slug: 'arena-active',   icon: '🔥', label: 'Arena Active',     color: '#22c55e', tier: 3, auto: true,
+    desc: 'Active in the Arena for 3+ consecutive days with 3+ shares each day.' },
 
   // ── Tier 4 — Status (manual admin only) ───────────────────────────────────
-  {
-    slug:  'country-champion',
-    icon:  '🏆',
-    label: 'Country Champion',
-    desc:  'Top-ranked brand in their country. Assigned by ANTCPU.',
-    tier:  4,
-    auto:  false,
-  },
-  {
-    slug:  'verified-brand',
-    icon:  '✅',
-    label: 'Verified Brand',
-    desc:  'Identity verified by the ANTCPU team.',
-    tier:  4,
-    auto:  false,
-  },
-  {
-    slug:  'top-brand',
-    icon:  '🥇',
-    label: 'Top Brand',
-    desc:  'Ranked #1 across the entire Arena. Assigned by ANTCPU.',
-    tier:  4,
-    auto:  false,
-  },
-  {
-    slug:  'arena-staff',
-    icon:  '⚡',
-    label: 'Arena Staff',
-    desc:  'ANTCPU team member or official partner.',
-    tier:  4,
-    auto:  false,
-  },
+  { slug: 'country-champion', icon: '🏆', label: 'Country Champion', color: '#D4AF37', tier: 4, auto: false,
+    desc: 'Top-ranked brand in their country. Assigned by ANTCPU.' },
+  { slug: 'verified-brand',   icon: '✅', label: 'Verified Brand',   color: '#22c55e', tier: 4, auto: false,
+    desc: 'Identity verified by the ANTCPU team.' },
+  { slug: 'top-brand',        icon: '🥇', label: 'Top Brand',        color: '#f0883e', tier: 4, auto: false,
+    desc: 'Ranked #1 across the entire Arena. Assigned by ANTCPU.' },
+  { slug: 'arena-staff',      icon: '⚡', label: 'Arena Staff',      color: '#f0883e', tier: 4, auto: false,
+    desc: 'ANTCPU team member or official partner.' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export const getBadge = (slug: BadgeSlug): BadgeDef | undefined =>
+export const getBadge = (slug: string): BadgeDef | undefined =>
   BADGE_REGISTRY.find(b => b.slug === slug);
 
 export const getBadgesByTier = (tier: 1 | 2 | 3 | 4): BadgeDef[] =>
   BADGE_REGISTRY.filter(b => b.tier === tier);
 
-export const getAutoBadges = (): BadgeDef[] =>
-  BADGE_REGISTRY.filter(b => b.auto);
-
-export const getManualBadges = (): BadgeDef[] =>
-  BADGE_REGISTRY.filter(b => !b.auto);
+export const getAutoBadges  = (): BadgeDef[] => BADGE_REGISTRY.filter(b =>  b.auto);
+export const getManualBadges = (): BadgeDef[] => BADGE_REGISTRY.filter(b => !b.auto);
 
 // ─── awardBadge ───────────────────────────────────────────────────────────────
-// Idempotent — safe to call multiple times. Never duplicates.
-// Silent fail — never blocks user flow.
-// Server-side only — never call from client components directly.
 
 export async function awardBadge(
   supabase:  SupabaseClient,
@@ -250,21 +112,14 @@ export async function awardBadge(
     const { error } = await supabase
       .from('user_badges')
       .upsert(
-        {
-          user_email: userEmail,
-          badge_slug: slug,
-          awarded_by: awardedBy,
-        },
+        { user_email: userEmail, badge_slug: slug, awarded_by: awardedBy },
         { onConflict: 'user_email,badge_slug', ignoreDuplicates: true }
       );
     return !error;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 // ─── checkAndAwardPointsBadges ────────────────────────────────────────────────
-// Called from scout/score after points update.
 
 export async function checkAndAwardPointsBadges(
   supabase:  SupabaseClient,
@@ -277,16 +132,11 @@ export async function checkAndAwardPointsBadges(
 }
 
 // ─── checkAndAwardActivityBadge ───────────────────────────────────────────────
-// Called from api/session/set → syncBadges() after streak update.
-// Awards arena-active when streak reaches 3+ consecutive active days.
-// Active day = logged in AND shared 3+ times that day.
 
 export async function checkAndAwardActivityBadge(
-  supabase:  SupabaseClient,
-  userEmail: string,
+  supabase:   SupabaseClient,
+  userEmail:  string,
   streakDays: number,
 ): Promise<void> {
-  if (streakDays >= 3) {
-    await awardBadge(supabase, userEmail, 'arena-active');
-  }
+  if (streakDays >= 3) await awardBadge(supabase, userEmail, 'arena-active');
 }
