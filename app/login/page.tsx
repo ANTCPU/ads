@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { getLocation } from '../lib/location';
-import { getBrandConfig } from '../lib/brandConfig';
-import { tokens } from '../lib/shopAdStyles';
-import { sanitizeText } from '../lib/sanitize';
+import { useState, useEffect }              from 'react';
+import { createClient }                     from '@supabase/supabase-js';
+import { getLocation }                      from '../lib/location';
+import { getBrandConfig }                   from '../lib/brandConfig';
+import { tokens }                           from '../lib/shopAdStyles';
+import { sanitizeText }                     from '../lib/sanitize';
 import { detectAndStoreLocale, setStoredLocale } from '../lib/locale';
-import VaultModal from '../components/VaultModal';
+import VaultModal                           from '../components/VaultModal';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
@@ -19,12 +19,8 @@ const supabase = createClient(
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const AD_CATEGORIES = [
-  'Brand Awareness',
-  'Product Launch',
-  'Content Promotion',
-  'Service Offering',
-  'Event',
-  'Other',
+  'Brand Awareness', 'Product Launch', 'Content Promotion',
+  'Service Offering', 'Event', 'Other',
 ];
 
 const LANGUAGES = [
@@ -48,12 +44,6 @@ type SessionUser = {
   role:        string;
 };
 
-type PinTarget = {
-  email:    string;
-  redirect: string | null;
-  mode:     'super' | 'user';
-};
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getTrialExpiry(days: number): string {
@@ -62,26 +52,37 @@ function getTrialExpiry(days: number): string {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function fireWelcomeEmail(name: string, email: string, brand: string, trialStatus: string, locale = 'en') {
-  // TODO: re-enable when email quota allows
-  // fetch('/api/send-welcome', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ name, email, brand, trialStatus, preferred_locale: locale }),
-  // }).catch(() => {});
+// ─── fireWelcomeEmail ─────────────────────────────────────────────────────────
+// Gate in /api/send-welcome owns quota check + stamp + 7-day age rule.
+// Discord new-signup ping fires here always — independent of email gate.
 
-  // Mark signup timestamp so dashboard notification dot lights up
-  supabase
-    .from('ad_signups')
-    .update({ welcome_email_sent_at: new Date().toISOString() })
-    .eq('email', email)
-    .then(() => {});
+function fireWelcomeEmail(
+  name:        string,
+  email:       string,
+  brand:       string,
+  trialStatus: string,
+  locale = 'en',
+) {
+  fetch('/api/discord-notify', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      content: `🆕 New signup · **${name || email}** · ${brand} · ${trialStatus} · ${locale}`,
+      event:   'general',
+    }),
+  }).catch(() => {});
+
+  fetch('/api/send-welcome', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ name, email, brand, trialStatus, preferred_locale: locale }),
+  }).catch(() => {});
 }
 
 // ─── persistSession ───────────────────────────────────────────────────────────
 // Single source of truth for all login paths.
-// Calls /api/session/set → runs syncBadges → returns enriched data.
-// Writes full enriched object to localStorage so ArenaNav + agents read it live.
+// Calls /api/session/set → syncBadges → enriched data → localStorage.
+// Fires doorbell with full identity after session resolves.
 
 async function persistSession(session: SessionUser, redirect: string | null) {
   const res  = await fetch('/api/session/set', {
@@ -91,23 +92,34 @@ async function persistSession(session: SessionUser, redirect: string | null) {
   });
   const sync = await res.json().catch(() => ({}));
 
-  // Write enriched localStorage — membershipTier, streakDays, lastActiveDate
-  // trialStatus from sync is authoritative — fixes stale status after restart
   localStorage.setItem('arena_user', JSON.stringify({
     email:          session.email,
     name:           session.name,
     brand:          session.brand,
     role:           session.role,
-    trialStatus:    sync.trialStatus     || session.trialStatus,
-    membershipTier: sync.membershipTier  || 'trial',
-    streakDays:     sync.streakDays      || 0,
-    lastActiveDate: sync.lastActiveDate  || null,
+    trialStatus:    sync.trialStatus    || session.trialStatus,
+    membershipTier: sync.membershipTier || 'trial',
+    streakDays:     sync.streakDays     || 0,
+    lastActiveDate: sync.lastActiveDate || null,
   }));
 
-  // Write preferred_locale to localStorage if returned from session sync
-  if (sync.preferredLocale) {
-    setStoredLocale(sync.preferredLocale);
-  }
+  if (sync.preferredLocale) setStoredLocale(sync.preferredLocale);
+
+  // Presence ping — identity now known
+  fetch('/api/doorbell', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      page:        '/login',
+      ref:         'session',
+      ts:          new Date().toISOString(),
+      ua:          navigator.userAgent,
+      email:       session.email,
+      trialStatus: sync.trialStatus || session.trialStatus,
+      name:        session.name,
+      role:        session.role,
+    }),
+  }).catch(() => {});
 
   window.location.href = redirect || (
     session.role === 'super' ? '/dashboard/antcpu' :
@@ -128,39 +140,35 @@ async function fetchRole(email: string): Promise<string> {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Page() {
-  const [hydrated,    setHydrated]    = useState(false);
-  const [promo,       setPromo]       = useState('');
-  const [step,        setStep]        = useState(0);
-  const [vaultOpen,   setVaultOpen]   = useState(false);
-  const [loading,     setLoading]     = useState(false);
-  const [email,       setEmail]       = useState('');
-  const [form,        setForm]        = useState({
+  const [hydrated,  setHydrated]  = useState(false);
+  const [promo,     setPromo]     = useState('');
+  const [step,      setStep]      = useState(0);
+  const [vaultOpen, setVaultOpen] = useState(false);
+  const [loading,   setLoading]   = useState(false);
+  const [email,     setEmail]     = useState('');
+  const [form,      setForm]      = useState({
     name: '', email: '', brand_name: '', ad_category: '', message: '',
     preferred_locale: 'en',
   });
 
-  const [pinTarget,   setPinTarget]   = useState<PinTarget | null>(null);
-  const [pinInput,    setPinInput]    = useState('');
-  const [pinError,    setPinError]    = useState('');
-  const [pinLoading,  setPinLoading]  = useState(false);
-  const [showPin,     setShowPin]     = useState(false);
-
   useEffect(() => {
+    // Anonymous doorbell — identity unknown at page load
     fetch('/api/doorbell', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        page: '/login',
-        ref:  document.referrer || 'direct',
-        ts:   new Date().toISOString(),
-        ua:   navigator.userAgent,
+        page:        '/login',
+        ref:         document.referrer || 'direct',
+        ts:          new Date().toISOString(),
+        ua:          navigator.userAgent,
+        email:       '',
+        trialStatus: 'unknown',
       }),
     }).catch(() => {});
 
     const params = new URLSearchParams(window.location.search);
     setPromo((params.get('promo') || params.get('ref') || '').toUpperCase());
 
-    // Auto-detect locale from IP — pre-fills selector, only sets if not already chosen
     getLocation().then(loc => {
       if (loc.country) {
         const detected = detectAndStoreLocale(loc.country);
@@ -177,116 +185,6 @@ export default function Page() {
   const accent  = brand.accentColor;
   const isBrand = promo !== '' && promo !== 'FREETRIAL';
   const set     = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
-
-  // ─── Auth flow ────────────────────────────────────────────────────────────
-
-  async function handleLoginOrSignup(emailInput: string, redirect: string | null) {
-    const norm = emailInput.trim().toLowerCase();
-    if (!norm) return;
-
-    const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
-
-    if (SUPER_EMAIL && norm === SUPER_EMAIL) {
-      setPinTarget({ email: norm, redirect, mode: 'super' });
-      return;
-    }
-
-    const pinCheck = await fetch('/api/user-auth', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email: norm, pin: '__check__' }),
-    });
-    const pinData = await pinCheck.json();
-
-    if (pinData.error !== 'No PIN set') {
-      setPinTarget({ email: norm, redirect, mode: 'user' });
-      return;
-    }
-
-    const { data: userData } = await supabase
-      .from('ad_signups')
-      .select('name, brand_name, status, role')
-      .eq('email', norm)
-      .maybeSingle();
-
-    persistSession(
-      {
-        email:       norm,
-        name:        userData?.name       || '',
-        brand:       userData?.brand_name || '',
-        trialStatus: userData?.status     || 'trial',
-        role:        userData?.role       || 'user',
-      },
-      redirect
-    );
-  }
-
-  // ─── PIN submit ───────────────────────────────────────────────────────────
-
-  async function submitPin() {
-    if (!pinTarget || !pinInput.trim()) return;
-    setPinLoading(true);
-    setPinError('');
-
-    try {
-      if (pinTarget.mode === 'super') {
-        const res = await fetch('/api/user-auth', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ email: pinTarget.email, pin: pinInput }),
-        });
-        if (!res.ok) {
-          setPinError('Invalid PIN. Access denied.');
-          setPinLoading(false);
-          return;
-        }
-        const { data: profile } = await supabase
-          .from('ad_signups')
-          .select('name, brand_name, status')
-          .eq('email', pinTarget.email)
-          .maybeSingle();
-
-        await persistSession(
-          {
-            email:       pinTarget.email,
-            name:        profile?.name       || '',
-            brand:       profile?.brand_name || '',
-            trialStatus: profile?.status     || 'team',
-            role:        'super',
-          },
-          pinTarget.redirect
-        );
-
-      } else {
-        const res = await fetch('/api/user-auth', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ email: pinTarget.email, pin: pinInput }),
-        });
-        if (!res.ok) {
-          setPinError('Invalid PIN. Access denied.');
-          setPinLoading(false);
-          return;
-        }
-        const { user } = await res.json();
-        const role = user.role || await fetchRole(pinTarget.email);
-        persistSession(
-          { email: user.email, name: user.name, brand: user.brand, trialStatus: user.trialStatus, role },
-          pinTarget.redirect
-        );
-      }
-    } catch {
-      setPinError('Connection error. Please try again.');
-    }
-    setPinLoading(false);
-  }
-
-  function closePinModal() {
-    setPinTarget(null);
-    setPinInput('');
-    setPinError('');
-    setShowPin(false);
-  }
 
   // ─── Brand CTA ────────────────────────────────────────────────────────────
 
@@ -355,7 +253,6 @@ export default function Page() {
         region:       loc.region,
         ip:           loc.ip,
       }]);
-      // Write locale to localStorage immediately after new signup
       setStoredLocale(form.preferred_locale as any);
       fireWelcomeEmail(form.name, emailNorm, form.brand_name, 'trial', form.preferred_locale);
     }
@@ -406,18 +303,16 @@ export default function Page() {
       {/* Hero + form */}
       <div style={{ maxWidth: '480px', margin: '0 auto', padding: '3rem 1.25rem 6rem' }}>
 
-        {/* Badge */}
         <div style={{ display: 'inline-block', background: '#111', border: '1px solid #222', borderRadius: '999px', padding: '0.35rem 1rem', fontSize: '0.72rem', color: muted, fontWeight: 700, letterSpacing: '0.08em', marginBottom: '1.5rem' }}>
           {brand.badgeText}
         </div>
 
-        {/* Headline */}
         <h1 style={{ fontSize: 'clamp(2rem, 6vw, 2.8rem)', fontWeight: 900, lineHeight: 1.1, marginBottom: '0.75rem' }}>
           {brand.headline} <span style={{ color: accent }}>{brand.headlineSub}</span>
         </h1>
         <p style={{ color: muted, fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>{brand.subText}</p>
 
-        {/* ── PI LOGIN ── */}
+        {/* Pi Login */}
         {!isBrand && (
           <div style={{ marginBottom: '1.5rem' }}>
             <button
@@ -426,7 +321,7 @@ export default function Page() {
                   setLoading(true);
                   const { piAuthenticate } = await import('../lib/pi/sdk');
                   const auth = await piAuthenticate();
-                  const res = await fetch('/api/pi/auth', {
+                  const res  = await fetch('/api/pi/auth', {
                     method:  'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body:    JSON.stringify(auth),
@@ -458,7 +353,6 @@ export default function Page() {
               <span style={{ fontSize: '1.2rem' }}>π</span>
               {loading ? 'Connecting...' : 'Sign in with Pi'}
             </button>
-
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
               <div style={{ flex: 1, height: '1px', background: '#222' }} />
               <span style={{ fontSize: '0.72rem', color: muted, letterSpacing: '0.1em' }}>OR</span>
@@ -469,7 +363,6 @@ export default function Page() {
 
         {/* Form card */}
         <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1.75rem' }}>
-
           {isBrand ? (
             <>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '0.25rem' }}>{brand.ctaLabel}</div>
@@ -488,7 +381,6 @@ export default function Page() {
           ) : (
             <>
               <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: '1rem' }}>Start Free</div>
-
               <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.5rem' }}>
                 {[0, 1, 2].map(i => (
                   <div key={i} style={{ flex: 1, height: '3px', background: step >= i ? accent : '#222', borderRadius: '2px', transition: 'background 0.2s' }} />
@@ -503,8 +395,6 @@ export default function Page() {
                   <input style={inp} type="email" inputMode="email" autoComplete="email" value={form.email} onChange={e => set('email', e.target.value)} />
                   <label style={lbl}>Brand Name</label>
                   <input style={inp} type="text" value={form.brand_name} onChange={e => set('brand_name', sanitizeText(e.target.value))} />
-
-                  {/* ── Language selector — pre-filled from IP detection ── */}
                   <label style={lbl}>Language</label>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
                     {LANGUAGES.map(l => (
@@ -521,7 +411,6 @@ export default function Page() {
                       </button>
                     ))}
                   </div>
-
                   <button onClick={() => form.name && form.email && form.brand_name && setStep(1)} disabled={!form.name || !form.email || !form.brand_name} style={btn(!!(form.name && form.email && form.brand_name))}>
                     Next →
                   </button>
@@ -558,7 +447,6 @@ export default function Page() {
           )}
         </div>
 
-        {/* Returning user link */}
         <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
           <button
             onClick={() => setVaultOpen(true)}
@@ -569,84 +457,13 @@ export default function Page() {
         </div>
       </div>
 
-      {/* ── Vault Modal ── */}
+      {/* VaultModal handles all returning user login + PIN */}
       <VaultModal
         open={vaultOpen}
         onClose={() => setVaultOpen(false)}
         onSuccess={() => {}}
         redirectTo={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('redirect') || undefined}
       />
-
-      {/* ── PIN Modal ── */}
-      {pinTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, padding: '1rem',
-        }}>
-          <div style={{
-            background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '20px',
-            padding: '2rem', width: '100%', maxWidth: '360px', boxSizing: 'border-box',
-            boxShadow: '0 0 60px rgba(0,0,0,0.8)',
-          }}>
-            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔐</div>
-              <div style={{ fontWeight: 800, fontSize: '1.1rem', color: white }}>Enter PIN</div>
-              <div style={{ fontSize: '0.78rem', color: '#555', marginTop: '0.25rem' }}>{pinTarget.email}</div>
-            </div>
-
-            <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-              <input
-                type={showPin ? 'text' : 'password'}
-                inputMode="numeric" autoFocus
-                value={pinInput}
-                onChange={e => setPinInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && submitPin()}
-                placeholder="••••••"
-                style={{
-                  width: '100%', background: '#111', border: `1px solid ${pinError ? '#ef4444' : '#222'}`,
-                  borderRadius: '10px', padding: '0.9rem 3rem 0.9rem 1rem', color: white,
-                  fontSize: '1.4rem', letterSpacing: '0.3em', textAlign: 'center',
-                  boxSizing: 'border-box', outline: 'none',
-                }}
-              />
-              <button
-                onClick={() => setShowPin(v => !v)} tabIndex={-1}
-                style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#444', fontSize: '1rem', padding: '0.25rem', lineHeight: 1 }}
-              >
-                {showPin ? '🙈' : '👁️'}
-              </button>
-            </div>
-
-            {pinError && (
-              <div style={{ color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.75rem', textAlign: 'center' }}>
-                {pinError}
-              </div>
-            )}
-
-            <button
-              onClick={submitPin}
-              disabled={pinLoading || !pinInput.trim()}
-              style={{
-                width: '100%', background: pinLoading || !pinInput.trim() ? muted2 : accent,
-                border: 'none', color: pinLoading || !pinInput.trim() ? muted : '#000',
-                borderRadius: '10px', padding: '0.9rem', fontWeight: 700,
-                fontSize: '1rem', cursor: pinLoading || !pinInput.trim() ? 'not-allowed' : 'pointer',
-                marginBottom: '0.5rem', transition: 'background 0.2s',
-              }}
-            >
-              {pinLoading ? 'Verifying...' : 'Confirm'}
-            </button>
-
-            <button
-              onClick={closePinModal}
-              style={{ width: '100%', background: 'transparent', border: 'none', color: '#555', fontSize: '0.82rem', cursor: 'pointer', padding: '0.5rem' }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );
