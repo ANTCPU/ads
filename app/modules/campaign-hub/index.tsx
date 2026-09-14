@@ -1,32 +1,31 @@
+// app/modules/campaign-hub/index.tsx
+// ─── Campaign Hub — tier groups + pending review queue ────────────────────────
+// Changes vs previous:
+//   - BRAND_MAP removed — uses user.brand directly
+//   - TIER_COLOR / TIER_LABEL / TIERS keys fixed: 'toptier' → 'top_tier'
+//     ads.tier column stores 'top_tier' — was causing wrong colour + missing groups
 'use client';
-import { useEffect, useState } from 'react';
-import { ModuleContext, Ad } from '../types';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+import { useEffect, useState } from 'react';
+import { ModuleContext, Ad }   from '../types';
+
+// ─── Tier config — keys match ads.tier column exactly ────────────────────────
 
 const TIER_COLOR: Record<string, string> = {
-  toptier:  '#f0883e',
+  top_tier: '#f0883e',
   featured: '#ff0080',
   rising:   '#7928ca',
   entry:    '#0070f3',
 };
 
 const TIER_LABEL: Record<string, string> = {
-  toptier:  'Top Tier',
+  top_tier: 'Top Tier',
   featured: 'Featured',
   rising:   'Rising',
   entry:    'Entry',
 };
 
-const TIERS = ['toptier', 'featured', 'rising', 'entry'];
-
-const BRAND_MAP: Record<string, string> = {
-  mapofpi:    'Map of Pi',
-  antcpu:     'ANTCPU ADS',
-  adsnetwork: 'ANTCPU ADS',
-  photography: 'Amanda Photography',
-  pipioneers: 'PiPioneersX',
-};
+const TIERS = ['top_tier', 'featured', 'rising', 'entry'];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,11 +39,11 @@ type TierGroup = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleContext) {
-  const [groups, setGroups]     = useState<TierGroup[]>([]);
-  const [ads, setAds]           = useState<Ad[]>([]);
-  const [total, setTotal]       = useState(0);
-  const [loading, setLoading]   = useState(true);
+export default function CampaignHubModule({ slug, supabase, user, isSuper }: ModuleContext) {
+  const [groups,   setGroups]   = useState<TierGroup[]>([]);
+  const [ads,      setAds]      = useState<Ad[]>([]);
+  const [total,    setTotal]    = useState(0);
+  const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -52,7 +51,7 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
 
   async function fetchData() {
     setLoading(true);
-    const brandName = BRAND_MAP[slug] || slug;
+    const brandName = user.brand || slug;
     const { data } = await supabase
       .from('ads')
       .select('*')
@@ -62,7 +61,6 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
 
     if (!data) { setLoading(false); return; }
 
-    // — build tier groups
     const map: Record<string, TierGroup> = {};
     data.forEach((ad: Ad) => {
       const t = ad.tier || 'entry';
@@ -73,27 +71,23 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
       map[t].totalShares += ad.share_count || 0;
     });
 
-    const sorted = TIERS.filter(t => map[t]).map(t => map[t]);
-    setGroups(sorted);
+    setGroups(TIERS.filter(t => map[t]).map(t => map[t]));
     setAds(data);
     setTotal(data.length);
     setLoading(false);
   }
 
-  // — super only: approve ad to active
   async function approveAd(adId: string) {
     setUpdating(adId);
     await supabase.from('ads').update({ status: 'active' }).eq('id', adId);
     setAds(prev => prev.map(a => a.id === adId ? { ...a, status: 'active' } : a));
     fetch('/api/scout/score', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ad_id: adId }),
     }).catch(() => {});
     setUpdating(null);
   }
 
-  // — super only: reject ad
   async function rejectAd(adId: string) {
     setUpdating(adId);
     await supabase.from('ads').update({ status: 'rejected' }).eq('id', adId);
@@ -101,7 +95,6 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
     setUpdating(null);
   }
 
-  // — super only: toggle pin
   async function togglePin(ad: Ad) {
     setUpdating(ad.id);
     await supabase.from('ads').update({ pinned: !ad.pinned }).eq('id', ad.id);
@@ -109,7 +102,6 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
     setUpdating(null);
   }
 
-  // — super only: update tier
   async function updateTier(adId: string, tier: string) {
     setUpdating(adId);
     await supabase.from('ads').update({ tier }).eq('id', adId);
@@ -118,7 +110,7 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
     setUpdating(null);
   }
 
-  // ─── User view ──────────────────────────────────────────────────────────
+  // ─── User view ────────────────────────────────────────────────────────────
 
   if (!isSuper) {
     return (
@@ -151,13 +143,12 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
     );
   }
 
-  // ─── Super admin view ────────────────────────────────────────────────────
+  // ─── Super admin view ─────────────────────────────────────────────────────
 
   const pendingAds = ads.filter(a => a.status === 'pending_review');
 
   return (
     <div>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ fontSize: '0.7rem', color: '#555', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
           📡 Campaign Hub — Admin
@@ -174,7 +165,6 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
         <div style={{ color: '#555', fontSize: '0.82rem' }}>Loading...</div>
       ) : (
         <>
-          {/* Pending review queue */}
           {pendingAds.length > 0 && (
             <div style={{ background: '#ef444410', border: '1px solid #ef444430', borderRadius: '10px', padding: '0.75rem', marginBottom: '1rem' }}>
               <div style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 700, marginBottom: '0.5rem' }}>
@@ -187,18 +177,12 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
                     <div style={{ fontSize: '0.68rem', color: '#555' }}>{ad.brand} · {ad.email}</div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button
-                      onClick={() => approveAd(ad.id)}
-                      disabled={updating === ad.id}
-                      style={{ background: '#22c55e15', border: '1px solid #22c55e40', color: '#22c55e', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}
-                    >
+                    <button onClick={() => approveAd(ad.id)} disabled={updating === ad.id}
+                      style={{ background: '#22c55e15', border: '1px solid #22c55e40', color: '#22c55e', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
                       ✅ Approve
                     </button>
-                    <button
-                      onClick={() => rejectAd(ad.id)}
-                      disabled={updating === ad.id}
-                      style={{ background: '#ef444415', border: '1px solid #ef444430', color: '#ef4444', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}
-                    >
+                    <button onClick={() => rejectAd(ad.id)} disabled={updating === ad.id}
+                      style={{ background: '#ef444415', border: '1px solid #ef444430', color: '#ef4444', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
                       ✕ Reject
                     </button>
                   </div>
@@ -207,14 +191,10 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
             </div>
           )}
 
-          {/* Tier groups — expandable */}
           {groups.map(g => (
             <div key={g.tier} style={{ marginBottom: '0.75rem' }}>
-              {/* Group header */}
-              <button
-                onClick={() => setExpanded(expanded === g.tier ? null : g.tier)}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0a0a0a', border: `1px solid ${TIER_COLOR[g.tier]}30`, borderLeft: `3px solid ${TIER_COLOR[g.tier]}`, borderRadius: '8px', padding: '0.6rem 0.75rem', cursor: 'pointer' }}
-              >
+              <button onClick={() => setExpanded(expanded === g.tier ? null : g.tier)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#0a0a0a', border: `1px solid ${TIER_COLOR[g.tier]}30`, borderLeft: `3px solid ${TIER_COLOR[g.tier]}`, borderRadius: '8px', padding: '0.6rem 0.75rem', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <span style={{ fontSize: '0.78rem', fontWeight: 700, color: TIER_COLOR[g.tier] }}>{TIER_LABEL[g.tier]}</span>
                   <span style={{ fontSize: '0.68rem', color: '#555' }}>{g.count} ads</span>
@@ -226,7 +206,6 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
                 </div>
               </button>
 
-              {/* Expanded ad list */}
               {expanded === g.tier && (
                 <div style={{ border: `1px solid ${TIER_COLOR[g.tier]}20`, borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
                   {ads.filter(a => a.tier === g.tier).map(ad => (
@@ -237,36 +216,21 @@ export default function CampaignHubModule({ slug, supabase, isSuper }: ModuleCon
                         <span style={{ fontSize: '0.68rem', color: '#555' }}>{ad.points || 0} pts · {ad.click_count || 0} clicks · {ad.share_count || 0} shares</span>
                       </div>
                       <div style={{ fontSize: '0.68rem', color: '#555', marginBottom: '0.5rem' }}>{ad.brand} · {ad.email}</div>
-
-                      {/* Controls */}
                       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <select
-                          value={ad.tier}
-                          onChange={e => updateTier(ad.id, e.target.value)}
-                          disabled={updating === ad.id}
-                          style={{ background: '#111', border: `1px solid ${TIER_COLOR[ad.tier] || '#222'}`, color: TIER_COLOR[ad.tier] || '#555', borderRadius: '6px', padding: '0.2rem 0.5rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}
-                        >
+                        <select value={ad.tier} onChange={e => updateTier(ad.id, e.target.value)} disabled={updating === ad.id}
+                          style={{ background: '#111', border: `1px solid ${TIER_COLOR[ad.tier] || '#222'}`, color: TIER_COLOR[ad.tier] || '#555', borderRadius: '6px', padding: '0.2rem 0.5rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
                           {TIERS.map(t => <option key={t} value={t}>{TIER_LABEL[t]}</option>)}
                         </select>
-                        <button
-                          onClick={() => togglePin(ad)}
-                          disabled={updating === ad.id}
-                          style={{ background: ad.pinned ? '#f0883e15' : 'transparent', border: `1px solid ${ad.pinned ? '#f0883e' : '#222'}`, color: ad.pinned ? '#f0883e' : '#555', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}
-                        >
+                        <button onClick={() => togglePin(ad)} disabled={updating === ad.id}
+                          style={{ background: ad.pinned ? '#f0883e15' : 'transparent', border: `1px solid ${ad.pinned ? '#f0883e' : '#222'}`, color: ad.pinned ? '#f0883e' : '#555', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
                           {ad.pinned ? '📌 Unpin' : '+ Pin'}
                         </button>
-                        <button
-                          onClick={() => fetch('/api/scout/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: ad.id }) }).then(() => fetchData())}
-                          style={{ background: 'transparent', border: '1px solid #222', color: '#555', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', cursor: 'pointer' }}
-                        >
+                        <button onClick={() => fetch('/api/scout/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: ad.id }) }).then(() => fetchData())}
+                          style={{ background: 'transparent', border: '1px solid #222', color: '#555', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.68rem', cursor: 'pointer' }}>
                           ⚡ Rescore
                         </button>
-                        <a
-                          href={`/profile/${encodeURIComponent(ad.email)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontSize: '0.68rem', color: '#555', textDecoration: 'none' }}
-                        >
+                        <a href={`/profile/${encodeURIComponent(ad.email)}`} target="_blank" rel="noreferrer"
+                          style={{ fontSize: '0.68rem', color: '#555', textDecoration: 'none' }}>
                           👤 Profile
                         </a>
                         {updating === ad.id && <span style={{ fontSize: '0.65rem', color: '#555' }}>saving...</span>}
