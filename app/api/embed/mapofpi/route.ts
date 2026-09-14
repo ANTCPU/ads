@@ -1,15 +1,4 @@
 // app/api/embed/mapofpi/route.ts
-// ─── Map of Pi embed data API ─────────────────────────────────────────────────
-// Public GET — no auth required.
-// Returns Map of Pi ads + brand stats for the mapofpi.com embed widget.
-//
-// Consumers:
-//   app/embed/mapofpi/page.tsx  → live ad cards on mapofpi.com
-//
-// Cache:  60s CDN edge — same pattern as /api/stats
-// CORS:   open — must be readable by mapofpi.com iframe
-// Scale:  single query, server-side, service role key never exposed to client
-// ─────────────────────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 
@@ -33,36 +22,28 @@ export async function GET(_req: NextRequest) {
   try {
     const { data, error } = await supabase
       .from('ads')
-      .select('id, title, description, url, tier, points, rank_position, share_count, click_count, reaction_count')
-      .eq('status', 'active')
-      .ilike('brand', '%Map of Pi%')
+      .select('id, title, description, url, tier, points, country, rank_position, share_count, click_count, reaction_count')
+      .eq('status',   'active')
+      .eq('campaign', 'mapofpi')          // ← was .ilike('brand', '%Map of Pi%')
       .order('points', { ascending: false })
-      .limit(8);
+      .limit(40);                          // ← raised — 32 active now, room to grow
 
     if (error) throw error;
 
-    const ads = data || [];
-
-    const totalPoints = ads.reduce((s, a) => s + (a.points || 0), 0);
-    const topPoints   = ads[0]?.points || 0;
-    const topRank     = ads[0]?.rank_position || null;
+    const ads          = data || [];
+    const totalPoints  = ads.reduce((s, a) => s + (a.points || 0), 0);
+    const topRank      = ads[0]?.rank_position || null;
+    const countryCount = new Set(ads.map(a => a.country).filter(Boolean)).size;
 
     return NextResponse.json(
-      {
-        ads,
-        totalPoints,
-        topPoints,
-        topRank,
-        adCount:     ads.length,
-        generatedAt: new Date().toISOString(),
-      },
+      { ads, totalPoints, topRank, adCount: ads.length, countryCount, generatedAt: new Date().toISOString() },
       { status: 200, headers: CORS }
     );
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'unknown error';
     return NextResponse.json(
-      { error: message, ads: [], totalPoints: 0, adCount: 0 },
+      { error: message, ads: [], totalPoints: 0, adCount: 0, countryCount: 0 },
       { status: 500, headers: CORS }
     );
   }
