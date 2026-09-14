@@ -1,3 +1,11 @@
+// app/dashboard/user/page.tsx
+// ─── User dashboard — Arena member view ───────────────────────────────────────
+// Optimizations vs previous version:
+//   - BADGE_REGISTRY removed — imported via getBadge() from lib/badges
+//   - Doorbell now sends identity (email, name, role, trialStatus)
+//   - useEffect deps fixed (router added)
+//   - TIERS kept (ad-specific, no lib equivalent)
+//   - TIER_CONFIG derived from TIERS (unchanged — already correct)
 'use client';
 
 import React, { useState, useEffect }  from 'react';
@@ -11,6 +19,7 @@ import { recordShare, detectPlatform }  from '../../lib/tracking/shares';
 import { trackClick as libTrackClick }  from '../../lib/tracking/clicks';
 import { SOURCE }                       from '../../lib/tracking/sources';
 import { getTierDef, MembershipTier }   from '../../lib/membership';
+import { getBadge }                     from '../../lib/badges';
 import { PLATFORMS, getShareAction, ShareContext } from '../../lib/socialShare';
 
 const supabase = createClient(
@@ -42,30 +51,7 @@ type UserBadge = {
   awarded_at: string;
 };
 
-// ─── Badge Registry ───────────────────────────────────────────────────────────
-
-const BADGE_REGISTRY: Record<string, { label: string; icon: string; color: string; desc: string }> = {
-  'arena-original':  { label: 'Arena Original',  icon: '🔥',  color: '#D4AF37', desc: 'One of the first 100 members'               },
-  'pi-pioneer':      { label: 'Pi Pioneer',       icon: '🗺️',  color: '#7928ca', desc: 'Joined via Map of Pi'                       },
-  'challenger':      { label: 'Challenger',        icon: '🚀',  color: '#ff0080', desc: 'Enrolled in the internship challenge'       },
-  'arena-builder':   { label: 'Arena Builder',     icon: '⚙️',  color: '#0070f3', desc: 'Direct invite from the ANTCPU team'        },
-  'first-share':     { label: 'Sharer',            icon: '↗',   color: '#22c55e', desc: 'Shared your first ad'                      },
-  'first-like':      { label: 'Supporter',         icon: '😊',  color: '#0070f3', desc: 'Liked your first ad'                       },
-  'first-boost':     { label: 'Booster',           icon: '⚡',  color: '#D4AF37', desc: 'Boosted your first ad'                     },
-  'first-click':     { label: 'Explorer',          icon: '👆',  color: '#7928ca', desc: 'Clicked your first ad'                     },
-  'first-reaction':  { label: 'Reactor',           icon: '🔥',  color: '#f0883e', desc: 'Left your first reaction'                  },
-  'loyal-member':    { label: 'Loyal Member',      icon: '🔄',  color: '#0070f3', desc: 'Restarted trial through Arena activity'    },
-  'points-100':      { label: 'Century',           icon: '💯',  color: '#f0883e', desc: 'Crossed 100 points'                        },
-  'points-300':      { label: 'Rising Star',       icon: '🚀',  color: '#7928ca', desc: 'Crossed 300 points'                        },
-  'points-750':      { label: 'Top Tier',          icon: '🏆',  color: '#D4AF37', desc: 'Crossed 750 points'                        },
-  'arena-active':    { label: 'Arena Active',      icon: '🔥',  color: '#22c55e', desc: '3-day share streak'                        },
-  'country-champion':{ label: 'Country Champion',  icon: '🏆',  color: '#D4AF37', desc: 'Top-ranked brand in their country'         },
-  'verified-brand':  { label: 'Verified Brand',    icon: '✅',  color: '#22c55e', desc: 'Identity verified by ANTCPU'               },
-  'top-brand':       { label: 'Top Brand',         icon: '🥇',  color: '#f0883e', desc: 'Ranked #1 across the entire Arena'         },
-  'arena-staff':     { label: 'Arena Staff',       icon: '⚡',  color: '#f0883e', desc: 'ANTCPU team member or official partner'    },
-};
-
-// ─── Tier ladder (ad tier — separate from membership tier) ────────────────────
+// ─── Ad tier ladder (separate from membership tiers in lib/membership) ────────
 
 const TIERS = [
   { key: 'entry',    label: 'Entry',    color: '#0070f3', threshold: 0   },
@@ -74,11 +60,10 @@ const TIERS = [
   { key: 'top_tier', label: 'Top Tier', color: '#f0883e', threshold: 750 },
 ];
 
-const TIER_CONFIG: Record<string, { color: string; label: string }> = Object.fromEntries(
-  TIERS.map(t => [t.key, { color: t.color, label: t.label }])
-);
+const TIER_CONFIG: Record<string, { color: string; label: string }> =
+  Object.fromEntries(TIERS.map(t => [t.key, { color: t.color, label: t.label }]));
 
-// ─── ShareContext builder — single source for all share surfaces ──────────────
+// ─── ShareContext builder ─────────────────────────────────────────────────────
 
 function buildShareCtx(ad: Ad): ShareContext {
   return {
@@ -100,24 +85,16 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
   const currentIdx = TIERS.findIndex(t => t.key === tier);
   const current    = TIERS[currentIdx] || TIERS[0];
   const next       = TIERS[currentIdx + 1] || null;
-
-  const progress  = next
+  const progress   = next
     ? Math.min(((points - current.threshold) / (next.threshold - current.threshold)) * 100, 100)
     : 100;
-  const ptsToNext = next ? next.threshold - points : 0;
+  const ptsToNext  = next ? next.threshold - points : 0;
 
   return (
-    <div style={{
-      background: '#0a0a0a', border: `1px solid ${current.color}25`,
-      borderRadius: '10px', padding: '0.85rem 1rem', marginTop: '0.75rem',
-    }}>
+    <div style={{ background: '#0a0a0a', border: `1px solid ${current.color}25`, borderRadius: '10px', padding: '0.85rem 1rem', marginTop: '0.75rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{
-            fontSize: '0.68rem', fontWeight: 700, color: current.color,
-            background: `${current.color}15`, border: `1px solid ${current.color}30`,
-            borderRadius: '999px', padding: '0.1rem 0.5rem',
-          }}>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: current.color, background: `${current.color}15`, border: `1px solid ${current.color}30`, borderRadius: '999px', padding: '0.1rem 0.5rem' }}>
             {current.label}
           </span>
           <span style={{ fontSize: '0.72rem', color: '#555' }}>⚡ {points} pts</span>
@@ -127,34 +104,20 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
             {ptsToNext} pts → <span style={{ color: next.color }}>{next.label}</span>
           </span>
         ) : (
-          <span style={{ fontSize: '0.68rem', color: current.color, fontWeight: 700 }}>
-            🏆 Top Tier
-          </span>
+          <span style={{ fontSize: '0.68rem', color: current.color, fontWeight: 700 }}>🏆 Top Tier</span>
         )}
       </div>
+
       <div style={{ height: '4px', background: '#1a1a1a', borderRadius: '999px', overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', borderRadius: '999px',
-          width: `${progress}%`,
-          background: next
-            ? `linear-gradient(90deg, ${current.color}, ${next.color})`
-            : current.color,
-          transition: 'width 0.6s ease',
-        }} />
+        <div style={{ height: '100%', borderRadius: '999px', width: `${progress}%`, background: next ? `linear-gradient(90deg, ${current.color}, ${next.color})` : current.color, transition: 'width 0.6s ease' }} />
       </div>
+
       <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
         {TIERS.map((t, i) => {
           const unlocked  = points >= t.threshold;
           const isCurrent = t.key === tier;
           return (
-            <span key={t.key} style={{
-              fontSize: '0.6rem', fontWeight: 700,
-              color:      isCurrent ? t.color : unlocked ? t.color + '80' : '#333',
-              background: isCurrent ? `${t.color}15` : 'transparent',
-              border:     `1px solid ${isCurrent ? t.color + '40' : unlocked ? t.color + '20' : '#1a1a1a'}`,
-              borderRadius: '999px', padding: '0.1rem 0.45rem',
-              transition: 'all 0.2s',
-            }}>
+            <span key={t.key} style={{ fontSize: '0.6rem', fontWeight: 700, color: isCurrent ? t.color : unlocked ? t.color + '80' : '#333', background: isCurrent ? `${t.color}15` : 'transparent', border: `1px solid ${isCurrent ? t.color + '40' : unlocked ? t.color + '20' : '#1a1a1a'}`, borderRadius: '999px', padding: '0.1rem 0.45rem', transition: 'all 0.2s' }}>
               {i > 0 && <span style={{ marginRight: '0.2rem', opacity: 0.4 }}>→</span>}
               {t.label}
             </span>
@@ -169,6 +132,7 @@ function TierStrip({ points, tier }: { points: number; tier: string }) {
 
 export default function UserDashboard() {
   const router = useRouter();
+
   const [hydrated,          setHydrated]          = useState(false);
   const [user,              setUser]              = useState<SessionUser | null>(null);
   const [myAd,              setMyAd]              = useState<Ad | null>(null);
@@ -191,17 +155,6 @@ export default function UserDashboard() {
   // ── Boot ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetch('/api/doorbell', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        page: '/dashboard/user',
-        ref:  document.referrer || 'direct',
-        ts:   new Date().toISOString(),
-        ua:   navigator.userAgent,
-      }),
-    }).catch(() => {});
-
     const stored = localStorage.getItem('arena_user');
     if (!stored) { router.push('/'); return; }
 
@@ -209,6 +162,7 @@ export default function UserDashboard() {
       const u = JSON.parse(stored);
       if (u.role === 'super') { router.push('/dashboard/antcpu'); return; }
       if (u.role === 'admin') { router.push('/dashboard/users');  return; }
+
       setUser(u);
       setHydrated(true);
       fetchData(u.email);
@@ -216,13 +170,31 @@ export default function UserDashboard() {
       if (u.membershipTier) setMembershipTier(u.membershipTier as MembershipTier);
       if (u.streakDays)     setStreakDays(u.streakDays);
 
+      // ── Doorbell — with identity ──────────────────────────────────────────
+      fetch('/api/doorbell', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          page:        '/dashboard/user',
+          ref:         document.referrer || 'direct',
+          ts:          new Date().toISOString(),
+          ua:          navigator.userAgent,
+          email:       u.email,
+          name:        u.name,
+          role:        u.role,
+          trialStatus: u.trialStatus,
+        }),
+      }).catch(() => {});
+
       const email = u.email.trim().toLowerCase();
 
+      // ── Profile check ─────────────────────────────────────────────────────
       supabase
         .from('ad_profiles').select('bio')
         .eq('email', email).maybeSingle()
         .then(({ data }) => { if (data?.bio) setHasProfile(true); });
 
+      // ── Signup data ───────────────────────────────────────────────────────
       supabase
         .from('ad_signups')
         .select('promo_code, created_at, membership_tier, streak_days, trial_extended_at, points')
@@ -235,14 +207,13 @@ export default function UserDashboard() {
           if (data?.created_at)        setUserCreatedAt(data.created_at);
           if (data?.trial_extended_at) setTrialExtendedAt(data.trial_extended_at);
           if (data?.points)            setDbPoints(data.points);
-          if (!u.membershipTier && data?.membership_tier) {
+          if (!u.membershipTier && data?.membership_tier)
             setMembershipTier(data.membership_tier as MembershipTier);
-          }
-          if (!u.streakDays && data?.streak_days) {
+          if (!u.streakDays && data?.streak_days)
             setStreakDays(data.streak_days);
-          }
         });
 
+      // ── Badges ────────────────────────────────────────────────────────────
       supabase
         .from('user_badges')
         .select('badge_slug, awarded_at')
@@ -251,7 +222,7 @@ export default function UserDashboard() {
         .then(({ data }) => { if (data) setBadges(data); });
 
     } catch { router.push('/'); return; }
-  }, []);
+  }, [router]);
 
   // ── Data ──────────────────────────────────────────────────────────────────
 
@@ -263,17 +234,10 @@ export default function UserDashboard() {
       { data: signups },
       { data: rankData },
     ] = await Promise.all([
-      supabase.from('ads').select('*')
-        .eq('email', email).eq('status', 'active')
-        .order('created_at', { ascending: false }).limit(1),
-      supabase.from('ads').select('*')
-        .eq('status', 'active')
-        .order('pinned',  { ascending: false })
-        .order('points',  { ascending: false }),
+      supabase.from('ads').select('*').eq('email', email).eq('status', 'active').order('created_at', { ascending: false }).limit(1),
+      supabase.from('ads').select('*').eq('status', 'active').order('pinned', { ascending: false }).order('points', { ascending: false }),
       supabase.from('ad_signups').select('email, promo_code'),
-      supabase.from('ads').select('rank_position')
-        .eq('email', email).eq('status', 'active')
-        .order('rank_position', { ascending: true }).limit(1),
+      supabase.from('ads').select('rank_position').eq('email', email).eq('status', 'active').order('rank_position', { ascending: true }).limit(1),
     ]);
 
     const promoMap: Record<string, string> = {};
@@ -281,64 +245,49 @@ export default function UserDashboard() {
       if (s.promo_code) promoMap[s.email] = s.promo_code.toLowerCase();
     });
 
-    const enrich = (ads: Ad[]) =>
-      ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
+    const enrich = (ads: Ad[]) => ads.map(a => ({ ...a, promo_code: promoMap[a.email] || null }));
 
     if (rankData?.[0]?.rank_position > 0) setMyRank(rankData[0].rank_position);
-
-    const enrichedMine = enrich(mine || []);
-    setMyAd(enrichedMine[0] || null);
+    setMyAd(enrich(mine || [])[0] || null);
     setArenaAds(enrich(arena || []));
     setLoading(false);
   }
 
-  // ── Loyalty restart ────────────────────────────────────────────────────────
+  // ── Loyalty restart ───────────────────────────────────────────────────────
 
   async function handleLoyaltyRestart() {
     if (!user || loyaltyRestarting) return;
     setLoyaltyRestarting(true);
     try {
-      const res  = await fetch('/api/loyalty/restart', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: user.email }),
-      });
+      const res  = await fetch('/api/loyalty/restart', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: user.email }) });
       const data = await res.json();
-      if (data.ok && data.extended) {
-        setTrialExtendedAt(new Date().toISOString());
-        setMembershipTier('member');
-      }
+      if (data.ok && data.extended) { setTrialExtendedAt(new Date().toISOString()); setMembershipTier('member'); }
     } catch {}
     setLoyaltyRestarting(false);
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Click ─────────────────────────────────────────────────────────────────
 
   async function handleClick(ad: Ad) {
     if (ad.id.startsWith('sample-') || !user) return;
     window.open(ad.url, '_blank', 'noopener,noreferrer');
     try {
       const newCount = await libTrackClick(
-        { id: ad.id, brand: ad.brand, title: ad.title,
-          email: ad.email, click_count: ad.click_count || 0 },
-        user.email,
-        SOURCE.USER_DASHBOARD,
-        supabase,
+        { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, click_count: ad.click_count || 0 },
+        user.email, SOURCE.USER_DASHBOARD, supabase,
       );
-      setArenaAds(prev => prev.map(a =>
-        a.id === ad.id ? { ...a, click_count: newCount } : a
-      ));
+      setArenaAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: newCount } : a));
     } catch {}
   }
 
-  // ── Share — uses share layer throughout ───────────────────────────────────
+  // ── Share ─────────────────────────────────────────────────────────────────
 
   async function shareAd(ad: Ad) {
     if (!user) return;
     const waPlatform = PLATFORMS.find(p => p.key === 'whatsapp')!;
     const { text }   = getShareAction(waPlatform, buildShareCtx(ad));
+    let usedNative   = false;
 
-    let usedNative = false;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try { await navigator.share({ title: ad.title, text, url: ad.url }); usedNative = true; } catch {}
     }
@@ -351,17 +300,11 @@ export default function UserDashboard() {
       try {
         const platform = detectPlatform(usedNative);
         const newCount = await recordShare(
-          { id: ad.id, brand: ad.brand, title: ad.title,
-            email: ad.email, share_count: ad.share_count || 0, url: ad.url },
-          user.email,
-          platform,
-          SOURCE.USER_DASHBOARD,
-          supabase,
+          { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, share_count: ad.share_count || 0, url: ad.url },
+          user.email, platform, SOURCE.USER_DASHBOARD, supabase,
         );
         setMyAd(prev     => prev?.id  === ad.id ? { ...prev,  share_count: newCount } : prev);
-        setArenaAds(prev => prev.map(a =>
-          a.id === ad.id ? { ...a, share_count: newCount } : a
-        ));
+        setArenaAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: newCount } : a));
       } catch {}
     }
   }
@@ -379,22 +322,22 @@ export default function UserDashboard() {
     ? user.brand || user.email.split('@')[0]
     : user.name?.split(' ')[0];
 
-  const showOnboarding = !hasProfile || !myAd;
-  const myPoints       = myAd?.points || 0;
-  const myTierKey      = myAd?.tier   || 'entry';
-  const nextTier       = TIERS.find(t => t.threshold > myPoints);
-  const ptsToNext      = nextTier ? nextTier.threshold - myPoints : 0;
-  const showStrip      = !!myAd;
-
-  const tierDef      = getTierDef(membershipTier);
-  const showTierPill = membershipTier !== 'trial';
-
+  const showOnboarding  = !hasProfile || !myAd;
+  const myPoints        = myAd?.points || 0;
+  const myTierKey       = myAd?.tier   || 'entry';
+  const nextTier        = TIERS.find(t => t.threshold > myPoints);
+  const ptsToNext       = nextTier ? nextTier.threshold - myPoints : 0;
+  const showStrip       = !!myAd;
+  const tierDef         = getTierDef(membershipTier);
+  const showTierPill    = membershipTier !== 'trial';
   const showStreak      = streakDays >= 1;
   const streakNearBadge = streakDays >= 1 && streakDays < 3;
   const streakHasBadge  = streakDays >= 3;
 
-  const knownBadges = badges.filter(b => BADGE_REGISTRY[b.badge_slug]);
+  // ── Badges — use getBadge() from lib instead of local registry ────────────
+  const knownBadges = badges.filter(b => getBadge(b.badge_slug));
   const showBadges  = knownBadges.length > 0;
+
   // ── Styles ────────────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
@@ -444,56 +387,38 @@ export default function UserDashboard() {
             <span>·</span>
             <span>{isTeam ? 'Team — Unlimited' : 'Free'}</span>
             {showTierPill && (
-              <>
-                <span>·</span>
-                <span style={pill(tierDef.color)}>
-                  {tierDef.icon} {tierDef.label}
-                </span>
-              </>
+              <><span>·</span><span style={pill(tierDef.color)}>{tierDef.icon} {tierDef.label}</span></>
             )}
             {myRank && (
               <><span>·</span><span style={{ color: '#f0883e' }}>#{myRank} in the Arena</span></>
             )}
           </div>
 
-          {/* ── Streak display ── */}
+          {/* Streak */}
           {showStreak && (
-            <div style={{
-              marginTop: '0.75rem',
-              display: 'flex', alignItems: 'center', gap: '0.5rem',
-              background: '#0a0a0a', border: '1px solid #1a1a1a',
-              borderRadius: '8px', padding: '0.5rem 0.75rem',
-            }}>
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '0.5rem 0.75rem' }}>
               <span style={{ fontSize: '1rem' }}>🔥</span>
               <div style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f0883e' }}>
-                  {streakDays}d streak
-                </span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f0883e' }}>{streakDays}d streak</span>
                 {streakNearBadge && (
                   <span style={{ fontSize: '0.7rem', color: '#555', marginLeft: '0.5rem' }}>
                     · {3 - streakDays} more day{3 - streakDays !== 1 ? 's' : ''} to unlock Arena Active badge
                   </span>
                 )}
                 {streakHasBadge && (
-                  <span style={{ fontSize: '0.7rem', color: '#22c55e', marginLeft: '0.5rem' }}>
-                    · 🏅 Arena Active badge unlocked
-                  </span>
+                  <span style={{ fontSize: '0.7rem', color: '#22c55e', marginLeft: '0.5rem' }}>· 🏅 Arena Active badge unlocked</span>
                 )}
               </div>
             </div>
           )}
 
-          {/* ── Nav buttons — Map of Pi shown for Pi Pioneer users ── */}
+          {/* Nav buttons */}
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-            <button onClick={() => router.push('/create-ad')}
-              style={btn(accent)}>📢 Create Ad</button>
-            <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)}
-              style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
-            <button onClick={() => router.push('/arena')}
-              style={btn('transparent', '#555', '1px solid #333')}>🏟 Arena</button>
+            <button onClick={() => router.push('/create-ad')} style={btn(accent)}>📢 Create Ad</button>
+            <button onClick={() => router.push(`/profile/${encodeURIComponent(user.email)}`)} style={btn('transparent', accent, `1px solid ${accent}`)}>👤 Profile</button>
+            <button onClick={() => router.push('/arena')} style={btn('transparent', '#555', '1px solid #333')}>🏟 Arena</button>
             {isPiUser && (
-              <button onClick={() => router.push('/mapofpi/arena')}
-                style={btn('transparent', '#D4AF37', '1px solid #D4AF3740')}>🗺️ Map of Pi</button>
+              <button onClick={() => router.push('/mapofpi/arena')} style={btn('transparent', '#D4AF37', '1px solid #D4AF3740')}>🗺️ Map of Pi</button>
             )}
           </div>
         </div>
@@ -523,26 +448,11 @@ export default function UserDashboard() {
             <div style={lbl}>Your Badges</div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {knownBadges.map(b => {
-                const def = BADGE_REGISTRY[b.badge_slug];
+                const def = getBadge(b.badge_slug)!;
                 return (
-                  <div
-                    key={b.badge_slug}
-                    title={def.desc}
-                    style={{
-                      display:      'flex',
-                      alignItems:   'center',
-                      gap:          '0.35rem',
-                      background:   `${def.color}12`,
-                      border:       `1px solid ${def.color}35`,
-                      borderRadius: '999px',
-                      padding:      '0.3rem 0.75rem',
-                      cursor:       'default',
-                    }}
-                  >
+                  <div key={b.badge_slug} title={def.desc} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: `${def.color}12`, border: `1px solid ${def.color}35`, borderRadius: '999px', padding: '0.3rem 0.75rem', cursor: 'default' }}>
                     <span style={{ fontSize: '0.9rem' }}>{def.icon}</span>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: def.color }}>
-                      {def.label}
-                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: def.color }}>{def.label}</span>
                   </div>
                 );
               })}
@@ -570,22 +480,12 @@ export default function UserDashboard() {
           <div style={card}>
             <div style={lbl}>Getting Started</div>
             {[
-              { label: "You're in the Arena", desc: `Signed up as ${user.name}`, done: true,       href: null },
-              { label: 'Complete Your Profile', desc: 'Add your bio and contact details',           done: hasProfile, href: `/profile/${encodeURIComponent(user.email)}` },
-              { label: 'Create Your First Ad',  desc: 'Build and launch your first ad',            done: !!myAd,     href: '/create-ad' },
+              { label: "You're in the Arena", desc: `Signed up as ${user.name}`,          done: true,       href: null },
+              { label: 'Complete Your Profile', desc: 'Add your bio and contact details', done: hasProfile, href: `/profile/${encodeURIComponent(user.email)}` },
+              { label: 'Create Your First Ad',  desc: 'Build and launch your first ad',   done: !!myAd,     href: '/create-ad' },
             ].map((step, i) => (
-              <div
-                key={i}
-                onClick={() => step.href && !step.done && router.push(step.href)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.75rem',
-                  padding: '0.75rem',
-                  background: step.done ? '#0d1f0d' : '#0a0a0a',
-                  border: `1px solid ${step.done ? '#1a3a1a' : '#222'}`,
-                  borderRadius: '10px',
-                  cursor: step.href && !step.done ? 'pointer' : 'default',
-                  marginBottom: '0.5rem',
-                }}>
+              <div key={i} onClick={() => step.href && !step.done && router.push(step.href)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: step.done ? '#0d1f0d' : '#0a0a0a', border: `1px solid ${step.done ? '#1a3a1a' : '#222'}`, borderRadius: '10px', cursor: step.href && !step.done ? 'pointer' : 'default', marginBottom: '0.5rem' }}>
                 <span style={{ fontSize: '1.1rem' }}>{step.done ? '✅' : '⭕'}</span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{step.label}</div>
@@ -610,23 +510,17 @@ export default function UserDashboard() {
             <div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.5rem' }}>
                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{myAd.title}</span>
-                <span style={pill(TIER_CONFIG[myAd.tier]?.color || accent)}>
-                  {TIER_CONFIG[myAd.tier]?.label || 'Entry'}
-                </span>
+                <span style={pill(TIER_CONFIG[myAd.tier]?.color || accent)}>{TIER_CONFIG[myAd.tier]?.label || 'Entry'}</span>
                 <span style={pill('#22c55e')}>🟢 Live</span>
                 {(myAd.click_count || 0) > 0 && <span style={{ fontSize: '0.72rem', color: '#555' }}>👆 {myAd.click_count}</span>}
                 {(myAd.share_count || 0) > 0 && <span style={{ fontSize: '0.72rem', color: '#555' }}>↗ {myAd.share_count}</span>}
                 {(myAd.points     || 0) > 0 && <span style={{ fontSize: '0.72rem', color: '#f0883e' }}>⚡ {myAd.points} pts</span>}
               </div>
-              <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '1rem', lineHeight: 1.5 }}>
-                {myAd.description}
-              </div>
+              <div style={{ fontSize: '0.82rem', color: '#888', marginBottom: '1rem', lineHeight: 1.5 }}>{myAd.description}</div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button onClick={() => router.push('/arena')}
-                  style={btn('transparent', accent, `1px solid ${accent}`)}>🏟 View in Arena</button>
+                <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>🏟 View in Arena</button>
                 <button onClick={() => shareAd(myAd)} style={btn(accent)}>↗ Share</button>
-                <button onClick={() => router.push('/create-ad')}
-                  style={btn('transparent', '#555', '1px solid #333')}>✏️ Edit</button>
+                <button onClick={() => router.push('/create-ad')} style={btn('transparent', '#555', '1px solid #333')}>✏️ Edit</button>
               </div>
             </div>
           )}
@@ -640,15 +534,8 @@ export default function UserDashboard() {
               Share this link — anyone who signs up through it joins under your brand.
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'monospace', color: accent, fontWeight: 700, fontSize: '0.88rem' }}>
-                {referralCode}
-              </span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`${APP_URL}/login?ref=${referralCode}`);
-                  setReferralCopied(true);
-                  setTimeout(() => setReferralCopied(false), 2000);
-                }}
+              <span style={{ fontFamily: 'monospace', color: accent, fontWeight: 700, fontSize: '0.88rem' }}>{referralCode}</span>
+              <button onClick={() => { navigator.clipboard.writeText(`${APP_URL}/login?ref=${referralCode}`); setReferralCopied(true); setTimeout(() => setReferralCopied(false), 2000); }}
                 style={btn(referralCopied ? '#22c55e' : accent)}>
                 {referralCopied ? '✅ Copied' : '📋 Copy Link'}
               </button>
@@ -659,15 +546,9 @@ export default function UserDashboard() {
         {/* ── Arena nudge ── */}
         {myAd && (myAd.share_count || 0) === 0 && (myAd.click_count || 0) > 0 && (
           <div style={{ ...card, border: '1px solid #f0883e40', background: '#f0883e08' }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f0883e', marginBottom: '0.4rem' }}>
-              ⚡ Your ad has clicks — now share it
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem' }}>
-              One share = 10 points. Shares are the fastest way to climb the Arena.
-            </div>
-            <button onClick={() => shareAd(myAd)} style={btn('#f0883e', '#000')}>
-              ↗ Share My Ad Now
-            </button>
+            <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f0883e', marginBottom: '0.4rem' }}>⚡ Your ad has clicks — now share it</div>
+            <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.75rem' }}>One share = 10 points. Shares are the fastest way to climb the Arena.</div>
+            <button onClick={() => shareAd(myAd)} style={btn('#f0883e', '#000')}>↗ Share My Ad Now</button>
           </div>
         )}
 
@@ -675,84 +556,57 @@ export default function UserDashboard() {
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
             <div style={lbl}>The Arena</div>
-            <button onClick={() => router.push('/arena')}
-              style={btn('transparent', accent, `1px solid ${accent}`)}>
-              View All →
-            </button>
+            <button onClick={() => router.push('/arena')} style={btn('transparent', accent, `1px solid ${accent}`)}>View All →</button>
           </div>
+
           {loading ? (
             <div style={{ color: '#555', fontSize: '0.85rem', padding: '1rem 0' }}>Loading arena...</div>
           ) : arenaAds.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#555', fontSize: '0.85rem' }}>
-              No active ads yet — be the first.
-            </div>
+            <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#555', fontSize: '0.85rem' }}>No active ads yet — be the first.</div>
           ) : (
             <div>
               {arenaAds.slice(0, showCount).map(ad => {
-                const tier  = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
-                const isOwn = ad.email === user.email;
-                // ── word-boundary truncation ──
+                const tier    = TIER_CONFIG[ad.tier] || TIER_CONFIG.entry;
+                const isOwn   = ad.email === user.email;
                 const preview = ad.description.length > 90
                   ? ad.description.slice(0, ad.description.lastIndexOf(' ', 90)) + '…'
                   : ad.description;
+
                 return (
-                  <div
-                    key={ad.id}
-                    onClick={() => handleClick(ad)}
-                    style={{
-                      background: '#0a0a0a',
-                      border: `1px solid ${ad.pinned ? '#f0883e40' : '#1a1a1a'}`,
-                      borderLeft: `3px solid ${tier.color}`,
-                      borderRadius: '10px', padding: '1rem', cursor: 'pointer',
-                      marginBottom: '0.75rem', transition: 'border-color 0.15s',
-                    }}
+                  <div key={ad.id} onClick={() => handleClick(ad)}
+                    style={{ background: '#0a0a0a', border: `1px solid ${ad.pinned ? '#f0883e40' : '#1a1a1a'}`, borderLeft: `3px solid ${tier.color}`, borderRadius: '10px', padding: '1rem', cursor: 'pointer', marginBottom: '0.75rem', transition: 'border-color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = tier.color + '60')}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? '#f0883e40' : '#1a1a1a')}>
 
-                    {/* ── Brand row ── */}
+                    {/* Brand row */}
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <span
-                        onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
+                      <span onClick={e => { e.stopPropagation(); router.push(`/profile/${encodeURIComponent(ad.email)}`); }}
                         style={{ fontWeight: 700, fontSize: '0.82rem', color: tier.color, cursor: 'pointer' }}>
                         {ad.brand}
                       </span>
-                      {ad.pinned && <span style={pill('#f0883e')}>⭐ Featured</span>}
-                      {isOwn     && <span style={pill('#22c55e')}>Your Ad</span>}
-                      {/* ── Enhancement 3 — champion badge ── */}
-                      {ad.is_country_champion && ad.country && (
-                        <span style={pill('#D4AF37')}>🏆 {ad.country}</span>
-                      )}
+                      {ad.pinned              && <span style={pill('#f0883e')}>⭐ Featured</span>}
+                      {isOwn                  && <span style={pill('#22c55e')}>Your Ad</span>}
+                      {ad.is_country_champion && ad.country && <span style={pill('#D4AF37')}>🏆 {ad.country}</span>}
                       <span style={pill(tier.color)}>{tier.label}</span>
                       {ad.rank_position && ad.rank_position <= 3 && (
                         <span>{ad.rank_position === 1 ? '🥇' : ad.rank_position === 2 ? '🥈' : '🥉'}</span>
                       )}
                     </div>
 
-                    {/* ── Title ── */}
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: '0.3rem' }}>{ad.title}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.5rem', lineHeight: 1.4 }}>{preview}</div>
 
-                    {/* ── Description — word-boundary truncation ── */}
-                    <div style={{ fontSize: '0.78rem', color: '#888', marginBottom: '0.5rem', lineHeight: 1.4 }}>
-                      {preview}
-                    </div>
-
-                    {/* ── Enhancement 2 — engagement stats ── */}
+                    {/* Engagement stats */}
                     <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.7rem', color: '#444', marginBottom: '0.65rem', flexWrap: 'wrap' }}>
                       {(ad.click_count || 0) > 0 && <span>👆 {ad.click_count}</span>}
                       {(ad.share_count || 0) > 0 && <span>↗ {ad.share_count}</span>}
                       {(ad.points      || 0) > 0 && <span style={{ color: tier.color }}>⚡ {ad.points}</span>}
                     </div>
 
-                    {/* ── Actions ── */}
+                    {/* Actions */}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); window.open(ad.url, '_blank', 'noopener,noreferrer'); }}
-                        style={btn(tier.color)}>
-                        Visit →
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); shareAd(ad); }}
-                        style={btn('transparent', sharedId === ad.id ? '#22c55e' : '#555', '1px solid #333')}>
+                      <button onClick={e => { e.stopPropagation(); window.open(ad.url, '_blank', 'noopener,noreferrer'); }} style={btn(tier.color)}>Visit →</button>
+                      <button onClick={e => { e.stopPropagation(); shareAd(ad); }} style={btn('transparent', sharedId === ad.id ? '#22c55e' : '#555', '1px solid #333')}>
                         {sharedId === ad.id ? '✅ Shared' : '↗ Share'}
                       </button>
                     </div>
@@ -762,30 +616,25 @@ export default function UserDashboard() {
 
               {arenaAds.length > showCount ? (
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <button
-                    onClick={() => setShowCount(c => c + 10)}
-                    style={{ ...btn('transparent', accent, `1px solid ${accent}`), flex: 1 }}>
+                  <button onClick={() => setShowCount(c => c + 10)} style={{ ...btn('transparent', accent, `1px solid ${accent}`), flex: 1 }}>
                     Load {Math.min(10, arenaAds.length - showCount)} more ↓
                   </button>
-                  <button
-                    onClick={() => router.push('/arena')}
-                    style={{ ...btn('transparent', '#555', '1px solid #333'), flex: 1 }}>
+                  <button onClick={() => router.push('/arena')} style={{ ...btn('transparent', '#555', '1px solid #333'), flex: 1 }}>
                     Full Arena →
                   </button>
                 </div>
               ) : arenaAds.length > 10 ? (
-                <button
-                  onClick={() => router.push('/arena')}
-                  style={{ ...btn('transparent', accent, `1px solid ${accent}`), width: '100%', marginTop: '0.5rem' }}>
+                <button onClick={() => router.push('/arena')} style={{ ...btn('transparent', accent, `1px solid ${accent}`), width: '100%', marginTop: '0.5rem' }}>
                   You've seen all {arenaAds.length} ads — Open Full Arena →
                 </button>
               ) : null}
             </div>
           )}
         </div>
-      </div>
 
+      </div>
       <ArenaFooter />
     </div>
   );
 }
+
