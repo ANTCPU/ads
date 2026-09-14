@@ -63,12 +63,20 @@ function getTrialExpiry(days: number): string {
 }
 
 function fireWelcomeEmail(name: string, email: string, brand: string, trialStatus: string, locale = 'en') {
-  fetch('/api/send-welcome', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, brand, trialStatus, preferred_locale: locale }),
-  }).catch(() => {});
+  // TODO: re-enable when email quota allows
+  // fetch('/api/send-welcome', {
+  //   method: 'POST',
+  //   headers: { 'Content-Type': 'application/json' },
+  //   body: JSON.stringify({ name, email, brand, trialStatus, preferred_locale: locale }),
+  // }).catch(() => {});
 
+  // Mark signup timestamp so dashboard notification dot lights up
+  supabase
+    .from('ad_signups')
+    .update({ welcome_email_sent_at: new Date().toISOString() })
+    .eq('email', email)
+    .then(() => {});
+}
 
 // ─── persistSession ───────────────────────────────────────────────────────────
 // Single source of truth for all login paths.
