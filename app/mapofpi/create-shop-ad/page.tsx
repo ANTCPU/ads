@@ -101,6 +101,8 @@ export default function CreateShopAdPage() {
       trial_status: 'team',
       tier:         'entry',
       image_url:    null,
+      campaign:     'mapofpi',
+      country:      sel?.name || null,
     }]).select('id').single();
 
     if (inserted?.id) {
