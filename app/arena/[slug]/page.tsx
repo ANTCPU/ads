@@ -1,35 +1,34 @@
-import { Metadata } from 'next';
+// app/arena/[slug]/page.tsx
+// ─── Brand arena page — metadata from brands table ────────────────────────────
+// SLUG_ALIAS + PUBLIC_OG_FALLBACK hardcodes removed.
+// Brands table is now the single source of truth for:
+//   - slug resolution (brands.slug OR brands.campaign match)
+//   - og_image_url
+//   - tagline
+//   - site_url
+//   - display name
+//
+// Fallback chain:
+//   1. brands table (og_image_url, tagline, name)
+//   2. DEFAULT_OG / generic tagline
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Metadata }    from 'next';
 import { createClient } from '@supabase/supabase-js';
-import ArenaClient from './ArenaClient';
+import ArenaClient      from './ArenaClient';
 
-const BASE = 'https://antcpu-ads.vercel.app';
+const BASE       = 'https://antcpu-ads.vercel.app';
 const DEFAULT_OG = `${BASE}/og-image.jpg`;
-
-// Slug aliases — antcpu variants all resolve to 'antcpu'
-const SLUG_ALIAS: Record<string, string> = {
-  'ads-network': 'antcpu',
-  'antcpuads':   'antcpu',
-  'adsnetwork':  'antcpu',
-};
-
-// OG fallbacks for known slugs that have files in public/
-// but may not have an ad_profiles row yet
-const PUBLIC_OG_FALLBACK: Record<string, string> = {
-  antcpu:  `${BASE}/og-image.jpg`,
-  mapofpi: `${BASE}/og-mapofpi.jpg`,
-};
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug: rawSlug } = await params;
   const slug = rawSlug.toLowerCase();
-  const resolvedSlug = SLUG_ALIAS[slug] ?? slug;
 
-  // Try ad_profiles first — brand may have uploaded their own OG image
-  let ogImage  = PUBLIC_OG_FALLBACK[resolvedSlug] ?? DEFAULT_OG;
-  let tagline  = `${resolvedSlug} is live in the ANTCPU ADS Arena.`;
-  let siteUrl  = '';
+  let ogImage      = DEFAULT_OG;
+  let tagline      = `${slug} is live in the ANTCPU ADS Arena.`;
+  let brandDisplay = slug.charAt(0).toUpperCase() + slug.slice(1);
 
   try {
     const supabase = createClient(
@@ -37,23 +36,29 @@ export async function generateMetadata(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data } = await supabase
-      .from('ad_profiles')
-      .select('og_image_url, tagline, site_url')
-      .ilike('brand_name', resolvedSlug)
+    // ── Single query to brands table — replaces SLUG_ALIAS + PUBLIC_OG_FALLBACK
+    // Matches on slug OR campaign — handles all alias variants automatically
+    const { data: brand } = await supabase
+      .from('brands')
+      .select('name, label, og_image_url, tagline, site_url, logo_url')
+      .or(`slug.eq.${slug},campaign.eq.${slug}`)
+      .eq('active', true)
       .maybeSingle();
 
-    if (data?.og_image_url) ogImage = data.og_image_url;
-    if (data?.tagline)      tagline = data.tagline;
-    if (data?.site_url)     siteUrl = data.site_url;
+    if (brand) {
+      if (brand.og_image_url) ogImage      = brand.og_image_url;
+      if (brand.tagline)      tagline      = brand.tagline;
+      if (brand.label || brand.name) {
+        brandDisplay = brand.label || brand.name;
+      }
+    }
   } catch {
     // Non-fatal — fall through to defaults
   }
 
-  const brandDisplay = resolvedSlug.charAt(0).toUpperCase() + resolvedSlug.slice(1);
-  const title        = `${brandDisplay} — ANTCPU ADS Arena`;
-  const description  = tagline;
-  const url          = `${BASE}/arena/${slug}`;
+  const title       = `${brandDisplay} — ANTCPU ADS Arena`;
+  const description = tagline;
+  const url         = `${BASE}/arena/${slug}`;
 
   return {
     title,
@@ -67,10 +72,10 @@ export async function generateMetadata(
       type: 'website',
     },
     twitter: {
-      card: 'summary_large_image',
+      card:        'summary_large_image',
       title,
       description,
-      images: [ogImage],
+      images:      [ogImage],
     },
   };
 }
