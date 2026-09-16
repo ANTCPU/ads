@@ -20,9 +20,9 @@
 //   DB row overrides code default at runtime.
 //   resolveFlag() checks DB first, falls back to code default.
 //
-// MODULES:
-//   Each module in modules/index.ts has a flagId.
-//   getFlaggedModules() filters MODULE_REGISTRY by flag status.
+// DESCRIPTIONS:
+//   Written in plain language — what happens when you flip this ON.
+//   Not engineering notes. Not implementation details.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type FlagVersion = 'beta' | 'v1' | 'v1testing' | 'v2' | 'v2testing';
@@ -47,42 +47,42 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   {
     id:          'streak-tracking',
     label:       'Streak Tracking',
-    description: 'Daily login streak + 3-share/day. Writes streak_days + last_active_date to ad_signups.',
+    description: 'Users build a daily streak by logging in and sharing. Streak count shows in their nav and dashboard.',
     version:     'beta',
     status:      'on',
   },
   {
     id:          'arena-active-badge',
     label:       'Arena Active Badge',
-    description: 'Awards arena-active badge at 3 consecutive active days.',
+    description: 'Users who log in 3 days in a row automatically earn the Arena Active badge.',
     version:     'beta',
     status:      'on',
   },
   {
     id:          'loyalty-card',
     label:       'Loyalty Card',
-    description: 'Trial countdown + restart CTA in dashboard/user.',
+    description: 'Shows users how many trial days they have left and lets them restart their trial from the dashboard.',
     version:     'beta',
     status:      'on',
   },
   {
     id:          'badge-row',
     label:       'Badge Row',
-    description: 'Badge display row in dashboard/user.',
+    description: 'Earned badges appear as a row in the user dashboard.',
     version:     'beta',
     status:      'on',
   },
   {
     id:          'membership-pill',
     label:       'Membership Tier Pill',
-    description: 'ArenaNav shows membership tier instead of generic Trial pill.',
+    description: 'Shows the user\'s membership tier (Member, Rising, Champion etc.) in the top nav instead of just "Trial".',
     version:     'beta',
     status:      'on',
   },
   {
     id:          'localstorage-sync',
     label:       'localStorage Enriched Sync',
-    description: 'Writes membershipTier, streakDays, lastActiveDate to localStorage on every login.',
+    description: 'Keeps membership tier, streak, and last active date in sync locally so the nav updates without a page reload.',
     version:     'beta',
     status:      'on',
   },
@@ -91,86 +91,86 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   {
     id:          'agent-registry',
     label:       'Agent Registry',
-    description: 'lib/agents.ts — Scout, Aria, Herald, Ledger, MAC, Antbot.',
+    description: 'All six agents are active — Scout, Aria, Herald, Ledger, MAC, Antbot.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'arena-context',
     label:       'Arena Context Injection',
-    description: 'ARENA_CONTEXT injected into every LLM call via ads-agent.',
+    description: 'Every AI call knows it\'s inside the Arena — brand context, tone, and rules are injected automatically.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'share-tracking-v2',
     label:       'Share Tracking v2',
-    description: 'Source field, platform detection, badge history check.',
+    description: 'Every share is recorded with platform, source, and badge history. Points flow correctly to the ad.',
     version:     'v1',
     status:      'on',
   },
 
-  // ── v1 modules — gated by tier, flag controls visibility ─────────────────
+  // ── v1 modules ────────────────────────────────────────────────────────────
   {
     id:          'module-create-ad',
     label:       'Module: Create Ad',
-    description: 'Create an ad in this arena.',
+    description: 'The Create Ad module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-share',
     label:       'Module: Share Arena',
-    description: 'Share this arena with one tap.',
+    description: 'The Share Arena module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-leaderboard',
     label:       'Module: Leaderboard',
-    description: 'Top performing ads in the Arena.',
+    description: 'The Leaderboard module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-archive',
     label:       'Module: Archive',
-    description: 'Past campaigns from all Arena brands.',
+    description: 'The Archive module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-region-map',
     label:       'Module: Regional Map',
-    description: 'Live signup regions across the network.',
+    description: 'The Regional Map module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-campaign-hub',
     label:       'Module: Campaign Hub',
-    description: 'Active campaigns grouped by tier.',
+    description: 'The Campaign Hub module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-posts',
     label:       'Module: Posts',
-    description: 'Brand posts and updates.',
+    description: 'The Posts module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-schedule',
     label:       'Module: Schedule',
-    description: 'Ad activity by day of week.',
+    description: 'The Schedule module appears in arena sidebars.',
     version:     'v1',
     status:      'on',
   },
   {
     id:          'module-chat',
     label:       'Module: Ask Aria',
-    description: 'Direct line to Aria — unlocks at 10pts.',
+    description: 'The Ask Aria chat module appears in arena sidebars. Unlocks for users with 10+ points.',
     version:     'v1',
     status:      'on',
   },
@@ -179,21 +179,21 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   {
     id:          'antbot-assignment',
     label:       'Antbot Assignment',
-    description: '10 antbots assigned to country champion on ad launch.',
+    description: 'When a Map of Pi champion launches, 10 antbots are automatically assigned to their ad.',
     version:     'v1testing',
     status:      'off',
   },
   {
     id:          'mac-agent',
     label:       'MAC Agent',
-    description: 'Map of Pi dedicated agent route.',
+    description: 'Activates the M.A.C. AI companion dedicated to Map of Pi users.',
     version:     'v1testing',
     status:      'off',
   },
   {
     id:          'ledger-agent',
     label:       'Ledger Agent',
-    description: 'Analytics agent — Arena-wide numbers.',
+    description: 'Activates the Ledger analytics agent — Arena-wide numbers on demand.',
     version:     'v1testing',
     status:      'off',
   },
@@ -202,65 +202,74 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   {
     id:          'module-video-feed',
     label:       'Module: Video Feed',
-    description: 'Brand media ads — subscriber tier.',
+    description: 'Turns on the Video Feed module for subscriber-tier brands.',
     version:     'v2',
     status:      'off',
   },
   {
     id:          'module-youtube-live',
     label:       'Module: YouTube Live',
-    description: 'Live stream from brand YouTube channel.',
+    description: 'Turns on the YouTube Live module for subscriber-tier brands.',
     version:     'v2',
     status:      'off',
   },
   {
     id:          'image-upload',
     label:       'Image Upload',
-    description: 'Ad image upload — Deluxe tier.',
+    description: 'Lets Deluxe-tier users upload a custom image for their ad.',
     version:     'v2',
     status:      'off',
   },
   {
     id:          'paid-subscriptions',
     label:       'Paid Subscriptions',
-    description: 'Stripe — $9.99/mo subscriber tier.',
+    description: 'Turns on Stripe billing — $9.99/mo subscriber tier becomes available.',
     version:     'v2',
     status:      'off',
   },
 
   // ── v2 — Map of Pi Membership Arena ──────────────────────────────────────
-  // Phase A: champion UX — flip in order, one per deploy.
-  // Spec + affected files: app/lib/mapofpi-membership.ts
+  // Flip in order. One per deploy. Spec: app/lib/mapofpi-membership.ts
   {
     id:          'store-image-upload',
     label:       'Store Image Upload',
-    description: 'Map of Pi champion uploads store screenshot → Cloudinary → ads.image_url. Route: /api/upload/store-image. UI card in dashboard/user.',
+    description: 'Map of Pi champions can upload a photo of their store. It becomes the image on their ad card.',
     version:     'v2',
     status:      'off',
-    notes:       'Phase A step 1. Build route before flipping.',
+    notes:       'Build /api/upload/store-image before flipping ON.',
   },
   {
     id:          'champion-share-surface',
     label:       'Champion Share Surface',
-    description: 'One-tap share card for mapofpi champions in create-shop-ad step 5 + dashboard/user. Calls recordShare → points flow.',
+    description: 'Shows Map of Pi champions a one-tap share card right after they launch and in their dashboard. Every share earns them points.',
     version:     'v2',
     status:      'off',
-    notes:       'Phase A step 2. Flip after store-image-upload is stable.',
+    notes:       'Flip after store-image-upload is stable.',
   },
   {
     id:          'champion-membership-progress',
     label:       'Champion Membership Progress',
-    description: 'Replaces hardcoded MEMBERSHIP_STEPS in MapOfPiArenaClient with live points from champion ad. Uses resolveChampionTier() from mapofpi-membership.ts.',
+    description: 'The membership tier steps on the Map of Pi arena page update live based on each champion\'s actual points instead of showing everything locked.',
     version:     'v2',
     status:      'off',
-    notes:       'Phase A step 3. Flip after champions are sharing and points accumulating.',
+    notes:       'Flip after champions are sharing and points are accumulating.',
+  },
+
+  // ── v2 — Universal share nudge ────────────────────────────────────────────
+  {
+    id:          'post-submit-share',
+    label:       'Post-Submit Share Nudge',
+    description: 'After any user submits or launches an ad, they see a one-tap share card. Works for all brands, not just Map of Pi.',
+    version:     'v2',
+    status:      'off',
+    notes:       'Flip when signup activity picks up. Affects CreateAdDrawer and create-ad module.',
   },
 
   // ── v2testing ─────────────────────────────────────────────────────────────
   {
     id:          'custom-brand-voice',
     label:       'Custom Brand Voice',
-    description: 'Per-brand LLM persona for ad generation.',
+    description: 'Each brand gets its own AI tone and persona for ad generation.',
     version:     'v2testing',
     status:      'off',
   },
@@ -313,7 +322,6 @@ export const STATUS_META: Record<FlagStatus, { label: string; color: string }> =
 
 // ─── Runtime flag fetcher ─────────────────────────────────────────────────────
 // Fetches live flags from /api/flags once per session, caches in module scope.
-// Used by ModuleSlots and agent routes to check flags at runtime.
 
 let _runtimeCache: Record<string, boolean> | null = null;
 
@@ -329,14 +337,12 @@ export async function getFlags(): Promise<Record<string, boolean>> {
   return _runtimeCache!;
 }
 
-// Check a single flag at runtime — default true if not found
 export function isEnabled(flags: Record<string, boolean>, id: string): boolean {
   return flags[id] !== false;
 }
 
 // ─── Agent flag map ───────────────────────────────────────────────────────────
-// null = persistent — always active, never gated.
-// string = flag ID — agent only runs when that flag is enabled.
+// null = always active. string = only runs when that flag is ON.
 
 export type AgentId = 'scout' | 'aria' | 'herald' | 'ledger' | 'mac' | 'antbot';
 
@@ -365,5 +371,4 @@ export const MODULE_FLAG_IDS = FLAG_DEFAULTS
   .map(f => f.id);
 
 export const PERSISTENT_AGENTS: AgentId[] = ['aria', 'herald', 'scout'];
-
-export const GATED_AGENTS: AgentId[] = ['ledger', 'mac', 'antbot'];
+export const GATED_AGENTS:      AgentId[] = ['ledger', 'mac', 'antbot'];
