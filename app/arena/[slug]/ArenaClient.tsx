@@ -2,24 +2,30 @@
 // app/arena/[slug]/ArenaClient.tsx
 // Brand-specific arena — /arena/mapofpi, /arena/antcpu, etc.
 //
-// CHANGELOG v2 (Sep 2026):
-//   — recordReaction() now routes through tracking layer (was inline)
-//   — handleLike/handleBoost pass user.email for badge + notification funnel
-//   — handleReaction passes user.email || null for first-reaction badge
-//   — Stats bar adds Reactions + Shares (parity with Universal)
-//   — clearSessionCookie() on logout (parity with Universal)
+// v3 (Sep 2026):
+//   — BRANDS registry removed — config fetched from /api/brand/[slug]
+//   — SLUG_ALIAS removed — brands table resolves all slug variants
+//   — isMapOfPi derived from brand.campaign === 'mapofpi' (not hardcoded)
+//   — dashboardHref fixed — super no longer routes to /dashboard/admin
+//   — fetchAds uses brand.campaign for query (not brand.name ilike)
+//
+// v2 (Sep 2026):
+//   — recordReaction() routes through tracking layer
+//   — handleLike/handleBoost pass user.email
+//   — Stats bar adds Reactions + Shares
+//   — clearSessionCookie() on logout
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useRouter, useParams }                               from 'next/navigation';
-import { useState, useEffect }                                from 'react';
-import { createClient }                                       from '@supabase/supabase-js';
-import ArenaNav                                               from '../../components/ArenaNav';
-import ArenaFooter                                            from '../../components/ArenaFooter';
-import ModuleSlots                                            from '../../components/ModuleSlots';
-import { PLATFORMS, getShareAction, ShareContext }            from '../../lib/socialShare';
+import { useRouter, useParams }                    from 'next/navigation';
+import { useState, useEffect }                     from 'react';
+import { createClient }                            from '@supabase/supabase-js';
+import ArenaNav                                    from '../../components/ArenaNav';
+import ArenaFooter                                 from '../../components/ArenaFooter';
+import ModuleSlots                                 from '../../components/ModuleSlots';
+import { PLATFORMS, getShareAction, ShareContext } from '../../lib/socialShare';
 import { trackClick, recordShare, recordLike,
-         recordBoost, recordReaction, SOURCE }                from '../../lib/tracking';
-import { clearSessionCookie }                                 from '../../lib/session';
+         recordBoost, recordReaction, SOURCE }     from '../../lib/tracking';
+import { clearSessionCookie }                      from '../../lib/session';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 
@@ -49,27 +55,20 @@ type SessionUser = {
   trialStatus: string; role?: string;
 };
 
+// Brand config — from brands table via /api/brand/[slug]
+// Replaces hardcoded BRANDS registry
 type BrandConfig = {
-  name: string; primary: string; logo?: string; site?: string;
+  name:     string;
+  primary:  string;   // color
+  logo?:    string;   // logo_url
+  site?:    string;   // site_url
+  campaign: string;   // used for ad query + isMapOfPi detection
 };
 
 type ReactionType = 'hot' | 'watching' | 'interesting';
 type Toast        = { id: string; msg: string };
 
-// ─── Brand Registry ───────────────────────────────────────────────────────────
-
-const BRANDS: Record<string, BrandConfig> = {
-  antcpu:      { name: 'ANTCPU ADS',        primary: '#f0883e', logo: '/brands/antcpu/adsnetwork.jpg',       site: 'https://antcpu.com'        },
-  mapofpi:     { name: 'Map of Pi',          primary: '#D4AF37', logo: '/brands/mapofpi/map-of-pi-logo.png', site: 'https://mapofpi.com'       },
-  pipioneers:  { name: 'PiPioneersX',        primary: '#7928ca',                                              site: 'https://x.com/PiPioneersX' },
-  photography: { name: 'Amanda Photography', primary: '#ff0080',                                              site: 'https://antcpu.com/manda/' },
-};
-
-const SLUG_ALIAS: Record<string, string> = {
-  'ads-network': 'antcpu', 'antcpuads': 'antcpu', 'adsnetwork': 'antcpu',
-  'amanda': 'photography', 'amandaphoto': 'photography',
-  'pipioneersx': 'pipioneers',
-};
+// ─── Tier + reaction constants ────────────────────────────────────────────────
 
 const TIER_COLOR: Record<string, string> = {
   toptier: '#f0883e', featured: '#ff0080', rising: '#7928ca', entry: '#0070f3',
@@ -83,7 +82,7 @@ const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
 
 const DEFAULT_SLOTS: (string | null)[] = ['region-map', null, null];
 
-// ─── Tokens ───────────────────────────────────────────────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
 
 const bg     = '#0a0a0a';
 const card   = '#111';
@@ -104,7 +103,7 @@ function getSessionId(): string {
   return sid;
 }
 
-// ─── Flag lookup ──────────────────────────────────────────────────────────────
+// ─── Country flag lookup ──────────────────────────────────────────────────────
 
 function countryFlag(country: string): string {
   const flags: Record<string, string> = {
@@ -140,10 +139,13 @@ function countryFlag(country: string): string {
 export default function ArenaClient() {
   const router = useRouter();
   const params = useParams();
-  const slug      = (params?.slug as string || '').toLowerCase();
-  const brandKey  = SLUG_ALIAS[slug] || slug;
-  const config    = BRANDS[brandKey] || { name: slug, primary: '#f0883e' };
-  const isMapOfPi = brandKey === 'mapofpi';
+  const slug   = (params?.slug as string || '').toLowerCase();
+
+  // ── Brand config — from DB, replaces BRANDS + SLUG_ALIAS hardcodes ────────
+  const [config,       setConfig]       = useState<BrandConfig>({
+    name: slug, primary: '#f0883e', campaign: slug,
+  });
+  const [configLoaded, setConfigLoaded] = useState(false);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [ads,     setAds]     = useState<Ad[]>([]);
@@ -158,12 +160,20 @@ export default function ArenaClient() {
   const [reacted, setReacted] = useState<Record<string, ReactionType | null>>({});
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const isSuper       = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
-  const dashboardHref = isSuper ? '/dashboard/admin' : user.role === 'admin' ? '/dashboard/users' : '/dashboard/user';
-  const maxPoints     = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
-  const totalPoints   = ads.reduce((s, a) => s + (a.points        || 0), 0);
-  const totalClicks   = ads.reduce((s, a) => s + (a.click_count   || 0), 0);
-  const totalShares   = ads.reduce((s, a) => s + (a.share_count   || 0), 0);
+  const isSuper    = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
+  // FIX: super no longer routes to /dashboard/admin
+  const dashboardHref = isSuper
+    ? '/dashboard/antcpu'
+    : user.role === 'admin'
+    ? '/dashboard/users'
+    : '/dashboard/user';
+
+  // isMapOfPi derived from campaign — not hardcoded string check
+  const isMapOfPi  = config.campaign === 'mapofpi';
+  const maxPoints  = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+  const totalPoints    = ads.reduce((s, a) => s + (a.points         || 0), 0);
+  const totalClicks    = ads.reduce((s, a) => s + (a.click_count    || 0), 0);
+  const totalShares    = ads.reduce((s, a) => s + (a.share_count    || 0), 0);
   const totalReactions = ads.reduce((s, a) => s + (a.reaction_count || 0), 0);
 
   // ── Map of Pi country grouping ────────────────────────────────────────────
@@ -198,8 +208,38 @@ export default function ArenaClient() {
     setLiked(likedMap);
     setBoosted(boostedMap);
     setReacted(reactedMap);
-    fetchAds();
+
+    // Load brand config from DB then fetch ads
+    loadBrandConfig();
   }, [slug]);
+
+  // ── Load brand config from /api/brand/[slug] ──────────────────────────────
+  // Replaces BRANDS registry + SLUG_ALIAS hardcodes.
+  // Falls back to slug-based defaults if brand not found in DB.
+  async function loadBrandConfig() {
+    try {
+      const res  = await fetch(`/api/brand/${slug}`);
+      const data = await res.json();
+      if (data.brand) {
+        setConfig({
+          name:     data.brand.label || data.brand.name || slug,
+          primary:  data.brand.color    || '#f0883e',
+          logo:     data.brand.logo_url || undefined,
+          site:     data.brand.site_url || undefined,
+          campaign: data.brand.campaign || slug,
+        });
+      }
+    } catch {}
+    setConfigLoaded(true);
+  }
+
+  // ── Fetch ads — uses campaign from brand record ───────────────────────────
+  // FIX: was using ilike brand name match — now uses campaign exact match
+  // which is correct and consistent with /api/brand/[slug]
+  useEffect(() => {
+    if (!configLoaded) return;
+    fetchAds();
+  }, [configLoaded, config.campaign]);
 
   // ── Module slots ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -219,8 +259,8 @@ export default function ArenaClient() {
     const { data } = await supabase
       .from('ads')
       .select('*')
-      .ilike('brand', `%${config.name}%`)
-      .eq('status', 'active')
+      .eq('campaign', config.campaign)
+      .eq('status',   'active')
       .order('pinned',  { ascending: false })
       .order('points',  { ascending: false });
     setAds(data || []);
@@ -241,7 +281,7 @@ export default function ArenaClient() {
     setTimeout(() => setToast(null), 2000);
   }
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers — unchanged from v2 ─────────────────────────────────────────
 
   async function handleClick(ad: Ad) {
     if (!ad.url || ad.url.trim() === '') return;
@@ -319,7 +359,7 @@ export default function ArenaClient() {
     setShareAd(null);
   }
 
-  // ── Ad Card ───────────────────────────────────────────────────────────────
+  // ── Ad Card — unchanged from v2 ───────────────────────────────────────────
 
   function AdCard({ ad }: { ad: Ad }) {
     const heat       = Math.round(((ad.points || 0) / maxPoints) * 100);
@@ -335,10 +375,8 @@ export default function ArenaClient() {
         onMouseEnter={e => (e.currentTarget.style.borderColor = config.primary + '80')}
         onMouseLeave={e => (e.currentTarget.style.borderColor = ad.pinned ? config.primary + '60' : border)}
       >
-        {/* Pinned accent */}
         {ad.pinned && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, ${config.primary}, transparent)` }} />}
 
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.4rem', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button onClick={() => router.push(`/profile/${encodeURIComponent(ad.email)}`)}
@@ -369,13 +407,11 @@ export default function ArenaClient() {
           )}
         </div>
 
-        {/* Image */}
         {ad.image_url && (ad.pinned || ad.tier !== 'entry') && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={ad.image_url} alt={ad.title} style={{ width: '100%', borderRadius: '10px', marginBottom: '0.75rem', maxHeight: '200px', objectFit: 'cover' }} />
         )}
 
-        {/* Title + description */}
         <div style={{ fontWeight: 700, fontSize: '0.92rem', color: white, marginBottom: '0.2rem' }}>{ad.title}</div>
         <div style={{ fontSize: '0.8rem', color: muted, lineHeight: 1.5, marginBottom: '0.5rem' }}>
           {ad.description.length > 100
@@ -383,12 +419,10 @@ export default function ArenaClient() {
             : ad.description}
         </div>
 
-        {/* Hot meter */}
         <div style={{ height: '2px', background: '#1a1a1a', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.6rem' }}>
           <div style={{ height: '100%', width: `${heat}%`, background: `linear-gradient(90deg, ${config.primary}, ${config.primary}44)`, borderRadius: '999px', transition: 'width 0.4s ease' }} />
         </div>
 
-        {/* Stats */}
         <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.72rem', color: muted, marginBottom: '0.6rem', flexWrap: 'wrap' }}>
           {(ad.click_count    || 0) > 0 && <span>👆 {ad.click_count}</span>}
           {(ad.share_count    || 0) > 0 && <span>↗ {ad.share_count}</span>}
@@ -398,7 +432,6 @@ export default function ArenaClient() {
           {(ad.points         || 0) > 0 && <span style={{ color: config.primary }}>⚡ {ad.points} pts</span>}
         </div>
 
-        {/* Reaction strip */}
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }} onClick={e => e.stopPropagation()}>
           {REACTIONS.map(r => {
             const active = reacted[ad.id] === r.type;
@@ -419,7 +452,6 @@ export default function ArenaClient() {
           })}
         </div>
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: '0.5rem' }} onClick={e => e.stopPropagation()}>
           <button onClick={() => handleClick(ad)}
             style={{ flex: 1, background: config.primary, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 700, fontSize: '0.78rem', padding: '0.55rem 0', cursor: 'pointer' }}>
@@ -494,7 +526,6 @@ export default function ArenaClient() {
       {/* ── Main content ── */}
       <div style={{ maxWidth: '720px', margin: '0 auto', padding: '2rem 1rem' }}>
 
-        {/* Back */}
         <button onClick={() => router.push('/arena')}
           style={{ fontSize: '0.78rem', color: muted, background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1.5rem', padding: 0 }}>
           ← All Brands
@@ -525,11 +556,11 @@ export default function ArenaClient() {
         {!loading && ads.length > 0 && (
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             {[
-              { label: 'Ads',       value: ads.length,                    color: config.primary },
-              { label: 'Clicks',    value: totalClicks,                   color: '#0070f3'      },
-              { label: 'Shares',    value: totalShares,                   color: '#7928ca'      },
-              { label: 'Reactions', value: totalReactions,                color: '#f0883e'      },
-              { label: 'Points',    value: totalPoints.toLocaleString(),  color: gold           },
+              { label: 'Ads',       value: ads.length,                   color: config.primary },
+              { label: 'Clicks',    value: totalClicks,                  color: '#0070f3'      },
+              { label: 'Shares',    value: totalShares,                  color: '#7928ca'      },
+              { label: 'Reactions', value: totalReactions,               color: '#f0883e'      },
+              { label: 'Points',    value: totalPoints.toLocaleString(), color: gold           },
             ].map(s => (
               <div key={s.label} style={{ background: card, border: `1px solid ${border}`, borderRadius: '10px', padding: '0.6rem 1rem', textAlign: 'center', flex: 1, minWidth: '60px' }}>
                 <div style={{ fontSize: '1.1rem', fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -578,7 +609,7 @@ export default function ArenaClient() {
 
         {/* Ads */}
         {loading ? (
-          <div style={{ textAlign: 'center', color: muted, padding: '3rem 0' }}>Loading ads...</div>
+          <div style={{ textAlign: 'center', color: muted, padding: '3rem 0' }}>Loading...</div>
         ) : ads.length === 0 ? (
           <div style={{ textAlign: 'center', color: muted, padding: '3rem 0' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📭</div>
@@ -587,7 +618,6 @@ export default function ArenaClient() {
           </div>
         ) : isMapOfPi ? (
           <>
-            {/* Country sections */}
             {sortedCountries.length > 0 && (
               <div style={{ marginBottom: '2rem' }}>
                 <div style={{ fontSize: '0.68rem', color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.25rem' }}>
@@ -613,8 +643,6 @@ export default function ArenaClient() {
                 })}
               </div>
             )}
-
-            {/* Network ads */}
             {networkAds.length > 0 && (
               <div>
                 <div style={{ fontSize: '0.68rem', color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>
@@ -630,7 +658,6 @@ export default function ArenaClient() {
           </div>
         )}
 
-        {/* Back to dashboard */}
         <button onClick={() => router.push(dashboardHref)}
           style={{ marginTop: '2rem', background: 'none', border: 'none', color: config.primary, cursor: 'pointer', fontSize: '0.82rem', padding: 0, display: 'block', margin: '2rem auto 0' }}>
           ← Back to Dashboard
@@ -643,4 +670,3 @@ export default function ArenaClient() {
     </div>
   );
 }
-
