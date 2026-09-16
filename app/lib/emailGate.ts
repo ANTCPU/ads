@@ -1,21 +1,21 @@
 // app/lib/emailGate.ts
-// ─── Email gate — built around Resend Free plan hard limits ──────────────────
+// ─── Email gate — validity + quota + idempotency ──────────────────────────────
 //
-// Resend Free:  100 emails/day · 3,000/month · no daily limit on paid
+// Resend Free:  100 emails/day · 3,000/month
 //
-// Budget allocation (Free tier):
-//   transactional  → 30/day  (welcome, champion, internship)
-//   digest         → 70/day  (weekly digest — fires one day/week)
+// Budget allocation:
+//   transactional → 30/day  (welcome, champion, internship)
+//   digest        → 70/day  (weekly digest — fires one day/week)
 //
 // Every heraldSend() caller must:
-//   1. call checkEmailGate()  — get allow/reason
-//   2. if !allow → insert notification + discord ping, return early
-//   3. if allow  → heraldSend(), then recordEmailSent()
+//   1. checkEmailGate()  — get allow/reason
+//   2. if !allow → gatedNotify() + return early
+//   3. if allow  → heraldSend() → recordEmailSent() → logEmailSend()
 //
-// Supabase columns required on ad_signups:
-//   emails_sent_today  int  default 0
-//   emails_sent_month  int  default 0
-//   last_email_date    date
+// Validity check runs before quota — bounced/unsubscribed never burn quota.
+// Validity is written by:
+//   /api/webhooks/resend  → bounce + complaint events
+//   /api/unsubscribe      → user-initiated opt-out
 //
 // ⚠️  SERVER-ONLY — never import from client components.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,20 +25,38 @@ import 'server-only';
 // ─── Hard limits ──────────────────────────────────────────────────────────────
 
 export const EMAIL_LIMITS = {
-  DAILY_HARD_CAP:       100,   // Resend Free absolute ceiling
-  DAILY_TRANSACTIONAL:   30,   // welcome + champion + internship
-  DAILY_DIGEST:          70,   // weekly digest (one day/week)
-  MONTHLY_CAP:         3000,   // Resend Free monthly
-  MIN_ACCOUNT_AGE_DAYS:   7,   // must be 7 days old to receive email
+  DAILY_HARD_CAP:       100,
+  DAILY_TRANSACTIONAL:   30,
+  DAILY_DIGEST:          70,
+  MONTHLY_CAP:         3000,
+  MIN_ACCOUNT_AGE_DAYS:   7,
 } as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type EmailType = 'transactional' | 'digest';
+export type EmailType      = 'transactional' | 'digest';
+export type ValidityStatus = 'unknown' | 'valid' | 'invalid' | 'bounced' | 'unsubscribed';
 
 export type GateResult =
   | { allow: true;  reason: 'ok' }
-  | { allow: false; reason: 'too_new' | 'daily_cap' | 'monthly_cap' | 'already_sent' };
+  | { allow: false; reason: 'bounced' | 'unsubscribed' | 'too_new' | 'daily_cap' | 'monthly_cap' | 'already_sent' };
+
+// ─── checkEmailValidity ───────────────────────────────────────────────────────
+// Reads email_validity table — populated by Resend webhooks + unsubscribe route.
+// 'unknown' and 'valid' both pass — we don't block unverified addresses.
+// 'bounced' and 'unsubscribed' block before any quota is checked.
+
+export async function checkEmailValidity(
+  supabase: any,
+  email:    string,
+): Promise<ValidityStatus> {
+  const { data } = await supabase
+    .from('email_validity')
+    .select('status')
+    .eq('email', email.trim().toLowerCase())
+    .maybeSingle();
+  return (data?.status || 'unknown') as ValidityStatus;
+}
 
 // ─── checkEmailGate ───────────────────────────────────────────────────────────
 // Call before every heraldSend().
@@ -46,7 +64,7 @@ export type GateResult =
 // supabase  — service role client (already init'd in each route)
 // email     — recipient address
 // type      — 'transactional' | 'digest'
-// guardCol  — optional ad_signups column to check for idempotency
+// guardCol  — optional ad_signups column for idempotency
 //             e.g. 'welcome_email_sent_at' → blocks duplicate welcome emails
 
 export async function checkEmailGate(
@@ -56,6 +74,13 @@ export async function checkEmailGate(
   guardCol?: string,
 ): Promise<GateResult> {
 
+  // ── Step 0 — validity check ───────────────────────────────────────────────
+  // Bounced + unsubscribed never reach quota check — never burn send budget.
+  const validity = await checkEmailValidity(supabase, email);
+  if (validity === 'bounced')      return { allow: false, reason: 'bounced'      };
+  if (validity === 'unsubscribed') return { allow: false, reason: 'unsubscribed' };
+
+  // ── Step 1 — fetch user record ────────────────────────────────────────────
   const cols = [
     'created_at',
     'emails_sent_today',
@@ -73,34 +98,30 @@ export async function checkEmailGate(
   // Unknown user — treat as too new, never burn quota
   if (!user) return { allow: false, reason: 'too_new' };
 
-  // 1. Account age — must be 7+ days
-  const ageMs   = Date.now() - new Date(user.created_at).getTime();
-  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  // ── Step 2 — account age ──────────────────────────────────────────────────
+  const ageDays = (Date.now() - new Date(user.created_at).getTime())
+    / (1000 * 60 * 60 * 24);
   if (ageDays < EMAIL_LIMITS.MIN_ACCOUNT_AGE_DAYS) {
     return { allow: false, reason: 'too_new' };
   }
 
-  // 2. Idempotency guard — e.g. welcome already sent
+  // ── Step 3 — idempotency guard ────────────────────────────────────────────
   if (guardCol && user[guardCol]) {
     return { allow: false, reason: 'already_sent' };
   }
 
-  // 3. Reset daily counter if last email was a different calendar day
+  // ── Step 4 — daily budget ─────────────────────────────────────────────────
   const today     = new Date().toISOString().slice(0, 10);
   const sentToday = user.last_email_date === today
     ? (user.emails_sent_today || 0)
     : 0;
-
-  // 4. Daily budget by type
-  const budget = type === 'digest'
+  const budget    = type === 'digest'
     ? EMAIL_LIMITS.DAILY_DIGEST
     : EMAIL_LIMITS.DAILY_TRANSACTIONAL;
 
-  if (sentToday >= budget) {
-    return { allow: false, reason: 'daily_cap' };
-  }
+  if (sentToday >= budget) return { allow: false, reason: 'daily_cap' };
 
-  // 5. Monthly cap
+  // ── Step 5 — monthly cap ──────────────────────────────────────────────────
   if ((user.emails_sent_month || 0) >= EMAIL_LIMITS.MONTHLY_CAP) {
     return { allow: false, reason: 'monthly_cap' };
   }
@@ -140,9 +161,82 @@ export async function recordEmailSent(
     .eq('email', email.trim().toLowerCase());
 }
 
+// ─── logEmailSend ─────────────────────────────────────────────────────────────
+// Call after recordEmailSent() — writes one row to email_sends.
+// Gives full per-user send history. Powers dedup + audit trail.
+// Also marks email_validity as 'valid' on first confirmed send.
+
+export async function logEmailSend(
+  supabase:  any,
+  email:     string,
+  template:  string,
+  opts?: {
+    segment?:       string;
+    subject?:       string;
+    locale?:        string;
+    digestRunId?:   string;
+    status?:        'sent' | 'failed' | 'skipped';
+    skipReason?:    string;
+  },
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  // Write send log row
+  await supabase.from('email_sends').insert([{
+    email,
+    template,
+    segment:       opts?.segment    || null,
+    subject:       opts?.subject    || null,
+    locale:        opts?.locale     || 'en',
+    digest_run_id: opts?.digestRunId || null,
+    status:        opts?.status     || 'sent',
+    skip_reason:   opts?.skipReason || null,
+    created_at:    now,
+  }]);
+
+  // Mark address as valid on first confirmed send — Resend accepted it
+  if (!opts?.status || opts.status === 'sent') {
+    await supabase
+      .from('email_validity')
+      .upsert([{
+        email:      email.trim().toLowerCase(),
+        status:     'valid',
+        checked_at: now,
+        source:     'confirmed_send',
+        updated_at: now,
+      }], { onConflict: 'email' });
+  }
+}
+
+// ─── logSkippedSend ───────────────────────────────────────────────────────────
+// Call when gate.allow === false — records the skip so we know what was blocked.
+// Does not increment quota counters — skipped sends don't count against budget.
+
+export async function logSkippedSend(
+  supabase:   any,
+  email:      string,
+  template:   string,
+  skipReason: string,
+  opts?: {
+    segment?: string;
+    locale?:  string;
+  },
+): Promise<void> {
+  await supabase.from('email_sends').insert([{
+    email,
+    template,
+    segment:     opts?.segment || null,
+    locale:      opts?.locale  || 'en',
+    status:      'skipped',
+    skip_reason: skipReason,
+    created_at:  new Date().toISOString(),
+  }]);
+}
+
 // ─── gatedNotify ─────────────────────────────────────────────────────────────
-// Convenience — fires in-app notification when email is gated.
-// Always call this when gate.allow === false so the user still gets the signal.
+// Fires in-app notification when email is gated.
+// Always call when gate.allow === false so user still gets the signal.
+// Skip for bounced/unsubscribed — they opted out of all comms.
 //
 // type maps to NOTIF_COLOR in ArenaNav:
 //   'nudge' | 'info' | 'approved' | 'rejected' | 'points' | 'rank' | 'aria'
@@ -161,4 +255,12 @@ export async function gatedNotify(
     message,
     read:    false,
   }]);
+}
+
+// ─── shouldNotify ─────────────────────────────────────────────────────────────
+// Helper — returns false for bounced/unsubscribed so callers don't fire
+// in-app notifications to users who have fully opted out.
+
+export function shouldNotify(reason: GateResult['reason']): boolean {
+  return reason !== 'bounced' && reason !== 'unsubscribed';
 }
