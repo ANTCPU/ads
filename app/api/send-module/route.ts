@@ -10,55 +10,25 @@
 //
 // Add new types here as the platform grows.
 // Each type is a self-contained block in the POST handler.
+//
+// v2 (Sep 2026):
+//   — COUNTRY_FLAGS deleted — single source of truth in MAPOFPI_COUNTRIES
+//   — arenaLink → /arena/mapofpi (was /mapofpi/icons/arena)
+//   — shareLink fallback → /arena/mapofpi
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { heraldSend }                from '../../lib/herald';
 import { notifyDiscord, DC }         from '../../lib/discord';
+import { MAPOFPI_COUNTRIES }         from '../../clients/mapofpi/assets';
 
-// ─── Flag lookup — matches MAPOFPI_COUNTRIES in assets.ts ─────────────────────
-
-const COUNTRY_FLAGS: Record<string, string> = {
-  // ── Africa ──────────────────────────────────────────
-  'Nigeria':        '🇳🇬', 'Ghana':         '🇬🇭', 'Kenya':         '🇰🇪',
-  'South Africa':   '🇿🇦', 'Ethiopia':      '🇪🇹', 'Tanzania':      '🇹🇿',
-  'Uganda':         '🇺🇬', 'Cameroon':      '🇨🇲', 'Senegal':       '🇸🇳',
-  'Ivory Coast':    '🇨🇮', 'Zimbabwe':      '🇿🇼', 'Zambia':        '🇿🇲',
-  'Rwanda':         '🇷🇼', 'Morocco':       '🇲🇦', 'Algeria':       '🇩🇿',
-  'Tunisia':        '🇹🇳', 'Egypt':         '🇪🇬', 'Mozambique':    '🇲🇿',
-  'DR Congo':       '🇨🇩', 'Togo':          '🇹🇬', 'Benin':         '🇧🇯',
-  'Sierra Leone':   '🇸🇱', 'Liberia':       '🇱🇷',
-  // ── Middle East ─────────────────────────────────────
-  'Saudi Arabia':   '🇸🇦', 'UAE':           '🇦🇪', 'Israel':        '🇮🇱',
-  // ── Asia ────────────────────────────────────────────
-  'India':          '🇮🇳', 'Pakistan':      '🇵🇰', 'Bangladesh':    '🇧🇩',
-  'Sri Lanka':      '🇱🇰', 'Nepal':         '🇳🇵', 'China':         '🇨🇳',
-  'Japan':          '🇯🇵', 'South Korea':   '🇰🇷', 'Hong Kong':     '🇭🇰',
-  'Taiwan':         '🇹🇼', 'Singapore':     '🇸🇬', 'Malaysia':      '🇲🇾',
-  'Indonesia':      '🇮🇩', 'Philippines':   '🇵🇭', 'Vietnam':       '🇻🇳',
-  'Thailand':       '🇹🇭', 'Myanmar':       '🇲🇲', 'Cambodia':      '🇰🇭',
-  'Laos':           '🇱🇦',
-  // ── Oceania ─────────────────────────────────────────
-  'Australia':      '🇦🇺', 'New Zealand':   '🇳🇿',
-  // ── Europe ──────────────────────────────────────────
-  'United Kingdom': '🇬🇧', 'Germany':       '🇩🇪', 'France':        '🇫🇷',
-  'Spain':          '🇪🇸', 'Italy':         '🇮🇹', 'Netherlands':   '🇳🇱',
-  'Portugal':       '🇵🇹', 'Greece':        '🇬🇷', 'Sweden':        '🇸🇪',
-  'Norway':         '🇳🇴', 'Denmark':       '🇩🇰', 'Finland':       '🇫🇮',
-  'Switzerland':    '🇨🇭', 'Austria':       '🇦🇹', 'Belgium':       '🇧🇪',
-  'Poland':         '🇵🇱', 'Czech Republic':'🇨🇿', 'Hungary':       '🇭🇺',
-  'Romania':        '🇷🇴', 'Bulgaria':      '🇧🇬', 'Serbia':        '🇷🇸',
-  'Croatia':        '🇭🇷', 'Slovakia':      '🇸🇰', 'Turkey':        '🇹🇷',
-  // ── Americas ────────────────────────────────────────
-  'United States':  '🇺🇸', 'Canada':        '🇨🇦', 'Mexico':        '🇲🇽',
-  'Brazil':         '🇧🇷', 'Argentina':     '🇦🇷', 'Colombia':      '🇨🇴',
-  'Venezuela':      '🇻🇪', 'Peru':          '🇵🇪', 'Chile':         '🇨🇱',
-  'Ecuador':        '🇪🇨', 'Bolivia':       '🇧🇴', 'Honduras':      '🇭🇳',
-  'Guatemala':      '🇬🇹', 'El Salvador':   '🇸🇻',
-};
+// ─── Flag lookup — single source of truth in assets.ts ───────────────────────
+function countryFlag(country: string): string {
+  return MAPOFPI_COUNTRIES.find(c => c.name === country)?.flag || '🌍';
+}
 
 // ─── Champion email ────────────────────────────────────────────────────────────
-
+// championHtml — unchanged, paste as-is from current file
 function championHtml(p: {
   firstName:     string;
   shopName:      string;
@@ -296,9 +266,11 @@ export async function POST(req: NextRequest) {
     }
 
     const firstName = name?.split(' ')[0] || 'there';
+
+    // FIX: was /mapofpi/icons/arena — now /arena/mapofpi
     const shareLink = adId
       ? `https://antcpu-ads.vercel.app/s/${String(adId).slice(0, 8)}`
-      : 'https://antcpu-ads.vercel.app/mapofpi/icons/arena';
+      : 'https://antcpu-ads.vercel.app/arena/mapofpi';
 
     // ─── Champion welcome ──────────────────────────────────────────────────
     if (type === 'champion') {
@@ -309,7 +281,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const resolvedFlag = flag || COUNTRY_FLAGS[country] || '🌍';
+      // FIX: was COUNTRY_FLAGS[country] — now imported from assets.ts
+      const resolvedFlag = flag || countryFlag(country);
 
       const html = championHtml({
         firstName,
@@ -317,7 +290,7 @@ export async function POST(req: NextRequest) {
         country,
         flag:          resolvedFlag,
         shareLink,
-        arenaLink:     'https://antcpu-ads.vercel.app/mapofpi/icons/arena',
+        arenaLink:     'https://antcpu-ads.vercel.app/arena/mapofpi', // FIX
         championsLink: 'https://antcpu-ads.vercel.app/champions',
         lbLink:        'https://antcpu-ads.vercel.app/dashboard/leaderboard',
         dashLink:      'https://antcpu-ads.vercel.app/dashboard/user',
@@ -333,12 +306,12 @@ export async function POST(req: NextRequest) {
         title:  '🗺️ Champion Welcome Sent',
         color:  DC.gold,
         fields: [
-          { name: 'Name',     value: name || '—',                    inline: true  },
-          { name: 'Country',  value: `${resolvedFlag} ${country}`,   inline: true  },
-          { name: 'Shop',     value: shopName || brand || '—',       inline: false },
-          { name: 'Email',    value: email,                          inline: false },
-          { name: 'Category', value: category || '—',                inline: true  },
-          { name: 'Link',     value: shareLink,                      inline: false },
+          { name: 'Name',     value: name || '—',                  inline: true  },
+          { name: 'Country',  value: `${resolvedFlag} ${country}`, inline: true  },
+          { name: 'Shop',     value: shopName || brand || '—',     inline: false },
+          { name: 'Email',    value: email,                        inline: false },
+          { name: 'Category', value: category || '—',              inline: true  },
+          { name: 'Link',     value: shareLink,                    inline: false },
         ],
         footer:    'ANTCPU ADS · Champion Welcome',
         timestamp: true,
