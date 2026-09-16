@@ -228,6 +228,34 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
     status:      'off',
   },
 
+  // ── v2 — Map of Pi Membership Arena ──────────────────────────────────────
+  // Phase A: champion UX — flip in order, one per deploy.
+  // Spec + affected files: app/lib/mapofpi-membership.ts
+  {
+    id:          'store-image-upload',
+    label:       'Store Image Upload',
+    description: 'Map of Pi champion uploads store screenshot → Cloudinary → ads.image_url. Route: /api/upload/store-image. UI card in dashboard/user.',
+    version:     'v2',
+    status:      'off',
+    notes:       'Phase A step 1. Build route before flipping.',
+  },
+  {
+    id:          'champion-share-surface',
+    label:       'Champion Share Surface',
+    description: 'One-tap share card for mapofpi champions in create-shop-ad step 5 + dashboard/user. Calls recordShare → points flow.',
+    version:     'v2',
+    status:      'off',
+    notes:       'Phase A step 2. Flip after store-image-upload is stable.',
+  },
+  {
+    id:          'champion-membership-progress',
+    label:       'Champion Membership Progress',
+    description: 'Replaces hardcoded MEMBERSHIP_STEPS in MapOfPiArenaClient with live points from champion ad. Uses resolveChampionTier() from mapofpi-membership.ts.',
+    version:     'v2',
+    status:      'off',
+    notes:       'Phase A step 3. Flip after champions are sharing and points accumulating.',
+  },
+
   // ── v2testing ─────────────────────────────────────────────────────────────
   {
     id:          'custom-brand-voice',
