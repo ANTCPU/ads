@@ -10,6 +10,10 @@ export const discordPlatform: Platform = {
   supportsIntent: false,
   profileUrl:     h => `https://discord.gg/${h}`,
   intentUrl:      () => '',
-  buildPost: ctx =>
-    `${championPrefixBold(ctx)}**${ctx.brand}** is live in the Arena ${EMOJI.live}\n> ${ctx.title}\n> ${ctx.description.slice(0, 120)}\n→ ${ctx.url}`,
+  buildPost: ctx => {
+    const desc = ctx.description.length > 120
+      ? ctx.description.slice(0, ctx.description.lastIndexOf(' ', 120)) + '…'
+      : ctx.description;
+    return `${championPrefixBold(ctx)}**${ctx.brand}** is live in the Arena ${EMOJI.live}\n> ${ctx.title}\n> ${desc}\n→ ${ctx.url}`;
+  },
 };
