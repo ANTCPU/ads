@@ -214,13 +214,6 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
     status:      'off',
   },
   {
-    id:          'image-upload',
-    label:       'Image Upload',
-    description: 'Lets Deluxe-tier users upload a custom image for their ad.',
-    version:     'v2',
-    status:      'off',
-  },
-  {
     id:          'paid-subscriptions',
     label:       'Paid Subscriptions',
     description: 'Turns on Stripe billing — $9.99/mo subscriber tier becomes available.',
