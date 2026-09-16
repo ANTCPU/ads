@@ -15,7 +15,10 @@ const VAULT_MSGS = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type VaultStep = 'email' | 'pin' | 'success';
+// mode: 'signin' — existing flow, unchanged
+//       'signup' — new path, creates account then signs in
+type VaultMode = 'signin' | 'signup';
+type VaultStep = 'email' | 'pin' | 'signup-details' | 'success';
 
 type VaultUser = {
   email:       string;
@@ -26,15 +29,16 @@ type VaultUser = {
 };
 
 type Props = {
-  open:       boolean;
-  onClose:    () => void;
-  onSuccess:  (user: VaultUser) => void;
+  open:        boolean;
+  onClose:     () => void;
+  onSuccess:   (user: VaultUser) => void;
   redirectTo?: string;
+  // defaultMode: lets callers open directly into signup
+  // e.g. "Join the Arena" button passes defaultMode='signup'
+  defaultMode?: VaultMode;
 };
 
-// ─── Session writer ───────────────────────────────────────────────────────────
-// Writes enriched localStorage — membershipTier, streakDays, lastActiveDate
-// included when available from session/set response.
+// ─── Session writer — unchanged ───────────────────────────────────────────────
 
 function writeSession(
   session: VaultUser & {
@@ -43,8 +47,6 @@ function writeSession(
     lastActiveDate?: string | null;
   }
 ) {
-  // HttpOnly cookie written server-side via /api/session/set
-  // Client cookie kept for legacy cross-origin reads
   const encoded = encodeURIComponent(JSON.stringify({
     email:       session.email,
     name:        session.name,
@@ -56,7 +58,6 @@ function writeSession(
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   document.cookie = `arena_session=${encoded}; path=/; expires=${expires}; SameSite=Lax`;
 
-  // Full enriched object to localStorage
   localStorage.setItem('arena_user', JSON.stringify({
     email:          session.email,
     name:           session.name,
@@ -69,7 +70,7 @@ function writeSession(
   }));
 }
 
-// ─── Role-based redirect ──────────────────────────────────────────────────────
+// ─── Role-based redirect — unchanged ─────────────────────────────────────────
 
 function resolveRedirect(role: string, redirectTo?: string): string {
   if (redirectTo) return redirectTo;
@@ -80,10 +81,13 @@ function resolveRedirect(role: string, redirectTo?: string): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Props) {
+export default function VaultModal({ open, onClose, onSuccess, redirectTo, defaultMode = 'signin' }: Props) {
+  const [mode,      setMode]      = useState<VaultMode>(defaultMode);
   const [step,      setStep]      = useState<VaultStep>('email');
   const [email,     setEmail]     = useState('');
   const [pin,       setPin]       = useState('');
+  const [name,      setName]      = useState('');
+  const [brand,     setBrand]     = useState('');
   const [error,     setError]     = useState('');
   const [loading,   setLoading]   = useState(false);
   const [vaultMsg,  setVaultMsg]  = useState<string>(VAULT_MSGS[0]);
@@ -91,20 +95,24 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
   const [isSuper,   setIsSuper]   = useState(false);
   const [showPin,   setShowPin]   = useState(false);
 
+  // Reset on open/close or defaultMode change
   useEffect(() => {
     if (!open) {
+      setMode(defaultMode);
       setStep('email');
       setEmail('');
       setPin('');
+      setName('');
+      setBrand('');
       setError('');
       setIsSuper(false);
       setHasPinSet(false);
       setShowPin(false);
       setVaultMsg(VAULT_MSGS[0]);
     }
-  }, [open]);
+  }, [open, defaultMode]);
 
-  // ─── Step 1: Email lookup ─────────────────────────────────────────────────
+  // ─── SIGNIN: Step 1 — Email lookup ───────────────────────────────────────
 
   async function handleEmail() {
     const norm = email.trim().toLowerCase();
@@ -133,7 +141,11 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
       const data = await res.json();
 
       if (data.error === 'User not found') {
-        setError('No account found. Please sign up first.');
+        // ── Auto-switch to signup if user not found ───────────────────────
+        // Instead of dead-ending with an error, offer to create an account.
+        setMode('signup');
+        setStep('signup-details');
+        setVaultMsg('New here? Fill in your details to join the Arena.');
         setLoading(false);
         return;
       }
@@ -151,9 +163,53 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     setLoading(false);
   }
 
-  // ─── Step 2: PIN verify ───────────────────────────────────────────────────
-  // All paths call /api/session/set after auth to trigger syncBadges
-  // and get enriched data (membershipTier, streakDays, lastActiveDate, preferredLocale).
+  // ─── SIGNUP: Create account then sign in ─────────────────────────────────
+  // Calls /api/signup (or /api/user-auth create path) then falls through
+  // to the normal session/set flow. No separate redirect — same success state.
+
+  async function handleSignup() {
+    const norm = email.trim().toLowerCase();
+    if (!norm || !name.trim()) { setError('Name and email required.'); return; }
+    setLoading(true);
+    setError('');
+    setVaultMsg('Creating your Arena account...');
+
+    try {
+      const res  = await fetch('/api/signup', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          email: norm,
+          name:  name.trim(),
+          brand: brand.trim() || name.trim(),
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error || 'Signup failed. Try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Account created — now complete session
+      const session: VaultUser = {
+        email:       norm,
+        name:        name.trim(),
+        brand:       brand.trim() || name.trim(),
+        trialStatus: 'trial',
+        role:        'user',
+      };
+
+      await completeSession(session);
+
+    } catch {
+      setError('Vault error. Try again.');
+    }
+    setLoading(false);
+  }
+
+  // ─── SIGNIN: Step 2 — PIN verify ─────────────────────────────────────────
 
   async function handlePin() {
     const norm = email.trim().toLowerCase();
@@ -189,7 +245,6 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
         };
 
       } else {
-        // No PIN — re-fetch to get full user object
         const res  = await fetch('/api/user-auth', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -206,49 +261,52 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
         };
       }
 
-      setVaultMsg(VAULT_MSGS[4]);
-
-      // ── Call session/set — triggers syncBadges, returns enriched data ─────
-      let enriched = {
-        membershipTier: 'trial',
-        streakDays:     0,
-        lastActiveDate: null as string | null,
-        trialStatus:    session.trialStatus,
-      };
-      try {
-        const syncRes  = await fetch('/api/session/set', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(session),
-        });
-        const syncData = await syncRes.json();
-        if (syncData.ok) {
-          enriched = {
-            membershipTier: syncData.membershipTier  || 'trial',
-            streakDays:     syncData.streakDays      || 0,
-            lastActiveDate: syncData.lastActiveDate  || null,
-            trialStatus:    syncData.trialStatus     || session.trialStatus,
-          };
-          // ── Write preferred locale to localStorage ──────────────────────
-          // preferredLocale is fetched from ad_signups by syncBadges and
-          // returned here. Writing it now means every subsequent page load
-          // reads the correct language without any user action required.
-          if (syncData.preferredLocale) setStoredLocale(syncData.preferredLocale);
-        }
-      } catch {}
-
-      writeSession({ ...session, ...enriched });
-      setStep('success');
-
-      setTimeout(() => {
-        onSuccess(session);
-        window.location.href = resolveRedirect(session.role, redirectTo);
-      }, 1200);
+      await completeSession(session);
 
     } catch {
       setError('Vault error. Try again.');
     }
     setLoading(false);
+  }
+
+  // ─── Shared session completion ────────────────────────────────────────────
+  // Used by both signin and signup paths — identical from here on.
+
+  async function completeSession(session: VaultUser) {
+    setVaultMsg(VAULT_MSGS[4]);
+
+    let enriched = {
+      membershipTier: 'trial',
+      streakDays:     0,
+      lastActiveDate: null as string | null,
+      trialStatus:    session.trialStatus,
+    };
+
+    try {
+      const syncRes  = await fetch('/api/session/set', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(session),
+      });
+      const syncData = await syncRes.json();
+      if (syncData.ok) {
+        enriched = {
+          membershipTier: syncData.membershipTier  || 'trial',
+          streakDays:     syncData.streakDays      || 0,
+          lastActiveDate: syncData.lastActiveDate  || null,
+          trialStatus:    syncData.trialStatus     || session.trialStatus,
+        };
+        if (syncData.preferredLocale) setStoredLocale(syncData.preferredLocale);
+      }
+    } catch {}
+
+    writeSession({ ...session, ...enriched });
+    setStep('success');
+
+    setTimeout(() => {
+      onSuccess(session);
+      window.location.href = resolveRedirect(session.role, redirectTo);
+    }, 1200);
   }
 
   if (!open) return null;
@@ -259,7 +317,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     width: '100%', background: '#111', border: '1px solid #222',
     borderRadius: '10px', padding: '0.85rem 1rem', color: '#fff',
     fontSize: '0.95rem', boxSizing: 'border-box' as const,
-    outline: 'none', fontFamily: 'inherit',
+    outline: 'none', fontFamily: 'inherit', marginBottom: '0.75rem',
   };
 
   const btnStyle = (active: boolean): React.CSSProperties => ({
@@ -270,6 +328,8 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
     cursor:     active ? 'pointer' : 'not-allowed',
     transition: 'background 0.2s', marginTop: '0.5rem',
   });
+
+  const modeLabel = mode === 'signup' ? 'JOIN THE ARENA' : 'VAULT';
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -293,10 +353,34 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
       >
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>🔒</div>
-          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff', letterSpacing: '0.1em' }}>VAULT</div>
-          <div style={{ fontSize: '0.7rem', color: '#333', marginTop: '0.2rem', letterSpacing: '0.08em' }}>Secured by ANTCPU</div>
+          <div style={{ fontSize: '2rem', marginBottom: '0.4rem' }}>
+            {mode === 'signup' ? '⚡' : '🔒'}
+          </div>
+          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff', letterSpacing: '0.1em' }}>
+            {modeLabel}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#333', marginTop: '0.2rem', letterSpacing: '0.08em' }}>
+            Secured by ANTCPU
+          </div>
         </div>
+
+        {/* Mode toggle — only on email step */}
+        {step === 'email' && (
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem' }}>
+            {(['signin', 'signup'] as VaultMode[]).map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(''); }}
+                style={{
+                  flex: 1, padding: '0.45rem', borderRadius: '8px', border: 'none',
+                  background: mode === m ? '#f0883e' : '#111',
+                  color:      mode === m ? '#000'    : '#555',
+                  fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}>
+                {m === 'signin' ? 'Sign In' : 'Join Arena'}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Status message */}
         <div style={{
@@ -308,7 +392,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
           <span style={{ fontSize: '0.78rem', color: '#555' }}>{vaultMsg}</span>
         </div>
 
-        {/* ── Step: email ── */}
+        {/* ── Step: email (both modes) ── */}
         {step === 'email' && (
           <>
             <input
@@ -316,16 +400,19 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
               placeholder="your@email.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleEmail()}
-              style={{ ...inputStyle, marginBottom: '0.75rem' }}
+              onKeyDown={e => e.key === 'Enter' && (mode === 'signin' ? handleEmail() : setStep('signup-details'))}
+              style={inputStyle}
             />
             {error && (
               <div style={{ color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.75rem' }}>
                 {error}
               </div>
             )}
-            <button onClick={handleEmail} disabled={loading || !email.trim()} style={btnStyle(!loading && !!email.trim())}>
-              {loading ? 'Scanning...' : 'Continue →'}
+            <button
+              onClick={() => mode === 'signin' ? handleEmail() : setStep('signup-details')}
+              disabled={loading || !email.trim()}
+              style={btnStyle(!loading && !!email.trim())}>
+              {loading ? 'Scanning...' : mode === 'signin' ? 'Continue →' : 'Next →'}
             </button>
             <button onClick={onClose} style={{ width: '100%', background: 'none', border: 'none', color: '#333', fontSize: '0.75rem', marginTop: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}>
               Cancel
@@ -333,15 +420,46 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
           </>
         )}
 
+        {/* ── Step: signup-details ── */}
+        {step === 'signup-details' && (
+          <>
+            <div style={{ fontSize: '0.78rem', color: '#555', background: '#111', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {email}
+            </div>
+            <input
+              type="text" autoFocus
+              placeholder="Your name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSignup()}
+              style={inputStyle}
+            />
+            <input
+              type="text"
+              placeholder="Brand or shop name (optional)"
+              value={brand}
+              onChange={e => setBrand(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSignup()}
+              style={inputStyle}
+            />
+            {error && (
+              <div style={{ color: '#ef4444', fontSize: '0.78rem', marginBottom: '0.75rem' }}>
+                {error}
+              </div>
+            )}
+            <button onClick={handleSignup} disabled={loading || !name.trim()} style={btnStyle(!loading && !!name.trim())}>
+              {loading ? 'Creating account...' : 'Join the Arena →'}
+            </button>
+            <button onClick={() => { setStep('email'); setError(''); }} style={{ width: '100%', background: 'none', border: 'none', color: '#333', fontSize: '0.75rem', marginTop: '0.5rem', cursor: 'pointer', padding: '0.25rem' }}>
+              ← Back
+            </button>
+          </>
+        )}
+
         {/* ── Step: pin ── */}
         {step === 'pin' && (
           <>
-            <div style={{
-              fontSize: '0.78rem', color: '#555', background: '#111',
-              border: '1px solid #1a1a1a', borderRadius: '8px',
-              padding: '0.5rem 0.75rem', marginBottom: '1rem',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
+            <div style={{ fontSize: '0.78rem', color: '#555', background: '#111', border: '1px solid #1a1a1a', borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {email}
             </div>
 
@@ -354,7 +472,7 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
                   value={pin}
                   onChange={e => setPin(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handlePin()}
-                  style={{ ...inputStyle, padding: '0.85rem 3rem 0.85rem 1rem', letterSpacing: '0.25em', fontSize: '1.2rem', textAlign: 'center' }}
+                  style={{ ...inputStyle, marginBottom: 0, padding: '0.85rem 3rem 0.85rem 1rem', letterSpacing: '0.25em', fontSize: '1.2rem', textAlign: 'center' }}
                 />
                 <button
                   onClick={() => setShowPin(v => !v)} tabIndex={-1}
@@ -388,7 +506,9 @@ export default function VaultModal({ open, onClose, onSuccess, redirectTo }: Pro
         {step === 'success' && (
           <div style={{ textAlign: 'center', padding: '1rem 0' }}>
             <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>✅</div>
-            <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.4rem' }}>Access Granted</div>
+            <div style={{ fontWeight: 700, color: '#fff', marginBottom: '0.4rem' }}>
+              {mode === 'signup' ? 'Welcome to the Arena!' : 'Access Granted'}
+            </div>
             <div style={{ fontSize: '0.78rem', color: '#555' }}>Redirecting...</div>
           </div>
         )}
