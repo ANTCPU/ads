@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter }           from 'next/navigation';
-import { clearSessionCookie }  from '../lib/session';
-import { createClient }        from '@supabase/supabase-js';
-import LanguageSwitcher        from './LanguageSwitcher';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter }                         from 'next/navigation';
+import { clearSessionCookie }                from '../lib/session';
+import { createClient }                      from '@supabase/supabase-js';
+import LanguageSwitcher                      from './LanguageSwitcher';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,8 +20,15 @@ type Notification = {
   message: string; created_at: string;
 };
 
+// Brand shape from /api/brands — replaces hardcoded ALL_BRANDS array
+// dashboard_url from brands table — no more hardcoded paths
 type Brand = {
-  slug: string; label: string; icon: string; dashboard: string | null;
+  slug:          string;
+  label:         string;
+  icon:          string;
+  color:         string;
+  dashboard_url: string | null;
+  arena_url:     string | null;
 };
 
 type MenuItem = {
@@ -49,16 +56,6 @@ const TIER_DISPLAY: Record<string, { label: string; color: string }> = {
   subscriber: { label: '💎 Pro',      color: '#f0883e' },
   team:       { label: '🔵 Team',     color: '#7928ca' },
 };
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const ALL_BRANDS: Brand[] = [
-  { slug: 'antcpu',      label: 'ANTCPU',            icon: '⚡', dashboard: '/dashboard/antcpu' },
-  { slug: 'mapofpi',     label: 'Map of Pi',          icon: '🗺️', dashboard: '/dashboard/mapofpi' },
-  { slug: 'photography', label: 'Amanda Photography', icon: '📸', dashboard: '/dashboard/photography' },
-  { slug: 'ads-network', label: 'ANTCPU ADS Network', icon: '📢', dashboard: '/dashboard/antcpu' },
-  { slug: 'pipioneers',  label: 'PiPioneersX',        icon: '🚀', dashboard: null },
-];
 
 const NOTIF_COLOR: Record<string, string> = {
   aria:     '#f0883e',
@@ -94,10 +91,36 @@ export default function ArenaNav({
   const [unread,        setUnread]        = useState(0);
   const [markingRead,   setMarkingRead]   = useState(false);
 
-  // ── Membership tier — read from localStorage on boot ─────────────────────
   const [membershipTier, setMembershipTier] = useState('trial');
   const [streakDays,     setStreakDays]     = useState(0);
 
+  // ── Brands — live from /api/brands, replaces ALL_BRANDS hardcode ──────────
+  // Cached in module scope for the session — brands change rarely.
+  // Falls back to empty array on fetch failure — nav still works.
+  const [brands,       setBrands]       = useState<Brand[]>([]);
+  const [brandsLoaded, setBrandsLoaded] = useState(false);
+
+  // ── Load brands from DB ───────────────────────────────────────────────────
+  const loadBrands = useCallback(async () => {
+    if (brandsLoaded) return;
+    try {
+      const res  = await fetch('/api/brands');
+      const json = await res.json();
+      if (json.brands) {
+        setBrands(json.brands.map((b: any) => ({
+          slug:          b.slug,
+          label:         b.label || b.name,
+          icon:          b.icon  || '🏷',
+          color:         b.color || '#555',
+          dashboard_url: b.dashboard_url || null,
+          arena_url:     b.arena_url     || `/arena/${b.slug}`,
+        })));
+      }
+    } catch {}
+    setBrandsLoaded(true);
+  }, [brandsLoaded]);
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
     try {
@@ -105,14 +128,12 @@ export default function ArenaNav({
       setLastVisited(Array.isArray(lv) ? lv : []);
     } catch {}
 
-    // Read enriched user data from localStorage
     try {
       const stored = localStorage.getItem('arena_user');
       if (stored) {
         const u = JSON.parse(stored);
         if (u.membershipTier) setMembershipTier(u.membershipTier);
         if (u.streakDays)     setStreakDays(u.streakDays);
-        // team status overrides tier display
         if (u.trialStatus === 'team') setMembershipTier('team');
       }
     } catch {}
@@ -129,6 +150,13 @@ export default function ArenaNav({
         setUnread((data || []).length);
       });
   }, [userEmail]);
+
+  // ── Load brands when panel opens ──────────────────────────────────────────
+  // Lazy — only fetches when user opens the brands panel.
+  // After first load brandsLoaded = true — no repeat fetches.
+  useEffect(() => {
+    if (brandsOpen) loadBrands();
+  }, [brandsOpen, loadBrands]);
 
   function visitBrand(slug: string) {
     const updated = [slug, ...lastVisited.filter(s => s !== slug)].slice(0, 3);
@@ -159,22 +187,22 @@ export default function ArenaNav({
     setMarkingRead(false);
   }
 
-  const filteredBrands = ALL_BRANDS.filter(b =>
+  const filteredBrands = brands.filter(b =>
     b.label.toLowerCase().includes(brandSearch.toLowerCase()) ||
     b.slug.toLowerCase().includes(brandSearch.toLowerCase())
   );
 
   const recentBrands = lastVisited
-    .map(s => ALL_BRANDS.find(b => b.slug === s))
+    .map(s => brands.find(b => b.slug === s))
     .filter(Boolean) as Brand[];
 
   // ── Tier pill ─────────────────────────────────────────────────────────────
-  // team overrides everything — always shows TEAM
-  // trialStatus='team' prop also forces team display
   const effectiveTier = trialStatus === 'team' ? 'team' : membershipTier;
   const tierDef       = TIER_DISPLAY[effectiveTier] || TIER_DISPLAY.trial;
 
   // ── Menu items by role ────────────────────────────────────────────────────
+  // FIX: admin role — Ad Builder → /create-ad (was /dashboard/admin which is
+  //      a data page not a builder). Cleanup item resolved.
   const menuItems: MenuItem[] = [];
 
   if (role === 'super') {
@@ -184,22 +212,21 @@ export default function ArenaNav({
       { label: 'Brands',       icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
       { label: 'Review Queue', icon: '🦋', action: () => router.push('/dashboard/antcpu') },
       { label: 'Users',        icon: '👥', action: () => router.push('/dashboard/users') },
-      { label: 'Create Ad',    icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Ad Builder',   icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
   }
 
   if (role === 'admin') {
     menuItems.push(
-      { label: 'Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
-      { label: 'The Arena',   icon: '🏟', action: () => router.push('/arena') },
-      { label: 'Brands',      icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
-      { label: 'Ad Builder',  icon: '🏗', action: () => router.push('/dashboard/admin') },
-      { label: 'Users',       icon: '👥', action: () => router.push('/dashboard/users') },
-      { label: 'Leaderboard', icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'Agents',      icon: '🤖', action: () => router.push('/dashboard/agents') },
-      { label: 'Create Ad',   icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',     icon: '👤', action: () => router.push('/profile') },
+      { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
+      { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena') },
+      { label: 'Brands',       icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
+      { label: 'Ad Builder',   icon: '📢', action: () => router.push('/create-ad') },  // ✅ fixed
+      { label: 'Users',        icon: '👥', action: () => router.push('/dashboard/users') },
+      { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
+      { label: 'Agents',       icon: '🤖', action: () => router.push('/dashboard/agents') },
+      { label: 'Profile',      icon: '👤', action: () => router.push('/profile') },
     );
   }
 
@@ -207,14 +234,15 @@ export default function ArenaNav({
     menuItems.push(
       { label: 'Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'The Arena',   icon: '🏟', action: () => router.push('/arena') },
-      { label: 'Create Ad',   icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Ad Builder',  icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Leaderboard', icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
+    // Brand-specific dashboard — resolved from brands table at runtime
     const slug    = userBrand?.toLowerCase().trim();
-    const matched = ALL_BRANDS.find(b => b.slug === slug || b.label.toLowerCase() === slug);
-    if (matched?.dashboard) {
-      menuItems.push({ label: matched.label, icon: matched.icon, action: () => router.push(matched.dashboard!) });
+    const matched = brands.find(b => b.slug === slug || b.label.toLowerCase() === slug);
+    if (matched?.dashboard_url) {
+      menuItems.push({ label: matched.label, icon: matched.icon, action: () => router.push(matched.dashboard_url!) });
     }
   }
 
@@ -222,7 +250,7 @@ export default function ArenaNav({
     menuItems.push(
       { label: 'Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'The Arena',   icon: '🏟', action: () => router.push('/arena') },
-      { label: 'Create Ad',   icon: '📢', action: () => router.push('/create-ad') },
+      { label: 'Ad Builder',  icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Leaderboard', icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
     );
@@ -279,7 +307,7 @@ export default function ArenaNav({
             ) : (
               notifications.map(n => (
                 <div key={n.id} style={{ background: '#0a0a0a',
-                  border: `1px solid #222`,
+                  border: '1px solid #222',
                   borderLeft: `3px solid ${NOTIF_COLOR[n.type] || '#555'}`,
                   borderRadius: '10px', padding: '0.85rem',
                   marginBottom: '0.65rem' }}>
@@ -332,37 +360,50 @@ export default function ArenaNav({
                 fontSize: '0.9rem', boxSizing: 'border-box', outline: 'none' }}
             />
 
+            {/* Recently visited */}
             {recentBrands.length > 0 && brandSearch === '' && (
               <div>
                 <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em',
                   textTransform: 'uppercase', marginBottom: '0.5rem' }}>Recently Visited</div>
                 {recentBrands.map(b => (
                   <BrandRow key={b.slug} b={b} onVisit={visitBrand}
-                    onDash={() => { setBrandsOpen(false); router.push(b.dashboard!); }} />
+                    onDash={b.dashboard_url
+                      ? () => { setBrandsOpen(false); router.push(b.dashboard_url!); }
+                      : undefined
+                    } />
                 ))}
                 <div style={{ height: '1px', background: '#1a1a1a', margin: '0.75rem 0' }} />
               </div>
             )}
 
+            {/* All / filtered brands */}
             <div>
               <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em',
                 textTransform: 'uppercase', marginBottom: '0.5rem' }}>
                 {brandSearch ? `Results (${filteredBrands.length})` : 'All Brands'}
               </div>
-              {filteredBrands.length === 0 && (
+              {!brandsLoaded && (
+                <div style={{ color: '#444', fontSize: '0.82rem', padding: '0.5rem 0' }}>
+                  Loading brands...
+                </div>
+              )}
+              {brandsLoaded && filteredBrands.length === 0 && (
                 <div style={{ color: '#444', fontSize: '0.85rem', padding: '1rem 0' }}>
-                  No brands found for "{brandSearch}"
+                  No brands found{brandSearch ? ` for "${brandSearch}"` : ''}.
                 </div>
               )}
               {filteredBrands.map(b => (
                 <BrandRow key={b.slug} b={b} onVisit={visitBrand}
-                  onDash={() => { setBrandsOpen(false); router.push(b.dashboard!); }} />
+                  onDash={b.dashboard_url
+                    ? () => { setBrandsOpen(false); router.push(b.dashboard_url!); }
+                    : undefined
+                  } />
               ))}
             </div>
 
             <div style={{ marginTop: 'auto', fontSize: '0.72rem',
               color: '#333', textAlign: 'center' }}>
-              {ALL_BRANDS.length} brands in the Arena
+              {brands.length} brand{brands.length !== 1 ? 's' : ''} in the Arena
             </div>
           </div>
         </div>
@@ -412,8 +453,6 @@ export default function ArenaNav({
         {/* RIGHT — tier pill + envelope + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
 
-          {/* ── MEMBERSHIP TIER PILL ── */}
-          {/* Shows for user + team roles. Reads from localStorage via state. */}
           {(role === 'user' || role === 'team') && (
             <span style={{
               fontSize:     '0.7rem',
@@ -428,7 +467,6 @@ export default function ArenaNav({
               gap:          '0.3rem',
             }}>
               {tierDef.label}
-              {/* Streak indicator — shows when 3+ day streak active */}
               {streakDays >= 3 && (
                 <span style={{ fontSize: '0.65rem', color: '#f0883e' }}>
                   🔥{streakDays}d
@@ -437,7 +475,6 @@ export default function ArenaNav({
             </span>
           )}
 
-          {/* ── ENVELOPE ── */}
           {userEmail && (
             <button
               onClick={() => setNotifOpen(true)}
@@ -456,7 +493,6 @@ export default function ArenaNav({
             </button>
           )}
 
-          {/* ── HAMBURGER ── */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setOpen(o => !o)}
@@ -477,7 +513,6 @@ export default function ArenaNav({
                 padding: '0.5rem', minWidth: '210px', zIndex: 100,
                 boxShadow: '0 8px 32px #00000080' }}>
 
-                {/* User info */}
                 <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #1a1a1a',
                   marginBottom: '0.3rem' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>
@@ -486,7 +521,6 @@ export default function ArenaNav({
                   <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '0.1rem' }}>
                     {userEmail}
                   </div>
-                  {/* Tier in dropdown too */}
                   {(role === 'user' || role === 'team') && (
                     <div style={{ fontSize: '0.65rem', color: tierDef.color,
                       marginTop: '0.3rem', fontWeight: 600 }}>
@@ -500,7 +534,6 @@ export default function ArenaNav({
                   )}
                 </div>
 
-                {/* Menu items */}
                 {menuItems.map(item => (
                   <button key={item.label}
                     onClick={() => { setOpen(false); item.action(); }}
@@ -515,10 +548,6 @@ export default function ArenaNav({
 
                 <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
 
-                {/* ── LANGUAGE SWITCHER ── */}
-                {/* Reuses the fully-wired LanguageSwitcher component — reads  */}
-                {/* arena_locale on mount, writes on select, closes on outside */}
-                {/* click. No new locale logic needed here.                    */}
                 <div style={{ padding: '0.2rem 0.5rem 0.4rem' }}>
                   <LanguageSwitcher />
                 </div>
@@ -556,11 +585,12 @@ export default function ArenaNav({
 }
 
 // ─── BrandRow sub-component ───────────────────────────────────────────────────
+// onDash is optional — only shown when brand has a dashboard_url in DB
 
 function BrandRow({ b, onVisit, onDash }: {
   b:        Brand;
   onVisit:  (slug: string) => void;
-  onDash:   () => void;
+  onDash?:  () => void;
 }) {
   return (
     <div
@@ -569,7 +599,7 @@ function BrandRow({ b, onVisit, onDash }: {
         background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '10px',
         padding: '0.75rem 1rem', marginBottom: '0.5rem', cursor: 'pointer',
         transition: 'border-color 0.15s' }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = '#333')}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = b.color || '#333')}
       onMouseLeave={e => (e.currentTarget.style.borderColor = '#1a1a1a')}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -580,7 +610,7 @@ function BrandRow({ b, onVisit, onDash }: {
         </div>
       </div>
       <div style={{ display: 'flex', gap: '0.4rem' }}>
-        {b.dashboard && (
+        {onDash && (
           <button
             onClick={e => { e.stopPropagation(); onDash(); }}
             style={{ background: '#0070f320', border: '1px solid #0070f340',
