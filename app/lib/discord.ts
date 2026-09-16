@@ -3,7 +3,8 @@
 // Webhook routing:
 //   internship                              → DISCORD_INTERN
 //   new_champion                            → DISCORD_WEBHOOK_CHAMPIONS
-//   share                                   → DISCORD_WEBHOOK_SHARES
+//   share | click_milestone                 → DISCORD_WEBHOOK_SHARES
+//   new_signup | flag_toggle |
 //   ad_approved | ad_rejected |
 //   ad_archived | aria_review |
 //   aria_auto_approved | aria_flagged |
@@ -12,10 +13,16 @@
 // Usage:
 //   await notifyDiscord(content, 'internship');
 //   await notifyDiscord(content, 'ad_approved', embed);
-//   await notifyDiscord(content, 'aria_auto_approved', embed);
+//   await notifyDiscord('', 'new_signup', embed);
+//   await notifyDiscord('', 'flag_toggle', embed);
 //
 // ⚠️  SERVER-ONLY — never import this file from a client component or page.
 //     Webhook URLs are resolved lazily at call time, never at module load.
+//
+// v2 (Sep 2026):
+//   — new_signup event explicit routing → DISCORD_WEBHOOK_ADS
+//   — click_milestone moved → DISCORD_WEBHOOK_SHARES (engagement, not ops)
+//   — flag_toggle event added → DISCORD_WEBHOOK_ADS (ops visibility)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'server-only'; // 🔒 Hard stop — Next.js will throw a build error
@@ -33,8 +40,9 @@ export type DiscordEvent =
   | 'internship'         // Internship challenge activity → DISCORD_INTERN
   | 'new_champion'       // New country champion signup   → DISCORD_WEBHOOK_CHAMPIONS
   | 'share'              // Ad share events               → DISCORD_WEBHOOK_SHARES
-  | 'click_milestone'    // Click count milestones        → DISCORD_WEBHOOK_ADS
+  | 'click_milestone'    // Click count milestones        → DISCORD_WEBHOOK_SHARES
   | 'new_signup'         // New user signup               → DISCORD_WEBHOOK_ADS
+  | 'flag_toggle'        // Feature flag flipped          → DISCORD_WEBHOOK_ADS
   | 'ad_approved'        // Ad approved by admin          → DISCORD_WEBHOOK_ADS
   | 'ad_rejected'        // Ad rejected by admin          → DISCORD_WEBHOOK_ADS
   | 'ad_archived'        // Ad archived by admin          → DISCORD_WEBHOOK_ADS
@@ -83,10 +91,17 @@ export const DC = {
 
 function getWebhook(event?: DiscordEvent): string | undefined {
   switch (event) {
-    case 'internship':         return process.env.DISCORD_INTERN;
-    case 'new_champion':       return process.env.DISCORD_WEBHOOK_CHAMPIONS;
-    case 'share':              return process.env.DISCORD_WEBHOOK_SHARES;
-    default:                   return process.env.DISCORD_WEBHOOK_ADS;
+    case 'internship':
+      return process.env.DISCORD_INTERN;
+    case 'new_champion':
+      return process.env.DISCORD_WEBHOOK_CHAMPIONS;
+    case 'share':
+    case 'click_milestone':  // engagement signals — same channel as shares
+      return process.env.DISCORD_WEBHOOK_SHARES;
+    case 'new_signup':       // explicit — was silently falling to general
+    case 'flag_toggle':      // ops visibility — admin actions auditable
+    default:
+      return process.env.DISCORD_WEBHOOK_ADS;
   }
 }
 
