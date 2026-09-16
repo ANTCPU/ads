@@ -1,27 +1,30 @@
 // app/api/brand/[slug]/route.ts
-// ─── Per-campaign brand intelligence API ──────────────────────────────────────
+// ─── Per-brand intelligence API ───────────────────────────────────────────────
 // Public GET — no auth required.
-// Returns full campaign stats for any brand slug.
+// Returns brand record + full campaign stats for any brand slug.
 //
 // Consumers:
-//   antcpu.com          → /api/brand/antcpu   (showcase section)
-//   mapofpi.com         → /api/brand/mapofpi  (future — replaces embed API)
+//   antcpu.com          → /api/brand/antcpu
+//   mapofpi.com         → /api/brand/mapofpi
+//   ArenaClient.tsx     → brand config (replaces BRANDS hardcode)
 //   Any client site     → /api/brand/[slug]
 //
-// Cache:  60s CDN edge — same pattern as /api/stats
-// CORS:   open — readable by any external site
-// Scale:  2 queries, server-side, service role key never exposed to client
+// Slug resolution order:
+//   1. brands.slug exact match
+//   2. brands.campaign exact match
+//   — No more hardcoded SLUG_ALIAS — brands table is the source of truth
+//
+// Cache:  60s CDN edge
+// CORS:   open
 //
 // Response shape:
 // {
-//   slug, totalPoints, totalAds, networkRank, networkShare,
-//   topAd: { id, title, points, rank_position },
-//   products: [{ sub_brand, pts, ads, topPts }],
-//   recentAds: [...top 5],
-//   engagement: { clicks, shares, reactions },
-//   generatedAt
+//   slug, brand: { ...brands row },
+//   totalPoints, totalAds, networkRank, networkShare,
+//   topAd, products, recentAds, engagement, generatedAt
 // }
 // ─────────────────────────────────────────────────────────────────────────────
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 
@@ -46,23 +49,44 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const { slug: rawSlug } = await params;
+    const slug = rawSlug?.toLowerCase();
 
     if (!slug) {
-      return NextResponse.json({ error: 'slug required' }, { status: 400, headers: CORS });
+      return NextResponse.json(
+        { error: 'slug required' },
+        { status: 400, headers: CORS }
+      );
     }
 
-    // ── Query 1: campaign ads ─────────────────────────────────────────────────
+    // ── Query 1: brand record — slug or campaign match ────────────────────────
+    // Replaces hardcoded BRANDS registry + SLUG_ALIAS in ArenaClient.tsx
+    const { data: brandRows } = await supabase
+      .from('brands')
+      .select(`
+        id, name, slug, campaign, label, icon, color,
+        logo_url, site_url, tagline, og_image_url,
+        arena_url, dashboard_url, owner_email,
+        twitter, youtube, discord, telegram, active
+      `)
+      .or(`slug.eq.${slug},campaign.eq.${slug}`)
+      .eq('active', true)
+      .limit(1);
+
+    const brand     = brandRows?.[0] || null;
+    const campaign  = brand?.campaign || slug;
+
+    // ── Query 2: campaign ads ─────────────────────────────────────────────────
     const { data: campaignAds, error: e1 } = await supabase
       .from('ads')
       .select('id, title, description, url, brand, sub_brand, points, rank_position, click_count, share_count, reaction_count, tier, country')
       .eq('status',   'active')
-      .eq('campaign', slug)
+      .eq('campaign', campaign)
       .order('points', { ascending: false });
 
     if (e1) throw e1;
 
-    // ── Query 2: all active ads for network rank calculation ──────────────────
+    // ── Query 3: all active ads for network rank ──────────────────────────────
     const { data: allAds, error: e2 } = await supabase
       .from('ads')
       .select('campaign, points')
@@ -74,27 +98,30 @@ export async function GET(
     const rows    = campaignAds || [];
     const network = allAds      || [];
 
-    if (rows.length === 0) {
+    // Brand exists in brands table but has no ads yet — still return brand record
+    if (rows.length === 0 && !brand) {
       return NextResponse.json(
-        { error: 'campaign not found', slug },
+        { error: 'brand not found', slug },
         { status: 404, headers: CORS }
       );
     }
 
     // ── Campaign totals ───────────────────────────────────────────────────────
-    const totalPoints   = rows.reduce((s, a) => s + (a.points || 0), 0);
-    const totalAds      = rows.length;
-    const totalClicks   = rows.reduce((s, a) => s + (a.click_count   || 0), 0);
-    const totalShares   = rows.reduce((s, a) => s + (a.share_count   || 0), 0);
-    const totalReactions= rows.reduce((s, a) => s + (a.reaction_count|| 0), 0);
+    const totalPoints    = rows.reduce((s, a) => s + (a.points         || 0), 0);
+    const totalAds       = rows.length;
+    const totalClicks    = rows.reduce((s, a) => s + (a.click_count    || 0), 0);
+    const totalShares    = rows.reduce((s, a) => s + (a.share_count    || 0), 0);
+    const totalReactions = rows.reduce((s, a) => s + (a.reaction_count || 0), 0);
 
-    // ── Network rank — by campaign total points ───────────────────────────────
+    // ── Network rank ──────────────────────────────────────────────────────────
     const campaignPts: Record<string, number> = {};
     for (const a of network) {
-      if (a.campaign) campaignPts[a.campaign] = (campaignPts[a.campaign] || 0) + (a.points || 0);
+      if (a.campaign) {
+        campaignPts[a.campaign] = (campaignPts[a.campaign] || 0) + (a.points || 0);
+      }
     }
     const sortedCampaigns = Object.entries(campaignPts).sort(([, a], [, b]) => b - a);
-    const networkRank     = sortedCampaigns.findIndex(([c]) => c === slug) + 1;
+    const networkRank     = sortedCampaigns.findIndex(([c]) => c === campaign) + 1;
     const networkTotal    = Object.values(campaignPts).reduce((s, p) => s + p, 0);
     const networkShare    = networkTotal > 0
       ? `${((totalPoints / networkTotal) * 100).toFixed(1)}%`
@@ -109,7 +136,7 @@ export async function GET(
       url:           rows[0].url           || null,
     } : null;
 
-    // ── Product breakdown by sub_brand ────────────────────────────────────────
+    // ── Sub-brand breakdown ───────────────────────────────────────────────────
     const subMap: Record<string, { pts: number; ads: number; topPts: number }> = {};
     for (const a of rows) {
       const key = a.sub_brand || 'core';
@@ -122,26 +149,29 @@ export async function GET(
       .sort(([, a], [, b]) => b.pts - a.pts)
       .map(([sub_brand, v]) => ({ sub_brand, ...v }));
 
-    // ── Recent top ads — top 5 for showcase ──────────────────────────────────
+    // ── Recent top ads ────────────────────────────────────────────────────────
     const recentAds = rows.slice(0, 5).map(a => ({
-      id:            a.id,
-      title:         a.title,
-      description:   a.description,
-      url:           a.url,
-      brand:         a.brand,
-      sub_brand:     a.sub_brand,
-      tier:          a.tier,
-      points:        a.points        || 0,
-      rank_position: a.rank_position || null,
-      click_count:   a.click_count   || 0,
-      share_count:   a.share_count   || 0,
-      reaction_count:a.reaction_count|| 0,
-      country:       a.country       || null,
+      id:             a.id,
+      title:          a.title,
+      description:    a.description,
+      url:            a.url,
+      brand:          a.brand,
+      sub_brand:      a.sub_brand,
+      tier:           a.tier,
+      points:         a.points         || 0,
+      rank_position:  a.rank_position  || null,
+      click_count:    a.click_count    || 0,
+      share_count:    a.share_count    || 0,
+      reaction_count: a.reaction_count || 0,
+      country:        a.country        || null,
     }));
 
     return NextResponse.json(
       {
         slug,
+        campaign,
+        // ── Brand record — new, replaces BRANDS hardcode in consumers ─────────
+        brand,
         totalPoints,
         totalAds,
         networkRank:  networkRank || null,
