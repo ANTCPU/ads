@@ -278,7 +278,7 @@ export default function ArenaClient() {
     setBoosted(prev => ({ ...prev, [ad.id]: true }));
     showToast(ad.id, 'Boosted!');
     const n = await recordBoost(
-      { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count },
+      { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count, points: ad.points || 0 },
       getSessionId(), SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
