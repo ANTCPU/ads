@@ -16,8 +16,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 import { awardBadge, revokeBadge,
-         BADGE_REGISTRY, BadgeSlug } from '../../../lib/badges';
-import { notifyDiscord, DC }         from '../../../lib/discord';
+         BADGE_REGISTRY, BadgeSlug } from '../../../../lib/badges';
+import { notifyDiscord, DC }         from '../../../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
