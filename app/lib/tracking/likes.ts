@@ -1,16 +1,20 @@
+// app/lib/tracking/likes.ts
 // ─── Like Tracking ────────────────────────────────────────────────────────────
 // Records a like event for an ad.
 //
 // What it does:
 // 1. Writes a row to ad_likes (ad_id, session_id)
 // 2. Increments like_count on the ad
-// 3. Fires /api/scout/score to recalculate points + rank
-// 4. Notifies Discord on every 25 like milestone via /api/discord-notify
-// 5. Awards first-like badge to the LIKER (userEmail) — not the ad owner
-// 6. Notifies ad OWNER on first like on their ad
-// 7. Notifies LIKER — badge confirmation + streak nudge
+// 3. Adds +1 pt directly to ad.points (v3 fix — was 0)
+// 4. Fires /api/scout/score to recalculate points + rank
+// 5. Notifies Discord on every 25 like milestone via /api/discord-notify
+// 6. Awards first-like badge to the LIKER (userEmail) — not the ad owner
+// 7. Notifies ad OWNER on first like on their ad
+// 8. Notifies LIKER — badge confirmation + streak nudge
 //
 // IMPROVEMENT LOG:
+// v3 — points: +1 added directly to ad.points on every like (was missing)
+//    — LikeableAd gains points field (required for direct increment)
 // v2 — C-04 fix: first-like badge now goes to liker (userEmail), not ad owner
 //    — Owner notified on first like received on their ad
 //    — Liker notified with badge confirmation + streak-aware nudge
@@ -33,6 +37,7 @@ export type LikeableAd = {
   title:      string;
   email:      string;   // ad owner email
   like_count: number;
+  points:     number;   // ← v3 — required for direct points increment
 };
 
 export async function recordLike(
@@ -43,29 +48,33 @@ export async function recordLike(
   userEmail?: string,   // liker — optional, anon if absent
 ): Promise<number> {
 
-  const newCount  = (ad.like_count || 0) + 1;
+  const newCount   = (ad.like_count || 0) + 1;
+  const newPoints  = (ad.points     || 0) + 1;   // ← +1 pt per like
   const likerEmail = userEmail && userEmail !== 'visitor' ? userEmail : null;
 
-  // 1 + 2 — write like row + increment count in parallel
+  // 1 + 2 + 3 — write like row, increment count, add points — all parallel
   await Promise.all([
     supabase.from('ad_likes').insert([{
       ad_id:      ad.id,
       session_id: sessionId,
-      email:      likerEmail,   // store who liked — null for anon
+      email:      likerEmail,
     }]),
     supabase.from('ads')
-      .update({ like_count: newCount })
+      .update({
+        like_count: newCount,
+        points:     newPoints,   // ← direct points increment
+      })
       .eq('id', ad.id),
   ]);
 
-  // 3 — recalculate score + rank (fire and forget)
+  // 4 — recalculate score + rank (fire and forget)
   fetch(`${BASE_URL}/api/scout/score`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ ad_id: ad.id }),
   }).catch(() => {});
 
-  // 4 — Discord milestone every 25 likes
+  // 5 — Discord milestone every 25 likes
   if (newCount % 25 === 0) {
     fetch(`${BASE_URL}/api/discord-notify`, {
       method:  'POST',
@@ -90,17 +99,15 @@ export async function recordLike(
   }
 
   // ── Post-like notifications — fire and forget block ───────────────────────
-  // All async, all silent-fail, never block the like response.
   (async () => {
     try {
 
-      // 5 — Award first-like badge to LIKER (fix C-04)
+      // 6 — Award first-like badge to LIKER
       if (likerEmail) {
         await awardBadge(supabase, likerEmail, 'first-like');
       }
 
-      // 6 — Notify AD OWNER on first like received on this specific ad
-      // Only fires when newCount === 1 — first like on this ad ever
+      // 7 — Notify AD OWNER on first like on this specific ad
       if (newCount === 1 && ad.email && ad.email !== likerEmail) {
         fetch(`${BASE_URL}/api/notify`, {
           method:  'POST',
@@ -109,15 +116,14 @@ export async function recordLike(
             email:   ad.email,
             type:    'like',
             title:   `😊 First like on "${ad.title}"`,
-            message: `Someone liked your ad for the first time. Keep sharing to earn more engagement and climb the Arena.`,
+            message: `Someone liked your ad for the first time — +1 point added. Keep sharing to earn more engagement and climb the Arena.`,
           }),
         }).catch(() => {});
       }
 
-      // 7 — Notify LIKER — badge + streak-aware nudge
+      // 8 — Notify LIKER — badge + streak-aware nudge
       if (likerEmail) {
 
-        // Read liker's streak from DB — single lightweight read
         const { data: likerRow } = await supabase
           .from('ad_signups')
           .select('streak_days, points')
@@ -127,7 +133,6 @@ export async function recordLike(
         const streak = likerRow?.streak_days || 0;
         const points = likerRow?.points      || 0;
 
-        // Badge confirmation message
         fetch(`${BASE_URL}/api/notify`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -141,7 +146,6 @@ export async function recordLike(
           }),
         }).catch(() => {});
 
-        // Streak nudge — only if streak is building but not yet at badge threshold
         if (streak >= 1 && streak < 3) {
           fetch(`${BASE_URL}/api/notify`, {
             method:  'POST',
@@ -155,7 +159,6 @@ export async function recordLike(
           }).catch(() => {});
         }
 
-        // Points milestone nudge — if close to next tier
         if (points > 0) {
           const nextThreshold = [100, 300, 750].find(t => t > points);
           if (nextThreshold && (nextThreshold - points) <= 20) {
