@@ -3,13 +3,15 @@
 // Creates a new user in ad_signups.
 // Called by VaultModal signup path — public, no auth required.
 //
-// Inserts: email, name, brand_name, status='trial', role='user'
-// Idempotent — returns 200 if email already exists (user can sign in instead).
-// Fires welcome email via /api/send-welcome after insert.
+// v2 (Sep 2026):
+//   — Discord notification on new signup — rich embed, new_signup event
+//   — send-welcome called with full payload (name, brand, trialStatus, role)
+//   — Idempotent — existing email returns ok:true so VaultModal proceeds
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
+import { notifyDiscord, DC }         from '../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,9 +28,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and name required.' }, { status: 400 });
     }
 
-    const norm = email.trim().toLowerCase();
+    const norm       = email.trim().toLowerCase();
+    const cleanName  = name.trim();
+    const cleanBrand = (brand || name).trim();
 
-    // ── Idempotency check — already exists? ───────────────────────────────
+    // ── Idempotency check ─────────────────────────────────────────────────
     const { data: existing } = await supabase
       .from('ad_signups')
       .select('email, status')
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      // Already registered — VaultModal will complete session normally
+      // Already registered — VaultModal completeSession() handles the rest
       return NextResponse.json({ ok: true, existing: true });
     }
 
@@ -45,8 +49,8 @@ export async function POST(req: NextRequest) {
       .from('ad_signups')
       .insert({
         email:      norm,
-        name:       name.trim(),
-        brand_name: (brand || name).trim(),
+        name:       cleanName,
+        brand_name: cleanBrand,
         status:     'trial',
         role:       'user',
         created_at: new Date().toISOString(),
@@ -56,11 +60,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Signup failed. Try again.' }, { status: 500 });
     }
 
-    // ── Fire welcome email — non-blocking ─────────────────────────────────
+    // ── Discord — rich embed, new_signup event ────────────────────────────
+    notifyDiscord('', 'new_signup', {
+      title:  '🆕 New Arena Member',
+      color:  DC.green,
+      fields: [
+        { name: 'Name',   value: cleanName,  inline: true  },
+        { name: 'Brand',  value: cleanBrand, inline: true  },
+        { name: 'Source', value: '/mapofpi', inline: true  },
+        { name: 'Email',  value: norm,       inline: false },
+      ],
+      footer:    'ANTCPU ADS · Signup',
+      timestamp: true,
+    }).catch(() => {});
+
+    // ── Welcome email — full payload ──────────────────────────────────────
     fetch(`${BASE_URL}/api/send-welcome`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email: norm, name: name.trim() }),
+      body:    JSON.stringify({
+        email:            norm,
+        name:             cleanName,
+        brand:            cleanBrand,
+        trialStatus:      'trial',
+        role:             'user',
+        preferred_locale: 'en',
+      }),
     }).catch(() => {});
 
     return NextResponse.json({ ok: true, existing: false });
