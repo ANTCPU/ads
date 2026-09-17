@@ -2,18 +2,20 @@
 // app/arena/[slug]/ArenaClient.tsx
 // Brand-specific arena — /arena/mapofpi, /arena/antcpu, etc.
 //
+// v4 (Sep 2026):
+//   — ReactionPicker wired in — replaces inline reaction buttons
+//   — reactionTarget state added — controls which ad has picker open
+//   — handleReaction split into openReactionPicker + handleReaction
+//   — recordReaction now receives ad.points (fixes TS2345)
+//   — ReactionType imported from ReactionPicker — single source of truth
+//   — REACTIONS const removed — REACTION_DEFS from picker is source of truth
+//
 // v3 (Sep 2026):
 //   — BRANDS registry removed — config fetched from /api/brand/[slug]
 //   — SLUG_ALIAS removed — brands table resolves all slug variants
 //   — isMapOfPi derived from brand.campaign === 'mapofpi' (not hardcoded)
 //   — dashboardHref fixed — super no longer routes to /dashboard/admin
 //   — fetchAds uses brand.campaign for query (not brand.name ilike)
-//
-// v2 (Sep 2026):
-//   — recordReaction() routes through tracking layer
-//   — handleLike/handleBoost pass user.email
-//   — Stats bar adds Reactions + Shares
-//   — clearSessionCookie() on logout
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useRouter, useParams }                    from 'next/navigation';
@@ -22,25 +24,24 @@ import { createClient }                            from '@supabase/supabase-js';
 import ArenaNav                                    from '../../components/ArenaNav';
 import ArenaFooter                                 from '../../components/ArenaFooter';
 import ModuleSlots                                 from '../../components/ModuleSlots';
+import ReactionPicker, { REACTION_DEFS }           from '../../components/ReactionPicker';
 import { PLATFORMS, getShareAction, ShareContext } from '../../lib/socialShare';
 import { trackClick, recordShare, recordLike,
          recordBoost, recordReaction, SOURCE }     from '../../lib/tracking';
 import { clearSessionCookie }                      from '../../lib/session';
+import type { ReactionType }                       from '../../components/ReactionPicker';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
-
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 // ─── Env ──────────────────────────────────────────────────────────────────────
-
 const APP_URL     = process.env.NEXT_PUBLIC_APP_URL     || 'https://antcpu-ads.vercel.app';
 const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
 type Ad = {
   id: string; brand: string; title: string; url: string;
   description: string; category: string; status: string;
@@ -55,35 +56,25 @@ type SessionUser = {
   trialStatus: string; role?: string;
 };
 
-// Brand config — from brands table via /api/brand/[slug]
-// Replaces hardcoded BRANDS registry
 type BrandConfig = {
   name:     string;
-  primary:  string;   // color
-  logo?:    string;   // logo_url
-  site?:    string;   // site_url
-  campaign: string;   // used for ad query + isMapOfPi detection
+  primary:  string;
+  logo?:    string;
+  site?:    string;
+  campaign: string;
 };
 
-type ReactionType = 'hot' | 'watching' | 'interesting';
-type Toast        = { id: string; msg: string };
+type Toast = { id: string; msg: string };
 
-// ─── Tier + reaction constants ────────────────────────────────────────────────
-
+// ─── Tier constants ───────────────────────────────────────────────────────────
+// REACTIONS const removed — REACTION_DEFS from ReactionPicker is source of truth
 const TIER_COLOR: Record<string, string> = {
   toptier: '#f0883e', featured: '#ff0080', rising: '#7928ca', entry: '#0070f3',
 };
 
-const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
-  { type: 'hot',         emoji: '🔥', label: 'Hot'         },
-  { type: 'watching',    emoji: '👀', label: 'Watching'    },
-  { type: 'interesting', emoji: '💡', label: 'Interesting' },
-];
-
 const DEFAULT_SLOTS: (string | null)[] = ['region-map', null, null];
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-
 const bg     = '#0a0a0a';
 const card   = '#111';
 const border = '#1a1a1a';
@@ -92,7 +83,6 @@ const white  = '#fff';
 const gold   = '#D4AF37';
 
 // ─── Session ID ───────────────────────────────────────────────────────────────
-
 function getSessionId(): string {
   if (typeof window === 'undefined') return 'ssr';
   let sid = localStorage.getItem('arena_session_id');
@@ -104,7 +94,6 @@ function getSessionId(): string {
 }
 
 // ─── Country flag lookup ──────────────────────────────────────────────────────
-
 function countryFlag(country: string): string {
   const flags: Record<string, string> = {
     'Nigeria':'🇳🇬','Ghana':'🇬🇭','Kenya':'🇰🇪','South Africa':'🇿🇦',
@@ -135,42 +124,29 @@ function countryFlag(country: string): string {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-
 export default function ArenaClient() {
   const router = useRouter();
   const params = useParams();
   const slug   = (params?.slug as string || '').toLowerCase();
 
-  // ── Brand config — from DB, replaces BRANDS + SLUG_ALIAS hardcodes ────────
-  const [config,       setConfig]       = useState<BrandConfig>({
-    name: slug, primary: '#f0883e', campaign: slug,
-  });
-  const [configLoaded, setConfigLoaded] = useState(false);
-
-  // ── State ─────────────────────────────────────────────────────────────────
-  const [ads,     setAds]     = useState<Ad[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [user,    setUser]    = useState<SessionUser>({ name: '', email: '', brand: '', trialStatus: 'trial' });
-  const [slots,   setSlots]   = useState<(string | null)[]>(DEFAULT_SLOTS);
-  const [shareAd, setShareAd] = useState<Ad | null>(null);
-  const [toast,   setToast]   = useState<Toast | null>(null);
-
-  const [liked,   setLiked]   = useState<Record<string, boolean>>({});
-  const [boosted, setBoosted] = useState<Record<string, boolean>>({});
-  const [reacted, setReacted] = useState<Record<string, ReactionType | null>>({});
+  const [config,          setConfig]          = useState<BrandConfig>({ name: slug, primary: '#f0883e', campaign: slug });
+  const [configLoaded,    setConfigLoaded]    = useState(false);
+  const [ads,             setAds]             = useState<Ad[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [user,            setUser]            = useState<SessionUser>({ name: '', email: '', brand: '', trialStatus: 'trial' });
+  const [slots,           setSlots]           = useState<(string | null)[]>(DEFAULT_SLOTS);
+  const [shareAd,         setShareAd]         = useState<Ad | null>(null);
+  const [toast,           setToast]           = useState<Toast | null>(null);
+  const [liked,           setLiked]           = useState<Record<string, boolean>>({});
+  const [boosted,         setBoosted]         = useState<Record<string, boolean>>({});
+  const [reacted,         setReacted]         = useState<Record<string, ReactionType>>({});
+  const [reactionTarget,  setReactionTarget]  = useState<string | null>(null); // ← NEW
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const isSuper    = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
-  // FIX: super no longer routes to /dashboard/admin
-  const dashboardHref = isSuper
-    ? '/dashboard/antcpu'
-    : user.role === 'admin'
-    ? '/dashboard/users'
-    : '/dashboard/user';
-
-  // isMapOfPi derived from campaign — not hardcoded string check
-  const isMapOfPi  = config.campaign === 'mapofpi';
-  const maxPoints  = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+  const isSuper       = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
+  const dashboardHref = isSuper ? '/dashboard/antcpu' : user.role === 'admin' ? '/dashboard/users' : '/dashboard/user';
+  const isMapOfPi     = config.campaign === 'mapofpi';
+  const maxPoints     = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
   const totalPoints    = ads.reduce((s, a) => s + (a.points         || 0), 0);
   const totalClicks    = ads.reduce((s, a) => s + (a.click_count    || 0), 0);
   const totalShares    = ads.reduce((s, a) => s + (a.share_count    || 0), 0);
@@ -196,9 +172,9 @@ export default function ArenaClient() {
     const stored = localStorage.getItem('arena_user');
     if (stored) { try { setUser(JSON.parse(stored)); } catch {} }
 
-    const likedMap:   Record<string, boolean>             = {};
-    const boostedMap: Record<string, boolean>             = {};
-    const reactedMap: Record<string, ReactionType | null> = {};
+    const likedMap:   Record<string, boolean>    = {};
+    const boostedMap: Record<string, boolean>    = {};
+    const reactedMap: Record<string, ReactionType> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i) || '';
       if (key.startsWith('liked_'))   likedMap[key.replace('liked_', '')]     = true;
@@ -208,14 +184,9 @@ export default function ArenaClient() {
     setLiked(likedMap);
     setBoosted(boostedMap);
     setReacted(reactedMap);
-
-    // Load brand config from DB then fetch ads
     loadBrandConfig();
   }, [slug]);
 
-  // ── Load brand config from /api/brand/[slug] ──────────────────────────────
-  // Replaces BRANDS registry + SLUG_ALIAS hardcodes.
-  // Falls back to slug-based defaults if brand not found in DB.
   async function loadBrandConfig() {
     try {
       const res  = await fetch(`/api/brand/${slug}`);
@@ -233,15 +204,11 @@ export default function ArenaClient() {
     setConfigLoaded(true);
   }
 
-  // ── Fetch ads — uses campaign from brand record ───────────────────────────
-  // FIX: was using ilike brand name match — now uses campaign exact match
-  // which is correct and consistent with /api/brand/[slug]
   useEffect(() => {
     if (!configLoaded) return;
     fetchAds();
   }, [configLoaded, config.campaign]);
 
-  // ── Module slots ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user.email || !slug) return;
     supabase
@@ -253,12 +220,10 @@ export default function ArenaClient() {
       .then(({ data }) => { if (data?.slots) setSlots(data.slots); });
   }, [user.email, slug]);
 
-  // ── Data ──────────────────────────────────────────────────────────────────
   async function fetchAds() {
     setLoading(true);
     const { data } = await supabase
-      .from('ads')
-      .select('*')
+      .from('ads').select('*')
       .eq('campaign', config.campaign)
       .eq('status',   'active')
       .order('pinned',  { ascending: false })
@@ -281,8 +246,7 @@ export default function ArenaClient() {
     setTimeout(() => setToast(null), 2000);
   }
 
-  // ── Handlers — unchanged from v2 ─────────────────────────────────────────
-
+  // ── Handlers ─────────────────────────────────────────────────────────────
   async function handleClick(ad: Ad) {
     if (!ad.url || ad.url.trim() === '') return;
     window.open(ad.url, '_blank', 'noopener,noreferrer');
@@ -297,13 +261,12 @@ export default function ArenaClient() {
   async function handleLike(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
     if (liked[ad.id]) return;
-    const sid = getSessionId();
     localStorage.setItem(`liked_${ad.id}`, '1');
     setLiked(prev => ({ ...prev, [ad.id]: true }));
     showToast(ad.id, 'Liked!');
     const n = await recordLike(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count },
-      sid, SOURCE.BRAND_ARENA, supabase, user.email || undefined
+      getSessionId(), SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
   }
@@ -311,27 +274,39 @@ export default function ArenaClient() {
   async function handleBoost(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
     if (boosted[ad.id]) return;
-    const sid = getSessionId();
     localStorage.setItem(`boosted_${ad.id}`, '1');
     setBoosted(prev => ({ ...prev, [ad.id]: true }));
     showToast(ad.id, 'Boosted!');
     const n = await recordBoost(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count },
-      sid, SOURCE.BRAND_ARENA, supabase, user.email || undefined
+      getSessionId(), SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
   }
 
-  async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
+  // ── Opens picker — does NOT fire recordReaction directly ─────────────────
+  function openReactionPicker(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
+    setReactionTarget(ad.id);
+  }
+
+  // ── Called by ReactionPicker.onReact — fires after user confirms choice ──
+  async function handleReaction(ad: Ad, type: ReactionType) {
     if (reacted[ad.id]) return;
-    const sid = getSessionId();
     localStorage.setItem(`reacted_${ad.id}`, type);
     setReacted(prev => ({ ...prev, [ad.id]: type }));
-    showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
+    setReactionTarget(null);
+    showToast(ad.id, REACTION_DEFS.find(r => r.type === type)?.emoji || '👍');
     const n = await recordReaction(
-      { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, reaction_count: ad.reaction_count || 0 },
-      type, sid, user.email || null, SOURCE.BRAND_ARENA, supabase
+      {
+        id:             ad.id,
+        brand:          ad.brand,
+        title:          ad.title,
+        email:          ad.email,
+        reaction_count: ad.reaction_count || 0,
+        points:         ad.points         || 0,   // ← fixes TS2345
+      },
+      type, getSessionId(), user.email || null, SOURCE.BRAND_ARENA, supabase
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: n } : a));
   }
@@ -359,8 +334,7 @@ export default function ArenaClient() {
     setShareAd(null);
   }
 
-  // ── Ad Card — unchanged from v2 ───────────────────────────────────────────
-
+  // ── Ad Card ───────────────────────────────────────────────────────────────
   function AdCard({ ad }: { ad: Ad }) {
     const heat       = Math.round(((ad.points || 0) / maxPoints) * 100);
     const hasLiked   = !!liked[ad.id];
@@ -432,16 +406,17 @@ export default function ArenaClient() {
           {(ad.points         || 0) > 0 && <span style={{ color: config.primary }}>⚡ {ad.points} pts</span>}
         </div>
 
+        {/* ── Reaction row — opens picker on any tap ── */}
         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.65rem' }} onClick={e => e.stopPropagation()}>
-          {REACTIONS.map(r => {
+          {REACTION_DEFS.map(r => {
             const active = reacted[ad.id] === r.type;
             return (
-              <button key={r.type} onClick={e => handleReaction(ad, r.type, e)} style={{
+              <button key={r.type} onClick={e => openReactionPicker(ad, e)} style={{
                 background:   active ? `${config.primary}20` : 'transparent',
                 border:       `1px solid ${active ? config.primary : '#222'}`,
                 borderRadius: '999px', padding: '0.2rem 0.55rem',
                 fontSize:     '0.68rem', color: active ? config.primary : '#333',
-                cursor:       hasReacted ? 'default' : 'pointer',
+                cursor:       'pointer',
                 fontWeight:   active ? 700 : 400,
                 opacity:      hasReacted && !active ? 0.35 : 1,
                 transition:   'all 0.15s',
@@ -479,10 +454,8 @@ export default function ArenaClient() {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div style={{ background: bg, minHeight: '100vh', color: white, fontFamily: 'system-ui, sans-serif' }}>
-
       <ArenaNav
         role={(user.role as 'admin' | 'team' | 'user' | 'mod') || 'user'}
         userName={user.name}
@@ -491,6 +464,21 @@ export default function ArenaClient() {
         trialStatus={(user.trialStatus as 'team' | 'trial' | 'pending') || 'trial'}
         onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
+
+      {/* ── Reaction Picker modal ── */}
+      {reactionTarget && (() => {
+        const targetAd = ads.find(a => a.id === reactionTarget);
+        if (!targetAd) return null;
+        return (
+          <ReactionPicker
+            ad={targetAd}
+            currentReaction={reacted[targetAd.id] || null}
+            onReact={(type) => handleReaction(targetAd, type)}
+            onClose={() => setReactionTarget(null)}
+            brandColor={config.primary}
+          />
+        );
+      })()}
 
       {/* ── Share modal ── */}
       {shareAd && (
@@ -666,7 +654,7 @@ export default function ArenaClient() {
       </div>
 
       <ArenaFooter />
-
     </div>
   );
 }
+
