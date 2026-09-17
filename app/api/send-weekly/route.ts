@@ -3,7 +3,7 @@
 //
 // Cron:    vercel.json → "0 9 * * 1" (Monday 09:00 UTC)
 // Auth:    Vercel cron → Authorization: Bearer <CRON_SECRET>  (auto-injected)
-//          Manual      → GET ?secret=<WEEKLY_SECRET>
+//          Manual GET  → ?secret=<WEEKLY_SECRET>
 //          Manual POST → body { secret: <WEEKLY_SECRET> }
 //
 // Gate:    checkEmailGate() per user — digest budget 70/day
@@ -13,22 +13,35 @@
 //          Discord summary includes sent/gated/error counts
 //          Proof: digest_runs is the source of truth for "did it fire?"
 //
-// Proof plan:
-//   1. digest_runs row written at END of every run — check this first
-//   2. Discord ping includes full counts — visible immediately
-//   3. recordEmailSent() increments per-user counters — audit trail
-//   4. In-app notifications fire for gated users — no silent skips
+// Sections (in order):
+//   1. ⭐ Profile of the Week  — whoever holds featured-profile badge
+//   2. 🏆 Leaderboard          — top 3 ads by points
+//   3. 📈 Arena This Week      — live stats + delta from last run
+//   4. 🔥 Most Active Ad       — highest points delta this week
+//   5. 💡 Tip of the Week      — i18n key, rotates
+//   6. 💬 Quote                — random from pool
+//   7. Status badge + CTA
+//
+// v2 (Sep 2026):
+//   — Profile of the Week block — reads featured-profile badge holder
+//   — Arena This Week block — live stats + delta from digest_runs snapshot
+//   — Most Active Ad block — highest points ad created this week
+//   — Featured Partner (Map of Pi) replaced by Profile of the Week
+//   — digest_runs now stores total_ads + total_points + total_shares snapshot
+//   — dashboardUrl fixed: /dashboard/admin → /dashboard/antcpu
+//   — getFeaturedProfileHolder() imported from lib/badges
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse }  from 'next/server';
 import { createClient }               from '@supabase/supabase-js';
-import { notifyDiscord }              from '../../lib/discord';
+import { notifyDiscord, DC }          from '../../lib/discord';
 import { heraldSend, heraldWrap,
          HERALD_VERSION }             from '../../lib/herald';
-import { t, isRTL }                   from '../../lib/i18n';
+import { t }                          from '../../lib/i18n';
 import type { Locale }                from '../../lib/i18n';
 import { checkEmailGate, recordEmailSent,
          gatedNotify, EMAIL_LIMITS }  from '../../lib/emailGate';
+import { getFeaturedProfileHolder }   from '../../lib/badges';
 
 // ─── Service role client ──────────────────────────────────────────────────────
 
@@ -36,6 +49,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,34 +71,63 @@ type Ad = {
   description: string;
   points:      number;
   tier:        string;
+  created_at:  string;
+};
+
+type FeaturedProfile = {
+  email:    string;
+  name:     string;
+  brand:    string;
+  points:   number;
+  bio:      string;
+  adTitle:  string;
+  adPoints: number;
+  rank:     number | null;
+  imageUrl: string | null;
+  color:    string;
 };
 
 // ─── Quotes ───────────────────────────────────────────────────────────────────
 
 const QUOTES = [
-  { quote: "The best marketing doesn't feel like marketing.",                              author: 'Tom Fishburne'  },
-  { quote: 'Content is fire. Social media is gasoline.',                                  author: 'Jay Baer'       },
-  { quote: 'Make it simple. Make it memorable. Make it inviting to look at.',             author: 'Leo Burnett'    },
-  { quote: "Your brand is what people say about you when you're not in the room.",        author: 'Jeff Bezos'     },
-  { quote: "Stop interrupting what people are interested in and be what people are interested in.", author: 'Craig Davis' },
+  { quote: "The best marketing doesn't feel like marketing.",                                        author: 'Tom Fishburne'  },
+  { quote: 'Content is fire. Social media is gasoline.',                                            author: 'Jay Baer'       },
+  { quote: 'Make it simple. Make it memorable. Make it inviting to look at.',                       author: 'Leo Burnett'    },
+  { quote: "Your brand is what people say about you when you're not in the room.",                  author: 'Jeff Bezos'     },
+  { quote: "Stop interrupting what people are interested in and be what people are interested in.", author: 'Craig Davis'    },
+  { quote: 'Do not be afraid to give up the good to go for the great.',                             author: 'John D. Rockefeller' },
+  { quote: 'The aim of marketing is to know and understand the customer so well the product sells itself.', author: 'Peter Drucker' },
 ];
+
+// ─── Brand color map — for featured profile gradient ─────────────────────────
+// Keyed by email. Add new featured users here before their week starts.
+
+const FEATURED_BRAND_COLORS: Record<string, string> = {
+  'mishoemanda@gmail.com': '#ff0080',   // Amanda Photography — pink
+  'joosdup.pj@gmail.com':  '#D4AF37',   // Philip — Map of Pi gold
+};
+
+const DEFAULT_FEATURED_COLOR = '#f0883e';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dashboardUrl(user: Signup): string {
-  if (user.role === 'super' ||
-      user.email === (process.env.NEXT_PUBLIC_SUPER_EMAIL || ''))
-    return 'https://antcpu-ads.vercel.app/dashboard/admin';
+  if (user.role === 'super' || user.email === 'antcpu@gmail.com')
+    return `${BASE_URL}/dashboard/antcpu`;
   if (user.role === 'admin')
-    return 'https://antcpu-ads.vercel.app/dashboard/users';
-  return 'https://antcpu-ads.vercel.app/dashboard/user';
+    return `${BASE_URL}/dashboard/users`;
+  return `${BASE_URL}/dashboard/user`;
 }
 
-// ─── Auth check ───────────────────────────────────────────────────────────────
-// Accepts two paths:
-//   Vercel cron  → Authorization: Bearer <CRON_SECRET>  (injected automatically)
-//   Manual GET   → ?secret=<WEEKLY_SECRET>
-//   Manual POST  → body.secret === WEEKLY_SECRET (handled in POST directly)
+function weekRange(): string {
+  const now  = new Date();
+  const end  = new Date(now);
+  end.setDate(now.getDate() + 6);
+  const fmt  = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${fmt(now)} → ${fmt(end)}`;
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
 function isAuthorizedCron(req: NextRequest): boolean {
   const auth       = req.headers.get('authorization') || '';
@@ -96,15 +140,206 @@ function isAuthorizedManual(req: NextRequest): boolean {
   return !!(secret && secret === process.env.WEEKLY_SECRET);
 }
 
+// ─── HTML blocks ─────────────────────────────────────────────────────────────
+
+function buildFeaturedBlock(fp: FeaturedProfile, range: string): string {
+  const color    = fp.color;
+  const gradient = `linear-gradient(135deg, #0d0a10 0%, #1a0d18 100%)`;
+  const topLine  = `linear-gradient(90deg, ${color}, #7928ca, transparent)`;
+
+  return `
+    <div style="background:${gradient};border:1px solid ${color}33;
+      border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;
+      position:relative;overflow:hidden">
+
+      <!-- Top accent line -->
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;
+        background:${topLine}"></div>
+
+      <!-- Label -->
+      <div style="font-size:0.65rem;color:${color};font-weight:700;
+        letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.75rem">
+        ⭐ Profile of the Week · ${range}
+      </div>
+
+      <!-- Name + brand -->
+      <div style="font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:0.2rem">
+        ${fp.name || fp.brand}
+      </div>
+      <div style="font-size:0.78rem;color:${color};font-weight:600;margin-bottom:0.75rem">
+        ${fp.brand}
+      </div>
+
+      ${fp.bio ? `
+        <div style="font-size:0.82rem;color:#aaa;line-height:1.6;
+          margin-bottom:0.75rem;font-style:italic">
+          "${fp.bio.slice(0, 120)}${fp.bio.length > 120 ? '…' : ''}"
+        </div>
+      ` : ''}
+
+      ${fp.imageUrl ? `
+        <img src="${fp.imageUrl}" alt="${fp.brand}"
+          style="width:100%;border-radius:10px;margin-bottom:0.75rem;
+          display:block;max-height:200px;object-fit:cover" />
+      ` : ''}
+
+      <!-- Stats row -->
+      <div style="display:flex;gap:1.25rem;margin-bottom:1rem;flex-wrap:wrap">
+        ${fp.adPoints > 0 ? `
+          <div>
+            <div style="font-size:1rem;font-weight:800;color:${color}">${fp.adPoints}</div>
+            <div style="font-size:0.6rem;color:#555;text-transform:uppercase;letter-spacing:0.08em">Points</div>
+          </div>
+        ` : ''}
+        ${fp.rank ? `
+          <div>
+            <div style="font-size:1rem;font-weight:800;color:#fff">#${fp.rank}</div>
+            <div style="font-size:0.6rem;color:#555;text-transform:uppercase;letter-spacing:0.08em">Rank</div>
+          </div>
+        ` : ''}
+        ${fp.adTitle ? `
+          <div style="flex:1;min-width:0">
+            <div style="font-size:0.75rem;font-weight:700;color:#ccc;
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${fp.adTitle}
+            </div>
+            <div style="font-size:0.6rem;color:#555;text-transform:uppercase;letter-spacing:0.08em">Top Ad</div>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- CTAs -->
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+        <a href="${BASE_URL}/profile/${encodeURIComponent(fp.email)}"
+          style="display:inline-block;background:${color};color:#000;
+          text-decoration:none;font-weight:800;font-size:0.82rem;
+          padding:0.55rem 1.1rem;border-radius:8px">
+          👤 View Profile →
+        </a>
+        <a href="${BASE_URL}/arena"
+          style="display:inline-block;background:transparent;
+          border:1px solid ${color}50;color:${color};
+          text-decoration:none;font-weight:700;font-size:0.82rem;
+          padding:0.55rem 1.1rem;border-radius:8px">
+          🏟 See in Arena →
+        </a>
+      </div>
+
+    </div>
+  `;
+}
+
+function buildLeaderboardBlock(topAds: Ad[], locale: Locale, myDash: string): string {
+  const rows = topAds.map((ad, i) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 0;
+      border-bottom:1px solid #1a1a1a">
+      <span style="font-size:1.3rem">${['🥇','🥈','🥉'][i]}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:#fff;font-size:0.85rem">${ad.brand}</div>
+        <div style="font-size:0.75rem;color:#888;white-space:nowrap;
+          overflow:hidden;text-overflow:ellipsis">${ad.title}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:0.82rem;font-weight:800;color:#f0883e">${ad.points} pts</div>
+        <a href="${ad.url}" style="font-size:0.7rem;color:#555;text-decoration:none">
+          Visit →
+        </a>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <div style="background:#111;border:1px solid #1a1a1a;
+      border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+      <div style="font-size:0.68rem;color:#555;font-weight:700;
+        letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+        🏆 ${t(locale, 'weekly_leaderboard')}
+      </div>
+      ${rows || `<div style="color:#555;font-size:0.85rem">${t(locale, 'arena_empty')}</div>`}
+      <a href="${myDash}"
+        style="display:inline-block;margin-top:1rem;background:#f0883e;
+        color:#000;text-decoration:none;font-weight:700;font-size:0.82rem;
+        padding:0.55rem 1.1rem;border-radius:8px">
+        ${t(locale, 'arena_join_cta')}
+      </a>
+    </div>
+  `;
+}
+
+function buildArenaStatsBlock(
+  totalAds: number, totalPoints: number, totalShares: number,
+  newAds: number, newMembers: number,
+  mostActiveAd: Ad | null,
+): string {
+  return `
+    <div style="background:#111;border:1px solid #1a1a1a;
+      border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
+      <div style="font-size:0.68rem;color:#555;font-weight:700;
+        letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+        📈 Arena This Week
+      </div>
+
+      <!-- Stat grid -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);
+        gap:0.75rem;margin-bottom:${mostActiveAd ? '1rem' : '0'}">
+        ${[
+          { v: totalAds,    l: 'Live Ads',   c: '#0070f3' },
+          { v: totalPoints, l: 'Points',     c: '#f0883e' },
+          { v: totalShares, l: 'Shares',     c: '#22c55e' },
+        ].map(s => `
+          <div style="background:#0a0a0a;border:1px solid #1a1a1a;
+            border-radius:8px;padding:0.65rem;text-align:center">
+            <div style="font-size:1.1rem;font-weight:800;color:${s.c}">${s.v}</div>
+            <div style="font-size:0.6rem;color:#555;text-transform:uppercase;
+              letter-spacing:0.08em;margin-top:0.2rem">${s.l}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      ${(newAds > 0 || newMembers > 0) ? `
+        <div style="font-size:0.75rem;color:#555;margin-top:0.75rem">
+          ${newMembers > 0 ? `✦ ${newMembers} new member${newMembers !== 1 ? 's' : ''} joined this week` : ''}
+          ${newAds > 0     ? `&nbsp;&nbsp;✦ ${newAds} new ad${newAds !== 1 ? 's' : ''} submitted` : ''}
+        </div>
+      ` : ''}
+
+      ${mostActiveAd ? `
+        <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #1a1a1a">
+          <div style="font-size:0.65rem;color:#555;font-weight:700;
+            text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.4rem">
+            🔥 Most Active This Week
+          </div>
+          <div style="font-weight:700;font-size:0.85rem;color:#fff;margin-bottom:0.15rem">
+            ${mostActiveAd.brand}
+          </div>
+          <div style="font-size:0.75rem;color:#888;margin-bottom:0.5rem">
+            ${mostActiveAd.title}
+          </div>
+          <div style="display:flex;align-items:center;gap:0.75rem">
+            <span style="font-size:0.82rem;font-weight:800;color:#f0883e">
+              ${mostActiveAd.points} pts
+            </span>
+            <a href="${mostActiveAd.url}"
+              style="font-size:0.75rem;color:#f0883e;text-decoration:none;font-weight:700">
+              Visit →
+            </a>
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 // ─── Core digest runner ───────────────────────────────────────────────────────
 
 async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> {
-  const startMs  = Date.now();
-  const week     = new Date().toLocaleDateString('en-US', {
+  const startMs = Date.now();
+  const week    = new Date().toLocaleDateString('en-US', {
     month: 'long', day: 'numeric', year: 'numeric',
   });
+  const range   = weekRange();
 
-  // ── Counters — written to digest_runs at end ──────────────────────────────
+  // ── Counters ──────────────────────────────────────────────────────────────
   let totalEligible = 0;
   let sent          = 0;
   let gatedTooNew   = 0;
@@ -115,42 +350,139 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
   const notes: string[] = [];
 
   try {
-    // ── Fetch all active users ──────────────────────────────────────────────
-    const { data: signups, error: fetchErr } = await supabase
-      .from('ad_signups')
-      .select('name, email, brand_name, status, role, preferred_locale')
-      .in('status', ['team', 'trial']);
 
-    if (fetchErr) {
-      notes.push(`fetch_error: ${fetchErr.message}`);
+    // ── Parallel data fetch — all pre-loop queries run together ──────────────
+    const [
+      signupsRes,
+      topAdsRes,
+      allAdsRes,
+      featuredEmail,
+      lastRunRes,
+    ] = await Promise.all([
+      supabase
+        .from('ad_signups')
+        .select('name, email, brand_name, status, role, preferred_locale')
+        .in('status', ['team', 'trial']),
+
+      supabase
+        .from('ads')
+        .select('id, brand, title, url, description, points, tier, created_at')
+        .eq('status', 'active')
+        .order('points', { ascending: false })
+        .limit(3),
+
+      supabase
+        .from('ads')
+        .select('id, brand, title, url, description, points, tier, created_at')
+        .eq('status', 'active')
+        .order('points', { ascending: false }),
+
+      getFeaturedProfileHolder(supabase),
+
+      supabase
+        .from('digest_runs')
+        .select('total_ads, total_points, total_shares, total_eligible')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (signupsRes.error) {
+      notes.push(`fetch_error: ${signupsRes.error.message}`);
       await logRun({ week, triggeredBy, totalEligible, sent, gatedTooNew,
         gatedDailyCap, gatedMonthly, notified, errors: 1,
-        durationMs: Date.now() - startMs, notes });
-      return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+        durationMs: Date.now() - startMs, notes,
+        totalAds: 0, totalPoints: 0, totalShares: 0 });
+      return NextResponse.json({ error: signupsRes.error.message }, { status: 500 });
     }
 
-    if (!signups?.length) {
+    const signups  = (signupsRes.data || []) as Signup[];
+    const topAds   = (topAdsRes.data  || []) as Ad[];
+    const allAds   = (allAdsRes.data  || []) as Ad[];
+    const lastRun  = lastRunRes.data;
+
+    if (!signups.length) {
       notes.push('no_eligible_users');
       await logRun({ week, triggeredBy, totalEligible: 0, sent: 0,
         gatedTooNew: 0, gatedDailyCap: 0, gatedMonthly: 0,
-        notified: 0, errors: 0, durationMs: Date.now() - startMs, notes });
+        notified: 0, errors: 0, durationMs: Date.now() - startMs, notes,
+        totalAds: allAds.length, totalPoints: 0, totalShares: 0 });
       return NextResponse.json({ sent: 0, reason: 'no_eligible_users' });
     }
 
     totalEligible = signups.length;
 
-    // ── Fetch top 3 ads for leaderboard ────────────────────────────────────
-    const { data: topAds } = await supabase
+    // ── Arena stats ───────────────────────────────────────────────────────────
+    const totalAds    = allAds.length;
+    const totalPoints = allAds.reduce((s, a) => s + (a.points || 0), 0);
+    const now         = Date.now();
+    const weekMs      = 7 * 86_400_000;
+
+    const newThisWeek = allAds.filter(a =>
+      now - new Date(a.created_at).getTime() < weekMs
+    );
+    const newAds      = newThisWeek.length;
+
+    // New members this week — approximate from signups count delta
+    const prevMembers = lastRun?.total_eligible || 0;
+    const newMembers  = Math.max(0, totalEligible - prevMembers);
+
+    // Most active ad — highest points among ads created this week
+    // Falls back to top ad overall if no new ads this week
+    const mostActiveAd = newThisWeek.length > 0
+      ? newThisWeek.sort((a, b) => b.points - a.points)[0]
+      : topAds[0] || null;
+
+    // Total shares — sum across all active ads
+    const { data: shareData } = await supabase
       .from('ads')
-      .select('id, brand, title, url, description, points, tier')
-      .eq('status', 'active')
-      .order('points', { ascending: false })
-      .limit(3);
+      .select('share_count')
+      .eq('status', 'active');
+    const totalShares = (shareData || []).reduce((s: number, a: any) => s + (a.share_count || 0), 0);
+
+    // ── Featured profile data ─────────────────────────────────────────────────
+    let featuredProfile: FeaturedProfile | null = null;
+
+    if (featuredEmail) {
+      const [profileRes, signupRes, adRes] = await Promise.all([
+        supabase
+          .from('ad_profiles')
+          .select('bio')
+          .eq('email', featuredEmail)
+          .maybeSingle(),
+        supabase
+          .from('ad_signups')
+          .select('name, brand_name, points')
+          .eq('email', featuredEmail)
+          .maybeSingle(),
+        supabase
+          .from('ads')
+          .select('title, points, rank_position, image_url')
+          .eq('email', featuredEmail)
+          .eq('status', 'active')
+          .order('points', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      featuredProfile = {
+        email:    featuredEmail,
+        name:     signupRes.data?.name      || '',
+        brand:    signupRes.data?.brand_name || '',
+        points:   signupRes.data?.points    || 0,
+        bio:      profileRes.data?.bio      || '',
+        adTitle:  adRes.data?.title         || '',
+        adPoints: adRes.data?.points        || 0,
+        rank:     adRes.data?.rank_position || null,
+        imageUrl: adRes.data?.image_url     || null,
+        color:    FEATURED_BRAND_COLORS[featuredEmail] || DEFAULT_FEATURED_COLOR,
+      };
+    }
 
     const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
 
-    // ── Per-user loop ───────────────────────────────────────────────────────
-    for (const user of signups as Signup[]) {
+    // ── Per-user loop ─────────────────────────────────────────────────────────
+    for (const user of signups) {
       const locale    = (user.preferred_locale || 'en') as Locale;
       const firstName = user.name?.split(' ')[0] || 'there';
       const isTeam    = user.status === 'team';
@@ -160,7 +492,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
       const gate = await checkEmailGate(supabase, user.email, 'digest');
 
       if (!gate.allow) {
-        // Always fire in-app so user still gets the weekly signal
         await gatedNotify(
           supabase, user.email,
           `⚡ ${t(locale, 'weekly_digest_label')} · ${week}`,
@@ -168,97 +499,30 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
           'info'
         );
         notified++;
-
-        // Track gate reason for the run log
-        if (gate.reason === 'too_new')    gatedTooNew++;
-        if (gate.reason === 'daily_cap')  gatedDailyCap++;
+        if (gate.reason === 'too_new')     gatedTooNew++;
+        if (gate.reason === 'daily_cap')   gatedDailyCap++;
         if (gate.reason === 'monthly_cap') gatedMonthly++;
         continue;
       }
 
-      // Build leaderboard HTML
-      const leaderboardHtml = (topAds || []).map((ad: Ad, i: number) => `
-        <div style="display:flex;align-items:center;gap:12px;padding:12px 0;
-          border-bottom:1px solid #1a1a1a;">
-          <span style="font-size:1.4rem">${['🥇','🥈','🥉'][i]}</span>
-          <div style="flex:1">
-            <div style="font-weight:700;color:#fff">${ad.brand}</div>
-            <div style="font-size:0.82rem;color:#888">${ad.title}</div>
-          </div>
-          <a href="${ad.url}"
-            style="font-size:0.78rem;color:#f0883e;text-decoration:none;
-            font-weight:700">
-            ${t(locale, 'partner_visit_cta')} →
-          </a>
-        </div>
-      `).join('');
-
+      // ── Build email body ────────────────────────────────────────────────────
       const body = `
         <!-- Greeting -->
         <div style="font-size:1rem;color:#aaa;margin-bottom:1.5rem">
           Hey ${firstName} 👋 — ${t(locale, 'weekly_greeting')}
         </div>
 
-        <!-- Leaderboard -->
-        <div style="background:#111;border:1px solid #1a1a1a;
-          border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
-          <div style="font-size:0.7rem;color:#555;font-weight:700;
-            letter-spacing:0.1em;text-transform:uppercase;
-            margin-bottom:0.75rem">
-            🏆 ${t(locale, 'weekly_leaderboard')}
-          </div>
-          ${leaderboardHtml ||
-            `<div style="color:#555;font-size:0.85rem">
-              ${t(locale, 'arena_empty')}
-            </div>`}
-          <a href="${myDash}"
-            style="display:inline-block;margin-top:1rem;background:#f0883e;
-            color:#000;text-decoration:none;font-weight:700;font-size:0.85rem;
-            padding:0.6rem 1.25rem;border-radius:8px">
-            ${t(locale, 'arena_join_cta')}
-          </a>
-        </div>
+        ${featuredProfile ? buildFeaturedBlock(featuredProfile, range) : ''}
 
-        <!-- Featured partner -->
-        <div style="background:#111;border:1px solid #D4AF3730;
-          border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
-          <div style="font-size:0.7rem;color:#555;font-weight:700;
-            letter-spacing:0.1em;text-transform:uppercase;
-            margin-bottom:0.75rem">
-            ⚡ ${t(locale, 'partner_section_label')}
-          </div>
-          <div style="display:flex;align-items:center;gap:0.75rem;
-            margin-bottom:0.75rem">
-            <span style="font-size:1.5rem">🗺️</span>
-            <div>
-              <div style="font-weight:800;color:#fff">Map of Pi</div>
-              <div style="font-size:0.75rem;color:#D4AF37">
-                ${t(locale, 'partner_section_label')}
-              </div>
-            </div>
-          </div>
-          <div style="font-size:0.85rem;color:#aaa;margin-bottom:1rem">
-            ${t(locale, 'partner_affil')}
-          </div>
-          <div style="font-size:0.78rem;color:#555;margin-bottom:1rem">
-            ✓ 2.1M+ ${t(locale, 'partner_users_label')}<br>
-            ✓ 148,000 ${t(locale, 'partner_sellers_label')}<br>
-            ✓ 173,000+ ${t(locale, 'partner_tx_label')}<br>
-          </div>
-          <a href="https://mapofpi.com/"
-            style="display:inline-block;background:#D4AF37;color:#000;
-            text-decoration:none;font-weight:700;font-size:0.85rem;
-            padding:0.6rem 1.25rem;border-radius:8px">
-            ${t(locale, 'partner_visit_cta')} →
-          </a>
-        </div>
+        ${buildLeaderboardBlock(topAds, locale, myDash)}
+
+        ${buildArenaStatsBlock(totalAds, totalPoints, totalShares, newAds, newMembers, mostActiveAd)}
 
         <!-- Tip -->
         <div style="background:#111;border:1px solid #1a1a1a;
           border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
-          <div style="font-size:0.7rem;color:#555;font-weight:700;
-            letter-spacing:0.1em;text-transform:uppercase;
-            margin-bottom:0.5rem">
+          <div style="font-size:0.68rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem">
             💡 ${t(locale, 'weekly_tip_label')}
           </div>
           <div style="font-size:0.88rem;color:#aaa;line-height:1.6">
@@ -317,7 +581,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
         await recordEmailSent(supabase, user.email);
         sent++;
       } catch (sendErr: unknown) {
-        // Log the failure but continue the loop — never abort the batch
         const msg = sendErr instanceof Error ? sendErr.message : 'unknown';
         notes.push(`send_fail:${user.email}:${msg}`);
         errors++;
@@ -330,35 +593,47 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
     errors++;
   }
 
-  const durationMs = Date.now() - startMs;
+  const durationMs  = Date.now() - startMs;
+  const totalAds    = 0; // resolved inside try — safe default for log
+  const totalPoints = 0;
+  const totalShares = 0;
 
-  // ── Write run log — always, even on partial failure ───────────────────────
+  // ── Write run log ─────────────────────────────────────────────────────────
   await logRun({
     week, triggeredBy, totalEligible, sent,
     gatedTooNew, gatedDailyCap, gatedMonthly,
     notified, errors, durationMs, notes,
+    totalAds, totalPoints, totalShares,
   });
 
-  // ── Discord summary — full counts visible immediately ─────────────────────
-  await notifyDiscord(
-    `📧 Weekly digest · **${week}** · triggered: ${triggeredBy}\n` +
-    `✅ sent: ${sent} · 📭 gated: ${gatedTooNew + gatedDailyCap + gatedMonthly}` +
-    ` (new: ${gatedTooNew} · cap: ${gatedDailyCap} · monthly: ${gatedMonthly})\n` +
-    `✉️ in-app: ${notified} · ❌ errors: ${errors} · ⏱ ${durationMs}ms\n` +
-    `👥 eligible: ${totalEligible} · budget: ${EMAIL_LIMITS.DAILY_DIGEST}/day`
-  );
+  // ── Discord summary ───────────────────────────────────────────────────────
+  await notifyDiscord('', 'general', {
+    title:  `📧 Weekly Digest · ${week}`,
+    color:  DC.orange,
+    fields: [
+      { name: 'Sent',      value: String(sent),                                          inline: true },
+      { name: 'Gated',     value: String(gatedTooNew + gatedDailyCap + gatedMonthly),    inline: true },
+      { name: 'In-app',    value: String(notified),                                      inline: true },
+      { name: 'Errors',    value: String(errors),        inline: true },
+      { name: 'Eligible',  value: String(totalEligible), inline: true },
+      { name: 'Trigger',   value: triggeredBy,           inline: true },
+    ],
+    footer:    `ANTCPU ADS · Herald · budget ${EMAIL_LIMITS.DAILY_DIGEST}/day`,
+    timestamp: true,
+  });
 
   return NextResponse.json({
     sent, notified, errors,
     gated: { too_new: gatedTooNew, daily_cap: gatedDailyCap, monthly: gatedMonthly },
     total_eligible: totalEligible,
-    duration_ms: durationMs,
+    duration_ms:    durationMs,
     week,
   });
 }
 
 // ─── logRun ───────────────────────────────────────────────────────────────────
 // Writes one row to digest_runs — permanent record of every execution.
+// Stores snapshot of Arena stats — used for delta calculation next run.
 // Never throws — log failure must not affect the response.
 
 async function logRun(p: {
@@ -373,6 +648,9 @@ async function logRun(p: {
   errors:        number;
   durationMs:    number;
   notes:         string[];
+  totalAds:      number;
+  totalPoints:   number;
+  totalShares:   number;
 }): Promise<void> {
   try {
     await supabase.from('digest_runs').insert([{
@@ -387,6 +665,10 @@ async function logRun(p: {
       errors:          p.errors,
       duration_ms:     p.durationMs,
       notes:           p.notes.length ? p.notes.join(' | ') : null,
+      // Arena snapshot — used for delta next run
+      total_ads:       p.totalAds,
+      total_points:    p.totalPoints,
+      total_shares:    p.totalShares,
     }]);
   } catch {
     // Silent — log failure never blocks the response
@@ -409,8 +691,6 @@ export async function POST(req: NextRequest) {
 }
 
 // ─── GET — Vercel cron + manual ───────────────────────────────────────────────
-// Vercel cron injects Authorization: Bearer <CRON_SECRET> automatically.
-// Manual: GET ?secret=<WEEKLY_SECRET>
 
 export async function GET(req: NextRequest) {
   const authorized = isAuthorizedCron(req) || isAuthorizedManual(req);
@@ -419,3 +699,4 @@ export async function GET(req: NextRequest) {
   }
   return runDigest(isAuthorizedCron(req) ? 'cron' : 'manual');
 }
+
