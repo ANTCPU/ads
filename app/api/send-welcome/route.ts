@@ -5,11 +5,17 @@
 //
 // If gate blocks → in-app notification fires + Discord gated ping
 // If gate passes → heraldSend fires + recordEmailSent increments counters
+//
+// v2 (Sep 2026):
+//   — dashboardUrl: /dashboard/admin → /dashboard/antcpu
+//   — Discord gated ping: plain text → rich embed, new_signup event
+//   — Discord success ping: plain text → rich embed, new_signup event
+//   — DC imported for embed colors
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse }              from 'next/server';
 import { createClient }                           from '@supabase/supabase-js';
-import { notifyDiscord }                          from '../../lib/discord';
+import { notifyDiscord, DC }                      from '../../lib/discord';
 import { heraldSend, heraldWrap, HERALD_VERSION } from '../../lib/herald';
 import { t }                                      from '../../lib/i18n/index';
 import type { Locale }                            from '../../lib/i18n/index';
@@ -27,7 +33,7 @@ const supabase = createClient(
 
 function dashboardUrl(role: string, email: string): string {
   if (role === 'super' || email === 'antcpu@gmail.com')
-    return 'https://antcpu-ads.vercel.app/dashboard/admin';
+    return 'https://antcpu-ads.vercel.app/dashboard/antcpu'; // FIX: was /dashboard/admin
   if (role === 'admin')
     return 'https://antcpu-ads.vercel.app/dashboard/users';
   return 'https://antcpu-ads.vercel.app/dashboard/user';
@@ -72,11 +78,18 @@ export async function POST(req: NextRequest) {
         .update({ welcome_email_sent_at: new Date().toISOString() })
         .eq('email', email);
 
-      // Internal Discord ping — visible in admin feed, not an error
-      await notifyDiscord(
-        `📭 Welcome gated · **${email}** · reason: ${gate.reason} · locale: ${locale}`,
-        'general'
-      );
+      // FIX: was plain text 'general' — now rich embed 'new_signup'
+      await notifyDiscord('', 'new_signup', {
+        title:  '📭 Welcome Gated',
+        color:  DC.grey,
+        fields: [
+          { name: 'Email',  value: email,       inline: true },
+          { name: 'Reason', value: gate.reason, inline: true },
+          { name: 'Locale', value: locale,      inline: true },
+        ],
+        footer:    'ANTCPU ADS · Email Gate',
+        timestamp: true,
+      });
 
       return NextResponse.json({ sent: false, reason: gate.reason });
     }
@@ -226,10 +239,21 @@ export async function POST(req: NextRequest) {
     // Increment per-user email counters
     await recordEmailSent(supabase, email);
 
-    await notifyDiscord(
-      `📧 Welcome email sent to **${name}** (${email}) · ${brand} · ` +
-      `${isTeam ? '🔵 Team' : '🟢 Trial'} · role: ${role} · locale: ${locale}`
-    );
+    // FIX: was plain text no event — now rich embed 'new_signup'
+    await notifyDiscord('', 'new_signup', {
+      title:  '📧 Welcome Sent',
+      color:  DC.green,
+      fields: [
+        { name: 'Name',   value: name,                              inline: true  },
+        { name: 'Brand',  value: brand,                             inline: true  },
+        { name: 'Status', value: isTeam ? '🔵 Team' : '🟢 Trial',  inline: true  },
+        { name: 'Email',  value: email,                             inline: false },
+        { name: 'Locale', value: locale,                            inline: true  },
+        { name: 'Role',   value: role,                              inline: true  },
+      ],
+      footer:    'ANTCPU ADS · Herald',
+      timestamp: true,
+    });
 
     return NextResponse.json({ sent: true });
 
