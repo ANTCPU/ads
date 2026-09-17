@@ -56,24 +56,26 @@ async function persistTurns(
   userMessage:  string,
   macReply:     string,
 ) {
-  await supabase.from('mac_conversations').insert([
-    {
-      email,
-      session_id:    sessionId,
-      role:          'user',
-      message:       userMessage.slice(0, 2000),
-      field_context: fieldContext || null,
-      language,
-    },
-    {
-      email,
-      session_id:    sessionId,
-      role:          'mac',
-      message:       macReply.slice(0, 2000),
-      field_context: fieldContext || null,
-      language,
-    },
-  ]);
+  try {
+    await supabase.from('mac_conversations').insert([
+      {
+        email,
+        session_id:    sessionId,
+        role:          'user',
+        message:       userMessage.slice(0, 2000),
+        field_context: fieldContext || null,
+        language,
+      },
+      {
+        email,
+        session_id:    sessionId,
+        role:          'mac',
+        message:       macReply.slice(0, 2000),
+        field_context: fieldContext || null,
+        language,
+      },
+    ]);
+  } catch {}
 }
 
 // ── Log to agent_runs ─────────────────────────────────────────────────────────
@@ -85,18 +87,21 @@ async function logAgentRun(
   status:      string,
   flagState:   string,
 ) {
-  await supabase.from('agent_runs').insert({
-    agent_id:   'mac',
-    channel:    'chat',
-    trigger:    'user',
-    input:      input.slice(0, 500),
-    output:     output.slice(0, 500),
-    tokens,
-    status,
-    email:      email || null,
-    brand:      'Map of Pi',
-    flag_state: flagState,
-  });
+  try {
+    await supabase.from('agent_runs').insert({
+      agent_id:     'mac',
+      channel:      'chat',
+      trigger:      'user',
+      input:        input.slice(0, 500),
+      output:       output.slice(0, 500),
+      tokens,
+      status,
+      email:        email || null,
+      brand:        'Map of Pi',
+      flag_state:   flagState,
+      source_route: '/api/agents/mac',
+    });
+  } catch {}
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
