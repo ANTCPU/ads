@@ -2,21 +2,33 @@
 // Arena — universal client
 // Modules rendered from arena_modules table (slug='arena') + MODULE_REGISTRY
 // Falls back to default module set if table is empty
+//
+// v2 (Sep 2026):
+//   — ReactionPicker wired in — replaces inline reaction buttons
+//   — reactionTarget state added — controls which ad has picker open
+//   — handleReaction split into openReactionPicker + handleReaction
+//   — recordReaction now receives ad.points (required by reactions.ts v2)
+//   — REACTIONS const removed — REACTION_DEFS from ReactionPicker is source of truth
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import ArenaNav from '../components/ArenaNav';
-import ArenaFooter from '../components/ArenaFooter';
-import { PLATFORMS, getShareAction, ShareContext } from '../lib/socialShare';
-import { trackClick, recordShare, recordLike, recordBoost, recordReaction, SOURCE } from '../lib/tracking';
-import { clearSessionCookie } from '../lib/session';
-import { MODULE_REGISTRY } from '../modules';
-import { getStoredLocale } from '../lib/locale';
-import { t } from '../lib/i18n/index';
-import type { Locale } from '../lib/i18n/index';
+import { useRouter }                          from 'next/navigation';
+import { useState, useEffect }                from 'react';
+import { createClient }                       from '@supabase/supabase-js';
+import ArenaNav                               from '../components/ArenaNav';
+import ArenaFooter                            from '../components/ArenaFooter';
+import ReactionPicker, { REACTION_DEFS }      from '../components/ReactionPicker';
+import { PLATFORMS, getShareAction,
+         ShareContext }                        from '../lib/socialShare';
+import { trackClick, recordShare, recordLike,
+         recordBoost, recordReaction,
+         SOURCE }                             from '../lib/tracking';
+import { clearSessionCookie }                 from '../lib/session';
+import { MODULE_REGISTRY }                    from '../modules';
+import { getStoredLocale }                    from '../lib/locale';
+import { t }                                  from '../lib/i18n/index';
+import type { Locale }                        from '../lib/i18n/index';
+import type { ReactionType }                  from '../components/ReactionPicker';
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -55,9 +67,8 @@ type Ad = {
   image_url: string | null; is_country_champion?: boolean; country?: string;
 };
 
-type Toast        = { id: string; msg: string };
-type ReactionType = 'hot' | 'watching' | 'interesting';
-type BrandCfg     = { image_url: string | null; color: string | null };
+type Toast    = { id: string; msg: string };
+type BrandCfg = { image_url: string | null; color: string | null };
 
 // ─── Brand colours ────────────────────────────────────────────────────────────
 const BRAND_COLORS: Record<string, string> = {
@@ -96,13 +107,6 @@ const COUNTRY_FLAGS: Record<string, string> = {
 const getFlag = (country?: string) =>
   country ? (COUNTRY_FLAGS[country] || '🌍') : '';
 
-// ─── Reactions ────────────────────────────────────────────────────────────────
-const REACTIONS: { type: ReactionType; emoji: string; label: string }[] = [
-  { type: 'hot',         emoji: '🔥', label: 'Hot'         },
-  { type: 'watching',    emoji: '👀', label: 'Watching'    },
-  { type: 'interesting', emoji: '💡', label: 'Interesting' },
-];
-
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const card   = '#111';
 const border = '#1a1a1a';
@@ -123,7 +127,7 @@ const iconBtn = (active: boolean, activeColor: string): React.CSSProperties => (
   transition:   'all 0.15s',
 });
 
-// ─── ShareContext builder — single source for all share surfaces ──────────────
+// ─── ShareContext builder ─────────────────────────────────────────────────────
 function buildShareCtx(ad: Ad): ShareContext {
   return {
     brand:       ad.brand,
@@ -153,19 +157,20 @@ export default function ArenaUniversalClient() {
   const [locale,      setLocale]      = useState<Locale>('en');
 
   // ─── Interaction state ───────────────────────────────────────────────────
-  const [liked,      setLiked]      = useState<Record<string, boolean>>({});
-  const [boosted,    setBoosted]    = useState<Record<string, boolean>>({});
-  const [reacted,    setReacted]    = useState<Record<string, ReactionType>>({});
-  const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
+  const [liked,           setLiked]           = useState<Record<string, boolean>>({});
+  const [boosted,         setBoosted]         = useState<Record<string, boolean>>({});
+  const [reacted,         setReacted]         = useState<Record<string, ReactionType>>({});
+  const [bookmarked,      setBookmarked]      = useState<Record<string, boolean>>({});
+  const [reactionTarget,  setReactionTarget]  = useState<string | null>(null); // ← NEW
 
-  // ── Anon nudge — tracks which ad triggered the join banner ───────────────
+  // ── Anon nudge ───────────────────────────────────────────────────────────
   const [nudgedAd, setNudgedAd] = useState<string | null>(null);
 
   // ─── Derived ─────────────────────────────────────────────────────────────
-  const maxPoints   = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
-  const isSuper     = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
-  const totalBrands = new Set(ads.map(a => a.brand)).size;
-  const totalPoints = ads.reduce((sum, a) => sum + (a.points || 0), 0);
+  const maxPoints      = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+  const isSuper        = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
+  const totalBrands    = new Set(ads.map(a => a.brand)).size;
+  const totalPoints    = ads.reduce((sum, a) => sum + (a.points        || 0), 0);
   const totalReactions = ads.reduce((sum, a) => sum + (a.reaction_count || 0), 0);
   const totalShares    = ads.reduce((sum, a) => sum + (a.share_count    || 0), 0);
 
@@ -249,6 +254,7 @@ export default function ArenaUniversalClient() {
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
+
   async function handleClick(ad: Ad) {
     if (!ad.url || ad.url.trim() === '') { router.push('/guide?ref=champion-ad'); return; }
     window.open(ad.url, '_blank', 'noopener,noreferrer');
@@ -291,15 +297,28 @@ export default function ArenaUniversalClient() {
     if (!user.email) setNudgedAd(ad.id);
   }
 
-  async function handleReaction(ad: Ad, type: ReactionType, e: React.MouseEvent) {
+  // ── Opens the picker — does NOT fire recordReaction directly ─────────────
+  function openReactionPicker(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
-    if (reacted[ad.id]) return;
+    setReactionTarget(ad.id);   // opens picker even if already reacted — shows locked state
+  }
+
+  // ── Called by ReactionPicker.onReact — fires after user confirms choice ──
+  async function handleReaction(ad: Ad, type: ReactionType) {
+    if (reacted[ad.id]) return;   // guard — picker should prevent this but belt+braces
     localStorage.setItem(`reacted_${ad.id}`, type);
     setReacted(prev => ({ ...prev, [ad.id]: type }));
-    showToast(ad.id, REACTIONS.find(r => r.type === type)?.emoji || '👍');
+    setReactionTarget(null);
+    showToast(ad.id, REACTION_DEFS.find(r => r.type === type)?.emoji || '👍');
     const newCount = await recordReaction(
-      { id: ad.id, brand: ad.brand, title: ad.title,
-        email: ad.email, reaction_count: ad.reaction_count || 0 },
+      {
+        id:             ad.id,
+        brand:          ad.brand,
+        title:          ad.title,
+        email:          ad.email,
+        reaction_count: ad.reaction_count || 0,
+        points:         ad.points         || 0,   // ← required by reactions.ts v2
+      },
       type,
       getSessionId(),
       user.email || null,
@@ -333,7 +352,6 @@ export default function ArenaUniversalClient() {
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: n } : a));
   }
 
-  // ── Native share — uses WhatsApp buildPost for consistent formatting ──────
   async function handleNativeShare(ad: Ad) {
     try {
       const platform = PLATFORMS.find(p => p.key === 'whatsapp')!;
@@ -345,7 +363,6 @@ export default function ArenaUniversalClient() {
     } catch {}
   }
 
-  // ── Platform share — uses share layer throughout ──────────────────────────
   async function executePlatformShare(ad: Ad, platformKey: string) {
     const platform = PLATFORMS.find(p => p.key === platformKey);
     if (!platform) return;
@@ -365,7 +382,6 @@ export default function ArenaUniversalClient() {
     if (typeof window !== 'undefined') window.scrollTo(0, 0);
   }
 
-  // ── Mega Copy — Telegram format for full package, social pack if image ────
   async function handleMegaCopy(ad: Ad) {
     try {
       let megaText: string;
@@ -397,20 +413,15 @@ export default function ArenaUniversalClient() {
     }
   }
 
-  // ─── Nudge banner — reusable for card + modal ─────────────────────────────
+  // ─── Nudge banner ─────────────────────────────────────────────────────────
   function NudgeBanner({ adId }: { adId: string }) {
     if (nudgedAd !== adId || user.email) return null;
     return (
       <div style={{
-        marginTop: '0.6rem',
-        background: '#0a0a0a',
-        border: '1px solid #f0883e30',
-        borderRadius: '8px',
-        padding: '0.6rem 0.85rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '0.75rem',
+        marginTop: '0.6rem', background: '#0a0a0a',
+        border: '1px solid #f0883e30', borderRadius: '8px',
+        padding: '0.6rem 0.85rem', display: 'flex',
+        alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
       }}>
         <span style={{ fontSize: '0.75rem', color: '#aaa', lineHeight: 1.4 }}>
           😊 {t(locale, 'arena_nudge')}
@@ -440,6 +451,21 @@ export default function ArenaUniversalClient() {
         trialStatus={user.trialStatus as 'team' | 'trial' | 'pending'}
         onLogout={() => { localStorage.removeItem('arena_user'); clearSessionCookie(); router.push('/'); }}
       />
+
+      {/* ── Reaction Picker modal ── */}
+      {reactionTarget && (() => {
+        const targetAd = ads.find(a => a.id === reactionTarget);
+        if (!targetAd) return null;
+        return (
+          <ReactionPicker
+            ad={targetAd}
+            currentReaction={reacted[targetAd.id] || null}
+            onReact={(type) => handleReaction(targetAd, type)}
+            onClose={() => setReactionTarget(null)}
+            brandColor={getBrandColor(targetAd.brand)}
+          />
+        );
+      })()}
 
       {/* ── Preview modal ── */}
       {preview && (() => {
@@ -492,21 +518,26 @@ export default function ArenaUniversalClient() {
                 <span style={{ color }}>⚡ {preview.points || 0} pts</span>
                 {preview.rank_position && <span style={{ color: gold }}>#{preview.rank_position}</span>}
               </div>
+
+              {/* ── Reaction row in preview — opens picker ── */}
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                {REACTIONS.map(r => {
+                {REACTION_DEFS.map(r => {
                   const active = reacted[preview.id] === r.type;
                   const done   = !!reacted[preview.id];
                   return (
-                    <button key={r.type} onClick={e => handleReaction(preview, r.type, e)}
-                      style={{ background: active ? `${color}25` : '#0a0a0a', border: `1px solid ${active ? color : '#222'}`,
+                    <button key={r.type} onClick={e => openReactionPicker(preview, e)}
+                      style={{ background: active ? `${color}25` : '#0a0a0a',
+                        border: `1px solid ${active ? color : '#222'}`,
                         borderRadius: '999px', padding: '0.3rem 0.75rem', fontSize: '0.75rem',
-                        color: active ? color : muted, cursor: done ? 'default' : 'pointer',
-                        fontWeight: active ? 700 : 400, opacity: done && !active ? 0.4 : 1, transition: 'all 0.15s' }}>
+                        color: active ? color : muted, cursor: 'pointer',
+                        fontWeight: active ? 700 : 400, opacity: done && !active ? 0.4 : 1,
+                        transition: 'all 0.15s' }}>
                       {r.emoji} {r.label}
                     </button>
                   );
                 })}
               </div>
+
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button onClick={() => { setShareAd(preview); setPreview(null); }}
                   style={{ flex: 2, background: `${color}20`, border: `1px solid ${color}60`,
@@ -706,7 +737,6 @@ export default function ArenaUniversalClient() {
                     <div style={{ marginBottom: '0.75rem' }}>
                       <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.3rem' }}>{ad.title}</div>
                       <div style={{ fontSize: '0.8rem', color: '#888', lineHeight: 1.5 }}>
-                        {/* ── word-boundary truncation ── */}
                         {ad.description.length > 100
                           ? ad.description.slice(0, ad.description.lastIndexOf(' ', 100)) + '…'
                           : ad.description}
@@ -723,17 +753,20 @@ export default function ArenaUniversalClient() {
                       {(ad.reaction_count || 0) > 0 && <span>🔥 {ad.reaction_count}</span>}
                       {(ad.points         || 0) > 0 && <span style={{ color }}>⚡ {ad.points}</span>}
                     </div>
+
+                    {/* ── Reaction row — opens picker on any tap ── */}
                     <div style={{ marginBottom: '0.6rem' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                        {REACTIONS.map(r => {
+                        {REACTION_DEFS.map(r => {
                           const active = reacted[ad.id] === r.type;
                           return (
-                            <button key={r.type} onClick={e => handleReaction(ad, r.type, e)}
+                            <button key={r.type} onClick={e => openReactionPicker(ad, e)}
                               style={{ background: active ? `${color}20` : 'transparent',
                                 border: `1px solid ${active ? color : '#222'}`, borderRadius: '999px',
                                 padding: '0.2rem 0.55rem', fontSize: '0.68rem',
-                                color: active ? color : '#333', cursor: hasReacted ? 'default' : 'pointer',
-                                fontWeight: active ? 700 : 400, opacity: hasReacted && !active ? 0.35 : 1,
+                                color: active ? color : '#333', cursor: 'pointer',
+                                fontWeight: active ? 700 : 400,
+                                opacity: hasReacted && !active ? 0.35 : 1,
                                 transition: 'all 0.15s' }}>
                               {r.emoji}
                             </button>
@@ -741,6 +774,7 @@ export default function ArenaUniversalClient() {
                         })}
                       </div>
                     </div>
+
                     <div onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button onClick={e => { e.stopPropagation(); setShareAd(ad); }}
@@ -749,9 +783,9 @@ export default function ArenaUniversalClient() {
                             padding: '0.55rem 0', cursor: 'pointer', transition: 'all 0.15s' }}>
                           ↗ Share
                         </button>
-                        <button onClick={e => handleBookmark(ad, e)} title={hasBookmarked ? 'Saved' : 'Save'} style={iconBtn(hasBookmarked, gold)}>🔖</button>
-                        <button onClick={e => handleLike(ad, e)}     title={hasLiked    ? 'Liked'  : 'Like'} style={iconBtn(hasLiked, color)}>😊</button>
-                        <button onClick={e => handleBoost(ad, e)}    title={hasBoosted  ? 'Boosted': 'Boost'} style={iconBtn(hasBoosted, gold)}>⚡</button>
+                        <button onClick={e => handleBookmark(ad, e)} title={hasBookmarked ? 'Saved'   : 'Save'}  style={iconBtn(hasBookmarked, gold)}>🔖</button>
+                        <button onClick={e => handleLike(ad, e)}     title={hasLiked     ? 'Liked'   : 'Like'}  style={iconBtn(hasLiked,      color)}>😊</button>
+                        <button onClick={e => handleBoost(ad, e)}    title={hasBoosted   ? 'Boosted' : 'Boost'} style={iconBtn(hasBoosted,    gold)}>⚡</button>
                         <button onClick={e => { e.stopPropagation(); handleClick(ad); }} title="Visit" style={iconBtn(false, muted)}>🔗</button>
                       </div>
                     </div>
@@ -802,3 +836,4 @@ export default function ArenaUniversalClient() {
     </div>
   );
 }
+
