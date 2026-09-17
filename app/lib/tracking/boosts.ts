@@ -1,16 +1,21 @@
+// app/lib/tracking/boosts.ts
 // ─── Boost Tracking ───────────────────────────────────────────────────────────
 // Records a boost event for an ad.
 //
 // What it does:
 // 1. Writes a row to ad_boosts (ad_id, session_id, email)
 // 2. Increments boost_count on the ad
-// 3. Fires /api/scout/score to recalculate points + rank
-// 4. Notifies Discord on every 10 boost milestone via /api/discord-notify
-// 5. Awards first-boost badge to the BOOSTER (userEmail) — not the ad owner
-// 6. Notifies ad OWNER on first boost received on their ad
-// 7. Notifies BOOSTER — badge confirmation + streak-aware nudge
+// 3. Adds +2 pts directly to ad.points (v3 fix — was 0)
+// 4. Fires /api/scout/score to recalculate points + rank
+// 5. Notifies Discord on every 10 boost milestone via /api/discord-notify
+// 6. Awards first-boost badge to the BOOSTER (userEmail) — not the ad owner
+// 7. Notifies ad OWNER on first boost received on their ad
+// 8. Notifies BOOSTER — badge confirmation + streak-aware nudge
 //
 // IMPROVEMENT LOG:
+// v3 — points: +2 added directly to ad.points on every boost (was missing)
+//    — BoostableAd gains points field (required for direct increment)
+//    — boost worth 2pts (stronger signal than like)
 // v2 — C-05 fix: first-boost badge now goes to booster (userEmail), not ad owner
 //    — Owner notified on first boost received on their ad
 //    — Booster notified with badge confirmation + streak-aware nudge
@@ -34,6 +39,7 @@ export type BoostableAd = {
   title:       string;
   email:       string;   // ad owner email
   boost_count: number;
+  points:      number;   // ← v3 — required for direct points increment
 };
 
 export async function recordBoost(
@@ -45,28 +51,32 @@ export async function recordBoost(
 ): Promise<number> {
 
   const newCount    = (ad.boost_count || 0) + 1;
+  const newPoints   = (ad.points      || 0) + 2;   // ← +2 pts per boost
   const boosterEmail = userEmail && userEmail !== 'visitor' ? userEmail : null;
 
-  // 1 + 2 — write boost row + increment count in parallel
+  // 1 + 2 + 3 — write boost row, increment count, add points — all parallel
   await Promise.all([
     supabase.from('ad_boosts').insert([{
       ad_id:      ad.id,
       session_id: sessionId,
-      email:      boosterEmail,   // store who boosted — null for anon
+      email:      boosterEmail,
     }]),
     supabase.from('ads')
-      .update({ boost_count: newCount })
+      .update({
+        boost_count: newCount,
+        points:      newPoints,   // ← direct points increment
+      })
       .eq('id', ad.id),
   ]);
 
-  // 3 — recalculate score + rank (fire and forget)
+  // 4 — recalculate score + rank (fire and forget)
   fetch(`${BASE_URL}/api/scout/score`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ ad_id: ad.id }),
   }).catch(() => {});
 
-  // 4 — Discord milestone every 10 boosts
+  // 5 — Discord milestone every 10 boosts
   if (newCount % 10 === 0) {
     fetch(`${BASE_URL}/api/discord-notify`, {
       method:  'POST',
@@ -94,12 +104,12 @@ export async function recordBoost(
   (async () => {
     try {
 
-      // 5 — Award first-boost badge to BOOSTER (fix C-05)
+      // 6 — Award first-boost badge to BOOSTER
       if (boosterEmail) {
         await awardBadge(supabase, boosterEmail, 'first-boost');
       }
 
-      // 6 — Notify AD OWNER on first boost on this specific ad
+      // 7 — Notify AD OWNER on first boost on this specific ad
       if (newCount === 1 && ad.email && ad.email !== boosterEmail) {
         fetch(`${BASE_URL}/api/notify`, {
           method:  'POST',
@@ -108,12 +118,12 @@ export async function recordBoost(
             email:   ad.email,
             type:    'boost',
             title:   `⚡ First boost on "${ad.title}"`,
-            message: `Someone boosted your ad for the first time. Boosts multiply your points — share your ad to keep the momentum going.`,
+            message: `Someone boosted your ad for the first time — +2 points added. Boosts multiply your points — share your ad to keep the momentum going.`,
           }),
         }).catch(() => {});
       }
 
-      // 7 — Notify BOOSTER — badge + streak-aware nudge
+      // 8 — Notify BOOSTER — badge + streak-aware nudge
       if (boosterEmail) {
 
         const { data: boosterRow } = await supabase
@@ -125,7 +135,6 @@ export async function recordBoost(
         const streak = boosterRow?.streak_days || 0;
         const points = boosterRow?.points      || 0;
 
-        // Badge confirmation
         fetch(`${BASE_URL}/api/notify`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -139,7 +148,6 @@ export async function recordBoost(
           }),
         }).catch(() => {});
 
-        // Streak nudge — only if building but not yet at threshold
         if (streak >= 1 && streak < 3) {
           fetch(`${BASE_URL}/api/notify`, {
             method:  'POST',
@@ -153,7 +161,6 @@ export async function recordBoost(
           }).catch(() => {});
         }
 
-        // Points milestone nudge
         if (points > 0) {
           const nextThreshold = [100, 300, 750].find(t => t > points);
           if (nextThreshold && (nextThreshold - points) <= 20) {
