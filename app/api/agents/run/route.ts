@@ -55,17 +55,19 @@ async function logAgentRun(
   email?:      string,
   sourceRoute  = '/api/agents/run',
 ) {
-  await supabase.from('agent_runs').insert({
-    agent_id:     agentId,
-    channel,
-    trigger:      'user',
-    input:        input.slice(0, 500),
-    output:       output.slice(0, 500),
-    tokens,
-    status,
-    email:        email || null,
-    source_route: sourceRoute,
-  }).catch(() => {});
+  try {
+    await supabase.from('agent_runs').insert({
+      agent_id:     agentId,
+      channel,
+      trigger:      'user',
+      input:        input.slice(0, 500),
+      output:       output.slice(0, 500),
+      tokens,
+      status,
+      email:        email || null,
+      source_route: sourceRoute,
+    });
+  } catch {}
 }
 
 export async function POST(req: NextRequest) {
