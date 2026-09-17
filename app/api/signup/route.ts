@@ -3,6 +3,11 @@
 // Creates a new user in ad_signups.
 // Called by VaultModal signup path — public, no auth required.
 //
+// v3 (Sep 2026):
+//   — arena-original badge awarded on every new join (idempotent, fire-and-forget)
+//   — in-app notification fires on badge award — loyalty loop trigger
+//   — Discord Source field now reads from request body, falls back to 'organic'
+//
 // v2 (Sep 2026):
 //   — Discord notification on new signup — rich embed, new_signup event
 //   — send-welcome called with full payload (name, brand, trialStatus, role)
@@ -12,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 import { notifyDiscord, DC }         from '../../lib/discord';
+import { awardBadge }                from '../../lib/badges';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,17 +28,21 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.a
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, name, brand } = await req.json();
+    const { email, name, brand, source } = await req.json();
 
     if (!email || !name) {
       return NextResponse.json({ error: 'Email and name required.' }, { status: 400 });
     }
 
-    const norm       = email.trim().toLowerCase();
-    const cleanName  = name.trim();
-    const cleanBrand = (brand || name).trim();
+    const norm        = email.trim().toLowerCase();
+    const cleanName   = name.trim();
+    const cleanBrand  = (brand || name).trim();
+    const cleanSource = (source || 'organic').trim();
 
     // ── Idempotency check ─────────────────────────────────────────────────
+    // Existing user — VaultModal completeSession() handles the rest.
+    // Do NOT re-award badge or re-send welcome on repeat calls.
+
     const { data: existing } = await supabase
       .from('ad_signups')
       .select('email, status')
@@ -40,11 +50,11 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      // Already registered — VaultModal completeSession() handles the rest
       return NextResponse.json({ ok: true, existing: true });
     }
 
     // ── Insert new user ───────────────────────────────────────────────────
+
     const { error } = await supabase
       .from('ad_signups')
       .insert({
@@ -60,25 +70,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Signup failed. Try again.' }, { status: 500 });
     }
 
+    // ── Arena Original badge ──────────────────────────────────────────────
+    // Awarded once, on first join, forever.
+    // There is only one Arena. This marks the founding members.
+    // awardBadge is idempotent — safe on retry, never duplicates.
+
+    awardBadge(supabase, norm, 'arena-original').catch(() => {});
+
+    // ── In-app notification — loyalty loop trigger ────────────────────────
+    // First thing the user sees when they open their envelope.
+    // Drives them to their profile → sees badge → feels invested → shares.
+
+    fetch(`${BASE_URL}/api/notify`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:   norm,
+        type:    'info',
+        title:   '🔥 Arena Original badge awarded',
+        message: 'You joined before 100 members. There is only one Arena — and you were here first.',
+      }),
+    }).catch(() => {});
+
     // ── Discord — rich embed, new_signup event ────────────────────────────
+
     notifyDiscord('', 'new_signup', {
       title:  '🆕 New Arena Member',
       color:  DC.green,
       fields: [
-        { name: 'Name',   value: cleanName,  inline: true  },
-        { name: 'Brand',  value: cleanBrand, inline: true  },
-        { name: 'Source', value: '/mapofpi', inline: true  },
-        { name: 'Email',  value: norm,       inline: false },
+        { name: 'Name',   value: cleanName,   inline: true  },
+        { name: 'Brand',  value: cleanBrand,  inline: true  },
+        { name: 'Source', value: cleanSource, inline: true  },
+        { name: 'Email',  value: norm,        inline: false },
       ],
       footer:    'ANTCPU ADS · Signup',
       timestamp: true,
     }).catch(() => {});
 
     // ── Welcome email — full payload ──────────────────────────────────────
+
     fetch(`${BASE_URL}/api/send-welcome`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
+      body: JSON.stringify({
         email:            norm,
         name:             cleanName,
         brand:            cleanBrand,
