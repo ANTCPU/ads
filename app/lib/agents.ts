@@ -10,6 +10,10 @@
 // The 10 antbots are human-in-the-loop challengers assigned to country champions.
 // When a champion launches an ad, 10 antbots activate — sharing, clicking,
 // engaging — driving the ad up the leaderboard through real activity.
+//
+// v2 (Sep 2026):
+//   — MAC_CONTEXT added — full Map of Pi KB for /api/mac
+//   — buildAgentPrompt updated — MAC gets KB injection, others unchanged
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AgentId = 'scout' | 'aria' | 'herald' | 'ledger' | 'mac' | 'antbot';
@@ -45,8 +49,8 @@ export const AGENT_REGISTRY: AgentDef[] = [
     num:   3,
     name:  'Herald',
     icon:  '✉️',
-    role:  'Notification delivery. Writes to the in-app envelope for every user.',
-    knows: 'Notification types: approved, rejected, points, rank, nudge, aria, info. Delivered on next login.',
+    role:  'Notification and email agent. Drop-off intelligence, nudges, announcements.',
+    knows: 'Notification types: approved, rejected, points, rank, nudge, aria, info. Drop-off buckets: noShares, noAd, inactive. Delivered on next login or via email.',
   },
   {
     id:    'ledger',
@@ -61,8 +65,8 @@ export const AGENT_REGISTRY: AgentDef[] = [
     num:   5,
     name:  'MAC',
     icon:  '🗺️',
-    role:  'Map of Pi agent. Serves the Pi Network community in the Arena.',
-    knows: 'Map of Pi brand, Pi Pioneer badge holders, Pi commerce category ads.',
+    role:  'Map of Pi dedicated assistant. Helps country champions, Pi sellers, and community members navigate the Arena.',
+    knows: 'Full Map of Pi KB injected via MAC_CONTEXT — stats, champion program, points system, tier ladder, phase roadmap, shop categories, arena links, embed system.',
   },
   {
     id:    'antbot',
@@ -100,14 +104,84 @@ Country champions get 10 antbots — human challengers who drive real engagement
 The Arena has brands from Pi Network, photography, marketing, and more.
 `.trim();
 
+// ─── MAC Context — full Map of Pi KB ─────────────────────────────────────────
+// Injected ONLY when agentId === 'mac' via buildAgentPrompt.
+// Imported by /api/mac/route.ts for the dedicated MAC chat endpoint.
+// Built from: MAPOFPI_KB, MAPOFPI_PHASES, MAPOFPI_ICONS, embed API, arena page.
+
+export const MAC_CONTEXT = `
+You are MAC (🗺️), the Map of Pi Arena assistant inside ANTCPU ADS.
+Tone: casual, warm, sharp. You know Pi commerce and the Arena cold.
+Never use hype. Smart friend who knows the platform inside out.
+Keep answers concise unless the user asks for more detail.
+
+── ABOUT MAP OF PI ──────────────────────────────────────────────────────────
+Map of Pi (mapofpi.com) — world's most used Pi Network marketplace.
+Tagline: "More than just a map — it's the future of Pi eCommerce"
+Version 1.8 live. v2 (online shopping) coming soon.
+Stats: 2.1M+ users · 148,000 sellers · 173,000+ transactions
+Pi price ~$0.17 · Market Cap $1.75B · CMC Rank #42 · Launched Oct 2024
+Awards: 2024 Pi Commerce Hackathon Winner · Pi Fest · Pi Day 2026
+Features: global merchant map · trust scores · EscrowPi escrow · Pi Auth + Payments
+KYC verified · free · no bank account needed
+Languages: English, Hindi, German, Akan/Twi + more
+Community: volunteer built · Africa, China, UK, Japan, North America, India, South Korea, Middle East
+Tags: #mapofpi #pinetwork #picommerce #picommunity #buildinpublic
+
+── ARENA PAGE ───────────────────────────────────────────────────────────────
+mapofpi.com/Arena — under construction. When live: embeds all active Map of Pi
+champion ads. Powered by /api/embed/mapofpi. New ad auto-rotates every 60 seconds.
+Up to 40 active ads ordered by points. Every champion gets visibility — not just
+the top ranked. New champions appear within 60 seconds of going live.
+
+── COUNTRY CHAMPION PROGRAM ─────────────────────────────────────────────────
+One champion slot per country · 88 countries available · 90 days free · no card
+10 antbots deployed on launch — human-in-the-loop challengers who share, click,
+and engage with your ad from day one.
+Your shop appears on mapofpi.com/Arena — live in front of the Pi community.
+
+How to earn points:
+Share link → +5 · Click → +3 · Like → +2 · Boost → +5 · Reaction → +1 · Pinned → +50
+
+Phase roadmap:
+✅ Free (0 pts) — icon ad, 10 antbots, Arena embed
+🔒 Rising (100 pts) — higher priority, more impressions
+🔒 Featured (250 pts) — featured placement, cross-channel
+🔒 Top Tier (500 pts) — full network, creator integrations
+🔒 v2 (1000 pts) — Map of Pi online shopping integration
+
+Membership tiers:
+Trial → Member (action badge) → Rising (100 pts) → Veteran (300 pts + loyal badge)
+→ Champion (750 pts + country-champion badge) → Subscriber (paid)
+
+Shop categories:
+☕ Coffee · 🍽️ Restaurant · 🛒 Grocery · 👗 Clothing · 💇 Beauty · 🚗 Auto
+🔧 Services · 📱 Electronics · 🏠 Real Estate · 🎓 Education · 💊 Health
+🎨 Art · 🌿 Farm · 🎵 Entertainment · 📦 General
+
+Arena links:
+/arena/mapofpi · /champions · /dashboard/leaderboard
+/mapofpi/create-shop-ad · /mapofpi · /api/embed/mapofpi
+
+ANTCPU affiliation: affiliate partner · 90 days free for Map of Pi team (vs 3-day standard)
+`.trim();
+
 // ─── Build agent system prompt ────────────────────────────────────────────────
-// Used by ads-agent/route.ts to prepend context to every LLM call.
+// Used by ads-agent/route.ts and /api/mac/route.ts.
+// MAC gets full KB injection — all other agents get standard identity block.
 
 export function buildAgentPrompt(agentId: AgentId | null, userPrompt: string): string {
-  const agent = agentId ? getAgent(agentId) : null;
-  const identity = agent
-    ? `You are ${agent.name} (${agent.icon}), an ANTCPU Arena agent.\nRole: ${agent.role}\nYou know: ${agent.knows}`
-    : `You are an ANTCPU Arena assistant.`;
+  let identity: string;
+
+  if (agentId === 'mac') {
+    // MAC gets full KB — replaces generic identity entirely
+    identity = MAC_CONTEXT;
+  } else {
+    const agent = agentId ? getAgent(agentId) : null;
+    identity = agent
+      ? `You are ${agent.name} (${agent.icon}), an ANTCPU Arena agent.\nRole: ${agent.role}\nYou know: ${agent.knows}`
+      : `You are an ANTCPU Arena assistant.`;
+  }
 
   return `${identity}\n\n${ARENA_CONTEXT}\n\n${userPrompt}`;
 }
