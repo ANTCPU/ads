@@ -3,6 +3,9 @@
 // Layout shell (bg, max-width, padding) owned by layout.tsx.
 // This file owns: nav, data, handlers, section wiring only.
 // Sections extracted to: AriaModal, ActiveAdsModule, DigestMonitor, ArenaFlagsModule
+//
+// v2 (Sep 2026):
+//   — Tools link /mapofpi/arena → /arena/mapofpi
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -51,14 +54,14 @@ const supabase = createClient(
 export default function AntcpuDashboard() {
   const router = useRouter();
 
-  const [hydrated,    setHydrated]    = useState(false);
-  const [user,        setUser]        = useState<any>(null);
-  const [pendingAds,  setPendingAds]  = useState<PendingAd[]>([]);
-  const [loadingAds,  setLoadingAds]  = useState(false);
-  const [actionId,    setActionId]    = useState<string | null>(null);
-  const [ariaAd,      setAriaAd]      = useState<PendingAd | null>(null);
-  const [arenaStats,  setArenaStats]  = useState<ArenaStats | null>(null);
-  const [statsLoading,setStatsLoading]= useState(false);
+  const [hydrated,     setHydrated]     = useState(false);
+  const [user,         setUser]         = useState<any>(null);
+  const [pendingAds,   setPendingAds]   = useState<PendingAd[]>([]);
+  const [loadingAds,   setLoadingAds]   = useState(false);
+  const [actionId,     setActionId]     = useState<string | null>(null);
+  const [ariaAd,       setAriaAd]       = useState<PendingAd | null>(null);
+  const [arenaStats,   setArenaStats]   = useState<ArenaStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // ─── Loaders ──────────────────────────────────────────────────────────────
 
@@ -363,10 +366,10 @@ export default function AntcpuDashboard() {
           <div style={{ fontSize: '0.6rem', color: G.dim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', fontWeight: 700 }}>Tools</div>
           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
             {[
-              { label: '📢 Create Ad', path: '/create-ad'              },
-              { label: '🏟 Arena',     path: '/arena'                  },
-              { label: '🏆 Champions', path: '/champions'              },
-              { label: '🗺️ Map of Pi', path: '/mapofpi/arena'          },
+              { label: '📢 Create Ad', path: '/create-ad'                 },
+              { label: '🏟 Arena',     path: '/arena'                     },
+              { label: '🏆 Champions', path: '/champions'                 },
+              { label: '🗺️ Map of Pi', path: '/arena/mapofpi'             }, // FIX
               { label: '💬 Discord',   path: 'https://discord.gg/antcpu' },
             ].map(({ label, path }) => (
               <button key={path}
@@ -393,4 +396,3 @@ export default function AntcpuDashboard() {
     </>
   );
 }
-
