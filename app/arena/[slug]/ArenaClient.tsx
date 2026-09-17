@@ -265,7 +265,7 @@ export default function ArenaClient() {
     setLiked(prev => ({ ...prev, [ad.id]: true }));
     showToast(ad.id, 'Liked!');
     const n = await recordLike(
-      { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count },
+      { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count, points: ad.points || 0 },
       getSessionId(), SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
