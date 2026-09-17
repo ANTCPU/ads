@@ -1,9 +1,14 @@
 // app/modules/arena-flags/index.tsx
 // ─── Feature flag management — extracted from antcpu/page.tsx ─────────────────
+//
+// v2 (Sep 2026):
+//   — toggleFlag fires pingDiscord with flag_toggle event + rich embed
+//   — markKilled fires pingDiscord with flag_toggle event + red embed
+// ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { G, rowBtn, sectionCard } from '../../lib/adminTokens';
+import { G, rowBtn, sectionCard, pingDiscord }      from '../../lib/adminTokens';
 
 type ArenaFlag = {
   id: string; label: string; description: string;
@@ -20,10 +25,10 @@ const VERSION_TABS = [
 ];
 
 export default function ArenaFlagsModule() {
-  const [flags,       setFlags]       = useState<ArenaFlag[]>([]);
-  const [loading,     setLoading]     = useState(false);
-  const [version,     setVersion]     = useState('beta');
-  const [savingFlag,  setSavingFlag]  = useState<string | null>(null);
+  const [flags,      setFlags]      = useState<ArenaFlag[]>([]);
+  const [loading,    setLoading]    = useState(false);
+  const [version,    setVersion]    = useState('beta');
+  const [savingFlag, setSavingFlag] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,15 +46,61 @@ export default function ArenaFlagsModule() {
     setSavingFlag(id);
     const newEnabled = !currentEnabled;
     const newStatus  = newEnabled ? 'on' : 'off';
-    await fetch('/api/flags', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, enabled: newEnabled, status: newStatus }) });
-    setFlags(prev => prev.map(f => f.id === id ? { ...f, enabled: newEnabled, status: newStatus } : f));
+
+    await fetch('/api/flags', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id, enabled: newEnabled, status: newStatus }),
+    });
+
+    // ── Discord — flag toggle is now auditable ────────────────────────────
+    const flag = flags.find(f => f.id === id);
+    pingDiscord('', 'flag_toggle', {
+      title:  `${newEnabled ? '🟢' : '⚫'} Flag ${newEnabled ? 'Enabled' : 'Disabled'}`,
+      color:  newEnabled ? 0x22c55e : 0x555555,
+      fields: [
+        { name: 'Flag',    value: flag?.label   || id,  inline: true  },
+        { name: 'Status',  value: newStatus.toUpperCase(), inline: true  },
+        { name: 'Version', value: flag?.version || '—', inline: true  },
+        { name: 'ID',      value: id,                   inline: false },
+      ],
+      footer:    'ANTCPU ADS · Arena Flags',
+      timestamp: true,
+    });
+
+    setFlags(prev => prev.map(f =>
+      f.id === id ? { ...f, enabled: newEnabled, status: newStatus } : f
+    ));
     setSavingFlag(null);
   }
 
   async function markKilled(id: string) {
     setSavingFlag(id);
-    await fetch('/api/flags', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, enabled: false, status: 'killed' }) });
-    setFlags(prev => prev.map(f => f.id === id ? { ...f, enabled: false, status: 'killed' } : f));
+
+    await fetch('/api/flags', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ id, enabled: false, status: 'killed' }),
+    });
+
+    // ── Discord — kill is permanent, always visible ───────────────────────
+    const flag = flags.find(f => f.id === id);
+    pingDiscord('', 'flag_toggle', {
+      title:  '✕ Flag Killed',
+      color:  0xef4444,
+      fields: [
+        { name: 'Flag',    value: flag?.label   || id,  inline: true  },
+        { name: 'Status',  value: 'KILLED',             inline: true  },
+        { name: 'Version', value: flag?.version || '—', inline: true  },
+        { name: 'ID',      value: id,                   inline: false },
+      ],
+      footer:    'ANTCPU ADS · Arena Flags',
+      timestamp: true,
+    });
+
+    setFlags(prev => prev.map(f =>
+      f.id === id ? { ...f, enabled: false, status: 'killed' } : f
+    ));
     setSavingFlag(null);
   }
 
@@ -125,4 +176,3 @@ export default function ArenaFlagsModule() {
     </div>
   );
 }
-
