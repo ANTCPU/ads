@@ -1,25 +1,65 @@
 // app/api/turtle/route.ts
-// ─── Turtle Enterprises LLC — External Notification Endpoint ─────────────────
+// ─── Turtle Enterprises LLC — Multi-Channel Discord Router ───────────────────
 //
-// Receives form submissions from antcpu.com/turtle/ (static HTML site).
-// Fires Discord notifications for partner inquiries, interest list signups,
-// and land acquisition interest.
+// Routes form submissions to the correct Discord channel by source.
 //
-// CORS is open to antcpu.com only — webhook URL never leaves this server.
-// No auth required — public endpoint, rate limiting handled by Vercel.
+// Webhook env vars (set in Vercel):
+//   TURTLE_WEBHOOK_WEBSITE  → #website-contact  (partner, interest, land)
+//   TURTLE_WEBHOOK_HOMES    → #homes-for-rent   (rental app, showing request)
+//   TURTLE_WEBHOOK_ALERTS   → #alerts           (system, errors)
+//   TURTLE_WEBHOOK_CONTACT  → #contact          (Super — reserved)
+//   TURTLE_WEBHOOK_ZAPPAI   → #homes-for-rent   (ZappAI automation flows)
 //
-// Sources: partner | interest | land
+// CORS: antcpu.com only
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyDiscord, DC } from '../../lib/discord';
 
-// ── CORS headers — antcpu.com only ───────────────────────────────────────────
 const CORS = {
   'Access-Control-Allow-Origin':  'https://antcpu.com',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+// ── Webhook resolver — picks the right URL by source ─────────────────────────
+function getWebhook(source: string): string | null {
+  const s = source.toLowerCase();
+  if (s.includes('rental') || s.includes('showing')) {
+    return process.env.TURTLE_WEBHOOK_HOMES    || null;
+  }
+  if (s.includes('alert') || s.includes('system')) {
+    return process.env.TURTLE_WEBHOOK_ALERTS   || null;
+  }
+  if (s.includes('contact')) {
+    return process.env.TURTLE_WEBHOOK_CONTACT  || null;
+  }
+  if (s.includes('zappai')) {
+    return process.env.TURTLE_WEBHOOK_ZAPPAI   || null;
+  }
+  // Default: partner, interest, land → #website-contact
+  return process.env.TURTLE_WEBHOOK_WEBSITE    || null;
+}
+
+// ── Color + emoji by source ───────────────────────────────────────────────────
+function getMeta(source: string): { emoji: string; title: string; color: number } {
+  const s = source.toLowerCase();
+  if (s.includes('partner'))  return { emoji: '🤝', title: 'Partner Inquiry',          color: 0x22883f };
+  if (s.includes('interest')) return { emoji: '📬', title: 'Interest List Signup',      color: 0x2da84f };
+  if (s.includes('land'))     return { emoji: '🌱', title: 'Land Acquisition Interest', color: 0xc9a84c };
+  if (s.includes('rental'))   return { emoji: '🏠', title: 'Rental Application',        color: 0x1a6b32 };
+  if (s.includes('showing'))  return { emoji: '📅', title: 'Showing Request',           color: 0x145228 };
+  if (s.includes('amanda'))   return { emoji: '📸', title: 'Photography Inquiry',       color: 0x9333ea };
+  return                             { emoji: '📩', title: 'Website Contact',           color: 0x22883f };
+}
+
+// ── Fire to Discord directly ──────────────────────────────────────────────────
+async function fireDiscord(webhookUrl: string, embed: object): Promise<void> {
+  await fetch(webhookUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ embeds: [embed] }),
+  });
+}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
@@ -27,9 +67,8 @@ export async function OPTIONS() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, source, interest } = await req.json();
+    const { name, email, source, interest, message } = await req.json();
 
-    // Basic validation
     if (!name || !email) {
       return NextResponse.json(
         { ok: false, error: 'name and email required' },
@@ -39,18 +78,32 @@ export async function POST(req: NextRequest) {
 
     const cleanName     = String(name).trim().slice(0, 100);
     const cleanEmail    = String(email).trim().toLowerCase().slice(0, 200);
-    const cleanSource   = String(source   || 'turtle-site').trim().slice(0, 100);
+    const cleanSource   = String(source   || 'website-contact').trim().slice(0, 100);
     const cleanInterest = String(interest || '').trim().slice(0, 300);
+    const cleanMessage  = String(message  || '').trim().slice(0, 500);
 
-    // ── Emoji + color by source ───────────────────────────────────────────
-    const meta: Record<string, { emoji: string; title: string; color: number }> = {
-      partner:  { emoji: '🤝', title: 'Partner Inquiry',    color: DC.green  },
-      interest: { emoji: '📬', title: 'Interest List Signup', color: 0x2da84f },
-      land:     { emoji: '🌱', title: 'Land Acquisition Interest', color: 0xc9a84c },
-    };
+    const webhook = getWebhook(cleanSource);
 
-    const sourceKey = Object.keys(meta).find(k => cleanSource.toLowerCase().includes(k)) || 'partner';
-    const { emoji, title, color } = meta[sourceKey];
+    // ── No webhook configured — alert to #alerts ─────────────────────────
+    if (!webhook) {
+      const alertWebhook = process.env.TURTLE_WEBHOOK_ALERTS;
+      if (alertWebhook) {
+        fireDiscord(alertWebhook, {
+          title: '⚠️ Turtle — Unconfigured Webhook',
+          color: 0xef4444,
+          fields: [
+            { name: 'Source',  value: cleanSource, inline: true  },
+            { name: 'Name',    value: cleanName,   inline: true  },
+            { name: 'Email',   value: cleanEmail,  inline: false },
+          ],
+          footer: { text: 'antcpu.com/turtle · webhook not configured for this source' },
+        }).catch(() => {});
+      }
+      // Still return ok — never block the user
+      return NextResponse.json({ ok: true }, { headers: CORS });
+    }
+
+    const { emoji, title, color } = getMeta(cleanSource);
 
     // ── Build embed fields ────────────────────────────────────────────────
     const fields: { name: string; value: string; inline: boolean }[] = [
@@ -59,17 +112,16 @@ export async function POST(req: NextRequest) {
       { name: 'Source', value: cleanSource, inline: false },
     ];
 
-    if (cleanInterest) {
-      fields.push({ name: 'Interest', value: cleanInterest, inline: false });
-    }
+    if (cleanInterest) fields.push({ name: 'Interest', value: cleanInterest, inline: false });
+    if (cleanMessage)  fields.push({ name: 'Message',  value: cleanMessage,  inline: false });
 
-    // ── Fire Discord — fire and forget, never block the user ─────────────
-    notifyDiscord('', 'general', {
+    // ── Fire and forget — never block the user ────────────────────────────
+    fireDiscord(webhook, {
       title: `${emoji} ${title} — Turtle Enterprises LLC`,
       color,
       fields,
-      footer: `antcpu.com/turtle · ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })}`,
-      timestamp: true,
+      footer: { text: `antcpu.com/turtle · ${new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })}` },
+      timestamp: new Date().toISOString(),
     }).catch(() => {});
 
     return NextResponse.json({ ok: true }, { headers: CORS });
@@ -82,7 +134,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Block unused methods
 export async function GET()    { return NextResponse.json({ ok: false }, { status: 405, headers: CORS }); }
 export async function PUT()    { return NextResponse.json({ ok: false }, { status: 405, headers: CORS }); }
 export async function DELETE() { return NextResponse.json({ ok: false }, { status: 405, headers: CORS }); }
