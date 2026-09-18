@@ -9,12 +9,15 @@
 //   ad_archived | aria_review |
 //   aria_auto_approved | aria_flagged |
 //   general                                 → DISCORD_WEBHOOK_ADS
+//   photo_lead | photo_booking              → DISCORD_WEBHOOK_MANDA_PHOTO
+//   photo_error                             → DISCORD_WEBHOOK_MANDA_HOOKS
 //
 // Usage:
 //   await notifyDiscord(content, 'internship');
 //   await notifyDiscord(content, 'ad_approved', embed);
 //   await notifyDiscord('', 'new_signup', embed);
 //   await notifyDiscord('', 'flag_toggle', embed);
+//   await notifyDiscord('', 'photo_booking', embed);
 //
 // ⚠️  SERVER-ONLY — never import this file from a client component or page.
 //     Webhook URLs are resolved lazily at call time, never at module load.
@@ -23,6 +26,10 @@
 //   — new_signup event explicit routing → DISCORD_WEBHOOK_ADS
 //   — click_milestone moved → DISCORD_WEBHOOK_SHARES (engagement, not ops)
 //   — flag_toggle event added → DISCORD_WEBHOOK_ADS (ops visibility)
+//
+// v3 (Sep 2026):
+//   — photo_lead, photo_booking → DISCORD_WEBHOOK_MANDA_PHOTO (#manda-photography)
+//   — photo_error               → DISCORD_WEBHOOK_MANDA_HOOKS (#web-dev)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'server-only'; // 🔒 Hard stop — Next.js will throw a build error
@@ -49,6 +56,9 @@ export type DiscordEvent =
   | 'aria_review'        // First ad queued for review    → DISCORD_WEBHOOK_ADS
   | 'aria_auto_approved' // Subsequent ad auto-approved   → DISCORD_WEBHOOK_ADS
   | 'aria_flagged'       // Subsequent ad flagged by Aria → DISCORD_WEBHOOK_ADS
+  | 'photo_lead'         // Amanda partial lead           → DISCORD_WEBHOOK_MANDA_PHOTO
+  | 'photo_booking'      // Amanda full booking           → DISCORD_WEBHOOK_MANDA_PHOTO
+  | 'photo_error'        // Amanda system error           → DISCORD_WEBHOOK_MANDA_HOOKS
   | 'general';           // Catch-all                     → DISCORD_WEBHOOK_ADS
 
 // ─── Embed types ──────────────────────────────────────────────────────────────
@@ -98,6 +108,11 @@ function getWebhook(event?: DiscordEvent): string | undefined {
     case 'share':
     case 'click_milestone':  // engagement signals — same channel as shares
       return process.env.DISCORD_WEBHOOK_SHARES;
+    case 'photo_lead':
+    case 'photo_booking':    // Amanda Photography — bookings channel
+      return process.env.DISCORD_WEBHOOK_MANDA_PHOTO;
+    case 'photo_error':      // Amanda Photography — dev/errors channel
+      return process.env.DISCORD_WEBHOOK_MANDA_HOOKS;
     case 'new_signup':       // explicit — was silently falling to general
     case 'flag_toggle':      // ops visibility — admin actions auditable
     default:
