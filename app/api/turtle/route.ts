@@ -68,18 +68,20 @@ function captureIdentity(email: string, name: string, source: string): void {
     .eq('email', email)
     .maybeSingle()
     .then(({ data }) => {
-      if (data) return; // already exists — no-op
-      return supabase.from('ad_signups').insert({
-        email,
-        name,
-        brand_name: 'Turtle Enterprises',
-        status: 'lead',
-        role: 'user',
-        source: `turtle-${source.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`,
-        created_at: new Date().toISOString(),
-      });
+      if (data) return;
+      return Promise.resolve(
+        supabase.from('ad_signups').insert({
+          email,
+          name,
+          brand_name: 'Turtle Enterprises',
+          status:     'lead',
+          role:       'user',
+          source:     `turtle-${source.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`,
+          created_at: new Date().toISOString(),
+        })
+      );
     })
-    .catch(() => {}); // never throw
+    .catch(() => {});
 }
 
 export async function OPTIONS() {
