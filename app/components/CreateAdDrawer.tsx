@@ -35,11 +35,21 @@ type ExistingAd = {
 
 type User = { name: string; email: string; brand: string; trialStatus: string };
 
+// ── NEW: optional pre-fill from MAC conversation ──────────────────────────────
+type InitialForm = {
+  title?:      string;
+  description?: string;
+  category?:   string;
+  country?:    string;
+  isChampion?: boolean; // true = MAC confirmed country champion slot is open
+};
+
 type Props = {
-  open:       boolean;
-  onClose:    () => void;
-  user:       User;
-  onSuccess?: () => void;
+  open:         boolean;
+  onClose:      () => void;
+  user:         User;
+  onSuccess?:   () => void;
+  initialForm?: InitialForm; // ← new — passed from MAC page
 };
 
 // 🔒 Internal helper — routes all Discord calls through /api/discord-notify
@@ -52,7 +62,7 @@ function pingDiscord(content: string, event = 'general') {
   }).catch(() => {});
 }
 
-export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props) {
+export default function CreateAdDrawer({ open, onClose, user, onSuccess, initialForm }: Props) {
   const [loading,       setLoading]       = useState(false);
   const [form,          setForm]          = useState({ title: '', url: '', description: '', category: 'Brand Awareness' });
   const [submitted,     setSubmitted]     = useState(false);
@@ -87,13 +97,25 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
   useEffect(() => {
     if (!open) return;
     setSubmitted(false);
-    setForm({ title: '', url: '', description: '', category: 'Brand Awareness' });
     setSelectedBrand(user.brand || '');
     setTargetEmail('');
     setTargetBrand('');
     setUrlHint('');
-    setTab('my-ad');
-    checkExisting(user.email);
+
+    // ── Seed from MAC if initialForm provided, else blank ────────────────────
+    if (initialForm?.title || initialForm?.description) {
+      setForm({
+        title:       initialForm.title       || '',
+        url:         '',
+        description: initialForm.description || '',
+        category:    initialForm.category    || 'Pi Commerce',
+      });
+      setTab('new-ad'); // go straight to new-ad tab — MAC already built the draft
+    } else {
+      setForm({ title: '', url: '', description: '', category: 'Brand Awareness' });
+      setTab('my-ad');
+      checkExisting(user.email);
+    }
   }, [open]);
 
   async function checkExisting(email: string) {
@@ -147,7 +169,6 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
       body:    JSON.stringify({ ad_id: existingAd.id }),
     }).catch(() => {});
 
-    // 🔒 Routed through API
     pingDiscord(
       `✏️ **Ad Edited**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})`,
       'ad_approved'
@@ -178,7 +199,6 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     }]).select('id').single();
 
     if (!error && data?.id) {
-      // 🔒 Routed through API
       pingDiscord(
         `🔄 **Ad Replaced**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})`,
         'aria_review'
@@ -209,9 +229,8 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
     }]).select('id').single();
 
     if (!error && data?.id) {
-      // 🔒 Routed through API
       pingDiscord(
-        `🆕 **New Ad Submitted**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})\n**Status:** ${isAdmin ? 'active' : 'pending_review'}`,
+        `🆕 **New Ad Submitted**\n**Brand:** ${resolvedBrand}\n**Title:** "${form.title.trim()}"\n**Email:** ${resolvedEmail}\n**URL:** ${r.url} (${r.source})\n**Status:** ${isAdmin ? 'active' : 'pending_review'}${initialForm?.isChampion ? '\n🏆 Country Champion candidate' : ''}`,
         'new_signup'
       );
       if (!isAdmin) {
@@ -280,9 +299,23 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
         {/* HANDLE + CLOSE */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <div style={{ width: '40px', height: '4px', background: '#333', borderRadius: '999px' }} />
-          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#888' }}>📢 Ad Builder</div>
+          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#888' }}>
+            {initialForm?.isChampion ? '🏆 Country Champion Ad' : '📢 Ad Builder'}
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
         </div>
+
+        {/* CHAMPION BANNER — shown when MAC confirmed slot is open */}
+        {initialForm?.isChampion && (
+          <div style={{
+            background: '#0a1a0a', border: '1px solid #22c55e40',
+            borderRadius: '10px', padding: '0.75rem 1rem',
+            marginBottom: '1rem', fontSize: '0.82rem', color: '#22c55e',
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+          }}>
+            🏆 <span><strong>Country Champion slot is open.</strong> First to publish claims it — 10 antbots deploy on launch.</span>
+          </div>
+        )}
 
         {/* SUBMITTED */}
         {submitted ? (
@@ -314,7 +347,9 @@ export default function CreateAdDrawer({ open, onClose, user, onSuccess }: Props
               </button>
               <button style={tabBtn(tab === 'new-ad')} onClick={() => {
                 setTab('new-ad');
-                setForm({ title: '', url: '', description: '', category: 'Brand Awareness' });
+                if (!initialForm?.title) {
+                  setForm({ title: '', url: '', description: '', category: 'Brand Awareness' });
+                }
               }}>
                 ➕ New Ad {isAdmin ? '· Any Brand' : ''}
               </button>
