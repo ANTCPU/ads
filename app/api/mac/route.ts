@@ -16,7 +16,7 @@
 //   9. captureIdentity() if real email
 //  10. Return { reply, sessionId, tokens, ad_draft, champion_slot_open }
 //
-// CORS: antcpu-ads.vercel.app + mapofpi.pinet.app + antcpu.com
+// CORS: open — MAC page can be embedded anywhere
 // No flag gate — MAC is live
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -30,7 +30,7 @@ const supabase = createClient(
 );
 
 const CORS = {
-  'Access-Control-Allow-Origin':  '*', // mac page can be embedded anywhere
+  'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
@@ -40,6 +40,7 @@ export async function OPTIONS() {
 }
 
 // ── Check country champion slot ───────────────────────────────────────────────
+
 async function checkChampionSlot(country: string): Promise<boolean> {
   if (!country || country === 'unknown') return false;
   try {
@@ -56,32 +57,31 @@ async function checkChampionSlot(country: string): Promise<boolean> {
   }
 }
 
-// ── Capture identity — fire and forget ────────────────────────────────────────
-function captureIdentity(email: string, country: string): void {
-  supabase
-    .from('ad_signups')
-    .select('email')
-    .eq('email', email)
-    .maybeSingle()
-    .then(({ data }) => {
-      if (data) return;
-      return Promise.resolve(
-        supabase.from('ad_signups').insert({
-          email,
-          name:       'MAC Lead',
-          brand_name: 'Map of Pi',
-          status:     'lead',
-          role:       'user',
-          source:     'mac-shop',
-          country:    country || null,
-          created_at: new Date().toISOString(),
-        })
-      );
-    })
-    .catch(() => {});
+// ── Capture identity — async, fire and forget at call site ────────────────────
+
+async function captureIdentity(email: string, country: string): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from('ad_signups')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+    if (data) return;
+    await supabase.from('ad_signups').insert({
+      email,
+      name:       'MAC Lead',
+      brand_name: 'Map of Pi',
+      status:     'lead',
+      role:       'user',
+      source:     'mac-shop',
+      country:    country || null,
+      created_at: new Date().toISOString(),
+    });
+  } catch {}
 }
 
 // ── Persist turns to mac_conversations ───────────────────────────────────────
+
 async function persistTurns(
   email:       string,
   sessionId:   string,
@@ -113,12 +113,13 @@ async function persistTurns(
 }
 
 // ── Log to agent_runs ─────────────────────────────────────────────────────────
+
 async function logAgentRun(
-  email:   string,
-  input:   string,
-  output:  string,
-  tokens:  number,
-  status:  string,
+  email:  string,
+  input:  string,
+  output: string,
+  tokens: number,
+  status: string,
 ): Promise<void> {
   try {
     await supabase.from('agent_runs').insert({
@@ -137,6 +138,7 @@ async function logAgentRun(
 }
 
 // ── Parse [AD_DRAFT] block from reply ─────────────────────────────────────────
+
 type AdDraft = {
   title:       string;
   description: string;
@@ -156,7 +158,6 @@ function parseAdDraft(reply: string): { clean: string; draft: AdDraft } {
   const description = get('description');
   const category    = get('category') || 'Pi Commerce';
 
-  // Strip the [AD_DRAFT] block from the visible reply
   const clean = reply.replace(/\[AD_DRAFT\][\s\S]*?\[\/AD_DRAFT\]/, '').trim();
 
   if (!title || !description) return { clean: reply, draft: null };
@@ -168,6 +169,7 @@ function parseAdDraft(reply: string): { clean: string; draft: AdDraft } {
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -229,7 +231,7 @@ export async function POST(req: NextRequest) {
 
     if (!runRes.ok) {
       const errMsg = runData.error || 'Agent error';
-      logAgentRun(cleanEmail, message, errMsg, 0, 'error').catch(() => {});
+      void logAgentRun(cleanEmail, message, errMsg, 0, 'error');
       return NextResponse.json({ error: errMsg }, { status: 500, headers: CORS });
     }
 
@@ -240,13 +242,13 @@ export async function POST(req: NextRequest) {
     const { clean: reply, draft: ad_draft } = parseAdDraft(rawReply);
 
     // ── 6. Persist + log + identity — fire and forget ─────────────────────────
-    Promise.all([
+    void Promise.all([
       persistTurns(cleanEmail, sessionId, cleanCountry, cleanLang, message, reply),
       logAgentRun(cleanEmail, message, reply, tokens, 'complete'),
       cleanEmail !== 'visitor' && cleanEmail.includes('@')
-        ? Promise.resolve(captureIdentity(cleanEmail, cleanCountry))
+        ? captureIdentity(cleanEmail, cleanCountry)
         : Promise.resolve(),
-    ]).catch(() => {});
+    ]);
 
     return NextResponse.json(
       { reply, sessionId, tokens, ad_draft, champion_slot_open: championSlotOpen },
