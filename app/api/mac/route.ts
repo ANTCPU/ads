@@ -65,16 +65,18 @@ function captureIdentity(email: string, country: string): void {
     .maybeSingle()
     .then(({ data }) => {
       if (data) return;
-      return supabase.from('ad_signups').insert({
-        email,
-        name:       'MAC Lead',
-        brand_name: 'Map of Pi',
-        status:     'lead',
-        role:       'user',
-        source:     'mac-shop',
-        country:    country || null,
-        created_at: new Date().toISOString(),
-      });
+      return Promise.resolve(
+        supabase.from('ad_signups').insert({
+          email,
+          name:       'MAC Lead',
+          brand_name: 'Map of Pi',
+          status:     'lead',
+          role:       'user',
+          source:     'mac-shop',
+          country:    country || null,
+          created_at: new Date().toISOString(),
+        })
+      );
     })
     .catch(() => {});
 }
