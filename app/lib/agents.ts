@@ -14,17 +14,22 @@
 // v2 (Sep 2026):
 //   — MAC_CONTEXT added — full Map of Pi KB for /api/mac
 //   — buildAgentPrompt updated — MAC gets KB injection, others unchanged
+//
+// v3 (Sep 2026):
+//   — MAC_SHOP_CONTEXT added — focused shop builder persona for /api/mac
+//   — Wraps MAC_CONTEXT KB with conversation goal, language logic, ad draft format
+//   — buildAgentPrompt updated — 'mac-shop' variant routes to MAC_SHOP_CONTEXT
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type AgentId = 'scout' | 'aria' | 'herald' | 'ledger' | 'mac' | 'antbot';
 
 export type AgentDef = {
-  id:     AgentId;
-  num:    number;
-  name:   string;
-  icon:   string;
-  role:   string;
-  knows:  string;
+  id:    AgentId;
+  num:   number;
+  name:  string;
+  icon:  string;
+  role:  string;
+  knows: string;
 };
 
 export const AGENT_REGISTRY: AgentDef[] = [
@@ -65,8 +70,8 @@ export const AGENT_REGISTRY: AgentDef[] = [
     num:   5,
     name:  'MAC',
     icon:  '🗺️',
-    role:  'Map of Pi dedicated assistant. Helps country champions, Pi sellers, and community members navigate the Arena.',
-    knows: 'Full Map of Pi KB injected via MAC_CONTEXT — stats, champion program, points system, tier ladder, phase roadmap, shop categories, arena links, embed system.',
+    role:  'Map of Pi shop builder. Guides Pi sellers through creating their first Arena ad via conversation.',
+    knows: 'Full Map of Pi KB — stats, champion program, points system, tier ladder, phase roadmap, shop categories. Detects language, surfaces champion slots, outputs structured ad drafts.',
   },
   {
     id:    'antbot',
@@ -105,9 +110,8 @@ The Arena has brands from Pi Network, photography, marketing, and more.
 `.trim();
 
 // ─── MAC Context — full Map of Pi KB ─────────────────────────────────────────
-// Injected ONLY when agentId === 'mac' via buildAgentPrompt.
-// Imported by /api/mac/route.ts for the dedicated MAC chat endpoint.
-// Built from: MAPOFPI_KB, MAPOFPI_PHASES, MAPOFPI_ICONS, embed API, arena page.
+// Kept for backward compatibility and general Map of Pi Q&A.
+// For the shop builder flow, use MAC_SHOP_CONTEXT instead.
 
 export const MAC_CONTEXT = `
 You are MAC (🗺️), the Map of Pi Arena assistant inside ANTCPU ADS.
@@ -166,18 +170,97 @@ Arena links:
 ANTCPU affiliation: affiliate partner · 90 days free for Map of Pi team (vs 3-day standard)
 `.trim();
 
+// ─── MAC Shop Context — focused shop builder persona ─────────────────────────
+// Used by /api/mac/route.ts for the in-arena shop builder conversation.
+// Goal: guide a Pi seller to a live arena ad in one conversation.
+//
+// Route injects dynamic values at call time:
+//   {{LANGUAGE}}        — detected locale code (en, ar, zh, hi, pt, fr, id, tr, ko...)
+//   {{COUNTRY}}         — user's detected country
+//   {{CHAMPION_STATUS}} — 'open' | 'taken' — whether country slot is available
+//
+// Ad draft output format — route parses this block from the reply:
+//   [AD_DRAFT]
+//   title: ...
+//   description: ...
+//   category: ...
+//   [/AD_DRAFT]
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const MAC_SHOP_CONTEXT = `
+You are MAC (🗺️), the Map of Pi shop builder inside the ANTCPU Arena.
+Tone: warm, direct, encouraging. One question at a time. No fluff.
+You speak the user's language — always respond in {{LANGUAGE}}.
+
+YOUR GOAL: Help this Pi seller get their shop live in the Arena in one conversation.
+The Arena is free. It takes 2 minutes. 10 antbots deploy on launch.
+
+── WHAT YOU KNOW ────────────────────────────────────────────────────────────
+${MAC_CONTEXT}
+
+── CONVERSATION FLOW ────────────────────────────────────────────────────────
+Follow this order. One question per message. Never ask two things at once.
+
+Step 1 — Shop name + what they sell (one question)
+  "What's your shop name and what do you sell?"
+
+Step 2 — Country (skip if already known from {{COUNTRY}})
+  "Which country are you based in?"
+
+Step 3 — Champion slot (inject based on {{CHAMPION_STATUS}})
+  If OPEN:  "Great news — the {{COUNTRY}} champion slot is open right now.
+             First shop to claim it gets 10 antbots promoting your ad from day one.
+             What makes your shop different from others in your category?"
+  If TAKEN: "What makes your shop different from others in your category?"
+
+Step 4 — Pi payments
+  "Do you accept Pi as payment?"
+
+Step 5 — Output ad draft
+  Once you have: shop name, what they sell, country, differentiator, Pi status
+  → Write the ad draft in {{LANGUAGE}}
+  → Output the structured block below EXACTLY — route parses it
+
+[AD_DRAFT]
+title: [max 60 chars — shop name + strongest hook]
+description: [max 120 chars — one sentence, what they sell + differentiator]
+category: [one of: Pi Commerce, Brand Awareness, Product Launch, Service Offering, Event, Other]
+[/AD_DRAFT]
+
+After the draft block, add one line in {{LANGUAGE}}:
+"Ready to go live? Hit 'Create This Ad' to publish to the Arena."
+
+── RULES ────────────────────────────────────────────────────────────────────
+- Always respond in {{LANGUAGE}} — even if the user writes in English
+- Keep every message under 3 sentences unless outputting the draft
+- Never ask for email or payment details
+- Never mention Pi SDK limitations
+- If user goes off-topic, gently redirect: "Let's get your shop live first —"
+- Ad title and description should be in {{LANGUAGE}} unless user asks for English
+- Category defaults to 'Pi Commerce' for Map of Pi shops
+`.trim();
+
 // ─── Build agent system prompt ────────────────────────────────────────────────
 // Used by ads-agent/route.ts and /api/mac/route.ts.
 // MAC gets full KB injection — all other agents get standard identity block.
+// 'mac-shop' variant uses MAC_SHOP_CONTEXT with dynamic values pre-injected
+// by /api/mac/route.ts before calling this function.
 
-export function buildAgentPrompt(agentId: AgentId | null, userPrompt: string): string {
+export function buildAgentPrompt(
+  agentId: AgentId | 'mac-shop' | null,
+  userPrompt: string,
+  macShopContext?: string, // pre-rendered MAC_SHOP_CONTEXT with {{vars}} replaced
+): string {
   let identity: string;
 
-  if (agentId === 'mac') {
-    // MAC gets full KB — replaces generic identity entirely
+  if (agentId === 'mac-shop' && macShopContext) {
+    // Shop builder — caller pre-renders MAC_SHOP_CONTEXT with dynamic values
+    identity = macShopContext;
+  } else if (agentId === 'mac') {
+    // General Map of Pi Q&A — full KB, no shop builder flow
     identity = MAC_CONTEXT;
   } else {
-    const agent = agentId ? getAgent(agentId) : null;
+    const agent = agentId ? getAgent(agentId as AgentId) : null;
     identity = agent
       ? `You are ${agent.name} (${agent.icon}), an ANTCPU Arena agent.\nRole: ${agent.role}\nYou know: ${agent.knows}`
       : `You are an ANTCPU Arena assistant.`;
