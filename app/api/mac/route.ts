@@ -1,61 +1,93 @@
 // app/api/mac/route.ts
-// ─── MAC Chat API — Map of Pi AI Companion ────────────────────────────────────
-// Dedicated endpoint for MacChatOverlay.
-// Accepts: { message, history, language, fieldContext, email, sessionId }
-// Returns: { reply, sessionId, tokens }
+// ─── MAC Chat API — Map of Pi Shop Builder ────────────────────────────────────
+// Dedicated endpoint for the MAC shop builder page (/mac).
+// Accepts: { message, history, language, country, email, sessionId }
+// Returns: { reply, sessionId, tokens, ad_draft, champion_slot_open }
 //
 // Flow:
-//   1. Resolve session — generate if not provided
-//   2. Build multi-turn Gemini contents[] from history
-//   3. Inject MAC_CONTEXT as system turn
-//   4. Call Gemini 2.5 Flash
-//   5. Persist both turns to mac_conversations
-//   6. Log run to agent_runs
-//   7. Return { reply, sessionId, tokens }
+//   1. Resolve session, language, country
+//   2. Check country champion slot — query ads table
+//   3. Render MAC_SHOP_CONTEXT with live values
+//   4. Build full prompt from history + current message
+//   5. Call /api/agents/run (botId: 5 — MAC)
+//   6. Parse [AD_DRAFT] block from reply if present
+//   7. Persist turns to mac_conversations
+//   8. Log to agent_runs
+//   9. captureIdentity() if real email
+//  10. Return { reply, sessionId, tokens, ad_draft, champion_slot_open }
 //
-// Flag-gated: mac-agent must be ON (checked at call time)
-// Server-only — never import from client components
+// CORS: antcpu-ads.vercel.app + mapofpi.pinet.app + antcpu.com
+// No flag gate — MAC is live
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
-import { MAC_CONTEXT, ARENA_CONTEXT } from '../../lib/agents';
+import { MAC_SHOP_CONTEXT }          from '../../lib/agents';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const TOWER_BEACON = 'https://antcpu.com/api/beacon';
+const CORS = {
+  'Access-Control-Allow-Origin':  '*', // mac page can be embedded anywhere
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
-// ── Tower log — fire and forget ───────────────────────────────────────────────
-async function logToTower(status: string, tokens: number, email?: string) {
-  fetch(TOWER_BEACON, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      node_id:     'mac-agent',
-      action:      'gemini_call',
-      message:     `[gemini-2.5-flash] MAC · chat — ${status} — ${tokens} tokens${email ? ` · ${email}` : ''}`,
-      status:      status === 'complete' ? 'active' : 'warn',
-      priority:    3,
-      reward:      '0',
-      reward_type: 'test',
-      session:     'mac',
-      sprint_id:   null,
-    }),
-  }).catch(() => {});
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
 }
 
-// ── Persist to mac_conversations ──────────────────────────────────────────────
+// ── Check country champion slot ───────────────────────────────────────────────
+async function checkChampionSlot(country: string): Promise<boolean> {
+  if (!country || country === 'unknown') return false;
+  try {
+    const { data } = await supabase
+      .from('ads')
+      .select('id')
+      .eq('country', country)
+      .eq('is_country_champion', true)
+      .eq('status', 'active')
+      .maybeSingle();
+    return !data; // true = slot is open
+  } catch {
+    return false;
+  }
+}
+
+// ── Capture identity — fire and forget ────────────────────────────────────────
+function captureIdentity(email: string, country: string): void {
+  supabase
+    .from('ad_signups')
+    .select('email')
+    .eq('email', email)
+    .maybeSingle()
+    .then(({ data }) => {
+      if (data) return;
+      return supabase.from('ad_signups').insert({
+        email,
+        name:       'MAC Lead',
+        brand_name: 'Map of Pi',
+        status:     'lead',
+        role:       'user',
+        source:     'mac-shop',
+        country:    country || null,
+        created_at: new Date().toISOString(),
+      });
+    })
+    .catch(() => {});
+}
+
+// ── Persist turns to mac_conversations ───────────────────────────────────────
 async function persistTurns(
-  email:        string,
-  sessionId:    string,
-  fieldContext: string,
-  language:     string,
-  userMessage:  string,
-  macReply:     string,
-) {
+  email:       string,
+  sessionId:   string,
+  country:     string,
+  language:    string,
+  userMessage: string,
+  macReply:    string,
+): Promise<void> {
   try {
     await supabase.from('mac_conversations').insert([
       {
@@ -63,7 +95,7 @@ async function persistTurns(
         session_id:    sessionId,
         role:          'user',
         message:       userMessage.slice(0, 2000),
-        field_context: fieldContext || null,
+        field_context: country || null,
         language,
       },
       {
@@ -71,7 +103,7 @@ async function persistTurns(
         session_id:    sessionId,
         role:          'mac',
         message:       macReply.slice(0, 2000),
-        field_context: fieldContext || null,
+        field_context: country || null,
         language,
       },
     ]);
@@ -80,17 +112,16 @@ async function persistTurns(
 
 // ── Log to agent_runs ─────────────────────────────────────────────────────────
 async function logAgentRun(
-  email:       string,
-  input:       string,
-  output:      string,
-  tokens:      number,
-  status:      string,
-  flagState:   string,
-) {
+  email:   string,
+  input:   string,
+  output:  string,
+  tokens:  number,
+  status:  string,
+): Promise<void> {
   try {
     await supabase.from('agent_runs').insert({
       agent_id:     'mac',
-      channel:      'chat',
+      channel:      'mac-shop',
       trigger:      'user',
       input:        input.slice(0, 500),
       output:       output.slice(0, 500),
@@ -98,123 +129,130 @@ async function logAgentRun(
       status,
       email:        email || null,
       brand:        'Map of Pi',
-      flag_state:   flagState,
-      source_route: '/api/agents/mac',
+      source_route: '/api/mac',
     });
   } catch {}
 }
 
-// ── POST ──────────────────────────────────────────────────────────────────────
+// ── Parse [AD_DRAFT] block from reply ─────────────────────────────────────────
+type AdDraft = {
+  title:       string;
+  description: string;
+  category:    string;
+  ready:       boolean;
+} | null;
 
+function parseAdDraft(reply: string): { clean: string; draft: AdDraft } {
+  const match = reply.match(/\[AD_DRAFT\]([\s\S]*?)\[\/AD_DRAFT\]/);
+  if (!match) return { clean: reply, draft: null };
+
+  const block = match[1];
+  const get   = (key: string) =>
+    block.match(new RegExp(`${key}:\\s*(.+)`))?.[1]?.trim() || '';
+
+  const title       = get('title');
+  const description = get('description');
+  const category    = get('category') || 'Pi Commerce';
+
+  // Strip the [AD_DRAFT] block from the visible reply
+  const clean = reply.replace(/\[AD_DRAFT\][\s\S]*?\[\/AD_DRAFT\]/, '').trim();
+
+  if (!title || !description) return { clean: reply, draft: null };
+
+  return {
+    clean,
+    draft: { title, description, category, ready: true },
+  };
+}
+
+// ── POST ──────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const {
       message,
-      history     = [],
-      language    = 'en',
-      fieldContext = 'default',
-      email       = 'visitor',
+      history  = [],
+      language = 'en',
+      country  = 'unknown',
+      email    = 'visitor',
       sessionId: incomingSessionId,
     } = await req.json();
 
     if (!message?.trim()) {
-      return NextResponse.json({ error: 'message required' }, { status: 400 });
+      return NextResponse.json({ error: 'message required' }, { status: 400, headers: CORS });
     }
 
-    const apiKey = process.env.GOOGLE_AI_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
-    }
+    const cleanEmail   = String(email).trim().toLowerCase();
+    const cleanCountry = String(country).trim();
+    const cleanLang    = String(language).trim() || 'en';
+    const sessionId    = incomingSessionId || crypto.randomUUID();
 
-    // ── Check mac-agent flag ──────────────────────────────────────────────────
-    const { data: flagRow } = await supabase
-      .from('arena_flags')
-      .select('enabled')
-      .eq('id', 'mac-agent')
-      .maybeSingle();
+    // ── 1. Check champion slot ────────────────────────────────────────────────
+    const championSlotOpen = await checkChampionSlot(cleanCountry);
+    const championStatus   = championSlotOpen ? 'open' : 'taken';
 
-    // Default: off unless explicitly enabled in DB
-    const flagEnabled = flagRow?.enabled === true;
-    const flagState   = flagEnabled ? 'on' : 'off';
+    // ── 2. Render MAC_SHOP_CONTEXT with live values ───────────────────────────
+    const renderedContext = MAC_SHOP_CONTEXT
+      .replace(/\{\{LANGUAGE\}\}/g,        cleanLang)
+      .replace(/\{\{COUNTRY\}\}/g,         cleanCountry)
+      .replace(/\{\{CHAMPION_STATUS\}\}/g, championStatus);
 
-    if (!flagEnabled) {
-      return NextResponse.json({
-        reply:     "M.A.C. is coming soon. I'll be ready to help with your Map of Pi shop shortly.",
-        sessionId: incomingSessionId || crypto.randomUUID(),
-        tokens:    0,
-        gated:     true,
-      });
-    }
+    // ── 3. Build full prompt — context + history + current message ────────────
+    const historyText = history.length
+      ? history.map((t: { role: string; text: string }) =>
+          `${t.role === 'mac' ? 'MAC' : 'User'}: ${t.text}`
+        ).join('\n')
+      : '';
 
-    // ── Session ID ────────────────────────────────────────────────────────────
-    const sessionId = incomingSessionId || crypto.randomUUID();
+    const fullPrompt = [
+      renderedContext,
+      historyText ? `\n── CONVERSATION SO FAR ──\n${historyText}` : '',
+      `\nUser: ${message.trim()}`,
+      `\nMAC:`,
+    ].join('\n');
 
-    // ── Build Gemini multi-turn contents[] ────────────────────────────────────
-    // Turn 1: system context injected as first user turn + model ack
-    // Then: prior history turns
-    // Last: current user message
-
-    const systemTurn = `${MAC_CONTEXT}\n\n${ARENA_CONTEXT}\n\nAlways respond in ${language} language. Keep responses under 3 sentences unless the user asks for more detail.`;
-
-    const contents: { role: string; parts: { text: string }[] }[] = [
-      // System context as opening user turn
-      { role: 'user',  parts: [{ text: systemTurn }] },
-      { role: 'model', parts: [{ text: "Understood. I'm MAC, ready to help with Map of Pi." }] },
-    ];
-
-    // Prior history turns
-    for (const turn of history) {
-      contents.push({
-        role:  turn.role === 'mac' ? 'model' : 'user',
-        parts: [{ text: turn.text }],
-      });
-    }
-
-    // Current message
-    contents.push({
-      role:  'user',
-      parts: [{ text: message }],
+    // ── 4. Call /api/agents/run (botId: 5 — MAC) ─────────────────────────────
+    const runUrl = new URL('/api/agents/run', req.url);
+    const runRes = await fetch(runUrl.toString(), {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt:  fullPrompt,
+        botId:   5,
+        channel: 'mac-shop',
+        email:   cleanEmail !== 'visitor' ? cleanEmail : undefined,
+      }),
     });
 
-    // ── Call Gemini ───────────────────────────────────────────────────────────
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            maxOutputTokens: 1000,
-            temperature:     0.7,
-          },
-        }),
-      }
-    );
+    const runData = await runRes.json();
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      const errMsg = data.error?.message || 'Gemini error';
-      await logToTower(`error — ${errMsg}`, 0, email);
-      await logAgentRun(email, message, errMsg, 0, 'error', flagState);
-      return NextResponse.json({ error: errMsg }, { status: 500 });
+    if (!runRes.ok) {
+      const errMsg = runData.error || 'Agent error';
+      logAgentRun(cleanEmail, message, errMsg, 0, 'error').catch(() => {});
+      return NextResponse.json({ error: errMsg }, { status: 500, headers: CORS });
     }
 
-    const reply  = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm not sure about that — try asking differently.";
-    const tokens = data.usageMetadata?.totalTokenCount || 0;
+    const rawReply = runData.result || "I'm not sure about that — try asking differently.";
+    const tokens   = runData.tokens || 0;
 
-    // ── Persist + log — fire and forget ──────────────────────────────────────
+    // ── 5. Parse ad draft ─────────────────────────────────────────────────────
+    const { clean: reply, draft: ad_draft } = parseAdDraft(rawReply);
+
+    // ── 6. Persist + log + identity — fire and forget ─────────────────────────
     Promise.all([
-      persistTurns(email, sessionId, fieldContext, language, message, reply),
-      logAgentRun(email, message, reply, tokens, 'complete', flagState),
-      logToTower('complete', tokens, email),
+      persistTurns(cleanEmail, sessionId, cleanCountry, cleanLang, message, reply),
+      logAgentRun(cleanEmail, message, reply, tokens, 'complete'),
+      cleanEmail !== 'visitor' && cleanEmail.includes('@')
+        ? Promise.resolve(captureIdentity(cleanEmail, cleanCountry))
+        : Promise.resolve(),
     ]).catch(() => {});
 
-    return NextResponse.json({ reply, sessionId, tokens });
+    return NextResponse.json(
+      { reply, sessionId, tokens, ad_draft, champion_slot_open: championSlotOpen },
+      { headers: CORS }
+    );
 
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'unknown error';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500, headers: CORS });
   }
 }
