@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
       .select(`
         id,
         completed_at,
+        class_id,
+        lesson_id,
         edu_classes ( slug, label, icon, category ),
         edu_lessons ( slug, title, lesson_order )
       `)
@@ -45,7 +47,9 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error
 
-    // Group by class slug
+    type ClassRow = { slug: string; label: string; icon: string; category: string }
+    type LessonRow = { slug: string; title: string; lesson_order: number }
+
     const byClass: Record<string, {
       class_slug: string
       label: string
@@ -56,9 +60,20 @@ export async function GET(req: NextRequest) {
     }> = {}
 
     for (const row of (rows ?? [])) {
-      const cls  = row.edu_classes as { slug: string; label: string; icon: string; category: string } | null
-      const les  = row.edu_lessons as { slug: string; title: string; lesson_order: number } | null
+      const rawCls = row.edu_classes
+      const rawLes = row.edu_lessons
+
+      // Supabase returns joined rows as object or array — normalise both
+      const cls: ClassRow | null = Array.isArray(rawCls)
+        ? (rawCls[0] ?? null)
+        : (rawCls as ClassRow | null)
+
+      const les: LessonRow | null = Array.isArray(rawLes)
+        ? (rawLes[0] ?? null)
+        : (rawLes as LessonRow | null)
+
       if (!cls || !les) continue
+
       if (!byClass[cls.slug]) {
         byClass[cls.slug] = {
           class_slug: cls.slug,
