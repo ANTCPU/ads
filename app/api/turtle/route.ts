@@ -61,27 +61,24 @@ async function fireDiscord(webhookUrl: string, embed: object): Promise<void> {
 }
 
 // ── Upsert to ad_signups — fire and forget, never blocks ──────────────────────
-function captureIdentity(email: string, name: string, source: string): void {
-  supabase
-    .from('ad_signups')
-    .select('email')
-    .eq('email', email)
-    .maybeSingle()
-    .then(({ data }) => {
-      if (data) return;
-      return Promise.resolve(
-        supabase.from('ad_signups').insert({
-          email,
-          name,
-          brand_name: 'Turtle Enterprises',
-          status:     'lead',
-          role:       'user',
-          source:     `turtle-${source.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`,
-          created_at: new Date().toISOString(),
-        })
-      );
-    })
-    .catch(() => {});
+async function captureIdentity(email: string, name: string, source: string): Promise<void> {
+  try {
+    const { data } = await supabase
+      .from('ad_signups')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+    if (data) return;
+    await supabase.from('ad_signups').insert({
+      email,
+      name,
+      brand_name: 'Turtle Enterprises',
+      status:     'lead',
+      role:       'user',
+      source:     `turtle-${source.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`,
+      created_at: new Date().toISOString(),
+    });
+  } catch {}
 }
 
 export async function OPTIONS() {
