@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest) {
     const { data: ads, error } = await supabase
       .from('ads')
       .select('id, brand, country, points, email, rank_position, reaction_count, share_count, click_count, pinned')
-      .eq('status', 'active');
+      .eq('status', 'active') .limit(500);
 
     if (error) throw error;
 
