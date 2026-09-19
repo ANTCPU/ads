@@ -1,6 +1,7 @@
 'use client';
 
 import VaultModal                  from './components/VaultModal';
+import FeaturedPartnerCard         from './components/FeaturedPartnerCard';
 import { useState, useEffect }     from 'react';
 import { Locale, t, isRTL }        from './lib/i18n/index';
 import LanguageSwitcher            from './components/LanguageSwitcher';
@@ -22,16 +23,24 @@ const MAP_STATS = [
   { v: '88',    l: 'Countries'    },
 ];
 
+// ─── Season 1 arenas ──────────────────────────────────────────────────────────
+const SEASONS = [
+  { n: '0', label: 'Arena 0',   icon: '⚡', color: '#f0883e', desc: 'The original. Always open.',          status: 'live',    href: '/arena'          },
+  { n: '1', label: 'Season 1',  icon: '🍂', color: '#D4AF37', desc: 'The Foundation. Sep 22 → Dec 21.',   status: 'soon',    href: '/arena/season1'  },
+  { n: '2', label: 'Season 2',  icon: '❄️', color: '#0070f3', desc: 'The Rise. Dec 21 → Mar 20.',         status: 'coming',  href: '#'               },
+  { n: '3', label: 'Season 3',  icon: '🌸', color: '#ff0080', desc: 'The Bloom. Mar 20 → Jun 21.',        status: 'coming',  href: '#'               },
+  { n: '4', label: 'Season 4',  icon: '☀️', color: '#22c55e', desc: 'The Peak. Jun 21 → Sep 22.',         status: 'coming',  href: '#'               },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
   const [scrolled,      setScrolled]      = useState(false);
   const [vaultOpen,     setVaultOpen]     = useState(false);
   const [piPrice,       setPiPrice]       = useState('...');
-  // ── Active locale — prop wins for route wrappers, localStorage for root / ──
   const [activeLocale,  setActiveLocale]  = useState<Locale>(locale);
 
-  // ── Live stats from /api/stats ────────────────────────────────────────────
+  // ── Live stats ────────────────────────────────────────────────────────────
   const [liveAds,       setLiveAds]       = useState<number | null>(null);
   const [liveBrands,    setLiveBrands]    = useState<number | null>(null);
   const [liveCountries, setLiveCountries] = useState<number | null>(null);
@@ -39,15 +48,15 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   const [liveReactions, setLiveReactions] = useState<number | null>(null);
   const [liveShares,    setLiveShares]    = useState<number | null>(null);
 
+  // ── Countdown to Sep 22 ───────────────────────────────────────────────────
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, mins: 0 });
+
   useEffect(() => {
-    // Read stored locale — only when on root / (locale prop defaults to 'en')
-    // Route wrappers (/fr, /ar etc.) pass locale directly — prop always wins
     if (locale === 'en') {
       const stored = getStoredLocale();
       if (stored !== 'en') setActiveLocale(stored);
     }
 
-    // Pi price
     fetch('/pi-price')
       .then(r => r.json())
       .then(d => {
@@ -55,7 +64,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         if (pi) setPiPrice(`$${pi.toFixed(4)}`);
       }).catch(() => {});
 
-    // Live network stats
     fetch('/api/stats', { cache: 'no-store' })
       .then(r => r.json())
       .then(d => {
@@ -67,11 +75,29 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         setLiveShares(d.totalShares       ?? null);
       }).catch(() => {});
 
-    // Scroll nav
+    // Countdown to Sep 22 2026 00:00 UTC
+    function tick() {
+      const target = new Date('2026-09-22T00:00:00Z').getTime();
+      const diff   = target - Date.now();
+      if (diff <= 0) { setCountdown({ days: 0, hours: 0, mins: 0 }); return; }
+      setCountdown({
+        days:  Math.floor(diff / 86_400_000),
+        hours: Math.floor((diff % 86_400_000) / 3_600_000),
+        mins:  Math.floor((diff % 3_600_000)  / 60_000),
+      });
+    }
+    tick();
+    const timer = setInterval(tick, 60_000);
+
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      clearInterval(timer);
+    };
+  }, [locale]);
+
+  const isSeason1Live = countdown.days === 0 && countdown.hours === 0 && countdown.mins === 0;
 
   // ── Locale-aware arrays ───────────────────────────────────────────────────
   const STEPS = [
@@ -161,20 +187,20 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
   const css = `
     @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes ember  { 0%,100%{opacity:0.6;transform:translateY(0)} 50%{opacity:1;transform:translateY(-4px)} }
     .hero-in { animation: fadeUp 0.7s ease forwards; }
     a.cta:hover, button.cta:hover { opacity:0.85; transform:translateY(-1px); }
     a.ghost:hover { background:#ffffff10 !important; }
     .card-hover:hover { border-color:#333 !important; transform:translateY(-3px); }
     .row-hover:hover  { background:#161616 !important; }
     .nav-a:hover      { color:#ccc !important; }
+    .season-card:hover { transform:translateY(-2px); border-color:#333 !important; }
   `;
 
-  // ── Derived hero badge text ───────────────────────────────────────────────
   const heroBadge = liveAds !== null
     ? `${liveAds} ads live · ${liveBrands} brands · ${liveCountries} countries`
     : t(activeLocale, 'hero_badge');
 
-  // ── Final CTA subtext ─────────────────────────────────────────────────────
   const finalSub = liveAds !== null
     ? `${liveAds} ads live. ${liveBrands} brands competing.${liveReactions ? ` ${liveReactions.toLocaleString()} reactions.` : ''} Join them.`
     : t(activeLocale, 'final_sub');
@@ -203,6 +229,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <LanguageSwitcher />
+          <a href="/arena" className="nav-a"
+            style={{ fontSize: '13px', color: C.muted2,
+              textDecoration: 'none', transition: 'color 0.2s' }}>
+            The Arena
+          </a>
           <button onClick={() => setVaultOpen(true)} className="nav-a"
             style={{ background: 'none', border: 'none', color: C.muted2,
               cursor: 'pointer', fontSize: '13px', transition: 'color 0.2s' }}>
@@ -217,18 +248,87 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
       <div style={{ paddingTop: 60 }}>
 
+        {/* ── SEASON 1 ANNOUNCEMENT BANNER ── */}
+        {!isSeason1Live ? (
+          <div style={{
+            background:    `linear-gradient(90deg, ${C.gold}15, ${C.orange}10, transparent)`,
+            borderBottom:  `1px solid ${C.gold}30`,
+            padding:       '10px clamp(16px,5vw,48px)',
+            display:       'flex',
+            alignItems:    'center',
+            justifyContent:'space-between',
+            flexWrap:      'wrap',
+            gap:           '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1rem' }}>🍂</span>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: C.gold }}>
+                Season 1 · The Foundation
+              </span>
+              <span style={{ fontSize: '12px', color: C.muted2 }}>
+                Opens September 22 · Four arenas · Fresh start
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Countdown */}
+              <div style={{ display: 'flex', gap: '6px', fontSize: '11px' }}>
+                {[
+                  { v: countdown.days,  l: 'd' },
+                  { v: countdown.hours, l: 'h' },
+                  { v: countdown.mins,  l: 'm' },
+                ].map(c => (
+                  <span key={c.l} style={{
+                    background:   `${C.gold}15`,
+                    border:       `1px solid ${C.gold}30`,
+                    borderRadius: '6px',
+                    padding:      '2px 7px',
+                    color:        C.gold,
+                    fontWeight:   800,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {String(c.v).padStart(2, '0')}{c.l}
+                  </span>
+                ))}
+              </div>
+              <a href="/arena/season1"
+                style={{ ...btn(C.gold), padding: '5px 14px', fontSize: '12px' }}>
+                Join Season 1 →
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            background:    `linear-gradient(90deg, ${C.gold}20, ${C.orange}15, transparent)`,
+            borderBottom:  `1px solid ${C.gold}40`,
+            padding:       '10px clamp(16px,5vw,48px)',
+            display:       'flex', alignItems: 'center',
+            justifyContent:'space-between', gap: '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%',
+                background: C.gold, animation: 'pulse 2s infinite',
+                display: 'inline-block' }} />
+              <span style={{ fontSize: '13px', fontWeight: 700, color: C.gold }}>
+                🍂 Season 1 is live — The Foundation has begun
+              </span>
+            </div>
+            <a href="/arena/season1"
+              style={{ ...btn(C.gold), padding: '5px 14px', fontSize: '12px' }}>
+              Enter Season 1 →
+            </a>
+          </div>
+        )}
+
         {/* ── HERO ── */}
         <section style={{ position: 'relative', minHeight: '90vh',
           display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
 
-          {/* Grid lines */}
           {[15,30,50,70,85].map((p,i) => (
             <div key={i} style={{ position: 'absolute', top: 0, bottom: 0,
               left: `${p}%`, width: 1,
               background: 'linear-gradient(to bottom,transparent,#ffffff06,transparent)' }} />
           ))}
 
-          {/* Glow */}
           <div style={{ position: 'absolute', top: '30%', left: '50%',
             transform: 'translate(-50%,-50%)', width: 700, height: 700,
             pointerEvents: 'none',
@@ -236,7 +336,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
           <div className="hero-in" style={{ ...sec, width: '100%' }}>
 
-            {/* Live badge */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8,
               background: `${C.teal}10`, border: `1px solid ${C.teal}25`,
               borderRadius: 999, padding: '6px 16px', fontSize: 12,
@@ -287,12 +386,12 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           <div style={{ ...sec, display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 1 }}>
             {[
-              { v: liveAds        !== null ? String(liveAds)                    : '…', l: 'Live Ads',   c: C.blue   },
-              { v: liveBrands     !== null ? String(liveBrands)                 : '…', l: 'Brands',     c: C.orange },
-              { v: liveCountries  !== null ? String(liveCountries)              : '…', l: 'Countries',  c: C.gold   },
-              { v: livePoints     !== null ? livePoints.toLocaleString()        : '…', l: 'Points',     c: C.teal   },
-              { v: liveReactions  !== null ? liveReactions.toLocaleString()     : '…', l: 'Reactions',  c: C.purple },
-              { v: liveShares     !== null ? liveShares.toLocaleString()        : '…', l: 'Shares',     c: C.green  },
+              { v: liveAds        !== null ? String(liveAds)                 : '…', l: 'Live Ads',   c: C.blue   },
+              { v: liveBrands     !== null ? String(liveBrands)              : '…', l: 'Brands',     c: C.orange },
+              { v: liveCountries  !== null ? String(liveCountries)           : '…', l: 'Countries',  c: C.gold   },
+              { v: livePoints     !== null ? livePoints.toLocaleString()     : '…', l: 'Points',     c: C.teal   },
+              { v: liveReactions  !== null ? liveReactions.toLocaleString()  : '…', l: 'Reactions',  c: C.purple },
+              { v: liveShares     !== null ? liveShares.toLocaleString()     : '…', l: 'Shares',     c: C.green  },
             ].map(s => (
               <div key={s.l} style={{ textAlign: 'center', padding: '28px 16px',
                 borderRight: `1px solid ${C.border}` }}>
@@ -419,19 +518,100 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </div>
         </section>
 
-        {/* ── FEATURED PARTNER — MAP OF PI ── */}
+        {/* ── THE ARENAS — SEASON MAP ── */}
         <section style={{ ...pad, background: '#0d0d0d',
           borderBottom: `1px solid ${C.border}` }}>
           <div style={sec}>
+            <div style={tag}>The Arena Network</div>
+            <h2 style={h2}>Five arenas. One network.</h2>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 32,
+              maxWidth: 520, lineHeight: 1.65 }}>
+              Arena 0 never resets — it's the original, always running.
+              Seasonal arenas open every 90 days. Fresh start. New champion crowned at the close.
+              Every brand can earn their own sub-arena through shares.
+            </p>
+            <div style={{ display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+              {SEASONS.map((s) => {
+                const isLive   = s.status === 'live';
+                const isSoon   = s.status === 'soon';
+                const isActive = s.href !== '#';
+                return (
+                  <a key={s.n}
+                    href={isActive ? s.href : undefined}
+                    className="season-card"
+                    style={{
+                      background:    C.card,
+                      border:        `1px solid ${isLive || isSoon ? s.color + '40' : C.border}`,
+                      borderLeft:    `3px solid ${s.color}`,
+                      borderRadius:  12,
+                      padding:       '20px 18px',
+                      textDecoration:'none',
+                      display:       'block',
+                      transition:    'all 0.2s',
+                      cursor:        isActive ? 'pointer' : 'default',
+                      opacity:       s.status === 'coming' ? 0.55 : 1,
+                      position:      'relative',
+                      overflow:      'hidden',
+                    }}>
+                    {/* Live pulse */}
+                    {isLive && (
+                      <div style={{ position: 'absolute', top: 12, right: 12,
+                        width: 7, height: 7, borderRadius: '50%',
+                        background: s.color, animation: 'pulse 2s infinite' }} />
+                    )}
+                    {/* Soon badge */}
+                    {isSoon && (
+                      <div style={{ position: 'absolute', top: 10, right: 10,
+                        background: `${s.color}20`, border: `1px solid ${s.color}40`,
+                        borderRadius: '999px', padding: '1px 8px',
+                        fontSize: 9, fontWeight: 800, color: s.color,
+                        letterSpacing: '0.08em' }}>
+                        SEP 22
+                      </div>
+                    )}
+                    <div style={{ fontSize: '1.4rem', marginBottom: 8 }}>{s.icon}</div>
+                    <div style={{ fontWeight: 800, fontSize: 14,
+                      color: s.color, marginBottom: 4 }}>
+                      {s.label}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                      {s.desc}
+                    </div>
+                    {s.status === 'coming' && (
+                      <div style={{ fontSize: 10, color: C.muted2,
+                        marginTop: 8, fontWeight: 600 }}>
+                        Coming soon
+                      </div>
+                    )}
+                  </a>
+                );
+              })}
+            </div>
+            <p style={{ fontSize: 12, color: C.muted2, marginTop: 16 }}>
+              Every brand earns their own arena. Share your ad to build your audience. →{' '}
+              <a href="/arena" style={{ color: C.orange, textDecoration: 'none' }}>
+                See all sub-arenas
+              </a>
+            </p>
+          </div>
+        </section>
+
+        {/* ── FEATURED PARTNER ── */}
+        <section style={{ ...pad, borderBottom: `1px solid ${C.border}` }}>
+          <div style={sec}>
             <div style={tag}>{t(activeLocale, 'partner_section_label')}</div>
+
+            {/* Live featured partner — rotates weekly via badge */}
+            <FeaturedPartnerCard season="Season 1" />
+
+            {/* ── Permanent Map of Pi partner block ── */}
             <div style={{ background: C.card, border: `1px solid ${C.gold}30`,
               borderRadius: 20, padding: 'clamp(28px,4vw,48px)',
-              position: 'relative', overflow: 'hidden' }}>
+              position: 'relative', overflow: 'hidden', marginTop: '1.5rem' }}>
 
-              {/* Gold top line */}
               <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2,
                 background: `linear-gradient(to right,transparent,${C.gold},transparent)` }} />
-              {/* Gold glow */}
               <div style={{ position: 'absolute', top: -60, right: -60,
                 width: 200, height: 200, borderRadius: '50%', pointerEvents: 'none',
                 background: `radial-gradient(circle,${C.gold}18 0%,transparent 70%)` }} />
@@ -441,7 +621,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 20, color: C.white }}>Map of Pi</div>
                   <div style={{ fontSize: 12, color: C.gold }}>
-                    Featured Partner · 🏆 2024 Pi Commerce Hackathon Winner
+                    Founding Partner · 🏆 2024 Pi Commerce Hackathon Winner
                   </div>
                 </div>
               </div>
@@ -505,7 +685,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           <div style={{ ...sec, textAlign: 'center' }}>
             <div style={tag}>{t(activeLocale, 'final_section_label')}</div>
             <h2 style={{ ...h2, textAlign: 'center', fontSize: 'clamp(28px,5vw,52px)' }}>
-              The Arena is open.<br />
+              Season 1 opens September 22.<br />
               <span style={{ color: C.orange }}>Your brand belongs here.</span>
             </h2>
             <p style={{ color: C.muted, fontSize: 15, lineHeight: 1.7,
@@ -518,8 +698,9 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
                 style={{ ...btn(C.orange), fontSize: 16, padding: '14px 36px' }}>
                 {t(activeLocale, 'final_cta')}
               </a>
-              <a href="/arena" className="ghost" style={{ ...ghostBtn, fontSize: 16 }}>
-                {t(activeLocale, 'hero_cta_secondary')}
+              <a href="/arena/season1" className="cta"
+                style={{ ...btn(C.gold), fontSize: 16, padding: '14px 36px' }}>
+                🍂 Join Season 1 →
               </a>
             </div>
             <button onClick={() => setVaultOpen(true)}
@@ -540,11 +721,11 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
           </span>
           <div style={{ display: 'flex', gap: 24 }}>
             {[
-              ['Arena',     '/arena'    ],
-              ['Guide',     '/guide'    ],
-              ['Champions', '/champions'],
-              ['About',     '/about'    ],
-              ['Profile',   '/profile'  ],
+              ['Arena',     '/arena'         ],
+              ['Season 1',  '/arena/season1' ],
+              ['Champions', '/champions'     ],
+              ['Guide',     '/guide'         ],
+              ['About',     '/about'         ],
             ].map(([l, h]) => (
               <a key={l} href={h} className="nav-a"
                 style={{ fontSize: 13, color: C.muted2,
@@ -565,4 +746,4 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
     </div>
   );
 }
- 
+
