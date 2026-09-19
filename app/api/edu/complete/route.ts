@@ -3,18 +3,23 @@
 //
 // Called from antcpu.com/edu lesson pages when student clicks Mark Complete.
 // Writes a row to edu_progress linking email + class + lesson.
-// Idempotent — duplicate completions are allowed, deduped on read.
+// Idempotent — duplicate completions are skipped.
 //
-// On first completion:
+// On completion:
+//   → edu_progress row inserted
 //   → captureIdentity() — email into ad_signups, source: edu-{class_slug}
-//   → heraldNudge()     — if lesson 1, send "keep going" email via herald
+//   → badge awarded — lesson-{n} badge written to student record
+//   → notifyDiscord() — fires to #edu channel
+//
+// No emails sent — completion earns badges, not inbox noise.
+// Teachers email students. School emails announcements only.
 //
 // CORS open to antcpu.com
 // No auth required — email is student-supplied from localStorage.
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
-import { heraldSend, heraldWrap }    from '../../../lib/herald'
+import { notifyDiscord, DC }         from '../../../lib/discord'
 
 const CORS = {
   'Access-Control-Allow-Origin':  'https://antcpu.com',
@@ -53,75 +58,64 @@ async function captureIdentity(email: string, classSlug: string): Promise<void> 
   } catch {}
 }
 
-// ── Herald nudge — lesson 1 completion only ───────────────────────────────────
-// Sends a single "keep going" email when a student completes their first
-// lesson in a class. Checks total lesson count first — only fires on lesson 1.
+// ── Award badge ───────────────────────────────────────────────────────────────
+// Writes to edu_badges — simple record of what the student earned.
+// Badge key format: {class_slug}-lesson-{n}
+// Class completion badge: {class_slug}-complete
+// Displayed in student dashboard — not sent via email.
 
-async function heraldNudge(
-  email:     string,
-  classSlug: string,
-  classTitle: string,
-  nextLessonUrl: string,
-): Promise<void> {
+async function awardBadge(
+  email:       string,
+  classSlug:   string,
+  lessonOrder: number,
+  totalLessons: number,
+): Promise<string[]> {
+  const awarded: string[] = []
+
   try {
-    // Only nudge on first lesson — check total completions for this class
-    const { data: progress } = await supabase
-      .from('edu_progress')
+    const lessonBadge = `${classSlug}-lesson-${lessonOrder}`
+
+    // Lesson badge
+    const { data: existing } = await supabase
+      .from('edu_badges')
       .select('id')
       .eq('email', email)
-      .eq('class_id', (
-        await supabase
-          .from('edu_classes')
-          .select('id')
-          .eq('slug', classSlug)
-          .maybeSingle()
-      ).data?.id)
+      .eq('badge', lessonBadge)
+      .maybeSingle()
 
-    // More than 1 completion means they're already progressing — no nudge
-    if ((progress?.length ?? 0) > 1) return
+    if (!existing) {
+      await supabase.from('edu_badges').insert({
+        email,
+        badge:      lessonBadge,
+        class_slug: classSlug,
+        earned_at:  new Date().toISOString(),
+      })
+      awarded.push(lessonBadge)
+    }
 
-    const html = heraldWrap(
-      'en',
-      `
-      <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;
-        padding:2rem;text-align:center;margin-bottom:1.5rem">
-        <div style="font-size:2rem;margin-bottom:0.75rem">🎓</div>
-        <div style="font-weight:800;font-size:1.2rem;margin-bottom:0.5rem">
-          Lesson 1 complete.
-        </div>
-        <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
-          You just finished your first lesson in
-          <strong style="color:#fff">${classTitle}</strong>.<br>
-          Lesson 2 is ready — keep the momentum going.
-        </div>
-        <a href="${nextLessonUrl}"
-          style="display:inline-block;background:#f0883e;color:#fff;
-          text-decoration:none;font-weight:800;font-size:0.9rem;
-          padding:0.75rem 1.75rem;border-radius:10px">
-          Continue to Lesson 2 →
-        </a>
-      </div>
+    // Class completion badge — if this is the final lesson
+    if (lessonOrder >= totalLessons) {
+      const completeBadge = `${classSlug}-complete`
+      const { data: existingComplete } = await supabase
+        .from('edu_badges')
+        .select('id')
+        .eq('email', email)
+        .eq('badge', completeBadge)
+        .maybeSingle()
 
-      <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;
-        padding:1.25rem;font-size:0.82rem;color:#555;text-align:center">
-        All lessons are free · No signup required · Self-paced<br>
-        <a href="https://antcpu.com/edu/catalog/"
-          style="color:#f0883e;text-decoration:none;margin-top:0.4rem;
-          display:inline-block">
-          Browse all 48 lessons →
-        </a>
-      </div>
-      `,
-      'antcpu EDU · Free Classes',
-      email,
-    )
-
-    await heraldSend({
-      to:      email,
-      subject: `🎓 Lesson 1 done — lesson 2 is ready`,
-      html,
-    })
+      if (!existingComplete) {
+        await supabase.from('edu_badges').insert({
+          email,
+          badge:      completeBadge,
+          class_slug: classSlug,
+          earned_at:  new Date().toISOString(),
+        })
+        awarded.push(completeBadge)
+      }
+    }
   } catch {}
+
+  return awarded
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
@@ -142,7 +136,7 @@ export async function POST(req: NextRequest) {
     // Look up class
     const { data: cls } = await supabase
       .from('edu_classes')
-      .select('id, title')
+      .select('id, title, lesson_count')
       .eq('slug', class_slug)
       .maybeSingle()
 
@@ -153,7 +147,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Look up lesson — include lesson_order to detect lesson 1
+    // Look up lesson
     const { data: lesson } = await supabase
       .from('edu_lessons')
       .select('id, lesson_order, title')
@@ -194,19 +188,41 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
 
-    // ── Fire and forget — never blocks response ───────────────────────────────
-    const isFirstLesson = (lesson.lesson_order ?? 1) === 1
-    const nextLessonUrl = `https://antcpu.com/edu/classes/${class_slug}/`
+    const lessonOrder  = lesson.lesson_order ?? 1
+    const totalLessons = cls.lesson_count    ?? 99
+    const classTitleSafe = cls.title ?? class_slug
+    const isClassComplete = lessonOrder >= totalLessons
 
+    // ── Fire and forget ───────────────────────────────────────────────────────
     void Promise.all([
       captureIdentity(cleanEmail, class_slug),
-      isFirstLesson
-        ? heraldNudge(cleanEmail, class_slug, cls.title ?? class_slug, nextLessonUrl)
-        : Promise.resolve(),
+      awardBadge(cleanEmail, class_slug, lessonOrder, totalLessons)
+        .then(awarded => {
+          if (awarded.length === 0) return
+          void notifyDiscord('', 'edu_nudge', {
+            title:  isClassComplete
+              ? `🏆 EDU — Class Complete`
+              : `🎓 EDU — Lesson ${lessonOrder} Complete`,
+            color:  isClassComplete ? DC.gold : DC.edu,
+            fields: [
+              { name: 'Email',   value: cleanEmail,                   inline: true  },
+              { name: 'Lesson',  value: `${lessonOrder}/${totalLessons}`, inline: true },
+              { name: 'Class',   value: classTitleSafe,               inline: false },
+              { name: 'Badges',  value: awarded.join(', '),           inline: false },
+            ],
+            footer:    'antcpu EDU · badge awarded',
+            timestamp: true,
+          })
+        }),
     ])
 
     return NextResponse.json(
-      { ok: true, status: 'complete' },
+      {
+        ok:               true,
+        status:           'complete',
+        lesson_order:     lessonOrder,
+        class_complete:   isClassComplete,
+      },
       { headers: CORS }
     )
 
