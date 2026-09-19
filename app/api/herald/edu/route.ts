@@ -1,29 +1,31 @@
 // app/api/herald/edu/route.ts
-// ─── Herald EDU — Student Nudge Engine ───────────────────────────────────────
-// Sends targeted emails to EDU students based on progress state.
+// ─── Herald EDU — School Announcement Engine + Drop-off Intelligence ──────────
 //
-// POST — send a specific nudge type to a specific email
-//   { email, type, class_slug? }
+// POST — school-level announcements only
+//   { email, type: 'announcement', subject, html }
+//   or
+//   { emails: string[], type: 'announcement', subject, html } — bulk
 //
-// GET — returns EDU drop-off intelligence (same pattern as /api/herald)
+// GET — drop-off intelligence for admin/teacher view
 //   Returns buckets:
-//     stalled     — completed lesson 1 but nothing in 7+ days
-//     never_nudged — in ad_signups via edu source, zero edu_progress
-//     multi_class  — completed 2+ classes — ready for arena/internship CTA
+//     stalled      — has progress, nothing in 7+ days
+//     never_started — in ad_signups via edu source, zero edu_progress
+//     multi_class   — completed lessons in 2+ classes
 //
-// Nudge types:
-//   'lesson2'      — completed lesson 1, nudge to lesson 2
-//   'comeback'     — stalled 7+ days, come back
-//   'arena'        — completed a full class, arena CTA
-//   'internship'   — completed 2+ classes, internship CTA
-//   'announcement' — custom subject + body (admin broadcast to EDU students)
+// Email philosophy:
+//   Teachers email their students — that's their relationship.
+//   School (antcpu EDU) emails announcements only — new classes, events.
+//   Lesson completion earns badges, shown in student dashboard.
+//   No automated nudge emails — Discord #edu is the real-time signal.
 //
+// Discord: all events → DISCORD_WEBHOOK_EDU (#edu) via edu_nudge
 // CORS: antcpu-ads.vercel.app only — internal
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { NextRequest, NextResponse }          from 'next/server'
-import { createClient }                       from '@supabase/supabase-js'
-import { heraldSend, heraldWrap, heraldHeader } from '../../../lib/herald'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient }              from '@supabase/supabase-js'
+import { heraldSend, heraldWrap }    from '../../../lib/herald'
+import { notifyDiscord, DC }         from '../../../lib/discord'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,108 +44,6 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
 
-// ── Email builders ────────────────────────────────────────────────────────────
-
-function buildLesson2Email(classTitle: string, classUrl: string, email: string): string {
-  return heraldWrap('en', `
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;
-      padding:2rem;text-align:center;margin-bottom:1.5rem">
-      <div style="font-size:2rem;margin-bottom:0.75rem">🎓</div>
-      <div style="font-weight:800;font-size:1.2rem;margin-bottom:0.5rem">
-        Lesson 2 is waiting.
-      </div>
-      <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
-        You started <strong style="color:#fff">${classTitle}</strong>.<br>
-        Pick up where you left off — it only takes a few minutes.
-      </div>
-      <a href="${classUrl}"
-        style="display:inline-block;background:#f0883e;color:#fff;
-        text-decoration:none;font-weight:800;font-size:0.9rem;
-        padding:0.75rem 1.75rem;border-radius:10px">
-        Continue Learning →
-      </a>
-    </div>
-    <div style="text-align:center;font-size:0.78rem;color:#555">
-      Free · Self-paced · No pressure
-    </div>
-  `, 'antcpu EDU', email)
-}
-
-function buildComebackEmail(classTitle: string, classUrl: string, email: string): string {
-  return heraldWrap('en', `
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;
-      padding:2rem;text-align:center;margin-bottom:1.5rem">
-      <div style="font-size:2rem;margin-bottom:0.75rem">👋</div>
-      <div style="font-weight:800;font-size:1.2rem;margin-bottom:0.5rem">
-        Come back when you're ready.
-      </div>
-      <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
-        Your progress in <strong style="color:#fff">${classTitle}</strong>
-        is saved.<br>Pick up exactly where you left off.
-      </div>
-      <a href="${classUrl}"
-        style="display:inline-block;background:#f0883e;color:#fff;
-        text-decoration:none;font-weight:800;font-size:0.9rem;
-        padding:0.75rem 1.75rem;border-radius:10px">
-        Resume Class →
-      </a>
-    </div>
-  `, 'antcpu EDU', email)
-}
-
-function buildArenaEmail(classTitle: string, email: string): string {
-  return heraldWrap('en', `
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;
-      padding:2rem;text-align:center;margin-bottom:1.5rem">
-      <div style="font-size:2rem;margin-bottom:0.75rem">⚡</div>
-      <div style="font-weight:800;font-size:1.2rem;margin-bottom:0.5rem">
-        You finished ${classTitle}.
-      </div>
-      <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
-        Put those skills to work. The Arena is where real brands get built —
-        free to join, 10 antbots on launch.
-      </div>
-      <a href="https://antcpu-ads.vercel.app"
-        style="display:inline-block;background:#f0883e;color:#fff;
-        text-decoration:none;font-weight:800;font-size:0.9rem;
-        padding:0.75rem 1.75rem;border-radius:10px">
-        Enter the Arena →
-      </a>
-    </div>
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;
-      padding:1rem;font-size:0.82rem;color:#555;text-align:center">
-      Free · 3-day trial · No credit card
-    </div>
-  `, 'antcpu EDU → Arena', email)
-}
-
-function buildInternshipEmail(email: string): string {
-  return heraldWrap('en', `
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;
-      padding:2rem;text-align:center;margin-bottom:1.5rem">
-      <div style="font-size:2rem;margin-bottom:0.75rem">🔭</div>
-      <div style="font-weight:800;font-size:1.2rem;margin-bottom:0.5rem">
-        You're ready for the internship.
-      </div>
-      <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
-        You've completed multiple classes. The antcpu.io Human in the Loop
-        Internship Challenge is the next step — 31 days, real roles, real CV.
-        Free.
-      </div>
-      <a href="https://antcpu.io/apply/"
-        style="display:inline-block;background:#2563eb;color:#fff;
-        text-decoration:none;font-weight:800;font-size:0.9rem;
-        padding:0.75rem 1.75rem;border-radius:10px">
-        Apply Now — Free →
-      </a>
-    </div>
-    <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;
-      padding:1rem;font-size:0.82rem;color:#555;text-align:center">
-      31 days · Real roles · Real CV · Free · New cohorts monthly
-    </div>
-  `, 'antcpu EDU → Internship', email)
-}
-
 // ── GET — drop-off intelligence ───────────────────────────────────────────────
 
 export async function GET() {
@@ -154,55 +54,51 @@ export async function GET() {
     { data: allProgress },
     { data: unsubList },
   ] = await Promise.all([
-    // Everyone who entered via EDU
     supabase
       .from('ad_signups')
       .select('email, name, source, created_at')
       .like('source', 'edu-%')
-      .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`),
-
-    // All EDU progress
+      .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`)
+      .limit(500),
     supabase
       .from('edu_progress')
       .select('email, class_id, lesson_id, created_at')
       .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`)
-      .order('created_at', { ascending: false }),
-
-    // Unsubscribes
+      .order('created_at', { ascending: false })
+      .limit(2000),
     supabase
       .from('unsubscribes')
-      .select('email'),
+      .select('email')
+      .limit(500),
   ])
 
-  const signups   = allEduSignups ?? []
-  const progress  = allProgress   ?? []
-  const unsubs    = new Set((unsubList ?? []).map((r: any) => r.email))
+  const signups  = allEduSignups ?? []
+  const progress = allProgress   ?? []
+  const unsubs   = new Set((unsubList ?? []).map((r: any) => r.email))
 
-  // Group progress by email
   const progressByEmail: Record<string, typeof progress> = {}
   for (const row of progress) {
     if (!progressByEmail[row.email]) progressByEmail[row.email] = []
     progressByEmail[row.email].push(row)
   }
 
-  // Bucket 1 — never_nudged: in ad_signups via edu, zero progress
-  const neverNudged = signups
+  // Never started — in ad_signups via edu, zero progress
+  const neverStarted = signups
     .filter(s => !unsubs.has(s.email) && !progressByEmail[s.email]?.length)
 
-  // Bucket 2 — stalled: has progress, last activity > 7 days ago
-  const stalledEmails = new Set<string>()
+  // Stalled — has progress, last activity > 7 days
   const stalled: { email: string; last_active: string; lessons_done: number }[] = []
-
+  const seen = new Set<string>()
   for (const [email, rows] of Object.entries(progressByEmail)) {
-    if (unsubs.has(email)) continue
+    if (unsubs.has(email) || seen.has(email)) continue
     const lastActive = rows[0]?.created_at
-    if (lastActive && lastActive < sevenDaysAgo && !stalledEmails.has(email)) {
-      stalledEmails.add(email)
+    if (lastActive && lastActive < sevenDaysAgo) {
+      seen.add(email)
       stalled.push({ email, last_active: lastActive, lessons_done: rows.length })
     }
   }
 
-  // Bucket 3 — multi_class: completed lessons in 2+ distinct classes
+  // Multi-class — lessons in 2+ distinct classes
   const multiClass: { email: string; classes_count: number; lessons_done: number }[] = []
   for (const [email, rows] of Object.entries(progressByEmail)) {
     if (unsubs.has(email)) continue
@@ -213,95 +109,95 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    never_nudged: neverNudged,
+    never_started: neverStarted,
     stalled,
-    multi_class:  multiClass,
+    multi_class:   multiClass,
   }, { headers: CORS })
 }
 
-// ── POST — send nudge ─────────────────────────────────────────────────────────
+// ── POST — school announcement only ──────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, type, class_slug, subject, html: customHtml } = await req.json()
+    const {
+      email,
+      emails: bulkEmails,
+      type,
+      subject,
+      html: customHtml,
+    } = await req.json()
 
-    if (!email || !type) {
+    if (type !== 'announcement') {
       return NextResponse.json(
-        { ok: false, error: 'email and type required' },
+        { ok: false, error: 'only announcement type is supported — teachers email their own students' },
         { status: 400, headers: CORS }
       )
     }
 
-    const cleanEmail = String(email).trim().toLowerCase()
+    if (!subject || !customHtml) {
+      return NextResponse.json(
+        { ok: false, error: 'subject and html required for announcement' },
+        { status: 400, headers: CORS }
+      )
+    }
 
-    // Check unsubscribe
-    const { data: unsub } = await supabase
+    // Resolve recipient list — single or bulk
+    const rawList: string[] = bulkEmails?.length
+      ? bulkEmails
+      : email ? [email] : []
+
+    if (rawList.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: 'email or emails required' },
+        { status: 400, headers: CORS }
+      )
+    }
+
+    // Check unsubscribes in bulk
+    const { data: unsubList } = await supabase
       .from('unsubscribes')
       .select('email')
-      .eq('email', cleanEmail)
-      .maybeSingle()
+      .in('email', rawList)
+      .limit(rawList.length)
 
-    if (unsub) {
+    const unsubs    = new Set((unsubList ?? []).map((r: any) => r.email))
+    const recipients = rawList
+      .map(e => String(e).trim().toLowerCase())
+      .filter(e => e.includes('@') && !unsubs.has(e))
+
+    if (recipients.length === 0) {
       return NextResponse.json(
-        { ok: false, error: 'unsubscribed' },
+        { ok: false, error: 'no eligible recipients' },
         { status: 200, headers: CORS }
       )
     }
 
-    // Resolve class info if needed
-    let classTitle = class_slug ?? 'your class'
-    let classUrl   = `https://antcpu.com/edu/classes/${class_slug ?? ''}/`
-
-    if (class_slug) {
-      const { data: cls } = await supabase
-        .from('edu_classes')
-        .select('title')
-        .eq('slug', class_slug)
-        .maybeSingle()
-      if (cls?.title) classTitle = cls.title
+    // Send to each — fire sequentially to avoid Resend rate limits
+    let sent = 0
+    for (const to of recipients) {
+      try {
+        await heraldSend({ to, subject, html: customHtml })
+        sent++
+      } catch {}
     }
 
-    // Build + send
-    let emailHtml    = ''
-    let emailSubject = ''
+    // ── Discord ───────────────────────────────────────────────────────────────
+    void notifyDiscord('', 'edu_nudge', {
+      title:  `📢 EDU Announcement Sent`,
+      color:  DC.edu,
+      fields: [
+        { name: 'Subject',    value: subject,           inline: false },
+        { name: 'Recipients', value: String(sent),      inline: true  },
+        { name: 'Skipped',    value: String(rawList.length - sent), inline: true },
+      ],
+      footer:    'antcpu EDU · school announcement',
+      timestamp: true,
+    })
 
-    switch (type) {
-      case 'lesson2':
-        emailSubject = `🎓 Keep going — lesson 2 is ready`
-        emailHtml    = buildLesson2Email(classTitle, classUrl, cleanEmail)
-        break
-      case 'comeback':
-        emailSubject = `👋 Your progress is saved — come back anytime`
-        emailHtml    = buildComebackEmail(classTitle, classUrl, cleanEmail)
-        break
-      case 'arena':
-        emailSubject = `⚡ You finished ${classTitle} — the Arena is next`
-        emailHtml    = buildArenaEmail(classTitle, cleanEmail)
-        break
-      case 'internship':
-        emailSubject = `🔭 You're ready for the internship challenge`
-        emailHtml    = buildInternshipEmail(cleanEmail)
-        break
-      case 'announcement':
-        if (!subject || !customHtml) {
-          return NextResponse.json(
-            { ok: false, error: 'subject and html required for announcement type' },
-            { status: 400, headers: CORS }
-          )
-        }
-        emailSubject = subject
-        emailHtml    = customHtml
-        break
-      default:
-        return NextResponse.json(
-          { ok: false, error: `unknown type: ${type}` },
-          { status: 400, headers: CORS }
-        )
-    }
-
-    await heraldSend({ to: cleanEmail, subject: emailSubject, html: emailHtml })
-
-    return NextResponse.json({ ok: true, type, email: cleanEmail }, { headers: CORS })
+    return NextResponse.json(
+      { ok: true, sent, skipped: rawList.length - sent },
+      { headers: CORS }
+    )
 
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'unknown error'
