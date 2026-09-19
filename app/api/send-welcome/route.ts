@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       </div>
     `;
 
-    const html = heraldWrap(locale, body, `The Arena · ${HERALD_VERSION}`);
+    const html = heraldWrap(locale, body, `The Arena · ${HERALD_VERSION}`, email);
 
     await heraldSend({
       to:      email,
