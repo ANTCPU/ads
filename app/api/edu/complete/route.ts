@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
-import { heraldSend, heraldWrap }    from '../../lib/herald'
+import { heraldSend, heraldWrap }    from '../../../lib/herald'
 
 const CORS = {
   'Access-Control-Allow-Origin':  'https://antcpu.com',
