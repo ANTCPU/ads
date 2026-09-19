@@ -207,7 +207,7 @@ export default function MacPage() {
         ::-webkit-scrollbar-thumb { background: #222; border-radius: 4px; }
       `}</style>
 
-      <ArenaNav role="user" />
+      <ArenaNav  />
 
       {/* ── CHAMPION BANNER ── */}
       {championOpen && (
