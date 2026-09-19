@@ -1,3 +1,4 @@
+// app/lib/discord.ts
 // ─── Discord — structured embeds, event routing ───────────────────────────────
 //
 // Webhook routing:
@@ -11,6 +12,7 @@
 //   general                                 → DISCORD_WEBHOOK_ADS
 //   photo_lead | photo_booking              → DISCORD_WEBHOOK_MANDA_PHOTO
 //   photo_error                             → DISCORD_WEBHOOK_MANDA_HOOKS
+//   edu_nudge                               → DISCORD_WEBHOOK_EDU
 //
 // Usage:
 //   await notifyDiscord(content, 'internship');
@@ -18,6 +20,7 @@
 //   await notifyDiscord('', 'new_signup', embed);
 //   await notifyDiscord('', 'flag_toggle', embed);
 //   await notifyDiscord('', 'photo_booking', embed);
+//   await notifyDiscord('', 'edu_nudge', embed);
 //
 // ⚠️  SERVER-ONLY — never import this file from a client component or page.
 //     Webhook URLs are resolved lazily at call time, never at module load.
@@ -30,6 +33,11 @@
 // v3 (Sep 2026):
 //   — photo_lead, photo_booking → DISCORD_WEBHOOK_MANDA_PHOTO (#manda-photography)
 //   — photo_error               → DISCORD_WEBHOOK_MANDA_HOOKS (#web-dev)
+//
+// v4 (Sep 2026):
+//   — edu_nudge → DISCORD_WEBHOOK_EDU (#edu)
+//     Fires on: lesson completions, herald nudge sends, comeback emails,
+//     internship CTAs — all EDU activity in one channel
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'server-only'; // 🔒 Hard stop — Next.js will throw a build error
@@ -59,6 +67,7 @@ export type DiscordEvent =
   | 'photo_lead'         // Amanda partial lead           → DISCORD_WEBHOOK_MANDA_PHOTO
   | 'photo_booking'      // Amanda full booking           → DISCORD_WEBHOOK_MANDA_PHOTO
   | 'photo_error'        // Amanda system error           → DISCORD_WEBHOOK_MANDA_HOOKS
+  | 'edu_nudge'          // EDU herald + completions      → DISCORD_WEBHOOK_EDU
   | 'general';           // Catch-all                     → DISCORD_WEBHOOK_ADS
 
 // ─── Embed types ──────────────────────────────────────────────────────────────
@@ -90,6 +99,7 @@ export const DC = {
   purple: 0x7928CA,  // rising tier, special
   grey:   0x555555,  // neutral, system
   intern: 0x2563EB,  // internship challenge accent
+  edu:    0x22C55E,  // EDU — green matches MAC + lesson complete UI
 };
 
 // ─── Webhook resolver ─────────────────────────────────────────────────────────
@@ -113,6 +123,8 @@ function getWebhook(event?: DiscordEvent): string | undefined {
       return process.env.DISCORD_WEBHOOK_MANDA_PHOTO;
     case 'photo_error':      // Amanda Photography — dev/errors channel
       return process.env.DISCORD_WEBHOOK_MANDA_HOOKS;
+    case 'edu_nudge':        // EDU herald + lesson completions → #edu
+      return process.env.DISCORD_WEBHOOK_EDU;
     case 'new_signup':       // explicit — was silently falling to general
     case 'flag_toggle':      // ops visibility — admin actions auditable
     default:
