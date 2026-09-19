@@ -3,14 +3,19 @@
 // Creates a new user in ad_signups.
 // Called by VaultModal signup path — public, no auth required.
 //
+// v4 (Sep 2026):
+//   — source field now written to ad_signups (was Discord-only)
+//   — input sanitisation — all fields capped at safe lengths
+//   — void pattern — consistent with codebase, no .catch() chains
+//
 // v3 (Sep 2026):
-//   — arena-original badge awarded on every new join (idempotent, fire-and-forget)
+//   — arena-original badge awarded on every new join (idempotent)
 //   — in-app notification fires on badge award — loyalty loop trigger
-//   — Discord Source field now reads from request body, falls back to 'organic'
+//   — Discord Source field reads from request body, falls back to 'organic'
 //
 // v2 (Sep 2026):
 //   — Discord notification on new signup — rich embed, new_signup event
-//   — send-welcome called with full payload (name, brand, trialStatus, role)
+//   — send-welcome called with full payload
 //   — Idempotent — existing email returns ok:true so VaultModal proceeds
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -34,15 +39,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and name required.' }, { status: 400 });
     }
 
-    const norm        = email.trim().toLowerCase();
-    const cleanName   = name.trim();
-    const cleanBrand  = (brand || name).trim();
-    const cleanSource = (source || 'organic').trim();
+    // ── Sanitise inputs ───────────────────────────────────────────────────────
+    const norm        = email.trim().toLowerCase().slice(0, 200);
+    const cleanName   = name.trim().slice(0, 100);
+    const cleanBrand  = (brand || name).trim().slice(0, 100);
+    const cleanSource = (source || 'organic').trim().slice(0, 50);
 
-    // ── Idempotency check ─────────────────────────────────────────────────
-    // Existing user — VaultModal completeSession() handles the rest.
-    // Do NOT re-award badge or re-send welcome on repeat calls.
-
+    // ── Idempotency check ─────────────────────────────────────────────────────
     const { data: existing } = await supabase
       .from('ad_signups')
       .select('email, status')
@@ -53,8 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, existing: true });
     }
 
-    // ── Insert new user ───────────────────────────────────────────────────
-
+    // ── Insert new user ───────────────────────────────────────────────────────
     const { error } = await supabase
       .from('ad_signups')
       .insert({
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest) {
         brand_name: cleanBrand,
         status:     'trial',
         role:       'user',
+        source:     cleanSource,
         created_at: new Date().toISOString(),
       });
 
@@ -70,18 +73,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Signup failed. Try again.' }, { status: 500 });
     }
 
-    // ── Arena Original badge ──────────────────────────────────────────────
+    // ── Arena Original badge ──────────────────────────────────────────────────
     // Awarded once, on first join, forever.
-    // There is only one Arena. This marks the founding members.
     // awardBadge is idempotent — safe on retry, never duplicates.
+    void awardBadge(supabase, norm, 'arena-original').catch(() => {});
 
-    awardBadge(supabase, norm, 'arena-original').catch(() => {});
-
-    // ── In-app notification — loyalty loop trigger ────────────────────────
-    // First thing the user sees when they open their envelope.
-    // Drives them to their profile → sees badge → feels invested → shares.
-
-    fetch(`${BASE_URL}/api/notify`, {
+    // ── In-app notification — loyalty loop trigger ────────────────────────────
+    void fetch(`${BASE_URL}/api/notify`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -92,9 +90,8 @@ export async function POST(req: NextRequest) {
       }),
     }).catch(() => {});
 
-    // ── Discord — rich embed, new_signup event ────────────────────────────
-
-    notifyDiscord('', 'new_signup', {
+    // ── Discord ───────────────────────────────────────────────────────────────
+    void notifyDiscord('', 'new_signup', {
       title:  '🆕 New Arena Member',
       color:  DC.green,
       fields: [
@@ -105,11 +102,10 @@ export async function POST(req: NextRequest) {
       ],
       footer:    'ANTCPU ADS · Signup',
       timestamp: true,
-    }).catch(() => {});
+    });
 
-    // ── Welcome email — full payload ──────────────────────────────────────
-
-    fetch(`${BASE_URL}/api/send-welcome`, {
+    // ── Welcome email ─────────────────────────────────────────────────────────
+    void fetch(`${BASE_URL}/api/send-welcome`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
