@@ -1,4 +1,15 @@
 // app/api/user-auth/route.ts
+// ─── Arena User Auth ──────────────────────────────────────────────────────────
+// PIN-based authentication for arena users.
+// Called by VaultModal login path — public, no auth required.
+//
+// v2 (Sep 2026):
+//   — try/catch wraps full handler — no unhandled crashes
+//   — input sanitisation — email + pin capped
+//   — country returned in user object — needed by MAC + profile/full
+//   — void pattern — consistent with codebase
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 
@@ -10,7 +21,7 @@ const supabase = createClient(
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
 
 function notify(email: string, type: string, title: string, message: string) {
-  fetch(`${BASE_URL}/api/notify`, {
+  void fetch(`${BASE_URL}/api/notify`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ email, type, title, message }),
@@ -18,73 +29,85 @@ function notify(email: string, type: string, title: string, message: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const { email, pin } = await req.json();
-  if (!email || !pin) return NextResponse.json({ ok: false }, { status: 400 });
+  try {
+    const body = await req.json();
+    const { email, pin } = body;
 
-  const norm = email.trim().toLowerCase();
-
-  const { data } = await supabase
-    .from('ad_signups')
-    .select('pin, name, brand_name, status, role, last_login, created_at, points, promo_code, membership_tier, streak_days')
-    .eq('email', norm)
-    .maybeSingle();
-
-  if (!data) return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 });
-
-  // ── PIN check probe ───────────────────────────────────────────────────────
-  if (pin === '__check__') {
-    if (!data.pin) return NextResponse.json({ ok: false, error: 'No PIN set' }, { status: 400 });
-    return NextResponse.json({ ok: true, hasPinSet: true });
-  }
-
-  if (!data.pin) return NextResponse.json({ ok: false, error: 'No PIN set' }, { status: 400 });
-  if (data.pin !== pin) return NextResponse.json({ ok: false, error: 'Invalid PIN' }, { status: 401 });
-
-  // ── Successful auth ────────────────────────────────────────────────────────
-
-  const now        = new Date();
-  const lastLogin  = data.last_login ? new Date(data.last_login) : null;
-  const createdAt  = data.created_at ? new Date(data.created_at) : null;
-  const daysSince  = lastLogin
-    ? (now.getTime() - lastLogin.getTime()) / 86_400_000
-    : null;
-  const isNewUser  = createdAt
-    ? (now.getTime() - createdAt.getTime()) < 86_400_000
-    : false;
-  const userPoints = data.points || 0;
-  const firstName  = data.name?.split(' ')[0] || 'there';
-
-  // ── Login nudges ──────────────────────────────────────────────────────────
-  if (isNewUser && !lastLogin) {
-    notify(norm, 'nudge',
-      '🎉 You\'re in the Arena',
-      `Welcome ${firstName}. Create your first ad and Aria will have it live within hours. Every share earns points — the ladder starts now.`
-    );
-  } else if (daysSince !== null && daysSince >= 7) {
-    const days = Math.floor(daysSince);
-    notify(norm, 'nudge',
-      '👋 Welcome back to the Arena',
-      `It's been ${days} day${days === 1 ? '' : 's'}, ${firstName}. Your brand has ${userPoints} pts. Share your ad today to climb the ranks — the Arena never stops.`
-    );
-  }
-
-  // ── Update last_login — fire and forget ───────────────────────────────────
-  supabase
-    .from('ad_signups')
-    .update({ last_login: now.toISOString() })
-    .eq('email', norm)
-    .then(() => {}, () => {});
-
-  return NextResponse.json({
-    ok: true,
-    user: {
-      email:          norm,
-      name:           data.name           || '',
-      brand:          data.brand_name     || '',
-      trialStatus:    data.status         || 'trial',
-      role:           data.role           || 'user',
-      membershipTier: data.membership_tier || 'trial',
-      streakDays:     data.streak_days    || 0,
+    if (!email || !pin) {
+      return NextResponse.json({ ok: false }, { status: 400 });
     }
-  });
+
+    // ── Sanitise ──────────────────────────────────────────────────────────────
+    const norm      = String(email).trim().toLowerCase().slice(0, 200);
+    const cleanPin  = String(pin).trim().slice(0, 20);
+
+    const { data } = await supabase
+      .from('ad_signups')
+      .select('pin, name, brand_name, status, role, last_login, created_at, points, promo_code, membership_tier, streak_days, country')
+      .eq('email', norm)
+      .maybeSingle();
+
+    if (!data) {
+      return NextResponse.json({ ok: false, error: 'User not found' }, { status: 404 });
+    }
+
+    // ── PIN check probe ───────────────────────────────────────────────────────
+    if (cleanPin === '__check__') {
+      if (!data.pin) return NextResponse.json({ ok: false, error: 'No PIN set' }, { status: 400 });
+      return NextResponse.json({ ok: true, hasPinSet: true });
+    }
+
+    if (!data.pin) return NextResponse.json({ ok: false, error: 'No PIN set' }, { status: 400 });
+    if (data.pin !== cleanPin) return NextResponse.json({ ok: false, error: 'Invalid PIN' }, { status: 401 });
+
+    // ── Successful auth ───────────────────────────────────────────────────────
+    const now       = new Date();
+    const lastLogin = data.last_login ? new Date(data.last_login) : null;
+    const createdAt = data.created_at ? new Date(data.created_at) : null;
+    const daysSince = lastLogin
+      ? (now.getTime() - lastLogin.getTime()) / 86_400_000
+      : null;
+    const isNewUser = createdAt
+      ? (now.getTime() - createdAt.getTime()) < 86_400_000
+      : false;
+    const userPoints = data.points || 0;
+    const firstName  = data.name?.split(' ')[0] || 'there';
+
+    // ── Login nudges ──────────────────────────────────────────────────────────
+    if (isNewUser && !lastLogin) {
+      notify(norm, 'nudge',
+        '🎉 You\'re in the Arena',
+        `Welcome ${firstName}. Create your first ad and Aria will have it live within hours. Every share earns points — the ladder starts now.`
+      );
+    } else if (daysSince !== null && daysSince >= 7) {
+      const days = Math.floor(daysSince);
+      notify(norm, 'nudge',
+        '👋 Welcome back to the Arena',
+        `It's been ${days} day${days === 1 ? '' : 's'}, ${firstName}. Your brand has ${userPoints} pts. Share your ad today to climb the ranks.`
+      );
+    }
+
+    // ── Update last_login — fire and forget ───────────────────────────────────
+    void supabase
+      .from('ad_signups')
+      .update({ last_login: now.toISOString() })
+      .eq('email', norm);
+
+    return NextResponse.json({
+      ok: true,
+      user: {
+        email:          norm,
+        name:           data.name           || '',
+        brand:          data.brand_name     || '',
+        trialStatus:    data.status         || 'trial',
+        role:           data.role           || 'user',
+        membershipTier: data.membership_tier || 'trial',
+        streakDays:     data.streak_days    || 0,
+        country:        data.country        || '',
+      }
+    });
+
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Bad request' }, { status: 400 });
+  }
 }
