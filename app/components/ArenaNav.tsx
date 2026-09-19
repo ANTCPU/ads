@@ -1,5 +1,18 @@
 'use client';
 
+// app/components/ArenaNav.tsx
+// ─── Arena Navigation ─────────────────────────────────────────────────────────
+// Self-hydrating — reads arena_user from localStorage when props not passed.
+// Props are optional overrides — existing call sites work unchanged.
+// New pages can drop <ArenaNav /> with zero props.
+//
+// v2 (Sep 2026):
+//   — role made optional — defaults to localStorage then 'user'
+//   — self-hydrates name, email, brand, role from arena_user in localStorage
+//   — effectiveRole/Name/Email/Brand resolved values used throughout render
+//   — all existing call sites unchanged — props still win over localStorage
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter }                         from 'next/navigation';
 import { clearSessionCookie }                from '../lib/session';
@@ -20,8 +33,6 @@ type Notification = {
   message: string; created_at: string;
 };
 
-// Brand shape from /api/brands — replaces hardcoded ALL_BRANDS array
-// dashboard_url from brands table — no more hardcoded paths
 type Brand = {
   slug:          string;
   label:         string;
@@ -36,7 +47,7 @@ type MenuItem = {
 };
 
 type ArenaNavProps = {
-  role:          Role;
+  role?:         Role;       // optional — falls back to localStorage then 'user'
   userName?:     string;
   userEmail?:    string;
   userBrand?:    string;
@@ -94,9 +105,12 @@ export default function ArenaNav({
   const [membershipTier, setMembershipTier] = useState('trial');
   const [streakDays,     setStreakDays]     = useState(0);
 
-  // ── Brands — live from /api/brands, replaces ALL_BRANDS hardcode ──────────
-  // Cached in module scope for the session — brands change rarely.
-  // Falls back to empty array on fetch failure — nav still works.
+  // ── Self-hydration state — used when props not passed ─────────────────────
+  const [localRole,  setLocalRole]  = useState<Role>('user');
+  const [localName,  setLocalName]  = useState('');
+  const [localEmail, setLocalEmail] = useState('');
+  const [localBrand, setLocalBrand] = useState('');
+
   const [brands,       setBrands]       = useState<Brand[]>([]);
   const [brandsLoaded, setBrandsLoaded] = useState(false);
 
@@ -123,6 +137,7 @@ export default function ArenaNav({
   // ── Boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     setIsPrevAdmin(localStorage.getItem('arena_prev_admin') === 'true');
+
     try {
       const lv = JSON.parse(localStorage.getItem('arena_last_visited') || '[]');
       setLastVisited(Array.isArray(lv) ? lv : []);
@@ -132,31 +147,50 @@ export default function ArenaNav({
       const stored = localStorage.getItem('arena_user');
       if (stored) {
         const u = JSON.parse(stored);
-        if (u.membershipTier) setMembershipTier(u.membershipTier);
-        if (u.streakDays)     setStreakDays(u.streakDays);
-        if (u.trialStatus === 'team') setMembershipTier('team');
+
+        // Existing — membership + streak
+        if (u.membershipTier)          setMembershipTier(u.membershipTier);
+        if (u.streakDays)              setStreakDays(u.streakDays);
+        if (u.trialStatus === 'team')  setMembershipTier('team');
+
+        // New — self-hydrate identity when props not passed
+        if (u.role)  setLocalRole(u.role  as Role);
+        if (u.name)  setLocalName(u.name);
+        if (u.email) setLocalEmail(u.email);
+        if (u.brand) setLocalBrand(u.brand);
       }
     } catch {}
 
-    if (!userEmail) return;
+  }, []);
+
+  // ── Notification fetch — runs when effective email is known ───────────────
+  // Separate effect so it re-runs if userEmail prop arrives after mount
+  useEffect(() => {
+    const email = userEmail || localEmail;
+    if (!email) return;
+
     supabase
       .from('notifications')
       .select('id, type, title, message, created_at')
-      .eq('email', userEmail.trim().toLowerCase())
+      .eq('email', email.trim().toLowerCase())
       .eq('read', false)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         setNotifications(data || []);
         setUnread((data || []).length);
       });
-  }, [userEmail]);
+  }, [userEmail, localEmail]);
 
   // ── Load brands when panel opens ──────────────────────────────────────────
-  // Lazy — only fetches when user opens the brands panel.
-  // After first load brandsLoaded = true — no repeat fetches.
   useEffect(() => {
     if (brandsOpen) loadBrands();
   }, [brandsOpen, loadBrands]);
+
+  // ── Resolved values — props win, localStorage fallback ───────────────────
+  const effectiveRole  = role      || localRole;
+  const effectiveName  = userName  || localName;
+  const effectiveEmail = userEmail || localEmail;
+  const effectiveBrand = userBrand || localBrand;
 
   function visitBrand(slug: string) {
     const updated = [slug, ...lastVisited.filter(s => s !== slug)].slice(0, 3);
@@ -175,12 +209,12 @@ export default function ArenaNav({
   }
 
   async function markAllRead() {
-    if (!userEmail || markingRead || notifications.length === 0) return;
+    if (!effectiveEmail || markingRead || notifications.length === 0) return;
     setMarkingRead(true);
     await supabase
       .from('notifications')
       .update({ read: true })
-      .eq('email', userEmail.trim().toLowerCase())
+      .eq('email', effectiveEmail.trim().toLowerCase())
       .eq('read', false);
     setNotifications([]);
     setUnread(0);
@@ -201,11 +235,9 @@ export default function ArenaNav({
   const tierDef       = TIER_DISPLAY[effectiveTier] || TIER_DISPLAY.trial;
 
   // ── Menu items by role ────────────────────────────────────────────────────
-  // FIX: admin role — Ad Builder → /create-ad (was /dashboard/admin which is
-  //      a data page not a builder). Cleanup item resolved.
   const menuItems: MenuItem[] = [];
 
-  if (role === 'super') {
+  if (effectiveRole === 'super') {
     menuItems.push(
       { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/antcpu') },
       { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena') },
@@ -213,16 +245,16 @@ export default function ArenaNav({
       { label: 'Review Queue', icon: '🦋', action: () => router.push('/dashboard/antcpu') },
       { label: 'Users',        icon: '👥', action: () => router.push('/dashboard/users') },
       { label: 'Ad Builder',   icon: '📢', action: () => router.push('/create-ad') },
-      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'Profile',      icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(effectiveEmail)}`) },
     );
   }
 
-  if (role === 'admin') {
+  if (effectiveRole === 'admin') {
     menuItems.push(
       { label: 'Dashboard',    icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'The Arena',    icon: '🏟', action: () => router.push('/arena') },
       { label: 'Brands',       icon: '🏷', action: () => { setBrandsOpen(true); setOpen(false); } },
-      { label: 'Ad Builder',   icon: '📢', action: () => router.push('/create-ad') },  // ✅ fixed
+      { label: 'Ad Builder',   icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Users',        icon: '👥', action: () => router.push('/dashboard/users') },
       { label: 'Leaderboard',  icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
       { label: 'Agents',       icon: '🤖', action: () => router.push('/dashboard/agents') },
@@ -230,29 +262,28 @@ export default function ArenaNav({
     );
   }
 
-  if (role === 'team') {
+  if (effectiveRole === 'team') {
     menuItems.push(
       { label: 'Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'The Arena',   icon: '🏟', action: () => router.push('/arena') },
       { label: 'Ad Builder',  icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Leaderboard', icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(effectiveEmail)}`) },
     );
-    // Brand-specific dashboard — resolved from brands table at runtime
-    const slug    = userBrand?.toLowerCase().trim();
+    const slug    = effectiveBrand?.toLowerCase().trim();
     const matched = brands.find(b => b.slug === slug || b.label.toLowerCase() === slug);
     if (matched?.dashboard_url) {
       menuItems.push({ label: matched.label, icon: matched.icon, action: () => router.push(matched.dashboard_url!) });
     }
   }
 
-  if (role === 'user') {
+  if (effectiveRole === 'user' || effectiveRole === 'mod') {
     menuItems.push(
       { label: 'Dashboard',   icon: '⚡', action: () => router.push('/dashboard/user') },
       { label: 'The Arena',   icon: '🏟', action: () => router.push('/arena') },
       { label: 'Ad Builder',  icon: '📢', action: () => router.push('/create-ad') },
       { label: 'Leaderboard', icon: '🏆', action: () => router.push('/dashboard/leaderboard') },
-      { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(userEmail)}`) },
+      { label: 'Profile',     icon: '👤', action: () => router.push(`/profile/${encodeURIComponent(effectiveEmail)}`) },
     );
   }
 
@@ -360,7 +391,6 @@ export default function ArenaNav({
                 fontSize: '0.9rem', boxSizing: 'border-box', outline: 'none' }}
             />
 
-            {/* Recently visited */}
             {recentBrands.length > 0 && brandSearch === '' && (
               <div>
                 <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em',
@@ -376,7 +406,6 @@ export default function ArenaNav({
               </div>
             )}
 
-            {/* All / filtered brands */}
             <div>
               <div style={{ fontSize: '0.68rem', color: '#444', letterSpacing: '0.1em',
                 textTransform: 'uppercase', marginBottom: '0.5rem' }}>
@@ -422,7 +451,7 @@ export default function ArenaNav({
               aria-label="Open drawer">☰</button>
           )}
           <span
-            onClick={() => role === 'super' || role === 'admin'
+            onClick={() => effectiveRole === 'super' || effectiveRole === 'admin'
               ? router.push('/dashboard/antcpu')
               : router.push('/dashboard/user')}
             style={{ fontWeight: 800, fontSize: '1.1rem', color: '#f0883e',
@@ -430,19 +459,19 @@ export default function ArenaNav({
           >
             ⚡ ANTCPU ADS
           </span>
-          {role === 'super' && (
+          {effectiveRole === 'super' && (
             <span style={{ fontSize: '0.6rem', background: '#f0883e15',
               border: '1px solid #f0883e30', color: '#f0883e',
               borderRadius: '999px', padding: '0.15rem 0.5rem',
               letterSpacing: '0.1em' }}>SUPER</span>
           )}
-          {role === 'admin' && (
+          {effectiveRole === 'admin' && (
             <span style={{ fontSize: '0.6rem', background: '#f0883e15',
               border: '1px solid #f0883e30', color: '#f0883e',
               borderRadius: '999px', padding: '0.15rem 0.5rem',
               letterSpacing: '0.1em' }}>ADMIN</span>
           )}
-          {role === 'team' && (
+          {effectiveRole === 'team' && (
             <span style={{ fontSize: '0.6rem', background: '#7928ca15',
               border: '1px solid #7928ca30', color: '#b388ff',
               borderRadius: '999px', padding: '0.15rem 0.5rem',
@@ -453,7 +482,7 @@ export default function ArenaNav({
         {/* RIGHT — tier pill + envelope + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
 
-          {(role === 'user' || role === 'team') && (
+          {(effectiveRole === 'user' || effectiveRole === 'team') && (
             <span style={{
               fontSize:     '0.7rem',
               background:   `${tierDef.color}15`,
@@ -475,7 +504,7 @@ export default function ArenaNav({
             </span>
           )}
 
-          {userEmail && (
+          {effectiveEmail && (
             <button
               onClick={() => setNotifOpen(true)}
               title={unread > 0 ? `${unread} unread` : 'Messages'}
@@ -516,12 +545,12 @@ export default function ArenaNav({
                 <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #1a1a1a',
                   marginBottom: '0.3rem' }}>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>
-                    {userName || userBrand}
+                    {effectiveName || effectiveBrand}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: '#555', marginTop: '0.1rem' }}>
-                    {userEmail}
+                    {effectiveEmail}
                   </div>
-                  {(role === 'user' || role === 'team') && (
+                  {(effectiveRole === 'user' || effectiveRole === 'team') && (
                     <div style={{ fontSize: '0.65rem', color: tierDef.color,
                       marginTop: '0.3rem', fontWeight: 600 }}>
                       {tierDef.label}
@@ -584,7 +613,7 @@ export default function ArenaNav({
   );
 }
 
-// ─── BrandRow sub-component ───────────────────────────────────────────────────
+// ─── BrandRow sub-component ──────────────────────────────────────────────────
 // onDash is optional — only shown when brand has a dashboard_url in DB
 
 function BrandRow({ b, onVisit, onDash }: {
