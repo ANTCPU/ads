@@ -53,11 +53,10 @@ type TopAd = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function LeaderboardModule({ slug, supabase, user }: ModuleContext) {
+export default function LeaderboardModule({ slug, supabase, user, isSuper }: ModuleContext) {
   const [ads,         setAds]         = useState<TopAd[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading,     setLoading]     = useState(true);
-
   const isArena = slug === 'arena' || !!isSuper;
 
   useEffect(() => {
