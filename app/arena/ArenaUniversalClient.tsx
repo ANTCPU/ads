@@ -662,11 +662,11 @@ export default function ArenaUniversalClient() {
         {/* Header stats */}
         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           {[
-           { label: t(locale, 'arena_stat_brands'),    value: totalBrands,                     color: '#0070f3' },
-           { label: t(locale, 'arena_stat_ads'),        value: ads.length,                      color: orange    },
-           { label: t(locale, 'arena_stat_points'),     value: totalPoints.toLocaleString(),    color: gold      },
-           { label: t(locale, 'arena_stat_reactions'),  value: totalReactions.toLocaleString(), color: '#f0883e' },
-           { label: t(locale, 'arena_stat_shares'),     value: totalShares.toLocaleString(),    color: '#22c55e' },
+           { label: t(locale, 'arena_stat_brands'),     value: liveStats.totalBrands,                     color: '#0070f3' },
+           { label: t(locale, 'arena_stat_ads'),        value: liveStats.totalAds,                        color: orange    },
+           { label: t(locale, 'arena_stat_points'),     value: liveStats.totalPoints.toLocaleString(),    color: gold      },
+           { label: t(locale, 'arena_stat_reactions'),  value: liveStats.totalReactions.toLocaleString(), color: '#f0883e' },
+           { label: t(locale, 'arena_stat_shares'),     value: liveStats.totalShares.toLocaleString(),    color: '#22c55e' },
           ].map(s => (
             <div key={s.label}>
               <div style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.value}</div>
