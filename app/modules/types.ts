@@ -9,7 +9,9 @@ import { SupabaseClient } from '@supabase/supabase-js';
 // Ad mirrors the ads table shape. Optional fields reflect columns that may be
 // null at creation (image_url, country, champion fields) or added over time.
 //
-// Last updated: Sep 2026 — added country champion + reaction fields
+// Last updated: Sep 2026
+//   — country champion + reaction fields added
+//   — ModuleDefinition: icon, tag, size added for enhanced module picker
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ModuleUser = {
@@ -42,43 +44,47 @@ export type Ad = {
   rank_position?:  number;
 
   // ── Media ─────────────────────────────────────────────────────────────────
-  // Cloudinary URL — null at creation, set via upload flow
   image_url?:  string;
 
-  // ── Country champion — Map of Pi membership arena ─────────────────────────
-  // Written by create-shop-ad and champion assignment flows
+  // ── Country champion ──────────────────────────────────────────────────────
   country?:             string;
   is_country_champion?: boolean;
 
   // ── Campaign tagging ──────────────────────────────────────────────────────
-  // e.g. 'mapofpi' — used to scope queries to a brand sub-arena
   campaign?: string;
 };
 
 // ─── Subscription tier ────────────────────────────────────────────────────────
-// Not enforced yet — used only to show upgrade prompts in locked modules.
-// Will gate module access when billing is live (Phase 4).
 export type SubscriptionTier = 'trial' | 'basic' | 'standard' | 'premium';
 
+// ─── Module tag ───────────────────────────────────────────────────────────────
+// Used in the module picker to surface new, enhanced, admin-only, and AI modules.
+export type ModuleTag = 'new' | 'enhanced' | 'admin' | 'ai';
+
+// ─── Module size hint ─────────────────────────────────────────────────────────
+// Renderer hint — compact modules get less padding in the slot.
+// Does not affect the module component itself.
+export type ModuleSize = 'compact' | 'standard' | 'full';
+
 // ─── ModuleContext ────────────────────────────────────────────────────────────
-// Passed as props to every module component.
-// supabase client is the anon client — modules must respect RLS.
 export type ModuleContext = {
   slug:          string;
   user:          ModuleUser;
   ads:           Ad[];
   supabase:      SupabaseClient;
-  isSuper?:      boolean;           // true = full control panel in /dashboard/admin
-  subscription?: SubscriptionTier; // future billing — not enforced yet
+  isSuper?:      boolean;
+  subscription?: SubscriptionTier;
 };
 
 // ─── ModuleDefinition ─────────────────────────────────────────────────────────
 // Registered in app/modules/index.ts via MODULE_REGISTRY.
-// tier controls which subscription plan unlocks this module.
 export type ModuleDefinition = {
   id:        string;
   label:     string;
   desc:      string;
   tier:      SubscriptionTier;
   component: React.FC<ModuleContext>;
+  icon?:     string;       // standalone icon — shown in picker card
+  tag?:      ModuleTag;    // badge: new | enhanced | admin | ai
+  size?:     ModuleSize;   // render hint: compact | standard | full
 };
