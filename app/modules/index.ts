@@ -1,40 +1,213 @@
-import { ModuleDefinition } from './types';
-import RegionalMapModule   from './region-map';
-import LeaderboardModule   from './leaderboard';
-import CampaignHubModule   from './campaign-hub';
-import CreateAdModule      from './create-ad';
-import VideoFeedModule     from './video-feed';
-import ScheduleModule      from './schedule';
-import PostsModule         from './posts';
-import ShareModule         from './share';
-import ChatModule          from './chat';
-import YouTubeLiveModule   from './youtube-live';
-import ArchiveModule       from './archive';
-import BadgesModule        from './badges';
-import LoyaltyModule       from './loyalty';
-import SlidePanelModule           from './slide-panel';
-import FeaturedCandidatesModule   from './featured-candidates';
+// app/modules/index.ts
+// ─── Module Registry ──────────────────────────────────────────────────────────
+// Single source of truth for all Arena modules.
+//
+// Changes Sep 2026:
+//   — schedule removed (absorbed into campaign-hub)
+//   — region-map removed (replaced by world-map)
+//   — posts renamed → Quick Share (repurposed)
+//   — world-map, agents, media added
+//   — featured-candidates moved trial → premium (admin-only)
+//   — icon, tag, size fields added to all entries
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { ModuleDefinition }        from './types';
+import CreateAdModule              from './create-ad';
+import ShareModule                 from './share';
+import LeaderboardModule           from './leaderboard';
+import ArchiveModule               from './archive';
+import BadgesModule                from './badges';
+import LoyaltyModule               from './loyalty';
+import SlidePanelModule            from './slide-panel';
+import WorldMapModule              from './world-map';
+import CampaignHubModule           from './campaign-hub';
+import PostsModule                 from './posts';
+import ChatModule                  from './chat';
+import AgentsModule                from './agents';
+import MediaModule                 from './media';
+import VideoFeedModule             from './video-feed';
+import YouTubeLiveModule           from './youtube-live';
+import FeaturedCandidatesModule    from './featured-candidates';
+
+// ─── Registry ─────────────────────────────────────────────────────────────────
 
 export const MODULE_REGISTRY: ModuleDefinition[] = [
-  { id: 'create-ad',    tier: 'trial',    label: '🚀 Advertise Here', desc: 'Create an ad in this arena',              component: CreateAdModule    },
-  { id: 'share',        tier: 'trial',    label: '🔗 Share Arena',    desc: 'Share this arena with one tap',           component: ShareModule       },
-  { id: 'archive',      tier: 'trial',    label: '📦 Archive',        desc: 'Past campaigns from all Arena brands',    component: ArchiveModule     },
-  { id: 'leaderboard',  tier: 'trial',    label: '🏆 Leaderboard',    desc: 'Top performing ads in the Arena',         component: LeaderboardModule },
-  { id: 'badges',       tier: 'trial',    label: '🏅 Badges',         desc: 'Your earned badges in the Arena',         component: BadgesModule      },
-  { id: 'loyalty',      tier: 'trial',    label: '🔄 Loyalty',        desc: 'Trial status and loyalty restart',        component: LoyaltyModule     },
-  { id: 'region-map',   tier: 'basic',    label: '🌍 Regional Map',   desc: 'Live signup regions across the network',  component: RegionalMapModule },
-  { id: 'campaign-hub', tier: 'basic',    label: '📡 Campaign Hub',   desc: 'Active campaigns grouped by tier',        component: CampaignHubModule },
-  { id: 'posts',        tier: 'standard', label: '📝 Posts',          desc: 'Brand posts and updates',                 component: PostsModule       },
-  { id: 'schedule',     tier: 'standard', label: '📅 Schedule',       desc: 'Ad activity by day of week',              component: ScheduleModule    },
-  { id: 'chat',         tier: 'standard', label: '🦋 Ask Aria',       desc: 'Direct line to Aria — unlocks at 10pts',  component: ChatModule        },
-  { id: 'video-feed',   tier: 'premium',  label: '🎬 Video Feed',     desc: 'Brand media ads',                         component: VideoFeedModule   },
-  { id: 'youtube-live', tier: 'premium',  label: '▶️ YouTube Live',   desc: 'Live stream from your YouTube channel',   component: YouTubeLiveModule },
-  { id: 'slide-panel',         tier: 'trial',    label: '🌍 Country Panel',       desc: 'Top countries + full list slide-out',         component: SlidePanelModule         },
-  { id: 'featured-candidates', tier: 'trial',    label: '⭐ Featured Candidates',  desc: 'Engagement-ranked list — set featured badge', component: FeaturedCandidatesModule },
+
+  // ── Trial ─────────────────────────────────────────────────────────────────
+  {
+    id:        'create-ad',
+    tier:      'trial',
+    icon:      '🚀',
+    label:     '🚀 Advertise Here',
+    desc:      'Create and launch an ad in this arena',
+    size:      'standard',
+    component: CreateAdModule,
+  },
+  {
+    id:        'share',
+    tier:      'trial',
+    icon:      '🔗',
+    label:     '🔗 Share Arena',
+    desc:      'Share this arena with one tap',
+    size:      'compact',
+    component: ShareModule,
+  },
+  {
+    id:        'leaderboard',
+    tier:      'trial',
+    icon:      '🏆',
+    label:     '🏆 Leaderboard',
+    desc:      'Top performing ads ranked by points',
+    size:      'standard',
+    component: LeaderboardModule,
+  },
+  {
+    id:        'archive',
+    tier:      'trial',
+    icon:      '📦',
+    label:     '📦 Archive',
+    desc:      'Past campaigns from all Arena brands',
+    size:      'compact',
+    component: ArchiveModule,
+  },
+  {
+    id:        'badges',
+    tier:      'trial',
+    icon:      '🏅',
+    label:     '🏅 Badges',
+    desc:      'Earned badges and Arena achievements',
+    size:      'compact',
+    component: BadgesModule,
+  },
+  {
+    id:        'loyalty',
+    tier:      'trial',
+    icon:      '🔄',
+    label:     '🔄 Loyalty',
+    desc:      'Trial status, streak, and loyalty restart',
+    size:      'compact',
+    component: LoyaltyModule,
+  },
+  {
+    id:        'slide-panel',
+    tier:      'trial',
+    icon:      '🌍',
+    label:     '🌍 Country Panel',
+    desc:      'Top countries with full list slide-out',
+    size:      'compact',
+    component: SlidePanelModule,
+  },
+
+  // ── Basic ─────────────────────────────────────────────────────────────────
+  {
+    id:        'world-map',
+    tier:      'basic',
+    icon:      '🗺️',
+    label:     '🗺️ World Map',
+    desc:      'Live ad locations pinned on a world map',
+    tag:       'new',
+    size:      'full',
+    component: WorldMapModule,
+  },
+  {
+    id:        'campaign-hub',
+    tier:      'basic',
+    icon:      '📡',
+    label:     '📡 Campaign Hub',
+    desc:      'Manage campaigns, bookings, and share tools',
+    tag:       'enhanced',
+    size:      'full',
+    component: CampaignHubModule,
+  },
+
+  // ── Standard ──────────────────────────────────────────────────────────────
+  {
+    id:        'posts',
+    tier:      'standard',
+    icon:      '🔗',
+    label:     '🔗 Quick Share',
+    desc:      'Generate platform-ready share copy for your ads',
+    tag:       'enhanced',
+    size:      'standard',
+    component: PostsModule,
+  },
+  {
+    id:        'chat',
+    tier:      'standard',
+    icon:      '🦋',
+    label:     '🦋 Ask Aria',
+    desc:      'Direct line to Aria — unlocks at 10 pts',
+    size:      'compact',
+    component: ChatModule,
+  },
+  {
+    id:        'agents',
+    tier:      'standard',
+    icon:      '⚡',
+    label:     '⚡ Agents Hub',
+    desc:      'Command centre for all Arena agents + antbots',
+    tag:       'new',
+    size:      'full',
+    component: AgentsModule,
+  },
+  {
+    id:        'media',
+    tier:      'standard',
+    icon:      '🎨',
+    label:     '🎨 Media',
+    desc:      'AI-generated images for your ads — gallery + generate',
+    tag:       'new',
+    size:      'full',
+    component: MediaModule,
+  },
+
+  // ── Premium ───────────────────────────────────────────────────────────────
+  {
+    id:        'video-feed',
+    tier:      'premium',
+    icon:      '🎬',
+    label:     '🎬 Video Feed',
+    desc:      'Brand video ads in the Arena feed',
+    size:      'standard',
+    component: VideoFeedModule,
+  },
+  {
+    id:        'youtube-live',
+    tier:      'premium',
+    icon:      '▶️',
+    label:     '▶️ YouTube Live',
+    desc:      'Live stream from your YouTube channel',
+    size:      'standard',
+    component: YouTubeLiveModule,
+  },
+  {
+    id:        'featured-candidates',
+    tier:      'premium',
+    icon:      '⭐',
+    label:     '⭐ Featured Candidates',
+    desc:      'Engagement-ranked list — set the featured badge holder',
+    tag:       'admin',
+    size:      'full',
+    component: FeaturedCandidatesModule,
+  },
 ];
 
-export function getAvailableModules(subscription: string) {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+export function getAvailableModules(subscription: string): ModuleDefinition[] {
   const order: Record<string, number> = { trial: 0, basic: 1, standard: 2, premium: 3 };
   const userLevel = order[subscription] ?? 0;
   return MODULE_REGISTRY.filter(m => (order[m.tier] ?? 0) <= userLevel);
+}
+
+export function getModuleById(id: string): ModuleDefinition | undefined {
+  return MODULE_REGISTRY.find(m => m.id === id);
+}
+
+export function getModulesByTag(tag: string): ModuleDefinition[] {
+  return MODULE_REGISTRY.filter(m => m.tag === tag);
+}
+
+export function getModulesByTier(tier: string): ModuleDefinition[] {
+  return MODULE_REGISTRY.filter(m => m.tier === tier);
 }
