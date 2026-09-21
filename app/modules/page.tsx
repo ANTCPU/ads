@@ -4,36 +4,23 @@
 // Super admin only (layout.tsx guards the route).
 // Shows every module in MODULE_REGISTRY with live preview toggle.
 //
-// Layout:
-//   — Header with registry count + tier filter tabs
-//   — Grid of module cards — id, tier, label, desc
-//   — Each card has a "Preview" toggle — expands live module below
-//   — Live preview uses real supabase + real user from localStorage
-//
-// Useful for:
-//   — QA — spot broken modules instantly
-//   — Demo — show any module to a brand
-//   — Discovery — see what's available before wiring to an arena
-//
 // v1 (Sep 2026)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect }    from 'react';
-import { useRouter }              from 'next/navigation';
-import { createClient }           from '@supabase/supabase-js';
-import ArenaNav                   from '../components/ArenaNav';
-import ArenaFooter                from '../components/ArenaFooter';
-import { MODULE_REGISTRY }        from './index';
-import { clearSessionCookie }     from '../lib/session';
-import type { SubscriptionTier }  from './types';
+import { useState, useEffect }   from 'react';
+import { useRouter }             from 'next/navigation';
+import { createClient }          from '@supabase/supabase-js';
+import ArenaNav                  from '../components/ArenaNav';
+import ArenaFooter               from '../components/ArenaFooter';
+import { MODULE_REGISTRY }       from './index';
+import { clearSessionCookie }    from '../lib/session';
+import type { SubscriptionTier } from './types';
 
-// ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
 const G = {
   bg:      '#0a0a0a',
   card:    '#111',
@@ -51,7 +38,6 @@ const G = {
   text:    '#e0e0e0',
 };
 
-// ─── Tier colors ──────────────────────────────────────────────────────────────
 const TIER_COLOR: Record<SubscriptionTier, string> = {
   trial:    G.green,
   basic:    G.blue,
@@ -61,7 +47,6 @@ const TIER_COLOR: Record<SubscriptionTier, string> = {
 
 const TIER_ORDER: SubscriptionTier[] = ['trial', 'basic', 'standard', 'premium'];
 
-// ─── Component ────────────────────────────────────────────────────────────────
 export default function ModulesPage() {
   const router = useRouter();
 
@@ -71,7 +56,6 @@ export default function ModulesPage() {
   const [tierFilter, setTierFilter] = useState<SubscriptionTier | 'all'>('all');
   const [search,     setSearch]     = useState('');
 
-  // ── Boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem('arena_user');
     if (!stored) { router.push('/'); return; }
@@ -84,7 +68,6 @@ export default function ModulesPage() {
 
   if (!hydrated || !user) return null;
 
-  // ── Module context — real data ────────────────────────────────────────────
   const moduleCtx = {
     slug:         'modules-lab',
     user:         { email: user.email, name: user.name, brand: user.brand, trialStatus: 'team' },
@@ -94,7 +77,6 @@ export default function ModulesPage() {
     subscription: 'premium' as SubscriptionTier,
   };
 
-  // ── Filter ────────────────────────────────────────────────────────────────
   const filtered = MODULE_REGISTRY.filter(m => {
     const matchTier   = tierFilter === 'all' || m.tier === tierFilter;
     const matchSearch = search === '' ||
@@ -108,10 +90,14 @@ export default function ModulesPage() {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
   }
 
-  function expandAll()   { const m: Record<string, boolean> = {}; filtered.forEach(mod => m[mod.id] = true);  setExpanded(m); }
+  function expandAll() {
+    const m: Record<string, boolean> = {};
+    filtered.forEach(mod => { m[mod.id] = true; });
+    setExpanded(m);
+  }
+
   function collapseAll() { setExpanded({}); }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: G.bg, color: G.text, fontFamily: 'system-ui, sans-serif' }}>
       <ArenaNav
@@ -125,7 +111,7 @@ export default function ModulesPage() {
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1rem 4rem' }}>
 
-              {/* ── Header ── */}
+        {/* ── Header ── */}
         <div style={{
           background:   G.card,
           border:       `1px solid ${G.orange}30`,
@@ -146,7 +132,6 @@ export default function ModulesPage() {
                 {MODULE_REGISTRY.length} modules registered · preview any module live
               </div>
             </div>
-
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
               <button onClick={expandAll}
                 style={{ background: 'transparent', border: `1px solid ${G.border2}`, borderRadius: '6px', color: G.muted, fontSize: '0.68rem', padding: '0.3rem 0.65rem', cursor: 'pointer' }}>
@@ -161,29 +146,7 @@ export default function ModulesPage() {
                 ← Command Centre
               </button>
             </div>
-          </div>  {/* ← closes the flex row — this was the missing close */}
-
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: '0.65rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
-            {TIER_ORDER.map(tier => {
-              const count = MODULE_REGISTRY.filter(m => m.tier === tier).length;
-              return (
-                <div key={tier} style={{
-                  background:   G.card2,
-                  border:       `1px solid ${TIER_COLOR[tier]}30`,
-                  borderRadius: '8px',
-                  padding:      '0.5rem 0.85rem',
-                  textAlign:    'center',
-                  flex:         1,
-                  minWidth:     '60px',
-                }}>
-                  <div style={{ fontSize: '1.1rem', fontWeight: 800, color: TIER_COLOR[tier] }}>{count}</div>
-                  <div style={{ fontSize: '0.6rem', color: G.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tier}</div>
-                </div>
-              );
-            })}
           </div>
-        </div> 
 
           {/* Stats row */}
           <div style={{ display: 'flex', gap: '0.65rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
@@ -226,7 +189,6 @@ export default function ModulesPage() {
               outline:      'none',
             }}
           />
-          {/* Tier filter tabs */}
           <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
             {(['all', ...TIER_ORDER] as const).map(tier => {
               const active = tierFilter === tier;
@@ -236,15 +198,15 @@ export default function ModulesPage() {
                   key={tier}
                   onClick={() => setTierFilter(tier)}
                   style={{
-                    background:   active ? `${color}20` : 'transparent',
-                    border:       `1px solid ${active ? color : G.border2}`,
-                    borderRadius: '6px',
-                    color:        active ? color : G.muted,
-                    fontSize:     '0.68rem',
-                    fontWeight:   active ? 700 : 400,
-                    padding:      '0.3rem 0.65rem',
-                    cursor:       'pointer',
-                    transition:   'all 0.15s',
+                    background:    active ? `${color}20` : 'transparent',
+                    border:        `1px solid ${active ? color : G.border2}`,
+                    borderRadius:  '6px',
+                    color:         active ? color : G.muted,
+                    fontSize:      '0.68rem',
+                    fontWeight:    active ? 700 : 400,
+                    padding:       '0.3rem 0.65rem',
+                    cursor:        'pointer',
+                    transition:    'all 0.15s',
                     textTransform: 'capitalize',
                   }}
                 >
@@ -265,9 +227,9 @@ export default function ModulesPage() {
         {/* ── Module cards ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {filtered.map(mod => {
-            const isOpen     = !!expanded[mod.id];
-            const tierColor  = TIER_COLOR[mod.tier];
-            const ModComp    = mod.component;
+            const isOpen    = !!expanded[mod.id];
+            const tierColor = TIER_COLOR[mod.tier];
+            const ModComp   = mod.component;
 
             return (
               <div key={mod.id} style={{
@@ -278,34 +240,25 @@ export default function ModulesPage() {
                 overflow:     'hidden',
                 transition:   'border-color 0.15s',
               }}>
-
                 {/* Card header */}
-                <div style={{
-                  display:    'flex',
-                  alignItems: 'center',
-                  gap:        '0.75rem',
-                  padding:    '0.85rem 1rem',
-                  cursor:     'pointer',
-                }}
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1rem', cursor: 'pointer' }}
                   onClick={() => toggleExpand(mod.id)}
                 >
-                  {/* Tier badge */}
                   <span style={{
-                    fontSize:     '0.6rem',
-                    fontWeight:   700,
-                    color:        tierColor,
-                    background:   `${tierColor}15`,
-                    border:       `1px solid ${tierColor}30`,
-                    borderRadius: '999px',
-                    padding:      '0.15rem 0.5rem',
+                    fontSize:      '0.6rem',
+                    fontWeight:    700,
+                    color:         tierColor,
+                    background:    `${tierColor}15`,
+                    border:        `1px solid ${tierColor}30`,
+                    borderRadius:  '999px',
+                    padding:       '0.15rem 0.5rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.06em',
-                    flexShrink:   0,
+                    flexShrink:    0,
                   }}>
                     {mod.tier}
                   </span>
-
-                  {/* Label + desc */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isOpen ? tierColor : G.text }}>
                       {mod.label}
@@ -314,8 +267,6 @@ export default function ModulesPage() {
                       {mod.desc}
                     </div>
                   </div>
-
-                  {/* ID chip */}
                   <code style={{
                     fontSize:     '0.62rem',
                     color:        G.dim,
@@ -327,8 +278,6 @@ export default function ModulesPage() {
                   }}>
                     {mod.id}
                   </code>
-
-                  {/* Toggle arrow */}
                   <span style={{
                     fontSize:   '0.75rem',
                     color:      G.muted,
@@ -341,14 +290,9 @@ export default function ModulesPage() {
                   </span>
                 </div>
 
-                {/* Live preview — only rendered when expanded */}
+                {/* Live preview */}
                 {isOpen && (
-                  <div style={{
-                    borderTop:  `1px solid ${G.border}`,
-                    padding:    '1.25rem 1rem',
-                    background: G.card2,
-                  }}>
-                    {/* Preview label */}
+                  <div style={{ borderTop: `1px solid ${G.border}`, padding: '1.25rem 1rem', background: G.card2 }}>
                     <div style={{
                       fontSize:      '0.6rem',
                       color:         tierColor,
@@ -363,8 +307,6 @@ export default function ModulesPage() {
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: tierColor, display: 'inline-block' }} />
                       Live Preview · {mod.id}
                     </div>
-
-                    {/* Module rendered live */}
                     <ModComp {...moduleCtx} />
                   </div>
                 )}
@@ -372,14 +314,17 @@ export default function ModulesPage() {
             );
           })}
         </div>
+
+        {/* ── Empty state ── */}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '3rem', color: G.muted }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🧩</div>
+            <div>No modules match your search.</div>
+          </div>
+        )}
+
         {/* ── Footer nav ── */}
-        <div style={{
-          marginTop:      '2.5rem',
-          display:        'flex',
-          gap:            '0.5rem',
-          justifyContent: 'center',
-          flexWrap:       'wrap',
-        }}>
+        <div style={{ marginTop: '2.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           {[
             { label: '⚡ Command Centre', path: '/dashboard/antcpu' },
             { label: '🏟️ Arena',          path: '/arena'            },
@@ -398,11 +343,11 @@ export default function ModulesPage() {
               {label}
             </button>
           ))}
-        </div>  {/* ← footer nav */}
+        </div>
 
-      </div>  {/* ← maxWidth container */}
+      </div>
 
       <ArenaFooter />
-    </div>  {/* ← page root */}
+    </div>
   );
 }
