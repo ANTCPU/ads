@@ -12,6 +12,7 @@ import YouTubeLiveModule   from './youtube-live';
 import ArchiveModule       from './archive';
 import BadgesModule        from './badges';
 import LoyaltyModule       from './loyalty';
+import SlidePanelModule    from './slide-panel';   
 
 export const MODULE_REGISTRY: ModuleDefinition[] = [
   { id: 'create-ad',    tier: 'trial',    label: '🚀 Advertise Here', desc: 'Create an ad in this arena',              component: CreateAdModule    },
