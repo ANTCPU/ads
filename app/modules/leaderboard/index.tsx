@@ -58,7 +58,7 @@ export default function LeaderboardModule({ slug, supabase, user }: ModuleContex
   const [totalPoints, setTotalPoints] = useState(0);
   const [loading,     setLoading]     = useState(true);
 
-  const isArena = slug === 'arena';
+  const isArena = slug === 'arena' || !!isSuper;
 
   useEffect(() => {
     if (isArena) {
