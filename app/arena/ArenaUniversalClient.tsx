@@ -3,12 +3,11 @@
 // Modules rendered from arena_modules table (slug='arena') + MODULE_REGISTRY
 // Falls back to default module set if table is empty
 //
-// v2 (Sep 2026):
-//   — ReactionPicker wired in — replaces inline reaction buttons
-//   — reactionTarget state added — controls which ad has picker open
-//   — handleReaction split into openReactionPicker + handleReaction
-//   — recordReaction now receives ad.points (required by reactions.ts v2)
-//   — REACTIONS const removed — REACTION_DEFS from ReactionPicker is source of truth
+// v3 (Sep 2026):
+//   — liveStats state added — header numbers sourced from /api/stats
+//   — refreshStats() fires after every interaction (like/boost/reaction/share/click)
+//   — header no longer derives from stale local ads state
+//   — totalBrands/Points/Reactions/Shares replaced by liveStats equivalents
 // ─────────────────────────────────────────────────────────────────────────────
 'use client';
 
@@ -66,7 +65,6 @@ type Ad = {
   boost_count: number; reaction_count: number; rank_position?: number;
   image_url: string | null; is_country_champion?: boolean; country?: string;
 };
-
 type Toast    = { id: string; msg: string };
 type BrandCfg = { image_url: string | null; color: string | null };
 
@@ -146,33 +144,47 @@ function buildShareCtx(ad: Ad): ShareContext {
 export default function ArenaUniversalClient() {
   const router = useRouter();
 
-  const [ads,         setAds]         = useState<Ad[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [user,        setUser]        = useState({ name: '', email: '', brand: '', trialStatus: 'trial', role: '' });
-  const [toast,       setToast]       = useState<Toast | null>(null);
-  const [preview,     setPreview]     = useState<Ad | null>(null);
-  const [shareAd,     setShareAd]     = useState<Ad | null>(null);
-  const [brandConfig, setBrandConfig] = useState<Record<string, BrandCfg>>({});
-  const [moduleIds,   setModuleIds]   = useState<string[]>([]);
-  const [locale,      setLocale]      = useState<Locale>('en');
-
-  // ─── Interaction state ───────────────────────────────────────────────────
-  const [liked,           setLiked]           = useState<Record<string, boolean>>({});
-  const [boosted,         setBoosted]         = useState<Record<string, boolean>>({});
-  const [reacted,         setReacted]         = useState<Record<string, ReactionType>>({});
-  const [bookmarked,      setBookmarked]      = useState<Record<string, boolean>>({});
-  const [reactionTarget,  setReactionTarget]  = useState<string | null>(null); // ← NEW
-
-  // ── Anon nudge ───────────────────────────────────────────────────────────
-  const [nudgedAd, setNudgedAd] = useState<string | null>(null);
+  const [ads,            setAds]           = useState<Ad[]>([]);
+  const [loading,        setLoading]       = useState(true);
+  const [user,           setUser]          = useState({ name: '', email: '', brand: '', trialStatus: 'trial', role: '' });
+  const [toast,          setToast]         = useState<Toast | null>(null);
+  const [preview,        setPreview]       = useState<Ad | null>(null);
+  const [shareAd,        setShareAd]       = useState<Ad | null>(null);
+  const [brandConfig,    setBrandConfig]   = useState<Record<string, BrandCfg>>({});
+  const [moduleIds,      setModuleIds]     = useState<string[]>([]);
+  const [locale,         setLocale]        = useState<Locale>('en');
+  const [liked,          setLiked]         = useState<Record<string, boolean>>({});
+  const [boosted,        setBoosted]       = useState<Record<string, boolean>>({});
+  const [reacted,        setReacted]       = useState<Record<string, ReactionType>>({});
+  const [bookmarked,     setBookmarked]    = useState<Record<string, boolean>>({});
+  const [reactionTarget, setReactionTarget]= useState<string | null>(null);
+  const [nudgedAd,       setNudgedAd]      = useState<string | null>(null);
+  const [liveStats,      setLiveStats]     = useState({
+    totalBrands:    0,
+    totalAds:       0,
+    totalPoints:    0,
+    totalReactions: 0,
+    totalShares:    0,
+  });
 
   // ─── Derived ─────────────────────────────────────────────────────────────
-  const maxPoints      = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
-  const isSuper        = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
-  const totalBrands    = new Set(ads.map(a => a.brand)).size;
-  const totalPoints    = ads.reduce((sum, a) => sum + (a.points        || 0), 0);
-  const totalReactions = ads.reduce((sum, a) => sum + (a.reaction_count || 0), 0);
-  const totalShares    = ads.reduce((sum, a) => sum + (a.share_count    || 0), 0);
+  const maxPoints = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+  const isSuper   = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
+
+  // ─── refreshStats ─────────────────────────────────────────────────────────
+  async function refreshStats() {
+    try {
+      const res  = await fetch('/api/stats', { cache: 'no-store' });
+      const data = await res.json();
+      setLiveStats({
+        totalBrands:    data.liveBrands     || 0,
+        totalAds:       data.liveAds        || 0,
+        totalPoints:    data.livePoints     || 0,
+        totalReactions: data.totalReactions || 0,
+        totalShares:    data.totalShares    || 0,
+      });
+    } catch {}
+  }
 
   // ─── Module context ───────────────────────────────────────────────────────
   const moduleCtx = {
@@ -184,6 +196,7 @@ export default function ArenaUniversalClient() {
   };
 
   // ─── Boot ─────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     setLocale(getStoredLocale());
 
@@ -210,6 +223,7 @@ export default function ArenaUniversalClient() {
 
     fetchAds();
     fetchModules();
+    refreshStats();
   }, []);
 
   // ─── Data ─────────────────────────────────────────────────────────────────
@@ -263,7 +277,7 @@ export default function ArenaUniversalClient() {
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, click_count: ad.click_count },
       user.email || 'visitor', SOURCE.ARENA_FEED, supabase
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: n } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: n } : a)); refreshStats();
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, click_count: n } : p);
   }
 
@@ -277,7 +291,7 @@ export default function ArenaUniversalClient() {
     { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count, points: ad.points || 0 },
       getSessionId(), SOURCE.ARENA_FEED, supabase, user.email || undefined
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a)); refreshStats();
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, like_count: n } : p);
     if (!user.email) setNudgedAd(ad.id);
   }
@@ -292,7 +306,7 @@ export default function ArenaUniversalClient() {
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count, points: ad.points || 0 },
       getSessionId(), SOURCE.ARENA_FEED, supabase, user.email || undefined
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a)); refreshStats();
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, boost_count: n } : p);
     if (!user.email) setNudgedAd(ad.id);
   }
@@ -325,7 +339,7 @@ export default function ArenaUniversalClient() {
       SOURCE.ARENA_FEED,
       supabase,
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: newCount } : a)); refreshStats();
     if (preview?.id === ad.id) setPreview(p => p ? { ...p, reaction_count: newCount } : p);
     if (!user.email) setNudgedAd(ad.id);
   }
@@ -349,7 +363,7 @@ export default function ArenaUniversalClient() {
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, share_count: ad.share_count },
       user.email || 'visitor', label, SOURCE.ARENA_FEED, supabase
     );
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: n } : a));
+    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: n } : a));refreshStats();
   }
 
   async function handleNativeShare(ad: Ad) {
