@@ -29,6 +29,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   { id: 'chat',         tier: 'standard', label: '🦋 Ask Aria',       desc: 'Direct line to Aria — unlocks at 10pts',  component: ChatModule        },
   { id: 'video-feed',   tier: 'premium',  label: '🎬 Video Feed',     desc: 'Brand media ads',                         component: VideoFeedModule   },
   { id: 'youtube-live', tier: 'premium',  label: '▶️ YouTube Live',   desc: 'Live stream from your YouTube channel',   component: YouTubeLiveModule },
+  { id: 'slide-panel',         tier: 'trial',    label: '🌍 Country Panel',       desc: 'Top countries + full list slide-out',         component: SlidePanelModule         },
+  { id: 'featured-candidates', tier: 'trial',    label: '⭐ Featured Candidates',  desc: 'Engagement-ranked list — set featured badge', component: FeaturedCandidatesModule },
 ];
 
 export function getAvailableModules(subscription: string) {
