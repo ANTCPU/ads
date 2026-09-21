@@ -372,22 +372,13 @@ export default function ModulesPage() {
             );
           })}
         </div>
-
-        {/* ── Empty state ── */}
-        {filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '3rem', color: G.muted }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🧩</div>
-            <div>No modules match your search.</div>
-          </div>
-        )}
-
         {/* ── Footer nav ── */}
         <div style={{
-          marginTop:    '2.5rem',
-          display:      'flex',
-          gap:          '0.5rem',
+          marginTop:      '2.5rem',
+          display:        'flex',
+          gap:            '0.5rem',
           justifyContent: 'center',
-          flexWrap:     'wrap',
+          flexWrap:       'wrap',
         }}>
           {[
             { label: '⚡ Command Centre', path: '/dashboard/antcpu' },
@@ -407,12 +398,11 @@ export default function ModulesPage() {
               {label}
             </button>
           ))}
-        </div>
+        </div>  {/* ← footer nav */}
 
-      </div>
+      </div>  {/* ← maxWidth container */}
 
       <ArenaFooter />
-    </div>
+    </div>  {/* ← page root */}
   );
 }
-
