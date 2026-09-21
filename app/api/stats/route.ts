@@ -13,53 +13,56 @@ const supabase = createClient(
 // Consumers:
 //   antcpu.com/cloud/index.html  → stat-ads, stat-brands, stat-points
 //   antcpu-ads.vercel.app/       → liveAds, liveBrands, liveCountries, livePoints
-//   app/guide/page.tsx           → topBrands (live top 3 brand tiles)
-//   app/fall/FallClient.tsx      → topCountries (country grid + slide panel)
-//   ArenaUniversalClient.tsx     → re-fetched after every interaction (header refresh)
-//   ArenaClient.tsx              → same
-//   ARENAS.md RVS work           → topAds (rising signal candidates)
+//   app/guide/page.tsx           → topBrands
+//   app/fall/FallClient.tsx      → topCountries, allCountries, topAds, topBrands
+//   ArenaUniversalClient         → liveStats via refreshStats()
+//   ArenaClient                  → refreshAds() (brand-scoped, not this endpoint)
 //
 // CORS: open — public stats, no credentials needed.
-// Cache: 30s on CDN edge — tightened from 60s to keep header stats fresher
-//        after user interactions trigger a re-fetch.
+// Cache: 60s CDN edge.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Cache-Control':                'public, s-maxage=30, stale-while-revalidate=60',
+  'Cache-Control':                'public, s-maxage=60, stale-while-revalidate=120',
 };
 
-// ─── Country flag lookup ──────────────────────────────────────────────────────
-// Mirrors COUNTRY_FLAGS in ArenaUniversalClient — single source of truth here,
-// both should stay in sync. Moving to a shared lib/flags.ts is a future step.
+// ─── Country flags — same registry as ArenaClient COUNTRY_FLAGS ───────────────
+// Kept here so /api/stats is self-contained — no import from client component.
 const COUNTRY_FLAGS: Record<string, string> = {
-  'Afghanistan':'🇦🇫','Albania':'🇦🇱','Algeria':'🇩🇿','Angola':'🇦🇴',
-  'Argentina':'🇦🇷','Australia':'🇦🇺','Austria':'🇦🇹','Bangladesh':'🇧🇩',
-  'Belgium':'🇧🇪','Bolivia':'🇧🇴','Brazil':'🇧🇷','Cambodia':'🇰🇭',
-  'Cameroon':'🇨🇲','Canada':'🇨🇦','Chile':'🇨🇱','China':'🇨🇳',
-  'Colombia':'🇨🇴','Congo':'🇨🇩','Croatia':'🇭🇷','Czech Republic':'🇨🇿',
-  'Denmark':'🇩🇰','Ecuador':'🇪🇨','Egypt':'🇪🇬','Ethiopia':'🇪🇹',
-  'Finland':'🇫🇮','France':'🇫🇷','Germany':'🇩🇪','Ghana':'🇬🇭',
-  'Greece':'🇬🇷','Guatemala':'🇬🇹','Honduras':'🇭🇳','Hungary':'🇭🇺',
-  'India':'🇮🇳','Indonesia':'🇮🇩','Iran':'🇮🇷','Iraq':'🇮🇶',
-  'Israel':'🇮🇱','Italy':'🇮🇹','Japan':'🇯🇵','Jordan':'🇯🇴',
-  'Kazakhstan':'🇰🇿','Kenya':'🇰🇪','South Korea':'🇰🇷','Kuwait':'🇰🇼',
-  'Lebanon':'🇱🇧','Libya':'🇱🇾','Malaysia':'🇲🇾','Mexico':'🇲🇽',
-  'Morocco':'🇲🇦','Mozambique':'🇲🇿','Myanmar':'🇲🇲','Nepal':'🇳🇵',
-  'Netherlands':'🇳🇱','New Zealand':'🇳🇿','Nicaragua':'🇳🇮','Nigeria':'🇳🇬',
-  'Norway':'🇳🇴','Pakistan':'🇵🇰','Panama':'🇵🇦','Paraguay':'🇵🇾',
-  'Peru':'🇵🇪','Philippines':'🇵🇭','Poland':'🇵🇱','Portugal':'🇵🇹',
-  'Romania':'🇷🇴','Russia':'🇷🇺','Saudi Arabia':'🇸🇦','Senegal':'🇸🇳',
-  'Serbia':'🇷🇸','Singapore':'🇸🇬','South Africa':'🇿🇦','Spain':'🇪🇸',
-  'Sri Lanka':'🇱🇰','Sudan':'🇸🇩','Sweden':'🇸🇪','Switzerland':'🇨🇭',
-  'Syria':'🇸🇾','Taiwan':'🇹🇼','Tanzania':'🇹🇿','Thailand':'🇹🇭',
-  'Tunisia':'🇹🇳','Turkey':'🇹🇷','Uganda':'🇺🇬','Ukraine':'🇺🇦',
-  'United Arab Emirates':'🇦🇪','United Kingdom':'🇬🇧','United States':'🇺🇸',
-  'Uruguay':'🇺🇾','Uzbekistan':'🇺🇿','Venezuela':'🇻🇪','Vietnam':'🇻🇳',
-  'Yemen':'🇾🇪','Zambia':'🇿🇲','Zimbabwe':'🇿🇼',
+  'Nigeria':'🇳🇬','Ghana':'🇬🇭','Kenya':'🇰🇪','South Africa':'🇿🇦',
+  'Ethiopia':'🇪🇹','Tanzania':'🇹🇿','Uganda':'🇺🇬','Cameroon':'🇨🇲',
+  'Senegal':'🇸🇳','Ivory Coast':'🇨🇮','Zimbabwe':'🇿🇼','Zambia':'🇿🇲',
+  'Rwanda':'🇷🇼','Morocco':'🇲🇦','Algeria':'🇩🇿','Tunisia':'🇹🇳',
+  'Egypt':'🇪🇬','Mozambique':'🇲🇿','DR Congo':'🇨🇩','Togo':'🇹🇬',
+  'Benin':'🇧🇯','Sierra Leone':'🇸🇱','Liberia':'🇱🇷','Mali':'🇲🇱',
+  'Burkina Faso':'🇧🇫','Niger':'🇳🇪','Chad':'🇹🇩','Sudan':'🇸🇩',
+  'Somalia':'🇸🇴','Angola':'🇦🇴','Namibia':'🇳🇦','Botswana':'🇧🇼',
+  'Saudi Arabia':'🇸🇦','UAE':'🇦🇪','Israel':'🇮🇱','Jordan':'🇯🇴',
+  'Lebanon':'🇱🇧','Iraq':'🇮🇶','Iran':'🇮🇷','Kuwait':'🇰🇼',
+  'India':'🇮🇳','Pakistan':'🇵🇰','Bangladesh':'🇧🇩','Sri Lanka':'🇱🇰',
+  'Nepal':'🇳🇵','China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷',
+  'Hong Kong':'🇭🇰','Taiwan':'🇹🇼','Singapore':'🇸🇬','Malaysia':'🇲🇾',
+  'Indonesia':'🇮🇩','Philippines':'🇵🇭','Vietnam':'🇻🇳','Thailand':'🇹🇭',
+  'Myanmar':'🇲🇲','Cambodia':'🇰🇭','Laos':'🇱🇦',
+  'Australia':'🇦🇺','New Zealand':'🇳🇿',
+  'United Kingdom':'🇬🇧','Germany':'🇩🇪','France':'🇫🇷','Spain':'🇪🇸',
+  'Italy':'🇮🇹','Netherlands':'🇳🇱','Portugal':'🇵🇹','Greece':'🇬🇷',
+  'Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰','Finland':'🇫🇮',
+  'Switzerland':'🇨🇭','Austria':'🇦🇹','Belgium':'🇧🇪','Poland':'🇵🇱',
+  'Czech Republic':'🇨🇿','Hungary':'🇭🇺','Romania':'🇷🇴','Bulgaria':'🇧🇬',
+  'Serbia':'🇷🇸','Croatia':'🇭🇷','Slovakia':'🇸🇰','Turkey':'🇹🇷',
+  'Ukraine':'🇺🇦','Russia':'🇷🇺',
+  'United States':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷',
+  'Argentina':'🇦🇷','Colombia':'🇨🇴','Venezuela':'🇻🇪','Peru':'🇵🇪',
+  'Chile':'🇨🇱','Ecuador':'🇪🇨','Bolivia':'🇧🇴','Honduras':'🇭🇳',
+  'Guatemala':'🇬🇹','El Salvador':'🇸🇻','Costa Rica':'🇨🇷',
+  'Dominican Republic':'🇩🇴','Cuba':'🇨🇺','Jamaica':'🇯🇲',
 };
+
+const flag = (country: string) => COUNTRY_FLAGS[country] || '🌍';
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
@@ -78,12 +81,17 @@ export async function GET(_req: NextRequest) {
 
     const rows = ads || [];
 
-    // ── Aggregate counts ──────────────────────────────────────────────────────
+    // ── Core counts ───────────────────────────────────────────────────────────
     const totalAds    = rows.length;
     const brands      = new Set(rows.map((a: any) => a.brand).filter(Boolean));
     const countries   = new Set(rows.map((a: any) => a.country).filter(Boolean));
     const totalPoints = rows.reduce((s: number, a: any) => s + (a.points || 0), 0);
     const advertisers = new Set(rows.map((a: any) => a.email).filter(Boolean));
+
+    // ── Engagement totals ─────────────────────────────────────────────────────
+    const totalReactions = rows.reduce((s: number, a: any) => s + (a.reaction_count || 0), 0);
+    const totalShares    = rows.reduce((s: number, a: any) => s + (a.share_count    || 0), 0);
+    const totalClicks    = rows.reduce((s: number, a: any) => s + (a.click_count    || 0), 0);
 
     // ── Brand points aggregation ──────────────────────────────────────────────
     const brandPoints: Record<string, number> = {};
@@ -91,21 +99,37 @@ export async function GET(_req: NextRequest) {
       if (a.brand) brandPoints[a.brand] = (brandPoints[a.brand] || 0) + (a.points || 0);
     });
 
-    const sorted = Object.entries(brandPoints)
-      .sort(([, a], [, b]) => b - a);
-
-    // Single top brand (existing consumers)
-    const topBrand = sorted[0]?.[0] || null;
-
-    // Top 3 brands — for guide/page.tsx brand tiles + Cloud
-    const topBrands = sorted.slice(0, 3).map(([brand, pts]) => ({
+    const sortedBrands = Object.entries(brandPoints).sort(([, a], [, b]) => b - a);
+    const topBrand     = sortedBrands[0]?.[0] || null;
+    const topBrands    = sortedBrands.slice(0, 3).map(([brand, pts]) => ({
       brand,
       pts,
       slug: brand.toLowerCase().replace(/\s+/g, '-'),
     }));
 
+    // ── Country aggregation — ad count per country ────────────────────────────
+    // Used by: FallClient sections 3, WorldMap module
+    const countryAdCount: Record<string, number> = {};
+    rows.forEach((a: any) => {
+      if (a.country) {
+        countryAdCount[a.country] = (countryAdCount[a.country] || 0) + 1;
+      }
+    });
+
+    const allCountriesSorted = Object.entries(countryAdCount)
+      .sort(([, a], [, b]) => b - a)
+      .map(([country, count]) => ({
+        country,
+        count,
+        flag: flag(country),
+      }));
+
+    // topCountries = top 10 for display
+    // allCountries = full list for overflow count + world map
+    const topCountries = allCountriesSorted.slice(0, 10);
+    const allCountries = allCountriesSorted;
+
     // ── Top ads — ranked by points, pinned first ──────────────────────────────
-    // Used by: leaderboard, future "Rising Now" strip, Cloud embed
     const topAds = rows
       .filter((a: any) => (a.points || 0) > 0)
       .sort((a: any, b: any) => {
@@ -124,33 +148,6 @@ export async function GET(_req: NextRequest) {
         pinned:         a.pinned         || false,
       }));
 
-    // ── Engagement totals — network-wide ─────────────────────────────────────
-    const totalReactions = rows.reduce((s: number, a: any) => s + (a.reaction_count || 0), 0);
-    const totalShares    = rows.reduce((s: number, a: any) => s + (a.share_count    || 0), 0);
-    const totalClicks    = rows.reduce((s: number, a: any) => s + (a.click_count    || 0), 0);
-
-    // ── Top countries — grouped by ad count, sorted desc, top 10 shown ────────
-    // Used by: app/fall/FallClient.tsx country grid
-    //          app/modules/slide-panel — overflow panel
-    //          ArenaUniversalClient header refresh
-    // All countries returned so slide panel can show the full list beyond top 10.
-    const countryCount: Record<string, number> = {};
-    rows.forEach((a: any) => {
-      if (a.country) countryCount[a.country] = (countryCount[a.country] || 0) + 1;
-    });
-
-    const allCountries = Object.entries(countryCount)
-      .sort(([, a], [, b]) => b - a)
-      .map(([country, count]) => ({
-        country,
-        count,
-        flag: COUNTRY_FLAGS[country] || '🌍',
-      }));
-
-    // topCountries — first 10 for the visible grid
-    // allCountries — full list for the slide panel overflow
-    const topCountries = allCountries.slice(0, 10);
-
     return NextResponse.json(
       {
         // ── Core counts ──────────────────────────────────────────────────────
@@ -166,19 +163,17 @@ export async function GET(_req: NextRequest) {
         totalClicks,
 
         // ── Brand rankings ────────────────────────────────────────────────────
-        topBrand,    // string — existing consumers unchanged
-        topBrands,   // array — guide brand tiles + Cloud
+        topBrand,
+        topBrands,
+
+        // ── Country rankings — ad count per country ───────────────────────────
+        topCountries,   // top 10 — FallClient section 3, WorldMap
+        allCountries,   // full list — overflow count, WorldMap pins
 
         // ── Top ads ───────────────────────────────────────────────────────────
-        topAds,      // array — leaderboard, Rising Now, Cloud embed
-
-        // ── Country data ──────────────────────────────────────────────────────
-        topCountries,  // top 10 — visible grid in Fall page + header
-        allCountries,  // full list — slide panel overflow
+        topAds,
 
         // ── Aliases — existing consumer variable names unchanged ──────────────
-        // cloud/index.html: stat-ads, stat-brands, stat-points
-        // page.tsx:         liveAds, liveBrands, liveCountries, livePoints
         liveAds:       totalAds,
         liveBrands:    brands.size,
         liveCountries: countries.size,
@@ -193,7 +188,8 @@ export async function GET(_req: NextRequest) {
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'unknown error';
     return NextResponse.json(
-      { error: message, totalAds: 0, totalBrands: 0, totalCountries: 0, totalPoints: 0 },
+      { error: message, totalAds: 0, totalBrands: 0, totalCountries: 0,
+        totalPoints: 0, topCountries: [], allCountries: [] },
       { status: 500, headers: CORS }
     );
   }
