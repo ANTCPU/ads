@@ -1,14 +1,13 @@
 // app/modules/index.ts
 // ─── Module Registry ──────────────────────────────────────────────────────────
-// Single source of truth for all Arena modules.
-//
-// Changes Sep 2026:
+// Sep 2026 final:
 //   — schedule removed (absorbed into campaign-hub)
 //   — region-map removed (replaced by world-map)
-//   — posts renamed → Quick Share (repurposed)
-//   — world-map, agents, media added
-//   — featured-candidates moved trial → premium (admin-only)
-//   — icon, tag, size fields added to all entries
+//   — posts renamed → Quick Share
+//   — world-map, agents, media, tv added
+//   — video-feed + youtube-live removed (absorbed into tv)
+//   — featured-candidates moved trial → premium
+//   — icon, tag, size on all entries
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ModuleDefinition }        from './types';
@@ -25,11 +24,8 @@ import PostsModule                 from './posts';
 import ChatModule                  from './chat';
 import AgentsModule                from './agents';
 import MediaModule                 from './media';
-import VideoFeedModule             from './video-feed';
-import YouTubeLiveModule           from './youtube-live';
+import TVModule                    from './tv';
 import FeaturedCandidatesModule    from './featured-candidates';
-
-// ─── Registry ─────────────────────────────────────────────────────────────────
 
 export const MODULE_REGISTRY: ModuleDefinition[] = [
 
@@ -160,26 +156,18 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     size:      'full',
     component: MediaModule,
   },
+  {
+    id:        'tv',
+    tier:      'standard',
+    icon:      '📺',
+    label:     '📺 TV & Media',
+    desc:      'Live streaming, media gallery, and YouTube — all in one',
+    tag:       'new',
+    size:      'full',
+    component: TVModule,
+  },
 
   // ── Premium ───────────────────────────────────────────────────────────────
-  {
-    id:        'video-feed',
-    tier:      'premium',
-    icon:      '🎬',
-    label:     '🎬 Video Feed',
-    desc:      'Brand video ads in the Arena feed',
-    size:      'standard',
-    component: VideoFeedModule,
-  },
-  {
-    id:        'youtube-live',
-    tier:      'premium',
-    icon:      '▶️',
-    label:     '▶️ YouTube Live',
-    desc:      'Live stream from your YouTube channel',
-    size:      'standard',
-    component: YouTubeLiveModule,
-  },
   {
     id:        'featured-candidates',
     tier:      'premium',
