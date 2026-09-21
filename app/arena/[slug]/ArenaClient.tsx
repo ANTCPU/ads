@@ -1,6 +1,13 @@
 'use client';
 // app/arena/[slug]/ArenaClient.tsx
-// Brand-specific arena — /arena/mapofpi, /arena/antcpu, etc.
+// Brand-specific arena — /arena/antcpu, etc.
+//
+// v5 (Sep 2026):
+//   — refreshAds() added — re-fetches brand ads after every interaction
+//   — stats bar stays brand-scoped (accurate to this brand, not network-wide)
+//   — refresh is a passive engagement loop: interact → see points move → interact again
+//   — COUNTRY_FLAGS moved to module-level const (was rebuilt on every call)
+//   — stale // ← NEW comment removed from reactionTarget
 //
 // v4 (Sep 2026):
 //   — ReactionPicker wired in — replaces inline reaction buttons
@@ -66,8 +73,7 @@ type BrandConfig = {
 
 type Toast = { id: string; msg: string };
 
-// ─── Tier constants ───────────────────────────────────────────────────────────
-// REACTIONS const removed — REACTION_DEFS from ReactionPicker is source of truth
+// ─── Tier colours ─────────────────────────────────────────────────────────────
 const TIER_COLOR: Record<string, string> = {
   toptier: '#f0883e', featured: '#ff0080', rising: '#7928ca', entry: '#0070f3',
 };
@@ -93,35 +99,35 @@ function getSessionId(): string {
   return sid;
 }
 
-// ─── Country flag lookup ──────────────────────────────────────────────────────
-function countryFlag(country: string): string {
-  const flags: Record<string, string> = {
-    'Nigeria':'🇳🇬','Ghana':'🇬🇭','Kenya':'🇰🇪','South Africa':'🇿🇦',
-    'Ethiopia':'🇪🇹','Tanzania':'🇹🇿','Uganda':'🇺🇬','Cameroon':'🇨🇲',
-    'Senegal':'🇸🇳','Ivory Coast':'🇨🇮','Zimbabwe':'🇿🇼','Zambia':'🇿🇲',
-    'Rwanda':'🇷🇼','Morocco':'🇲🇦','Algeria':'🇩🇿','Tunisia':'🇹🇳',
-    'Egypt':'🇪🇬','Mozambique':'🇲🇿','DR Congo':'🇨🇩','Togo':'🇹🇬',
-    'Benin':'🇧🇯','Sierra Leone':'🇸🇱','Liberia':'🇱🇷',
-    'Saudi Arabia':'🇸🇦','UAE':'🇦🇪','Israel':'🇮🇱',
-    'India':'🇮🇳','Pakistan':'🇵🇰','Bangladesh':'🇧🇩','Sri Lanka':'🇱🇰',
-    'Nepal':'🇳🇵','China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷',
-    'Hong Kong':'🇭🇰','Taiwan':'🇹🇼','Singapore':'🇸🇬','Malaysia':'🇲🇾',
-    'Indonesia':'🇮🇩','Philippines':'🇵🇭','Vietnam':'🇻🇳','Thailand':'🇹🇭',
-    'Myanmar':'🇲🇲','Cambodia':'🇰🇭','Laos':'🇱🇦',
-    'Australia':'🇦🇺','New Zealand':'🇳🇿',
-    'United Kingdom':'🇬🇧','Germany':'🇩🇪','France':'🇫🇷','Spain':'🇪🇸',
-    'Italy':'🇮🇹','Netherlands':'🇳🇱','Portugal':'🇵🇹','Greece':'🇬🇷',
-    'Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰','Finland':'🇫🇮',
-    'Switzerland':'🇨🇭','Austria':'🇦🇹','Belgium':'🇧🇪','Poland':'🇵🇱',
-    'Czech Republic':'🇨🇿','Hungary':'🇭🇺','Romania':'🇷🇴','Bulgaria':'🇧🇬',
-    'Serbia':'🇷🇸','Croatia':'🇭🇷','Slovakia':'🇸🇰','Turkey':'🇹🇷',
-    'United States':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷',
-    'Argentina':'🇦🇷','Colombia':'🇨🇴','Venezuela':'🇻🇪','Peru':'🇵🇪',
-    'Chile':'🇨🇱','Ecuador':'🇪🇨','Bolivia':'🇧🇴','Honduras':'🇭🇳',
-    'Guatemala':'🇬🇹','El Salvador':'🇸🇻',
-  };
-  return flags[country] || '🌍';
-}
+// ─── Country flags — module-level so registry isn't rebuilt on every call ─────
+// Note: subset focused on active brand arena countries.
+// Full registry lives in app/lib/flags.ts (future consolidation target).
+const COUNTRY_FLAGS: Record<string, string> = {
+  'Nigeria':'🇳🇬','Ghana':'🇬🇭','Kenya':'🇰🇪','South Africa':'🇿🇦',
+  'Ethiopia':'🇪🇹','Tanzania':'🇹🇿','Uganda':'🇺🇬','Cameroon':'🇨🇲',
+  'Senegal':'🇸🇳','Ivory Coast':'🇨🇮','Zimbabwe':'🇿🇼','Zambia':'🇿🇲',
+  'Rwanda':'🇷🇼','Morocco':'🇲🇦','Algeria':'🇩🇿','Tunisia':'🇹🇳',
+  'Egypt':'🇪🇬','Mozambique':'🇲🇿','DR Congo':'🇨🇩','Togo':'🇹🇬',
+  'Benin':'🇧🇯','Sierra Leone':'🇸🇱','Liberia':'🇱🇷',
+  'Saudi Arabia':'🇸🇦','UAE':'🇦🇪','Israel':'🇮🇱',
+  'India':'🇮🇳','Pakistan':'🇵🇰','Bangladesh':'🇧🇩','Sri Lanka':'🇱🇰',
+  'Nepal':'🇳🇵','China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷',
+  'Hong Kong':'🇭🇰','Taiwan':'🇹🇼','Singapore':'🇸🇬','Malaysia':'🇲🇾',
+  'Indonesia':'🇮🇩','Philippines':'🇵🇭','Vietnam':'🇻🇳','Thailand':'🇹🇭',
+  'Myanmar':'🇲🇲','Cambodia':'🇰🇭','Laos':'🇱🇦',
+  'Australia':'🇦🇺','New Zealand':'🇳🇿',
+  'United Kingdom':'🇬🇧','Germany':'🇩🇪','France':'🇫🇷','Spain':'🇪🇸',
+  'Italy':'🇮🇹','Netherlands':'🇳🇱','Portugal':'🇵🇹','Greece':'🇬🇷',
+  'Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰','Finland':'🇫🇮',
+  'Switzerland':'🇨🇭','Austria':'🇦🇹','Belgium':'🇧🇪','Poland':'🇵🇱',
+  'Czech Republic':'🇨🇿','Hungary':'🇭🇺','Romania':'🇷🇴','Bulgaria':'🇧🇬',
+  'Serbia':'🇷🇸','Croatia':'🇭🇷','Slovakia':'🇸🇰','Turkey':'🇹🇷',
+  'United States':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷',
+  'Argentina':'🇦🇷','Colombia':'🇨🇴','Venezuela':'🇻🇪','Peru':'🇵🇪',
+  'Chile':'🇨🇱','Ecuador':'🇪🇨','Bolivia':'🇧🇴','Honduras':'🇭🇳',
+  'Guatemala':'🇬🇹','El Salvador':'🇸🇻',
+};
+const countryFlag = (country: string) => COUNTRY_FLAGS[country] || '🌍';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ArenaClient() {
@@ -129,24 +135,27 @@ export default function ArenaClient() {
   const params = useParams();
   const slug   = (params?.slug as string || '').toLowerCase();
 
-  const [config,          setConfig]          = useState<BrandConfig>({ name: slug, primary: '#f0883e', campaign: slug });
-  const [configLoaded,    setConfigLoaded]    = useState(false);
-  const [ads,             setAds]             = useState<Ad[]>([]);
-  const [loading,         setLoading]         = useState(true);
-  const [user,            setUser]            = useState<SessionUser>({ name: '', email: '', brand: '', trialStatus: 'trial' });
-  const [slots,           setSlots]           = useState<(string | null)[]>(DEFAULT_SLOTS);
-  const [shareAd,         setShareAd]         = useState<Ad | null>(null);
-  const [toast,           setToast]           = useState<Toast | null>(null);
-  const [liked,           setLiked]           = useState<Record<string, boolean>>({});
-  const [boosted,         setBoosted]         = useState<Record<string, boolean>>({});
-  const [reacted,         setReacted]         = useState<Record<string, ReactionType>>({});
-  const [reactionTarget,  setReactionTarget]  = useState<string | null>(null); // ← NEW
+  const [config,         setConfig]         = useState<BrandConfig>({ name: slug, primary: '#f0883e', campaign: slug });
+  const [configLoaded,   setConfigLoaded]   = useState(false);
+  const [ads,            setAds]            = useState<Ad[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [user,           setUser]           = useState<SessionUser>({ name: '', email: '', brand: '', trialStatus: 'trial' });
+  const [slots,          setSlots]          = useState<(string | null)[]>(DEFAULT_SLOTS);
+  const [shareAd,        setShareAd]        = useState<Ad | null>(null);
+  const [toast,          setToast]          = useState<Toast | null>(null);
+  const [liked,          setLiked]          = useState<Record<string, boolean>>({});
+  const [boosted,        setBoosted]        = useState<Record<string, boolean>>({});
+  const [reacted,        setReacted]        = useState<Record<string, ReactionType>>({});
+  const [reactionTarget, setReactionTarget] = useState<string | null>(null);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const isSuper       = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
   const dashboardHref = isSuper ? '/dashboard/antcpu' : user.role === 'admin' ? '/dashboard/users' : '/dashboard/user';
   const isMapOfPi     = config.campaign === 'mapofpi';
   const maxPoints     = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+
+  // ── Brand-scoped stats — derived from local ads, accurate to this brand ───
+  // Re-derived after every refreshAds() call so numbers stay live.
   const totalPoints    = ads.reduce((s, a) => s + (a.points         || 0), 0);
   const totalClicks    = ads.reduce((s, a) => s + (a.click_count    || 0), 0);
   const totalShares    = ads.reduce((s, a) => s + (a.share_count    || 0), 0);
@@ -172,8 +181,8 @@ export default function ArenaClient() {
     const stored = localStorage.getItem('arena_user');
     if (stored) { try { setUser(JSON.parse(stored)); } catch {} }
 
-    const likedMap:   Record<string, boolean>    = {};
-    const boostedMap: Record<string, boolean>    = {};
+    const likedMap:   Record<string, boolean>      = {};
+    const boostedMap: Record<string, boolean>      = {};
     const reactedMap: Record<string, ReactionType> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i) || '';
@@ -193,7 +202,7 @@ export default function ArenaClient() {
       const data = await res.json();
       if (data.brand) {
         setConfig({
-          name:     data.brand.label || data.brand.name || slug,
+          name:     data.brand.label    || data.brand.name || slug,
           primary:  data.brand.color    || '#f0883e',
           logo:     data.brand.logo_url || undefined,
           site:     data.brand.site_url || undefined,
@@ -232,6 +241,20 @@ export default function ArenaClient() {
     setLoading(false);
   }
 
+  // ── refreshAds — re-fetches brand ads after every interaction ─────────────
+  // Keeps stats bar accurate. Also the passive engagement loop:
+  // user interacts → points update visibly → badge potential → interact again.
+  // Silent — no loading state, no flicker. Runs in background after action.
+  async function refreshAds() {
+    const { data } = await supabase
+      .from('ads').select('*')
+      .eq('campaign', config.campaign)
+      .eq('status',   'active')
+      .order('pinned',  { ascending: false })
+      .order('points',  { ascending: false });
+    if (data) setAds(data);
+  }
+
   async function saveModules(newSlots: (string | null)[]) {
     setSlots(newSlots);
     if (!user.email) return;
@@ -256,6 +279,7 @@ export default function ArenaClient() {
       user.email || 'visitor', SOURCE.BRAND_ARENA, supabase
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, click_count: n } : a));
+    refreshAds();
   }
 
   async function handleLike(ad: Ad, e: React.MouseEvent) {
@@ -263,12 +287,13 @@ export default function ArenaClient() {
     if (liked[ad.id]) return;
     localStorage.setItem(`liked_${ad.id}`, '1');
     setLiked(prev => ({ ...prev, [ad.id]: true }));
-    showToast(ad.id, 'Liked!');
+    showToast(ad.id, 'Liked! ⚡');
     const n = await recordLike(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, like_count: ad.like_count, points: ad.points || 0 },
       getSessionId(), SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, like_count: n } : a));
+    refreshAds();
   }
 
   async function handleBoost(ad: Ad, e: React.MouseEvent) {
@@ -276,21 +301,20 @@ export default function ArenaClient() {
     if (boosted[ad.id]) return;
     localStorage.setItem(`boosted_${ad.id}`, '1');
     setBoosted(prev => ({ ...prev, [ad.id]: true }));
-    showToast(ad.id, 'Boosted!');
+    showToast(ad.id, 'Boosted! ⚡');
     const n = await recordBoost(
       { id: ad.id, brand: ad.brand, title: ad.title, email: ad.email, boost_count: ad.boost_count, points: ad.points || 0 },
       getSessionId(), SOURCE.BRAND_ARENA, supabase, user.email || undefined
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, boost_count: n } : a));
+    refreshAds();
   }
 
-  // ── Opens picker — does NOT fire recordReaction directly ─────────────────
   function openReactionPicker(ad: Ad, e: React.MouseEvent) {
     e.stopPropagation();
     setReactionTarget(ad.id);
   }
 
-  // ── Called by ReactionPicker.onReact — fires after user confirms choice ──
   async function handleReaction(ad: Ad, type: ReactionType) {
     if (reacted[ad.id]) return;
     localStorage.setItem(`reacted_${ad.id}`, type);
@@ -304,11 +328,12 @@ export default function ArenaClient() {
         title:          ad.title,
         email:          ad.email,
         reaction_count: ad.reaction_count || 0,
-        points:         ad.points         || 0,   // ← fixes TS2345
+        points:         ad.points         || 0,
       },
       type, getSessionId(), user.email || null, SOURCE.BRAND_ARENA, supabase
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, reaction_count: n } : a));
+    refreshAds();
   }
 
   async function executePlatformShare(ad: Ad, platformKey: string) {
@@ -332,6 +357,7 @@ export default function ArenaClient() {
     );
     setAds(prev => prev.map(a => a.id === ad.id ? { ...a, share_count: n } : a));
     setShareAd(null);
+    refreshAds();
   }
 
   // ── Ad Card ───────────────────────────────────────────────────────────────
@@ -540,7 +566,7 @@ export default function ArenaClient() {
           )}
         </div>
 
-        {/* Stats bar */}
+        {/* Stats bar — brand-scoped, re-derived after every refreshAds() */}
         {!loading && ads.length > 0 && (
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             {[
@@ -643,6 +669,22 @@ export default function ArenaClient() {
         ) : (
           <div>
             {ads.map(ad => <AdCard key={ad.id} ad={ad} />)}
+          </div>
+        )}
+
+        {/* Discover more arenas */}
+        {!loading && (
+          <div style={{ marginTop: '2.5rem', background: card, border: `1px solid ${border}`, borderRadius: '14px', padding: '1.25rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.72rem', color: muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+              🏟️ The Arena Network
+            </div>
+            <div style={{ fontSize: '0.82rem', color: '#aaa', marginBottom: '1rem' }}>
+              Explore all brand arenas — earn points across the network
+            </div>
+            <button onClick={() => router.push('/arena')}
+              style={{ background: config.primary, border: 'none', borderRadius: '8px', color: '#000', fontWeight: 800, fontSize: '0.82rem', padding: '0.6rem 1.5rem', cursor: 'pointer' }}>
+              View All Arenas →
+            </button>
           </div>
         )}
 
