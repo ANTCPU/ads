@@ -14,17 +14,51 @@ const supabase = createClient(
 //   antcpu.com/cloud/index.html  → stat-ads, stat-brands, stat-points
 //   antcpu-ads.vercel.app/       → liveAds, liveBrands, liveCountries, livePoints
 //   app/guide/page.tsx           → topBrands (live top 3 brand tiles)
+//   app/fall/FallClient.tsx      → topCountries (country grid + slide panel)
+//   ArenaUniversalClient.tsx     → re-fetched after every interaction (header refresh)
+//   ArenaClient.tsx              → same
 //   ARENAS.md RVS work           → topAds (rising signal candidates)
 //
 // CORS: open — public stats, no credentials needed.
-// Cache: 60s on CDN edge — stats don't need to be real-time to the second.
+// Cache: 30s on CDN edge — tightened from 60s to keep header stats fresher
+//        after user interactions trigger a re-fetch.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Cache-Control':                'public, s-maxage=60, stale-while-revalidate=120',
+  'Cache-Control':                'public, s-maxage=30, stale-while-revalidate=60',
+};
+
+// ─── Country flag lookup ──────────────────────────────────────────────────────
+// Mirrors COUNTRY_FLAGS in ArenaUniversalClient — single source of truth here,
+// both should stay in sync. Moving to a shared lib/flags.ts is a future step.
+const COUNTRY_FLAGS: Record<string, string> = {
+  'Afghanistan':'🇦🇫','Albania':'🇦🇱','Algeria':'🇩🇿','Angola':'🇦🇴',
+  'Argentina':'🇦🇷','Australia':'🇦🇺','Austria':'🇦🇹','Bangladesh':'🇧🇩',
+  'Belgium':'🇧🇪','Bolivia':'🇧🇴','Brazil':'🇧🇷','Cambodia':'🇰🇭',
+  'Cameroon':'🇨🇲','Canada':'🇨🇦','Chile':'🇨🇱','China':'🇨🇳',
+  'Colombia':'🇨🇴','Congo':'🇨🇩','Croatia':'🇭🇷','Czech Republic':'🇨🇿',
+  'Denmark':'🇩🇰','Ecuador':'🇪🇨','Egypt':'🇪🇬','Ethiopia':'🇪🇹',
+  'Finland':'🇫🇮','France':'🇫🇷','Germany':'🇩🇪','Ghana':'🇬🇭',
+  'Greece':'🇬🇷','Guatemala':'🇬🇹','Honduras':'🇭🇳','Hungary':'🇭🇺',
+  'India':'🇮🇳','Indonesia':'🇮🇩','Iran':'🇮🇷','Iraq':'🇮🇶',
+  'Israel':'🇮🇱','Italy':'🇮🇹','Japan':'🇯🇵','Jordan':'🇯🇴',
+  'Kazakhstan':'🇰🇿','Kenya':'🇰🇪','South Korea':'🇰🇷','Kuwait':'🇰🇼',
+  'Lebanon':'🇱🇧','Libya':'🇱🇾','Malaysia':'🇲🇾','Mexico':'🇲🇽',
+  'Morocco':'🇲🇦','Mozambique':'🇲🇿','Myanmar':'🇲🇲','Nepal':'🇳🇵',
+  'Netherlands':'🇳🇱','New Zealand':'🇳🇿','Nicaragua':'🇳🇮','Nigeria':'🇳🇬',
+  'Norway':'🇳🇴','Pakistan':'🇵🇰','Panama':'🇵🇦','Paraguay':'🇵🇾',
+  'Peru':'🇵🇪','Philippines':'🇵🇭','Poland':'🇵🇱','Portugal':'🇵🇹',
+  'Romania':'🇷🇴','Russia':'🇷🇺','Saudi Arabia':'🇸🇦','Senegal':'🇸🇳',
+  'Serbia':'🇷🇸','Singapore':'🇸🇬','South Africa':'🇿🇦','Spain':'🇪🇸',
+  'Sri Lanka':'🇱🇰','Sudan':'🇸🇩','Sweden':'🇸🇪','Switzerland':'🇨🇭',
+  'Syria':'🇸🇾','Taiwan':'🇹🇼','Tanzania':'🇹🇿','Thailand':'🇹🇭',
+  'Tunisia':'🇹🇳','Turkey':'🇹🇷','Uganda':'🇺🇬','Ukraine':'🇺🇦',
+  'United Arab Emirates':'🇦🇪','United Kingdom':'🇬🇧','United States':'🇺🇸',
+  'Uruguay':'🇺🇾','Uzbekistan':'🇺🇿','Venezuela':'🇻🇪','Vietnam':'🇻🇳',
+  'Yemen':'🇾🇪','Zambia':'🇿🇲','Zimbabwe':'🇿🇼',
 };
 
 export async function OPTIONS() {
@@ -37,7 +71,8 @@ export async function GET(_req: NextRequest) {
     const { data: ads, error } = await supabase
       .from('ads')
       .select('id, brand, country, points, email, rank_position, reaction_count, share_count, click_count, pinned')
-      .eq('status', 'active') .limit(500);
+      .eq('status', 'active')
+      .limit(500);
 
     if (error) throw error;
 
@@ -81,7 +116,7 @@ export async function GET(_req: NextRequest) {
       .map((a: any) => ({
         id:             a.id,
         brand:          a.brand,
-        points:         a.points      || 0,
+        points:         a.points         || 0,
         rank_position:  a.rank_position,
         reaction_count: a.reaction_count || 0,
         share_count:    a.share_count    || 0,
@@ -93,6 +128,28 @@ export async function GET(_req: NextRequest) {
     const totalReactions = rows.reduce((s: number, a: any) => s + (a.reaction_count || 0), 0);
     const totalShares    = rows.reduce((s: number, a: any) => s + (a.share_count    || 0), 0);
     const totalClicks    = rows.reduce((s: number, a: any) => s + (a.click_count    || 0), 0);
+
+    // ── Top countries — grouped by ad count, sorted desc, top 10 shown ────────
+    // Used by: app/fall/FallClient.tsx country grid
+    //          app/modules/slide-panel — overflow panel
+    //          ArenaUniversalClient header refresh
+    // All countries returned so slide panel can show the full list beyond top 10.
+    const countryCount: Record<string, number> = {};
+    rows.forEach((a: any) => {
+      if (a.country) countryCount[a.country] = (countryCount[a.country] || 0) + 1;
+    });
+
+    const allCountries = Object.entries(countryCount)
+      .sort(([, a], [, b]) => b - a)
+      .map(([country, count]) => ({
+        country,
+        count,
+        flag: COUNTRY_FLAGS[country] || '🌍',
+      }));
+
+    // topCountries — first 10 for the visible grid
+    // allCountries — full list for the slide panel overflow
+    const topCountries = allCountries.slice(0, 10);
 
     return NextResponse.json(
       {
@@ -114,6 +171,10 @@ export async function GET(_req: NextRequest) {
 
         // ── Top ads ───────────────────────────────────────────────────────────
         topAds,      // array — leaderboard, Rising Now, Cloud embed
+
+        // ── Country data ──────────────────────────────────────────────────────
+        topCountries,  // top 10 — visible grid in Fall page + header
+        allCountries,  // full list — slide panel overflow
 
         // ── Aliases — existing consumer variable names unchanged ──────────────
         // cloud/index.html: stat-ads, stat-brands, stat-points
