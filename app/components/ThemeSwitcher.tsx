@@ -16,10 +16,15 @@ export type BrightnessLevel = 'dark' | 'mid' | 'light';
 const STORAGE_KEY = 'arena_brightness';
 
 const LEVELS: { id: BrightnessLevel; icon: string; label: string }[] = [
-  { id: 'dark',  icon: '🌑', label: 'Dark'  },
-  { id: 'mid',   icon: '🌗', label: 'Mid'   },
-  { id: 'light', icon: '🌕', label: 'Light' },
+  { id: 'dark',       icon: '🌑', label: 'Dark'    },
+  { id: 'mid',        icon: '🌘', label: 'Mid'     },
+  { id: 'mid-2',      icon: '🌗', label: 'Mid+'    },
+  { id: 'mid-3',      icon: '🌖', label: 'Mid++'   },
+  { id: 'light',      icon: '🌕', label: 'Light'   },
+  { id: 'white',      icon: '☀️', label: 'White'   },
 ];
+
+export type BrightnessLevel = 'dark' | 'mid' | 'mid-2' | 'mid-3' | 'light' | 'white';
 
 export function getStoredBrightness(): BrightnessLevel {
   if (typeof window === 'undefined') return 'dark';
