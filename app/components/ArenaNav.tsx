@@ -18,6 +18,7 @@ import { useRouter }                         from 'next/navigation';
 import { clearSessionCookie }                from '../lib/session';
 import { createClient }                      from '@supabase/supabase-js';
 import LanguageSwitcher                      from './LanguageSwitcher';
+import ThemeSwitcher   from './ThemeSwitcher'; 
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -579,6 +580,7 @@ export default function ArenaNav({
 
                 <div style={{ padding: '0.2rem 0.5rem 0.4rem' }}>
                   <LanguageSwitcher />
+                  <ThemeSwitcher /> 
                 </div>
 
                 <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
