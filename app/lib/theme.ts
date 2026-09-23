@@ -27,7 +27,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SeasonId = 'fall' | 'winter' | 'spring' | 'summer';
-export type BgLevel  = 'dark' | 'dark-grey' | 'grey' | 'light-grey' | 'white';
+export type BgLevel = 'dark' | 'dark-grey' | 'grey' | 'grey-2' | 'grey-3' | 'light-grey' | 'white';
 
 // ─── Particle shape ───────────────────────────────────────────────────────────
 
@@ -103,6 +103,29 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
     mutedCol:  '#999999',
     muted2Col: '#666666',
   },
+  'grey-2': {
+    // Second grey step — fall mid, spring base
+    htmlBg:    '#202020',
+    pageBg:    '#202020',
+    cardBg:    '#282828',
+    altBg:     '#242424',
+    borderCol: '#363636',
+    textCol:   '#f0f0f0',
+    mutedCol:  '#a0a0a0',
+    muted2Col: '#6e6e6e',
+  },
+
+  'grey-3': {
+    // Third grey step — noticeably lighter, still dark-mode feel
+    htmlBg:    '#262626',
+    pageBg:    '#262626',
+    cardBg:    '#2e2e2e',
+    altBg:     '#2a2a2a',
+    borderCol: '#3e3e3e',
+    textCol:   '#f2f2f2',
+    mutedCol:  '#a8a8a8',
+    muted2Col: '#747474',
+  },
 
   'light-grey': {
     htmlBg:    '#2a2a2a',
@@ -136,7 +159,7 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
 // Used by ThemeProvider on mount + on brightness change event.
 
 const LEVEL_ORDER: BgLevel[] = [
-  'dark', 'dark-grey', 'grey', 'light-grey', 'white',
+  'dark', 'dark-grey', 'grey', 'grey-2', 'grey-3', 'light-grey', 'white',
 ];
 
 export function brightnessToLevel(
