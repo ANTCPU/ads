@@ -174,6 +174,58 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
     version:     'v1',
     status:      'on',
   },
+  // ── Theme — season visual system ──────────────────────────────────────────
+  // All off by default. Default dark theme is preserved when all are off.
+  // Only one season flag should be on at a time.
+  // Super admin flips these from /dashboard/antcpu — no deploy needed.
+  {
+    id:          'theme-fall',
+    label:       'Theme: Fall 🍂',
+    description: 'Activates the Fall season theme — warm amber gradient tint on html background + leaf particles drifting down. Season 1. Flip on to test before going live.',
+    version:     'beta',
+    status:      'testing',
+    notes:       'Current season — Sep 22 → Dec 21. Set to on when ready to go live.',
+  },
+  {
+    id:          'theme-winter',
+    label:       'Theme: Winter ❄️',
+    description: 'Activates the Winter season theme — cool blue-black gradient tint + snowflake particles. Season 2. Keep off until Dec 21.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Season 2 — Dec 21 → Mar 20.',
+  },
+  {
+    id:          'theme-spring',
+    label:       'Theme: Spring 🌸',
+    description: 'Activates the Spring season theme — soft green-black gradient tint + petal particles tumbling down. Season 3. Keep off until Mar 20.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Season 3 — Mar 20 → Jun 21.',
+  },
+  {
+    id:          'theme-summer',
+    label:       'Theme: Summer ☀️',
+    description: 'Activates the Summer season theme — warm gold-black gradient tint + slow pulsing light orbs. Season 4. Keep off until Jun 21.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Season 4 — Jun 21 → Sep 22.',
+  },
+  {
+    id:          'theme-particles',
+    label:       'Theme Particles',
+    description: 'Enables animated particles for the active season — leaves, snow, petals, or orbs. Requires a season theme flag to also be on. Toggle off for performance testing.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Safe to flip independently. No season = no particles regardless.',
+  },
+  {
+    id:          'theme-h1-emoji',
+    label:       'H1 Season Emoji',
+    description: 'Prepends a season emoji to every h1 element via CSS ::before. Fall = 🎃, Winter = ❄️, Spring = 🌸, Summer = ☀️. Requires a season theme flag to also be on.',
+    version:     'beta',
+    status:      'off',
+    notes:       'CSS ::before — survives React re-renders. Safe to toggle live.',
+  },
 
   // ── v1testing — in progress ───────────────────────────────────────────────
   {
