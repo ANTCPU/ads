@@ -2,26 +2,26 @@
 
 // app/components/ThemeSwitcher.tsx
 // ─── User brightness toggle ───────────────────────────────────────────────────
-// Lets the user nudge the site brightness independently of the season flag.
+// BrightnessLevel type lives here — imported by ThemeProvider.
 // Stored in localStorage as arena_brightness.
-// ThemeProvider reads this on mount and overrides the season bgLevel.
-// Three levels: dark → mid → light
 // Only renders when a season theme is active (data-theme set on html).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from 'react';
 
+// Single source of truth for BrightnessLevel
+export type BrightnessLevel = 'dark' | 'mid' | 'mid-2' | 'mid-3' | 'light' | 'white';
+
 const STORAGE_KEY = 'arena_brightness';
 
 const LEVELS: { id: BrightnessLevel; icon: string; label: string }[] = [
-  { id: 'dark',       icon: '🌑', label: 'Dark'    },
-  { id: 'mid',        icon: '🌘', label: 'Mid'     },
-  { id: 'mid-2',      icon: '🌗', label: 'Mid+'    },
-  { id: 'mid-3',      icon: '🌖', label: 'Mid++'   },
-  { id: 'light',      icon: '🌕', label: 'Light'   },
-  { id: 'white',      icon: '☀️', label: 'White'   },
+  { id: 'dark',  icon: '🌑', label: 'Dark'  },
+  { id: 'mid',   icon: '🌘', label: 'Mid'   },
+  { id: 'mid-2', icon: '🌗', label: 'Mid+'  },
+  { id: 'mid-3', icon: '🌖', label: 'Mid++' },
+  { id: 'light', icon: '🌕', label: 'Light' },
+  { id: 'white', icon: '☀️', label: 'White' },
 ];
-export type BrightnessLevel = 'dark' | 'mid' | 'mid-2' | 'mid-3' | 'light' | 'white';
 
 export function getStoredBrightness(): BrightnessLevel {
   if (typeof window === 'undefined') return 'dark';
@@ -33,21 +33,17 @@ export function setStoredBrightness(level: BrightnessLevel) {
 }
 
 export default function ThemeSwitcher() {
-  const [active,        setActive]        = useState<BrightnessLevel>('dark');
-  const [themeActive,   setThemeActive]   = useState(false);
-  const [mounted,       setMounted]       = useState(false);
+  const [active,      setActive]      = useState<BrightnessLevel>('dark');
+  const [themeActive, setThemeActive] = useState(false);
+  const [mounted,     setMounted]     = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Only show when a season theme is active
     const hasTheme = !!document.documentElement.getAttribute('data-theme');
     setThemeActive(hasTheme);
-    if (hasTheme) {
-      setActive(getStoredBrightness());
-    }
+    if (hasTheme) setActive(getStoredBrightness());
   }, []);
 
-  // Don't render if no season theme active or not mounted
   if (!mounted || !themeActive) return null;
 
   function cycle() {
@@ -55,7 +51,6 @@ export default function ThemeSwitcher() {
     const next = LEVELS[(idx + 1) % LEVELS.length];
     setActive(next.id);
     setStoredBrightness(next.id);
-    // Dispatch custom event — ThemeProvider listens and re-applies bgLevel
     window.dispatchEvent(new CustomEvent('arena-brightness-change', {
       detail: { level: next.id }
     }));
