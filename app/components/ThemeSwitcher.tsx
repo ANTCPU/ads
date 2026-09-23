@@ -11,8 +11,6 @@
 
 import { useState, useEffect } from 'react';
 
-export type BrightnessLevel = 'dark' | 'mid' | 'light';
-
 const STORAGE_KEY = 'arena_brightness';
 
 const LEVELS: { id: BrightnessLevel; icon: string; label: string }[] = [
@@ -23,7 +21,6 @@ const LEVELS: { id: BrightnessLevel; icon: string; label: string }[] = [
   { id: 'light',      icon: '🌕', label: 'Light'   },
   { id: 'white',      icon: '☀️', label: 'White'   },
 ];
-
 export type BrightnessLevel = 'dark' | 'mid' | 'mid-2' | 'mid-3' | 'light' | 'white';
 
 export function getStoredBrightness(): BrightnessLevel {
