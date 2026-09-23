@@ -34,6 +34,7 @@ type FeaturedData = {
 type Props = {
   season?: string;  // e.g. 'Season 1' — shown in label
   compact?: boolean; // true = smaller version for dashboard/footer
+  motivatorText?: string; 
 };
 
 export default function FeaturedPartnerCard({
@@ -248,7 +249,7 @@ export default function FeaturedPartnerCard({
 
       {/* Motivator */}
       <div style={{ fontSize: '0.68rem', color: '#333', borderTop: '1px solid #1a1a1a', paddingTop: '0.65rem' }}>
-        Top brands earn this spotlight. Season 1 opens next week — compete for the featured slot.
+      {motivatorText ?? 'Top brands earn this spotlight.'}
       </div>
 
     </div>
