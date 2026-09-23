@@ -10,18 +10,24 @@
 //
 // BgLevel ladder:
 //   dark        #0a0a0a  — default, never applied via CSS
-//   dark-grey   #141414  — one step above black (summer)
-//   grey        #1c1c1c  — subtle lift, elements keep full persona (fall)
-//   light-grey  #2a2a2a  — noticeable shift, cards clearly visible (spring)
-//   white       #f5f5f5  — full flip, dark text, accent colors preserved (winter)
+//   dark-grey   #111111  — one step above black (summer)
+//   grey        #1a1a1a  — subtle lift (fall)
+//   light-grey  #2a2a2a  — noticeable shift (spring)
+//   white       #f5f5f5  — full flip (winter)
 //
 // Accent colors (orange, gold, teal, blue, purple) are NEVER overridden.
 // Brand identity is fully preserved at every level.
 //
+// v2 changes:
+//   - Fall particles: clip-path removed — was rendering black in all browsers
+//     Replaced with organic border-radius shapes, opacity raised to 0.55–0.75
+//   - brightnessToLevel() added — used by ThemeProvider + ThemeSwitcher
+//   - h1 emoji CSS hardened in buildThemeCSS — !important + broader selectors
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SeasonId  = 'fall' | 'winter' | 'spring' | 'summer';
-export type BgLevel   = 'dark' | 'dark-grey' | 'grey' | 'light-grey' | 'white';
+export type SeasonId = 'fall' | 'winter' | 'spring' | 'summer';
+export type BgLevel  = 'dark' | 'dark-grey' | 'grey' | 'light-grey' | 'white';
 
 // ─── Particle shape ───────────────────────────────────────────────────────────
 
@@ -32,8 +38,8 @@ export type ParticleShape = {
   delay:   number;   // animation delay seconds
   dur:     number;   // animation duration seconds
   color:   string;   // CSS color
-  radius:  string;   // border-radius
-  clip?:   string;   // optional clip-path
+  radius:  string;   // border-radius — use elliptical syntax for leaf shapes
+  clip?:   string;   // clip-path — NOT used for fall (renders black in browsers)
   opacity: number;
   anim:    string;   // keyframe name
 };
@@ -43,32 +49,29 @@ export type ParticleShape = {
 export type SeasonTheme = {
   id:        SeasonId;
   label:     string;
-  gradient:  string;   // applied to html element
-  bgLevel:   BgLevel;  // surface lift level
-  h1Emoji:   string;   // CSS ::before content
+  gradient:  string;
+  bgLevel:   BgLevel;
+  h1Emoji:   string;
   particles: ParticleShape[];
-  keyframes: string;   // CSS keyframe blocks
+  keyframes: string;
 };
 
 // ─── BgLevel definitions ──────────────────────────────────────────────────────
-// Each level defines the surface colors injected via CSS attribute selectors.
-// Targets inline style strings React renders — no page files touched.
 
 export type BgTokens = {
-  htmlBg:    string;  // html + body
-  pageBg:    string;  // root divs — replaces #0a0a0a
-  cardBg:    string;  // card surfaces — replaces #111
-  altBg:     string;  // alternate sections — replaces #0d0d0d
-  borderCol: string;  // borders — replaces #1a1a1a
-  textCol:   string;  // primary text
-  mutedCol:  string;  // muted text
-  muted2Col: string;  // muted2 text
+  htmlBg:    string;
+  pageBg:    string;
+  cardBg:    string;
+  altBg:     string;
+  borderCol: string;
+  textCol:   string;
+  mutedCol:  string;
+  muted2Col: string;
 };
 
 export const BG_LEVELS: Record<BgLevel, BgTokens> = {
 
   dark: {
-    // Default — never applied via CSS, here for reference only
     htmlBg:    '#0a0a0a',
     pageBg:    '#0a0a0a',
     cardBg:    '#111111',
@@ -80,8 +83,6 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
   },
 
   'dark-grey': {
-    // One step above black — summer
-    // Barely perceptible shift, orbs glow more visibly
     htmlBg:    '#111111',
     pageBg:    '#111111',
     cardBg:    '#181818',
@@ -93,8 +94,6 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
   },
 
   grey: {
-    // Subtle lift — fall
-    // Dark but warmer, leaves pop, elements keep full persona
     htmlBg:    '#1a1a1a',
     pageBg:    '#1a1a1a',
     cardBg:    '#222222',
@@ -106,8 +105,6 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
   },
 
   'light-grey': {
-    // Noticeable shift — spring
-    // Mid-dark, cards clearly visible, petals float against lifted bg
     htmlBg:    '#2a2a2a',
     pageBg:    '#2a2a2a',
     cardBg:    '#333333',
@@ -119,9 +116,6 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
   },
 
   white: {
-    // Full flip — winter
-    // Light bg, dark text, all accent colors preserved
-    // Snow falls on white — clean seasonal contrast
     htmlBg:    '#f5f5f5',
     pageBg:    '#f5f5f5',
     cardBg:    '#ffffff',
@@ -134,14 +128,35 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
 
 };
 
+// ─── Brightness resolver ──────────────────────────────────────────────────────
+// Maps user brightness choice (dark/mid/light) onto the season's bgLevel.
+// dark  → season default unchanged
+// mid   → one step lighter than season default
+// light → two steps lighter
+// Used by ThemeProvider on mount + on brightness change event.
+
+const LEVEL_ORDER: BgLevel[] = [
+  'dark', 'dark-grey', 'grey', 'light-grey', 'white',
+];
+
+export function brightnessToLevel(
+  seasonDefault: BgLevel,
+  brightness:    'dark' | 'mid' | 'light',
+): BgLevel {
+  const base    = LEVEL_ORDER.indexOf(seasonDefault);
+  const offsets = { dark: 0, mid: 1, light: 2 };
+  const idx     = Math.min(base + offsets[brightness], LEVEL_ORDER.length - 1);
+  return LEVEL_ORDER[idx];
+}
+
 // ─── Keyframe animations ──────────────────────────────────────────────────────
 
 const KEYFRAMES_FALL = `
   @keyframes drift-fall {
-    0%   { transform: translateY(-40px)  translateX(0px)    rotate(0deg);   opacity: 0; }
+    0%   { transform: translateY(-60px)  translateX(0px)    rotate(0deg);   opacity: 0; }
     5%   { opacity: 1; }
     85%  { opacity: 1; }
-    100% { transform: translateY(110vh)  translateX(-120px) rotate(360deg); opacity: 0; }
+    100% { transform: translateY(110vh)  translateX(-140px) rotate(380deg); opacity: 0; }
   }
 `;
 
@@ -170,14 +185,9 @@ const KEYFRAMES_PETAL = `
 const KEYFRAMES_ORB = `
   @keyframes pulse-orb {
     0%,100% { transform: scale(1);    opacity: 0.08; }
-    50%     { transform: scale(1.15); opacity: 0.15; }
+    50%     { transform: scale(1.15); opacity: 0.18; }
   }
 `;
-
-// ─── Leaf clip paths ──────────────────────────────────────────────────────────
-
-const LEAF_A = 'polygon(50% 0%, 80% 20%, 100% 50%, 80% 80%, 50% 100%, 20% 80%, 0% 50%, 20% 20%)';
-const LEAF_B = 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)';
 
 // ─── Season themes ────────────────────────────────────────────────────────────
 
@@ -193,19 +203,32 @@ export const THEME_FALL: SeasonTheme = {
     #2a1500 70%,
     #1a1000 100%
   )`,
-  // Gradient starts from grey bgLevel — amber warmth bleeds through gaps
   keyframes: KEYFRAMES_FALL,
   particles: [
-    { w: 22, h: 22, left: 8,  delay: 0,   dur: 16, color: '#f0883e', radius: '3px', clip: LEAF_A, opacity: 0.30, anim: 'drift-fall' },
-    { w: 18, h: 18, left: 22, delay: 3,   dur: 14, color: '#D4AF37', radius: '3px', clip: LEAF_B, opacity: 0.26, anim: 'drift-fall' },
-    { w: 20, h: 20, left: 45, delay: 6,   dur: 18, color: '#8B4513', radius: '3px', clip: LEAF_A, opacity: 0.22, anim: 'drift-fall' },
-    { w: 16, h: 16, left: 68, delay: 1.5, dur: 15, color: '#f0883e', radius: '3px', clip: LEAF_B, opacity: 0.28, anim: 'drift-fall' },
-    { w: 24, h: 24, left: 82, delay: 8,   dur: 20, color: '#D4AF37', radius: '3px', clip: LEAF_A, opacity: 0.24, anim: 'drift-fall' },
-    { w: 14, h: 14, left: 15, delay: 10,  dur: 13, color: '#22c55e', radius: '2px', clip: LEAF_B, opacity: 0.20, anim: 'drift-fall' },
-    { w: 12, h: 12, left: 55, delay: 4.5, dur: 17, color: '#8B4513', radius: '2px', clip: LEAF_A, opacity: 0.22, anim: 'drift-fall' },
-    { w: 16, h: 16, left: 75, delay: 12,  dur: 14, color: '#f0883e', radius: '2px', clip: LEAF_B, opacity: 0.22, anim: 'drift-fall' },
-    { w: 10, h: 10, left: 33, delay: 7,   dur: 12, color: '#D4AF37', radius: '2px', clip: LEAF_A, opacity: 0.20, anim: 'drift-fall' },
-    { w: 10, h: 10, left: 90, delay: 2,   dur: 19, color: '#22c55e', radius: '2px', clip: LEAF_B, opacity: 0.18, anim: 'drift-fall' },
+    // ── No clip-path — renders black in browsers when combined with background
+    // ── Using elliptical border-radius for organic leaf shapes instead
+    // ── Opacity raised to 0.55–0.75 — colors now fully visible
+
+    // Large — orange teardrop
+    { w: 22, h: 28, left: 8,  delay: 0,   dur: 16, color: '#f0883e', radius: '80% 20% 80% 20% / 20% 80% 20% 80%', opacity: 0.72, anim: 'drift-fall' },
+    // Large — gold oval
+    { w: 18, h: 24, left: 22, delay: 3,   dur: 14, color: '#D4AF37', radius: '50% 80% 50% 80% / 80% 50% 80% 50%', opacity: 0.68, anim: 'drift-fall' },
+    // Large — brown teardrop
+    { w: 20, h: 26, left: 45, delay: 6,   dur: 18, color: '#8B4513', radius: '70% 30% 70% 30% / 30% 70% 30% 70%', opacity: 0.65, anim: 'drift-fall' },
+    // Large — orange asymmetric
+    { w: 16, h: 22, left: 68, delay: 1.5, dur: 15, color: '#f0883e', radius: '60% 40% 60% 40% / 40% 60% 40% 60%', opacity: 0.70, anim: 'drift-fall' },
+    // Large — gold teardrop
+    { w: 24, h: 30, left: 82, delay: 8,   dur: 20, color: '#D4AF37', radius: '80% 20% 80% 20% / 20% 80% 20% 80%', opacity: 0.66, anim: 'drift-fall' },
+    // Medium — late-season green
+    { w: 14, h: 18, left: 15, delay: 10,  dur: 13, color: '#22c55e', radius: '50% 80% 50% 80% / 80% 50% 80% 50%', opacity: 0.60, anim: 'drift-fall' },
+    // Medium — brown oval
+    { w: 12, h: 16, left: 55, delay: 4.5, dur: 17, color: '#8B4513', radius: '70% 30% 70% 30% / 30% 70% 30% 70%', opacity: 0.62, anim: 'drift-fall' },
+    // Medium — orange
+    { w: 16, h: 20, left: 75, delay: 12,  dur: 14, color: '#f0883e', radius: '60% 40% 60% 40% / 40% 60% 40% 60%', opacity: 0.60, anim: 'drift-fall' },
+    // Small — gold
+    { w: 10, h: 14, left: 33, delay: 7,   dur: 12, color: '#D4AF37', radius: '80% 20% 80% 20% / 20% 80% 20% 80%', opacity: 0.58, anim: 'drift-fall' },
+    // Small — green
+    { w: 10, h: 14, left: 90, delay: 2,   dur: 19, color: '#22c55e', radius: '50% 80% 50% 80% / 80% 50% 80% 50%', opacity: 0.55, anim: 'drift-fall' },
   ],
 };
 
@@ -221,26 +244,23 @@ export const THEME_WINTER: SeasonTheme = {
     #e8f0fe 70%,
     #f0f4ff 100%
   )`,
-  // Gradient starts from white bgLevel — cool blue tint in gaps
   keyframes: KEYFRAMES_SNOW,
   particles: [
-    { w: 10, h: 10, left: 10, delay: 0,   dur: 12, color: '#aaccff', radius: '50%', opacity: 0.40, anim: 'drift-snow' },
-    { w: 7,  h: 7,  left: 25, delay: 2,   dur: 10, color: '#cce0ff', radius: '50%', opacity: 0.35, anim: 'drift-snow' },
-    { w: 9,  h: 9,  left: 40, delay: 5,   dur: 14, color: '#aaccff', radius: '50%', opacity: 0.38, anim: 'drift-snow' },
-    { w: 8,  h: 8,  left: 58, delay: 1,   dur: 11, color: '#cce0ff', radius: '50%', opacity: 0.32, anim: 'drift-snow' },
-    { w: 10, h: 10, left: 72, delay: 7,   dur: 13, color: '#aaccff', radius: '50%', opacity: 0.40, anim: 'drift-snow' },
-    { w: 6,  h: 6,  left: 88, delay: 3,   dur: 9,  color: '#cce0ff', radius: '50%', opacity: 0.30, anim: 'drift-snow' },
-    { w: 4,  h: 4,  left: 18, delay: 9,   dur: 8,  color: '#aaccff', radius: '50%', opacity: 0.28, anim: 'drift-snow' },
-    { w: 5,  h: 5,  left: 35, delay: 4,   dur: 15, color: '#cce0ff', radius: '50%', opacity: 0.30, anim: 'drift-snow' },
-    { w: 4,  h: 4,  left: 62, delay: 11,  dur: 10, color: '#aaccff', radius: '50%', opacity: 0.25, anim: 'drift-snow' },
-    { w: 5,  h: 5,  left: 80, delay: 6,   dur: 12, color: '#cce0ff', radius: '50%', opacity: 0.28, anim: 'drift-snow' },
-    { w: 4,  h: 4,  left: 50, delay: 8,   dur: 11, color: '#aaccff', radius: '50%', opacity: 0.25, anim: 'drift-snow' },
-    { w: 6,  h: 6,  left: 95, delay: 0.5, dur: 14, color: '#cce0ff', radius: '50%', opacity: 0.30, anim: 'drift-snow' },
+    // Blue-tinted — visible against white bgLevel
+    { w: 10, h: 10, left: 10, delay: 0,   dur: 12, color: '#aaccff', radius: '50%', opacity: 0.55, anim: 'drift-snow' },
+    { w: 7,  h: 7,  left: 25, delay: 2,   dur: 10, color: '#cce0ff', radius: '50%', opacity: 0.50, anim: 'drift-snow' },
+    { w: 9,  h: 9,  left: 40, delay: 5,   dur: 14, color: '#aaccff', radius: '50%', opacity: 0.52, anim: 'drift-snow' },
+    { w: 8,  h: 8,  left: 58, delay: 1,   dur: 11, color: '#cce0ff', radius: '50%', opacity: 0.48, anim: 'drift-snow' },
+    { w: 10, h: 10, left: 72, delay: 7,   dur: 13, color: '#aaccff', radius: '50%', opacity: 0.55, anim: 'drift-snow' },
+    { w: 6,  h: 6,  left: 88, delay: 3,   dur: 9,  color: '#cce0ff', radius: '50%', opacity: 0.45, anim: 'drift-snow' },
+    { w: 4,  h: 4,  left: 18, delay: 9,   dur: 8,  color: '#aaccff', radius: '50%', opacity: 0.42, anim: 'drift-snow' },
+    { w: 5,  h: 5,  left: 35, delay: 4,   dur: 15, color: '#cce0ff', radius: '50%', opacity: 0.45, anim: 'drift-snow' },
+    { w: 4,  h: 4,  left: 62, delay: 11,  dur: 10, color: '#aaccff', radius: '50%', opacity: 0.40, anim: 'drift-snow' },
+    { w: 5,  h: 5,  left: 80, delay: 6,   dur: 12, color: '#cce0ff', radius: '50%', opacity: 0.42, anim: 'drift-snow' },
+    { w: 4,  h: 4,  left: 50, delay: 8,   dur: 11, color: '#aaccff', radius: '50%', opacity: 0.40, anim: 'drift-snow' },
+    { w: 6,  h: 6,  left: 95, delay: 0.5, dur: 14, color: '#cce0ff', radius: '50%', opacity: 0.45, anim: 'drift-snow' },
   ],
 };
-
-// Note: winter snow particles use blue-tinted white (#aaccff, #cce0ff)
-// instead of pure white — visible against the white bgLevel background
 
 export const THEME_SPRING: SeasonTheme = {
   id:       'spring',
@@ -254,17 +274,16 @@ export const THEME_SPRING: SeasonTheme = {
     #1e3024 70%,
     #1a2820 100%
   )`,
-  // Gradient starts from light-grey bgLevel — soft green tint in gaps
   keyframes: KEYFRAMES_PETAL,
   particles: [
-    { w: 18, h: 12, left: 7,  delay: 0,   dur: 14, color: '#ff80ab', radius: '50% 30%', opacity: 0.35, anim: 'drift-petal' },
-    { w: 14, h: 10, left: 28, delay: 3,   dur: 16, color: '#ffb3c6', radius: '40% 50%', opacity: 0.30, anim: 'drift-petal' },
-    { w: 16, h: 11, left: 50, delay: 7,   dur: 13, color: '#a8e6cf', radius: '50% 30%', opacity: 0.28, anim: 'drift-petal' },
-    { w: 18, h: 12, left: 70, delay: 1.5, dur: 17, color: '#ff80ab', radius: '30% 50%', opacity: 0.35, anim: 'drift-petal' },
-    { w: 14, h: 10, left: 88, delay: 9,   dur: 15, color: '#ffb3c6', radius: '50% 40%', opacity: 0.28, anim: 'drift-petal' },
-    { w: 10, h: 7,  left: 18, delay: 5,   dur: 12, color: '#a8e6cf', radius: '50% 30%', opacity: 0.25, anim: 'drift-petal' },
-    { w: 8,  h: 6,  left: 40, delay: 11,  dur: 18, color: '#ff80ab', radius: '40% 50%', opacity: 0.22, anim: 'drift-petal' },
-    { w: 10, h: 7,  left: 60, delay: 4,   dur: 14, color: '#ffb3c6', radius: '50% 30%', opacity: 0.25, anim: 'drift-petal' },
+    { w: 18, h: 12, left: 7,  delay: 0,   dur: 14, color: '#ff80ab', radius: '50% 30% 50% 30% / 30% 50% 30% 50%', opacity: 0.65, anim: 'drift-petal' },
+    { w: 14, h: 10, left: 28, delay: 3,   dur: 16, color: '#ffb3c6', radius: '40% 60% 40% 60% / 60% 40% 60% 40%', opacity: 0.60, anim: 'drift-petal' },
+    { w: 16, h: 11, left: 50, delay: 7,   dur: 13, color: '#a8e6cf', radius: '50% 30% 50% 30% / 30% 50% 30% 50%', opacity: 0.58, anim: 'drift-petal' },
+    { w: 18, h: 12, left: 70, delay: 1.5, dur: 17, color: '#ff80ab', radius: '30% 50% 30% 50% / 50% 30% 50% 30%', opacity: 0.65, anim: 'drift-petal' },
+    { w: 14, h: 10, left: 88, delay: 9,   dur: 15, color: '#ffb3c6', radius: '50% 40% 50% 40% / 40% 50% 40% 50%', opacity: 0.58, anim: 'drift-petal' },
+    { w: 10, h: 7,  left: 18, delay: 5,   dur: 12, color: '#a8e6cf', radius: '50% 30% 50% 30% / 30% 50% 30% 50%', opacity: 0.55, anim: 'drift-petal' },
+    { w: 8,  h: 6,  left: 40, delay: 11,  dur: 18, color: '#ff80ab', radius: '40% 60% 40% 60% / 60% 40% 60% 40%', opacity: 0.52, anim: 'drift-petal' },
+    { w: 10, h: 7,  left: 60, delay: 4,   dur: 14, color: '#ffb3c6', radius: '50% 30% 50% 30% / 30% 50% 30% 50%', opacity: 0.55, anim: 'drift-petal' },
   ],
 };
 
@@ -280,15 +299,15 @@ export const THEME_SUMMER: SeasonTheme = {
     #221800 70%,
     #181000 100%
   )`,
-  // Gradient starts from dark-grey bgLevel — warm gold tint in gaps
   keyframes: KEYFRAMES_ORB,
   particles: [
-    { w: 80,  h: 80,  left: 10, delay: 0,   dur: 7, color: '#D4AF3718', radius: '50%', opacity: 0.14, anim: 'pulse-orb' },
-    { w: 120, h: 120, left: 55, delay: 2.5, dur: 9, color: '#fff8e112', radius: '50%', opacity: 0.12, anim: 'pulse-orb' },
-    { w: 60,  h: 60,  left: 80, delay: 5,   dur: 6, color: '#D4AF3714', radius: '50%', opacity: 0.12, anim: 'pulse-orb' },
-    { w: 40,  h: 40,  left: 30, delay: 1,   dur: 8, color: '#f0883e10', radius: '50%', opacity: 0.10, anim: 'pulse-orb' },
-    { w: 50,  h: 50,  left: 70, delay: 4,   dur: 7, color: '#D4AF3714', radius: '50%', opacity: 0.12, anim: 'pulse-orb' },
-    { w: 25,  h: 25,  left: 45, delay: 3,   dur: 5, color: '#fff8e110', radius: '50%', opacity: 0.10, anim: 'pulse-orb' },
+    // Orbs — heat shimmer. Colors use full hex, opacity on the element not the color.
+    { w: 80,  h: 80,  left: 10, delay: 0,   dur: 7, color: '#D4AF37', radius: '50%', opacity: 0.06, anim: 'pulse-orb' },
+    { w: 120, h: 120, left: 55, delay: 2.5, dur: 9, color: '#fff8e1', radius: '50%', opacity: 0.05, anim: 'pulse-orb' },
+    { w: 60,  h: 60,  left: 80, delay: 5,   dur: 6, color: '#D4AF37', radius: '50%', opacity: 0.05, anim: 'pulse-orb' },
+    { w: 40,  h: 40,  left: 30, delay: 1,   dur: 8, color: '#f0883e', radius: '50%', opacity: 0.04, anim: 'pulse-orb' },
+    { w: 50,  h: 50,  left: 70, delay: 4,   dur: 7, color: '#D4AF37', radius: '50%', opacity: 0.05, anim: 'pulse-orb' },
+    { w: 25,  h: 25,  left: 45, delay: 3,   dur: 5, color: '#fff8e1', radius: '50%', opacity: 0.04, anim: 'pulse-orb' },
   ],
 };
 
@@ -302,7 +321,6 @@ export const THEMES: Record<SeasonId, SeasonTheme> = {
 };
 
 // ─── Resolver ─────────────────────────────────────────────────────────────────
-// Returns null when no flag active — default black preserved, zero DOM change.
 
 export function resolveTheme(
   flags: Record<string, boolean>
@@ -315,8 +333,6 @@ export function resolveTheme(
 }
 
 // ─── CSS builder ──────────────────────────────────────────────────────────────
-// Builds the full <style> block injected by ThemeProvider.
-// Targets inline style strings React renders — no page files touched.
 
 export function buildThemeCSS(
   theme:         SeasonTheme,
@@ -324,10 +340,10 @@ export function buildThemeCSS(
   showH1Emoji:   boolean,
 ): string {
   const lines: string[] = [];
-  const t   = theme.id;
-  const lv  = BG_LEVELS[theme.bgLevel];
+  const t  = theme.id;
+  const lv = BG_LEVELS[theme.bgLevel];
 
-  // 1. Html + body background — gradient on html, flat on body
+  // 1. Html + body
   lines.push(`
     html[data-theme="${t}"] {
       background: ${theme.gradient};
@@ -340,8 +356,7 @@ export function buildThemeCSS(
     }
   `);
 
-  // 2. Page root divs — the #0a0a0a covers
-  // Targets the outermost div React renders per page
+  // 2. Page root divs
   lines.push(`
     html[data-theme="${t}"] body > div {
       background: ${lv.pageBg} !important;
@@ -349,8 +364,7 @@ export function buildThemeCSS(
     }
   `);
 
-  // 3. Inline style overrides — targets React's rendered style strings
-  // Covers every hardcoded bg value across all pages
+  // 3. Inline style overrides
   lines.push(`
     html[data-theme="${t}"] [style*="background: rgb(10, 10, 10)"],
     html[data-theme="${t}"] [style*="background: #0a0a0a"],
@@ -375,11 +389,11 @@ export function buildThemeCSS(
     }
   `);
 
-  // 4. Nav + footer — consistent with page level
+  // 4. Nav + footer
   lines.push(`
     html[data-theme="${t}"] nav {
-      background:         ${lv.pageBg}   !important;
-      border-bottom-color:${lv.borderCol} !important;
+      background:          ${lv.pageBg}   !important;
+      border-bottom-color: ${lv.borderCol} !important;
     }
     html[data-theme="${t}"] footer {
       background:      ${lv.pageBg}   !important;
@@ -387,7 +401,7 @@ export function buildThemeCSS(
     }
   `);
 
-  // 5. Text color cascade — muted values
+  // 5. Text cascade
   lines.push(`
     html[data-theme="${t}"] [style*="color: rgb(136, 136, 136)"],
     html[data-theme="${t}"] [style*="color: #888"] {
@@ -399,16 +413,20 @@ export function buildThemeCSS(
     }
   `);
 
-  // 6. H1 emoji via ::before — survives React re-renders
+  // 6. H1 emoji — hardened with !important + broad selectors
   if (showH1Emoji) {
     lines.push(`
-      html[data-theme="${t}"] h1::before {
-        content: '${theme.h1Emoji} ';
+      html[data-theme="${t}"] h1::before,
+      html[data-theme="${t}"] main h1::before,
+      html[data-theme="${t}"] section h1::before,
+      html[data-theme="${t}"] div h1::before {
+        content: '${theme.h1Emoji} ' !important;
+        display: inline !important;
       }
     `);
   }
 
-  // 7. Particle keyframes — only when particles on
+  // 7. Particle keyframes
   if (showParticles) {
     lines.push(theme.keyframes);
   }
