@@ -38,8 +38,9 @@ type Props = {
 };
 
 export default function FeaturedPartnerCard({
-  season  = 'Season 1',
-  compact = false,
+  season        = 'Season 1',
+  compact       = false,
+  motivatorText,
 }: Props) {
   const router   = useRouter();
   const [data,    setData]    = useState<FeaturedData | null>(null);
@@ -248,9 +249,9 @@ export default function FeaturedPartnerCard({
       </div>
 
       {/* Motivator */}
-      <div style={{ fontSize: '0.68rem', color: '#333', borderTop: '1px solid #1a1a1a', paddingTop: '0.65rem' }}>
-      {motivatorText ?? 'Top brands earn this spotlight.'}
-      </div>
+     <div style={{ fontSize: '0.68rem', color: '#333', borderTop: '1px solid #1a1a1a', paddingTop: '0.65rem' }}>
+     {motivatorText ?? 'Top brands earn this spotlight.'}
+     </div>
 
     </div>
   );
