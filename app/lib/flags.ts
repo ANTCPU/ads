@@ -87,6 +87,113 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
     status:      'on',
   },
 
+  // ── Theme — season visual system ──────────────────────────────────────────
+  // All off by default. Default dark theme is preserved when all are off.
+  // Only one season flag should be on at a time.
+  // Super admin flips these from /dashboard/antcpu — no deploy needed.
+  {
+    id:          'theme-fall',
+    label:       'Theme: Fall 🍂',
+    description: 'Activates the Fall season theme — warm amber gradient tint on html background + leaf particles drifting down. Season 1. Flip on to test before going live.',
+    version:     'beta',
+    status:      'testing',
+    notes:       'Current season — Sep 22 → Dec 21. Set to on when ready to go live.',
+  },
+  {
+    id:          'theme-winter',
+    label:       'Theme: Winter ❄️',
+    description: 'Activates the Winter season theme — cool blue-black gradient tint + snowflake particles. Season 2. Keep off until Dec 21.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Season 2 — Dec 21 → Mar 20.',
+  },
+  {
+    id:          'theme-spring',
+    label:       'Theme: Spring 🌸',
+    description: 'Activates the Spring season theme — soft green-black gradient tint + petal particles tumbling down. Season 3. Keep off until Mar 20.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Season 3 — Mar 20 → Jun 21.',
+  },
+  {
+    id:          'theme-summer',
+    label:       'Theme: Summer ☀️',
+    description: 'Activates the Summer season theme — warm gold-black gradient tint + slow pulsing light orbs. Season 4. Keep off until Jun 21.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Season 4 — Jun 21 → Sep 22.',
+  },
+  {
+    id:          'theme-particles',
+    label:       'Theme Particles',
+    description: 'Enables animated particles for the active season — leaves, snow, petals, or orbs. Requires a season theme flag to also be on. Toggle off for performance testing.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Safe to flip independently. No season = no particles regardless.',
+  },
+  {
+    id:          'theme-h1-emoji',
+    label:       'H1 Season Emoji',
+    description: 'Prepends a season emoji to every h1 element via CSS ::before. Fall = 🎃, Winter = ❄️, Spring = 🌸, Summer = ☀️. Requires a season theme flag to also be on.',
+    version:     'beta',
+    status:      'off',
+    notes:       'CSS ::before — survives React re-renders. Safe to toggle live.',
+  },
+
+  // ── TV / Streaming ────────────────────────────────────────────────────────
+  // Controls all video and streaming surfaces across the network.
+  // tv-live-banner auto-flips via Redis when a broadcaster connects —
+  // signal.js writes room state, /api/tv-live reads it and updates the flag.
+  // All others are manual — flip when the feature is built and ready.
+  {
+    id:          'tv-live-banner',
+    label:       'TV Live Banner',
+    description: 'Shows a 🔴 LIVE strip on the homepage, arena, and /fall when a stream is active. Auto-driven by Redis — flips itself when a broadcaster connects and clears when they disconnect.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Do not flip manually in production — driven by signal.js via /api/tv-live.',
+  },
+  {
+    id:          'tv-viewer-pipeline',
+    label:       'TV Viewer Pipeline',
+    description: 'Enables the viewer join flow — anonymous viewers can watch streams without signing up. After 30s a soft prompt appears to join the Arena.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Requires /tv/[roomId] viewer page to be built first.',
+  },
+  {
+    id:          'tv-arena-badge',
+    label:       'TV Live Badge on Ad Cards',
+    description: 'When a brand is streaming, their ad card in the arena shows a 🔴 LIVE badge with live viewer count from Redis.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Requires tv-live-banner and tv-viewer-pipeline to be stable first.',
+  },
+  {
+    id:          'tv-fall-section',
+    label:       'TV Live Section on /fall',
+    description: 'A 📡 Live Now section appears at the top of the /fall page when a stream is active. Hidden automatically when no streams are running.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Reads from /api/tv-live. Safe to flip once that endpoint is live.',
+  },
+  {
+    id:          'tv-homepage-counts',
+    label:       'TV Real Viewer Counts',
+    description: 'The TV landing page (antcpu.com/tv) shows real viewer counts pulled from Redis instead of the demo placeholder numbers.',
+    version:     'beta',
+    status:      'off',
+    notes:       'Requires /api/tv-live to be wired to the TV repo signal server.',
+  },
+  {
+    id:          'tv-digest-mention',
+    label:       'TV in Weekly Digest',
+    description: 'When a brand streamed this week, their Monday digest email includes a "You went live" highlight block with viewer count and stream duration.',
+    version:     'v2',
+    status:      'off',
+    notes:       'Requires tv_streams table to have duration + viewer peak data.',
+  },
+
   // ── v1 — stable, shipped ──────────────────────────────────────────────────
   {
     id:          'agent-registry',
@@ -173,58 +280,6 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
     description: 'The Ask Aria chat module appears in arena sidebars. Unlocks for users with 10+ points.',
     version:     'v1',
     status:      'on',
-  },
-  // ── Theme — season visual system ──────────────────────────────────────────
-  // All off by default. Default dark theme is preserved when all are off.
-  // Only one season flag should be on at a time.
-  // Super admin flips these from /dashboard/antcpu — no deploy needed.
-  {
-    id:          'theme-fall',
-    label:       'Theme: Fall 🍂',
-    description: 'Activates the Fall season theme — warm amber gradient tint on html background + leaf particles drifting down. Season 1. Flip on to test before going live.',
-    version:     'beta',
-    status:      'testing',
-    notes:       'Current season — Sep 22 → Dec 21. Set to on when ready to go live.',
-  },
-  {
-    id:          'theme-winter',
-    label:       'Theme: Winter ❄️',
-    description: 'Activates the Winter season theme — cool blue-black gradient tint + snowflake particles. Season 2. Keep off until Dec 21.',
-    version:     'beta',
-    status:      'off',
-    notes:       'Season 2 — Dec 21 → Mar 20.',
-  },
-  {
-    id:          'theme-spring',
-    label:       'Theme: Spring 🌸',
-    description: 'Activates the Spring season theme — soft green-black gradient tint + petal particles tumbling down. Season 3. Keep off until Mar 20.',
-    version:     'beta',
-    status:      'off',
-    notes:       'Season 3 — Mar 20 → Jun 21.',
-  },
-  {
-    id:          'theme-summer',
-    label:       'Theme: Summer ☀️',
-    description: 'Activates the Summer season theme — warm gold-black gradient tint + slow pulsing light orbs. Season 4. Keep off until Jun 21.',
-    version:     'beta',
-    status:      'off',
-    notes:       'Season 4 — Jun 21 → Sep 22.',
-  },
-  {
-    id:          'theme-particles',
-    label:       'Theme Particles',
-    description: 'Enables animated particles for the active season — leaves, snow, petals, or orbs. Requires a season theme flag to also be on. Toggle off for performance testing.',
-    version:     'beta',
-    status:      'off',
-    notes:       'Safe to flip independently. No season = no particles regardless.',
-  },
-  {
-    id:          'theme-h1-emoji',
-    label:       'H1 Season Emoji',
-    description: 'Prepends a season emoji to every h1 element via CSS ::before. Fall = 🎃, Winter = ❄️, Spring = 🌸, Summer = ☀️. Requires a season theme flag to also be on.',
-    version:     'beta',
-    status:      'off',
-    notes:       'CSS ::before — survives React re-renders. Safe to toggle live.',
   },
 
   // ── v1testing — in progress ───────────────────────────────────────────────
@@ -413,6 +468,10 @@ export function agentEnabled(
 
 export const MODULE_FLAG_IDS = FLAG_DEFAULTS
   .filter(f => f.id.startsWith('module-'))
+  .map(f => f.id);
+
+export const TV_FLAG_IDS = FLAG_DEFAULTS
+  .filter(f => f.id.startsWith('tv-'))
   .map(f => f.id);
 
 export const PERSISTENT_AGENTS: AgentId[] = ['aria', 'herald', 'scout'];
