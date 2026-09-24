@@ -2,7 +2,10 @@
 // ─── Arena Flags API ──────────────────────────────────────────────────────────
 // GET  → all flags merged (DB overrides code defaults)
 // PATCH → { id, enabled, status?, notes? } → update one flag
-// Super admin only — verified server-side via AGENT_TOKEN or session cookie.
+// OPTIONS → preflight for antcpu.com/admin cross-origin requests
+//
+// Auth: PATCH requires x-admin-secret header matching ADMIN_SECRET env var.
+// CORS: GET + PATCH + OPTIONS allow https://antcpu.com origin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,6 +16,22 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// ── CORS headers ──────────────────────────────────────────────────────────────
+// Allows antcpu.com/admin/dashboard to call this endpoint cross-origin.
+// GET is open — ThemeProvider calls it from the Arena (same origin).
+// PATCH is guarded by x-admin-secret — only admin dashboard sends it.
+
+const CORS = {
+  'Access-Control-Allow-Origin':  'https://antcpu.com',
+  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, x-admin-secret',
+};
+
+// ── OPTIONS — preflight ───────────────────────────────────────────────────────
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
 
 // ── GET — return all flags merged with DB overrides ───────────────────────────
 export async function GET() {
@@ -31,7 +50,7 @@ export async function GET() {
       ...def,
       enabled:    db ? db.enabled    : (def.status === 'on' || def.status === 'testing'),
       status:     db ? db.status     : def.status,
-      notes:      db ? db.notes      : null,
+      notes:      db ? db.notes      : (def.notes ?? null),
       updated_at: db ? db.updated_at : null,
       source:     db ? 'db'          : 'default',
     };
@@ -44,13 +63,29 @@ export async function GET() {
     }
   });
 
-  return NextResponse.json({ ok: true, flags: merged });
+  return NextResponse.json(
+    { ok: true, flags: merged },
+    { headers: CORS }
+  );
 }
 
 // ── PATCH — toggle a flag ─────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest) {
+
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  const secret = req.headers.get('x-admin-secret');
+  if (!secret || secret !== process.env.ADMIN_SECRET) {
+    return NextResponse.json(
+      { ok: false, error: 'Unauthorized' },
+      { status: 401, headers: CORS }
+    );
+  }
+
   const { id, enabled, status, notes } = await req.json();
-  if (!id) return NextResponse.json({ ok: false, error: 'id required' }, { status: 400 });
+  if (!id) return NextResponse.json(
+    { ok: false, error: 'id required' },
+    { status: 400, headers: CORS }
+  );
 
   const update: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -76,7 +111,13 @@ export async function PATCH(req: NextRequest) {
       ...update,
     }, { onConflict: 'id' });
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (error) return NextResponse.json(
+    { ok: false, error: error.message },
+    { status: 500, headers: CORS }
+  );
 
-  return NextResponse.json({ ok: true, id, ...update });
+  return NextResponse.json(
+    { ok: true, id, ...update },
+    { headers: CORS }
+  );
 }
