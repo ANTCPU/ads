@@ -10,6 +10,7 @@
 //          Users < 7 days old → in-app notification instead
 //
 // Log:     Every run writes one row to digest_runs
+//          Every sent email writes one row to email_sends
 //          Discord summary includes sent/gated/error counts
 //          Proof: digest_runs is the source of truth for "did it fire?"
 //
@@ -21,6 +22,11 @@
 //   5. 💡 Tip of the Week      — i18n key, rotates
 //   6. 💬 Quote                — random from pool
 //   7. Status badge + CTA
+//
+// v3 (Sep 2026):
+//   — email_sends insert on every successful send — Send Log tab now populates
+//   — totalAds/totalPoints/totalShares hoisted out of try block — no shadow
+//   — logRun receives real stats not zeros
 //
 // v2 (Sep 2026):
 //   — Profile of the Week block — reads featured-profile badge holder
@@ -90,21 +96,20 @@ type FeaturedProfile = {
 // ─── Quotes ───────────────────────────────────────────────────────────────────
 
 const QUOTES = [
-  { quote: "The best marketing doesn't feel like marketing.",                                        author: 'Tom Fishburne'  },
-  { quote: 'Content is fire. Social media is gasoline.',                                            author: 'Jay Baer'       },
-  { quote: 'Make it simple. Make it memorable. Make it inviting to look at.',                       author: 'Leo Burnett'    },
-  { quote: "Your brand is what people say about you when you're not in the room.",                  author: 'Jeff Bezos'     },
-  { quote: "Stop interrupting what people are interested in and be what people are interested in.", author: 'Craig Davis'    },
-  { quote: 'Do not be afraid to give up the good to go for the great.',                             author: 'John D. Rockefeller' },
-  { quote: 'The aim of marketing is to know and understand the customer so well the product sells itself.', author: 'Peter Drucker' },
+  { quote: "The best marketing doesn't feel like marketing.",                                              author: 'Tom Fishburne'       },
+  { quote: 'Content is fire. Social media is gasoline.',                                                  author: 'Jay Baer'            },
+  { quote: 'Make it simple. Make it memorable. Make it inviting to look at.',                             author: 'Leo Burnett'         },
+  { quote: "Your brand is what people say about you when you're not in the room.",                        author: 'Jeff Bezos'          },
+  { quote: "Stop interrupting what people are interested in and be what people are interested in.",       author: 'Craig Davis'         },
+  { quote: 'Do not be afraid to give up the good to go for the great.',                                   author: 'John D. Rockefeller' },
+  { quote: 'The aim of marketing is to know and understand the customer so well the product sells itself.', author: 'Peter Drucker'     },
 ];
 
-// ─── Brand color map — for featured profile gradient ─────────────────────────
-// Keyed by email. Add new featured users here before their week starts.
+// ─── Brand color map ──────────────────────────────────────────────────────────
 
 const FEATURED_BRAND_COLORS: Record<string, string> = {
-  'mishoemanda@gmail.com': '#ff0080',   // Amanda Photography — pink
-  'joosdup.pj@gmail.com':  '#D4AF37',   // Philip — Map of Pi gold
+  'mishoemanda@gmail.com': '#ff0080',
+  'joosdup.pj@gmail.com':  '#D4AF37',
 };
 
 const DEFAULT_FEATURED_COLOR = '#f0883e';
@@ -120,10 +125,10 @@ function dashboardUrl(user: Signup): string {
 }
 
 function weekRange(): string {
-  const now  = new Date();
-  const end  = new Date(now);
+  const now = new Date();
+  const end = new Date(now);
   end.setDate(now.getDate() + 6);
-  const fmt  = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${fmt(now)} → ${fmt(end)}`;
 }
 
@@ -140,7 +145,7 @@ function isAuthorizedManual(req: NextRequest): boolean {
   return !!(secret && secret === process.env.WEEKLY_SECRET);
 }
 
-// ─── HTML blocks ─────────────────────────────────────────────────────────────
+// ─── HTML blocks ──────────────────────────────────────────────────────────────
 
 function buildFeaturedBlock(fp: FeaturedProfile, range: string): string {
   const color    = fp.color;
@@ -151,39 +156,29 @@ function buildFeaturedBlock(fp: FeaturedProfile, range: string): string {
     <div style="background:${gradient};border:1px solid ${color}33;
       border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;
       position:relative;overflow:hidden">
-
-      <!-- Top accent line -->
       <div style="position:absolute;top:0;left:0;right:0;height:3px;
         background:${topLine}"></div>
-
-      <!-- Label -->
       <div style="font-size:0.65rem;color:${color};font-weight:700;
         letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.75rem">
         ⭐ Profile of the Week · ${range}
       </div>
-
-      <!-- Name + brand -->
       <div style="font-size:1.1rem;font-weight:800;color:#fff;margin-bottom:0.2rem">
         ${fp.name || fp.brand}
       </div>
       <div style="font-size:0.78rem;color:${color};font-weight:600;margin-bottom:0.75rem">
         ${fp.brand}
       </div>
-
       ${fp.bio ? `
         <div style="font-size:0.82rem;color:#aaa;line-height:1.6;
           margin-bottom:0.75rem;font-style:italic">
           "${fp.bio.slice(0, 120)}${fp.bio.length > 120 ? '…' : ''}"
         </div>
       ` : ''}
-
       ${fp.imageUrl ? `
         <img src="${fp.imageUrl}" alt="${fp.brand}"
           style="width:100%;border-radius:10px;margin-bottom:0.75rem;
           display:block;max-height:200px;object-fit:cover" />
       ` : ''}
-
-      <!-- Stats row -->
       <div style="display:flex;gap:1.25rem;margin-bottom:1rem;flex-wrap:wrap">
         ${fp.adPoints > 0 ? `
           <div>
@@ -207,8 +202,6 @@ function buildFeaturedBlock(fp: FeaturedProfile, range: string): string {
           </div>
         ` : ''}
       </div>
-
-      <!-- CTAs -->
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
         <a href="${BASE_URL}/profile/${encodeURIComponent(fp.email)}"
           style="display:inline-block;background:${color};color:#000;
@@ -224,7 +217,6 @@ function buildFeaturedBlock(fp: FeaturedProfile, range: string): string {
           🏟 See in Arena →
         </a>
       </div>
-
     </div>
   `;
 }
@@ -241,9 +233,7 @@ function buildLeaderboardBlock(topAds: Ad[], locale: Locale, myDash: string): st
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:0.82rem;font-weight:800;color:#f0883e">${ad.points} pts</div>
-        <a href="${ad.url}" style="font-size:0.7rem;color:#555;text-decoration:none">
-          Visit →
-        </a>
+        <a href="${ad.url}" style="font-size:0.7rem;color:#555;text-decoration:none">Visit →</a>
       </div>
     </div>
   `).join('');
@@ -278,14 +268,12 @@ function buildArenaStatsBlock(
         letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
         📈 Arena This Week
       </div>
-
-      <!-- Stat grid -->
       <div style="display:grid;grid-template-columns:repeat(3,1fr);
         gap:0.75rem;margin-bottom:${mostActiveAd ? '1rem' : '0'}">
         ${[
-          { v: totalAds,    l: 'Live Ads',   c: '#0070f3' },
-          { v: totalPoints, l: 'Points',     c: '#f0883e' },
-          { v: totalShares, l: 'Shares',     c: '#22c55e' },
+          { v: totalAds,    l: 'Live Ads', c: '#0070f3' },
+          { v: totalPoints, l: 'Points',   c: '#f0883e' },
+          { v: totalShares, l: 'Shares',   c: '#22c55e' },
         ].map(s => `
           <div style="background:#0a0a0a;border:1px solid #1a1a1a;
             border-radius:8px;padding:0.65rem;text-align:center">
@@ -295,14 +283,12 @@ function buildArenaStatsBlock(
           </div>
         `).join('')}
       </div>
-
       ${(newAds > 0 || newMembers > 0) ? `
         <div style="font-size:0.75rem;color:#555;margin-top:0.75rem">
           ${newMembers > 0 ? `✦ ${newMembers} new member${newMembers !== 1 ? 's' : ''} joined this week` : ''}
           ${newAds > 0     ? `&nbsp;&nbsp;✦ ${newAds} new ad${newAds !== 1 ? 's' : ''} submitted` : ''}
         </div>
       ` : ''}
-
       ${mostActiveAd ? `
         <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid #1a1a1a">
           <div style="font-size:0.65rem;color:#555;font-weight:700;
@@ -337,7 +323,7 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
   const week    = new Date().toLocaleDateString('en-US', {
     month: 'long', day: 'numeric', year: 'numeric',
   });
-  const range   = weekRange();
+  const range = weekRange();
 
   // ── Counters ──────────────────────────────────────────────────────────────
   let totalEligible = 0;
@@ -349,9 +335,14 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
   let errors        = 0;
   const notes: string[] = [];
 
-  try {
+  // ── Hoisted stats — populated inside try, used in logRun ─────────────────
+  // Declared here so logRun always receives real values not zeros.
+  let runTotalAds    = 0;
+  let runTotalPoints = 0;
+  let runTotalShares = 0;
 
-    // ── Parallel data fetch — all pre-loop queries run together ──────────────
+  try {
+    // ── Parallel data fetch ─────────────────────────────────────────────────
     const [
       signupsRes,
       topAdsRes,
@@ -363,22 +354,18 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
         .from('ad_signups')
         .select('name, email, brand_name, status, role, preferred_locale')
         .in('status', ['team', 'trial']),
-
       supabase
         .from('ads')
         .select('id, brand, title, url, description, points, tier, created_at')
         .eq('status', 'active')
         .order('points', { ascending: false })
         .limit(3),
-
       supabase
         .from('ads')
         .select('id, brand, title, url, description, points, tier, created_at')
         .eq('status', 'active')
         .order('points', { ascending: false }),
-
       getFeaturedProfileHolder(supabase),
-
       supabase
         .from('digest_runs')
         .select('total_ads, total_points, total_shares, total_eligible')
@@ -389,58 +376,58 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
 
     if (signupsRes.error) {
       notes.push(`fetch_error: ${signupsRes.error.message}`);
-      await logRun({ week, triggeredBy, totalEligible, sent, gatedTooNew,
-        gatedDailyCap, gatedMonthly, notified, errors: 1,
-        durationMs: Date.now() - startMs, notes,
-        totalAds: 0, totalPoints: 0, totalShares: 0 });
+      await logRun({
+        week, triggeredBy, totalEligible, sent,
+        gatedTooNew, gatedDailyCap, gatedMonthly,
+        notified, errors: 1, durationMs: Date.now() - startMs, notes,
+        totalAds: 0, totalPoints: 0, totalShares: 0,
+      });
       return NextResponse.json({ error: signupsRes.error.message }, { status: 500 });
     }
 
-    const signups  = (signupsRes.data || []) as Signup[];
-    const topAds   = (topAdsRes.data  || []) as Ad[];
-    const allAds   = (allAdsRes.data  || []) as Ad[];
-    const lastRun  = lastRunRes.data;
+    const signups = (signupsRes.data || []) as Signup[];
+    const topAds  = (topAdsRes.data  || []) as Ad[];
+    const allAds  = (allAdsRes.data  || []) as Ad[];
+    const lastRun = lastRunRes.data;
 
     if (!signups.length) {
       notes.push('no_eligible_users');
-      await logRun({ week, triggeredBy, totalEligible: 0, sent: 0,
+      await logRun({
+        week, triggeredBy, totalEligible: 0, sent: 0,
         gatedTooNew: 0, gatedDailyCap: 0, gatedMonthly: 0,
         notified: 0, errors: 0, durationMs: Date.now() - startMs, notes,
-        totalAds: allAds.length, totalPoints: 0, totalShares: 0 });
+        totalAds: allAds.length, totalPoints: 0, totalShares: 0,
+      });
       return NextResponse.json({ sent: 0, reason: 'no_eligible_users' });
     }
 
     totalEligible = signups.length;
 
     // ── Arena stats ───────────────────────────────────────────────────────────
-    const totalAds    = allAds.length;
-    const totalPoints = allAds.reduce((s, a) => s + (a.points || 0), 0);
-    const now         = Date.now();
-    const weekMs      = 7 * 86_400_000;
+    runTotalAds    = allAds.length;
+    runTotalPoints = allAds.reduce((s, a) => s + (a.points || 0), 0);
 
+    const now     = Date.now();
+    const weekMs  = 7 * 86_400_000;
     const newThisWeek = allAds.filter(a =>
       now - new Date(a.created_at).getTime() < weekMs
     );
-    const newAds      = newThisWeek.length;
-
-    // New members this week — approximate from signups count delta
+    const newAds     = newThisWeek.length;
     const prevMembers = lastRun?.total_eligible || 0;
     const newMembers  = Math.max(0, totalEligible - prevMembers);
 
-    // Most active ad — highest points among ads created this week
-    // Falls back to top ad overall if no new ads this week
     const mostActiveAd = newThisWeek.length > 0
       ? newThisWeek.sort((a, b) => b.points - a.points)[0]
       : topAds[0] || null;
 
-    // Total shares — sum across all active ads
     const { data: shareData } = await supabase
       .from('ads')
       .select('share_count')
       .eq('status', 'active');
-    const totalShares = (shareData || []).reduce((s: number, a: any) => s + (a.share_count || 0), 0);
 
-    // ── Featured profile data ─────────────────────────────────────────────────
+    runTotalShares = (shareData || []).reduce((s: number, a: any) => s + (a.share_count || 0), 0);
+
+    // ── Featured profile ──────────────────────────────────────────────────────
     let featuredProfile: FeaturedProfile | null = null;
 
     if (featuredEmail) {
@@ -467,14 +454,14 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
 
       featuredProfile = {
         email:    featuredEmail,
-        name:     signupRes.data?.name      || '',
+        name:     signupRes.data?.name       || '',
         brand:    signupRes.data?.brand_name || '',
-        points:   signupRes.data?.points    || 0,
-        bio:      profileRes.data?.bio      || '',
-        adTitle:  adRes.data?.title         || '',
-        adPoints: adRes.data?.points        || 0,
-        rank:     adRes.data?.rank_position || null,
-        imageUrl: adRes.data?.image_url     || null,
+        points:   signupRes.data?.points     || 0,
+        bio:      profileRes.data?.bio       || '',
+        adTitle:  adRes.data?.title          || '',
+        adPoints: adRes.data?.points         || 0,
+        rank:     adRes.data?.rank_position  || null,
+        imageUrl: adRes.data?.image_url      || null,
         color:    FEATURED_BRAND_COLORS[featuredEmail] || DEFAULT_FEATURED_COLOR,
       };
     }
@@ -488,7 +475,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
       const isTeam    = user.status === 'team';
       const myDash    = dashboardUrl(user);
 
-      // Gate check
       const gate = await checkEmailGate(supabase, user.email, 'digest');
 
       if (!gate.allow) {
@@ -505,9 +491,8 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
         continue;
       }
 
-      // ── Build email body ────────────────────────────────────────────────────
+      // ── Build email body ──────────────────────────────────────────────────
       const body = `
-        <!-- Greeting -->
         <div style="font-size:1rem;color:#aaa;margin-bottom:1.5rem">
           Hey ${firstName} 👋 — ${t(locale, 'weekly_greeting')}
         </div>
@@ -516,9 +501,8 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
 
         ${buildLeaderboardBlock(topAds, locale, myDash)}
 
-        ${buildArenaStatsBlock(totalAds, totalPoints, totalShares, newAds, newMembers, mostActiveAd)}
+        ${buildArenaStatsBlock(runTotalAds, runTotalPoints, runTotalShares, newAds, newMembers, mostActiveAd)}
 
-        <!-- Tip -->
         <div style="background:#111;border:1px solid #1a1a1a;
           border-radius:12px;padding:1.25rem;margin-bottom:1.5rem">
           <div style="font-size:0.68rem;color:#555;font-weight:700;
@@ -530,7 +514,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
           </div>
         </div>
 
-        <!-- Quote -->
         <div style="border-left:3px solid #f0883e;padding:0.75rem 1rem;
           margin-bottom:1.5rem">
           <div style="font-size:0.88rem;color:#aaa;font-style:italic">
@@ -541,7 +524,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
           </div>
         </div>
 
-        <!-- Status badge -->
         <div style="text-align:center;margin-bottom:1.5rem">
           <span style="background:${isTeam ? '#7928ca15' : '#0070f315'};
             color:${isTeam ? '#7928ca' : '#0070f3'};
@@ -554,7 +536,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
           </span>
         </div>
 
-        <!-- Discord CTA -->
         <div style="text-align:center;margin-bottom:2rem">
           <a href="https://discord.gg/antcpu"
             style="display:inline-block;background:transparent;
@@ -568,7 +549,8 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
 
       const html = heraldWrap(
         locale, body,
-        `${t(locale, 'weekly_digest_label')} · ${week} · ${HERALD_VERSION}`
+        `${t(locale, 'weekly_digest_label')} · ${week} · ${HERALD_VERSION}`,
+        user.email,
       );
 
       try {
@@ -578,8 +560,21 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
           html,
           locale,
         });
+
         await recordEmailSent(supabase, user.email);
+
+        // ── email_sends insert — populates Send Log tab ───────────────────
+        void supabase.from('email_sends').insert({
+          email:      user.email,
+          type:       'digest',
+          subject:    `⚡ ANTCPU ADS — ${t(locale, 'weekly_digest_label')} · ${week}`,
+          locale,
+          sent_at:    new Date().toISOString(),
+          week_label: week,
+        }).catch(() => {});
+
         sent++;
+
       } catch (sendErr: unknown) {
         const msg = sendErr instanceof Error ? sendErr.message : 'unknown';
         notes.push(`send_fail:${user.email}:${msg}`);
@@ -593,17 +588,16 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
     errors++;
   }
 
-  const durationMs  = Date.now() - startMs;
-  const totalAds    = 0; // resolved inside try — safe default for log
-  const totalPoints = 0;
-  const totalShares = 0;
+  const durationMs = Date.now() - startMs;
 
-  // ── Write run log ─────────────────────────────────────────────────────────
+  // ── Write run log — real stats, not zeros ─────────────────────────────────
   await logRun({
     week, triggeredBy, totalEligible, sent,
     gatedTooNew, gatedDailyCap, gatedMonthly,
     notified, errors, durationMs, notes,
-    totalAds, totalPoints, totalShares,
+    totalAds:    runTotalAds,
+    totalPoints: runTotalPoints,
+    totalShares: runTotalShares,
   });
 
   // ── Discord summary ───────────────────────────────────────────────────────
@@ -611,12 +605,12 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
     title:  `📧 Weekly Digest · ${week}`,
     color:  DC.orange,
     fields: [
-      { name: 'Sent',      value: String(sent),                                          inline: true },
-      { name: 'Gated',     value: String(gatedTooNew + gatedDailyCap + gatedMonthly),    inline: true },
-      { name: 'In-app',    value: String(notified),                                      inline: true },
-      { name: 'Errors',    value: String(errors),        inline: true },
-      { name: 'Eligible',  value: String(totalEligible), inline: true },
-      { name: 'Trigger',   value: triggeredBy,           inline: true },
+      { name: 'Sent',     value: String(sent),                                       inline: true },
+      { name: 'Gated',    value: String(gatedTooNew + gatedDailyCap + gatedMonthly), inline: true },
+      { name: 'In-app',   value: String(notified),                                   inline: true },
+      { name: 'Errors',   value: String(errors),        inline: true },
+      { name: 'Eligible', value: String(totalEligible), inline: true },
+      { name: 'Trigger',  value: triggeredBy,           inline: true },
     ],
     footer:    `ANTCPU ADS · Herald · budget ${EMAIL_LIMITS.DAILY_DIGEST}/day`,
     timestamp: true,
@@ -665,7 +659,6 @@ async function logRun(p: {
       errors:          p.errors,
       duration_ms:     p.durationMs,
       notes:           p.notes.length ? p.notes.join(' | ') : null,
-      // Arena snapshot — used for delta next run
       total_ads:       p.totalAds,
       total_points:    p.totalPoints,
       total_shares:    p.totalShares,
