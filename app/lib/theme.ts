@@ -8,22 +8,25 @@
 //   2. page surfaces    — bgLevel CSS overrides
 //   3. particles        — fixed overlay
 //
-// BgLevel ladder (dark → white):
+// BgLevel ladder (dark → light):
 //   dark        #0a0a0a  — default, never applied via CSS
 //   dark-grey   #111111  — summer
 //   grey        #1a1a1a  — fall
-//   grey-2      #202020  — mid step
-//   grey-3      #262626  — mid step
-//   light-grey  #2a2a2a  — spring
-//   white       #f5f5f5  — winter
+//   light-grey  #2a2a2a  — spring — subtle shadow on white text
+//   light       #3a3a3a  — winter — full shadow on white text
 //
-// Light/white levels: text-shadow applied to white inline text
-// so it remains readable without touching any page color tokens.
+// Text shadow scale:
+//   light-grey → 0 1px 2px rgba(0,0,0,0.4)  — subtle
+//   light      → 0 1px 4px rgba(0,0,0,0.6)  — full
+//
+// Section 4 (text color cascade) intentionally removed —
+// per-element color overrides fought React inline style re-renders
+// and broke the LanguageSwitcher. Body + nav coverage is sufficient.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SeasonId  = 'fall' | 'winter' | 'spring' | 'summer';
-export type BgLevel   = 'dark' | 'dark-grey' | 'grey' | 'grey-2' | 'grey-3' | 'light-grey' | 'white';
+export type BgLevel   = 'dark' | 'dark-grey' | 'grey' | 'light-grey' | 'light';
 
 // ─── Particle shape ───────────────────────────────────────────────────────────
 
@@ -69,29 +72,33 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
   'dark':       { htmlBg:'#0a0a0a', pageBg:'#0a0a0a', cardBg:'#111111', altBg:'#0d0d0d', borderCol:'#1a1a1a', textCol:'#ffffff', mutedCol:'#888888', muted2Col:'#555555' },
   'dark-grey':  { htmlBg:'#111111', pageBg:'#111111', cardBg:'#181818', altBg:'#141414', borderCol:'#222222', textCol:'#f0f0f0', mutedCol:'#888888', muted2Col:'#555555' },
   'grey':       { htmlBg:'#1a1a1a', pageBg:'#1a1a1a', cardBg:'#222222', altBg:'#1e1e1e', borderCol:'#2e2e2e', textCol:'#f0f0f0', mutedCol:'#999999', muted2Col:'#666666' },
-  'grey-2':     { htmlBg:'#202020', pageBg:'#202020', cardBg:'#282828', altBg:'#242424', borderCol:'#363636', textCol:'#f0f0f0', mutedCol:'#a0a0a0', muted2Col:'#6e6e6e' },
-  'grey-3':     { htmlBg:'#262626', pageBg:'#262626', cardBg:'#2e2e2e', altBg:'#2a2a2a', borderCol:'#3e3e3e', textCol:'#f2f2f2', mutedCol:'#a8a8a8', muted2Col:'#747474' },
   'light-grey': { htmlBg:'#2a2a2a', pageBg:'#2a2a2a', cardBg:'#333333', altBg:'#2e2e2e', borderCol:'#444444', textCol:'#f5f5f5', mutedCol:'#aaaaaa', muted2Col:'#777777' },
-  'white':      { htmlBg:'#f5f5f5', pageBg:'#f5f5f5', cardBg:'#ffffff', altBg:'#eeeeee', borderCol:'#e0e0e0', textCol:'#0a0a0a', mutedCol:'#555555', muted2Col:'#888888' },
+  'light':      { htmlBg:'#3a3a3a', pageBg:'#3a3a3a', cardBg:'#444444', altBg:'#3e3e3e', borderCol:'#555555', textCol:'#f8f8f8', mutedCol:'#bbbbbb', muted2Col:'#888888' },
 };
 
 // ─── Light level detection ────────────────────────────────────────────────────
-// Used by buildThemeCSS to decide whether text-shadow is needed.
+// Used by buildThemeCSS to decide which text-shadow tier to apply.
 
-const LIGHT_LEVELS = new Set<BgLevel>(['light-grey', 'white']);
+const LIGHT_LEVELS = new Set<BgLevel>(['light-grey', 'light']);
 
 // ─── Brightness resolver ──────────────────────────────────────────────────────
+// Maps user brightness choice onto the BgLevel ladder.
+// Season default is the base — brightness nudges up from there.
+// 'dark' = stay at season default. 'light' = max 3 steps up.
 
 const LEVEL_ORDER: BgLevel[] = [
-  'dark', 'dark-grey', 'grey', 'grey-2', 'grey-3', 'light-grey', 'white',
+  'dark', 'dark-grey', 'grey', 'light-grey', 'light',
 ];
 
 export function brightnessToLevel(
   seasonDefault: BgLevel,
-  brightness:    'dark' | 'mid' | 'mid-2' | 'mid-3' | 'light' | 'white',
+  brightness:    'dark' | 'mid' | 'light-grey' | 'light',
 ): BgLevel {
   const offsets: Record<string, number> = {
-    'dark': 0, 'mid': 1, 'mid-2': 2, 'mid-3': 3, 'light': 4, 'white': 6,
+    'dark':       0,
+    'mid':        1,
+    'light-grey': 2,
+    'light':      3,
   };
   const base = LEVEL_ORDER.indexOf(seasonDefault);
   const idx  = Math.min(base + (offsets[brightness] ?? 0), LEVEL_ORDER.length - 1);
@@ -155,8 +162,8 @@ export const THEME_FALL: SeasonTheme = {
 };
 
 export const THEME_WINTER: SeasonTheme = {
-  id: 'winter', label: '❄️ Winter', bgLevel: 'white', h1Emoji: '❄️',
-  gradient: `linear-gradient(160deg, #f5f5f5 0%, #eef4ff 40%, #e8f0fe 70%, #f0f4ff 100%)`,
+  id: 'winter', label: '❄️ Winter', bgLevel: 'light', h1Emoji: '❄️',
+  gradient: `linear-gradient(160deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #1a1a2e 100%)`,
   keyframes: KEYFRAMES_SNOW,
   particles: [
     { w:10, h:10, left:10, delay:0,   dur:12, color:'#aaccff', radius:'50%', opacity:0.55, anim:'drift-snow' },
@@ -226,10 +233,13 @@ export function resolveTheme(flags: Record<string, boolean>): SeasonTheme | null
 //   1. Html + body + root div backgrounds
 //   2. Inline background overrides — targets React's rendered style strings
 //   3. Nav + footer
-//   4. Text color cascade — muted values
-//   5. Light/white text shadow — makes white inline text visible on light bg
-//   6. H1 emoji
-//   7. Particle keyframes
+//   4. Text shadow — light-grey (subtle) and light (full)
+//   5. H1 emoji
+//   6. Particle keyframes
+//
+// Section 4 (text color cascade) was removed — per-element [style*="color"]
+// overrides fought React inline style re-renders and broke LanguageSwitcher.
+// Body + nav color coverage in sections 1 and 3 is sufficient.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -285,29 +295,21 @@ export function buildThemeCSS(
       border-bottom-color: ${lv.borderCol} !important;
     }
     html[data-theme="${t}"] footer {
-      background:      ${lv.pageBg}   !important;
-      border-top-color:${lv.borderCol} !important;
+      background:       ${lv.pageBg}   !important;
+      border-top-color: ${lv.borderCol} !important;
     }
   `);
 
-  // 4. Text color cascade
-  lines.push(`
-    html[data-theme="${t}"] [style*="color: #888"],
-    html[data-theme="${t}"] [style*="color: rgb(136, 136, 136)"] {
-      color: ${lv.mutedCol} !important;
-    }
-    html[data-theme="${t}"] [style*="color: #555"],
-    html[data-theme="${t}"] [style*="color: rgb(85, 85, 85)"] {
-      color: ${lv.muted2Col} !important;
-    }
-  `);
-
-  // 5. Light/white text shadow
-  // When bgLevel is light-grey or white, white and near-white inline text
-  // becomes invisible. Text-shadow makes it readable without touching colors.
-  // Scoped to white/near-white inline color values only — buttons and
-  // colored accent text are untouched.
+  // 4. Text shadow — only on light levels where white text risks invisibility
+  // light-grey → subtle 2px shadow — white text is still mostly readable
+  // light      → full 4px shadow  — white text needs more contrast help
+  // Scoped to white/near-white inline color values only.
+  // Buttons and colored accent text are untouched.
   if (LIGHT_LEVELS.has(theme.bgLevel)) {
+    const shadow = theme.bgLevel === 'light-grey'
+      ? '0 1px 2px rgba(0,0,0,0.4)'
+      : '0 1px 4px rgba(0,0,0,0.6)';
+
     lines.push(`
       html[data-theme="${t}"] [style*="color: #fff"],
       html[data-theme="${t}"] [style*="color: #ffffff"],
@@ -316,17 +318,18 @@ export function buildThemeCSS(
       html[data-theme="${t}"] [style*="color: rgb(240, 240, 240)"],
       html[data-theme="${t}"] [style*="color: #f5f5f5"],
       html[data-theme="${t}"] [style*="color: rgb(245, 245, 245)"],
+      html[data-theme="${t}"] [style*="color: #f8f8f8"],
+      html[data-theme="${t}"] [style*="color: rgb(248, 248, 248)"],
       html[data-theme="${t}"] [style*="color: #f2f2f2"],
       html[data-theme="${t}"] [style*="color: rgb(242, 242, 242)"],
       html[data-theme="${t}"] [style*="color: #aaa"],
-      html[data-theme="${t}"] [style*="color: #aaaa"],
       html[data-theme="${t}"] [style*="color: rgb(170, 170, 170)"] {
-        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55) !important;
+        text-shadow: ${shadow} !important;
       }
     `);
   }
 
-  // 6. H1 emoji
+  // 5. H1 emoji
   if (showH1Emoji) {
     lines.push(`
       html[data-theme="${t}"] h1::before,
@@ -339,7 +342,7 @@ export function buildThemeCSS(
     `);
   }
 
-  // 7. Particle keyframes
+  // 6. Particle keyframes
   if (showParticles) lines.push(theme.keyframes);
 
   return lines.join('\n');
