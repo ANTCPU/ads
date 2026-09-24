@@ -6,6 +6,10 @@
 // If gate blocks → in-app notification fires + Discord gated ping
 // If gate passes → heraldSend fires + recordEmailSent increments counters
 //
+// v3 (Sep 2026):
+//   — source param added — TV signups get TV-branded hero + CTA
+//   — source written to Discord success embed for pipeline tracking
+//
 // v2 (Sep 2026):
 //   — dashboardUrl: /dashboard/admin → /dashboard/antcpu
 //   — Discord gated ping: plain text → rich embed, new_signup event
@@ -29,14 +33,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const BASE_URL = 'https://antcpu-ads.vercel.app';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dashboardUrl(role: string, email: string): string {
   if (role === 'super' || email === 'antcpu@gmail.com')
-    return 'https://antcpu-ads.vercel.app/dashboard/antcpu'; // FIX: was /dashboard/admin
+    return `${BASE_URL}/dashboard/antcpu`;
   if (role === 'admin')
-    return 'https://antcpu-ads.vercel.app/dashboard/users';
-  return 'https://antcpu-ads.vercel.app/dashboard/user';
+    return `${BASE_URL}/dashboard/users`;
+  return `${BASE_URL}/dashboard/user`;
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -47,6 +53,7 @@ export async function POST(req: NextRequest) {
       name, email, brand,
       trialStatus, role = 'user',
       preferred_locale = 'en',
+      source = 'organic',            // ← new — 'tv-pro' | 'tv-viewer' | 'pricing' | 'organic'
     } = await req.json();
 
     const locale    = preferred_locale as Locale;
@@ -54,17 +61,15 @@ export async function POST(req: NextRequest) {
     const isTeam    = trialStatus === 'team';
     const days      = isTeam ? 90 : 3;
     const myDash    = dashboardUrl(role, email);
+    const isTV      = source === 'tv-pro';   // ← TV-aware flag
 
     // ── Email gate ────────────────────────────────────────────────────────────
-    // Check before building HTML — if gated, fire in-app + return early.
-    // guardCol 'welcome_email_sent_at' prevents duplicate welcome sends.
 
     const gate = await checkEmailGate(
       supabase, email, 'transactional', 'welcome_email_sent_at'
     );
 
     if (!gate.allow) {
-      // In-app notification — user still gets the welcome signal
       await gatedNotify(
         supabase, email,
         `⚡ ${t(locale, 'welcome_hero')} ${firstName}`,
@@ -72,13 +77,11 @@ export async function POST(req: NextRequest) {
         'nudge'
       );
 
-      // Stamp sent_at so this path doesn't retry on next login
       await supabase
         .from('ad_signups')
         .update({ welcome_email_sent_at: new Date().toISOString() })
         .eq('email', email);
 
-      // FIX: was plain text 'general' — now rich embed 'new_signup'
       await notifyDiscord('', 'new_signup', {
         title:  '📭 Welcome Gated',
         color:  DC.grey,
@@ -86,6 +89,7 @@ export async function POST(req: NextRequest) {
           { name: 'Email',  value: email,       inline: true },
           { name: 'Reason', value: gate.reason, inline: true },
           { name: 'Locale', value: locale,      inline: true },
+          { name: 'Source', value: source,      inline: true },
         ],
         footer:    'ANTCPU ADS · Email Gate',
         timestamp: true,
@@ -95,13 +99,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Gate passed — build + send email ─────────────────────────────────────
+    // TV signups get a TV-branded hero block and Go Live CTA.
+    // Arena signups get the standard 3-step onboarding flow.
+    // Everything else (steps, partner, tip, badge) is identical.
 
     const steps = [
       {
         n:     '01',
         title: t(locale, 'welcome_step1_title'),
         desc:  t(locale, 'welcome_step1_desc'),
-        href:  'https://antcpu-ads.vercel.app/create-ad',
+        href:  `${BASE_URL}/create-ad`,
       },
       {
         n:     '02',
@@ -113,12 +120,45 @@ export async function POST(req: NextRequest) {
         n:     '03',
         title: t(locale, 'welcome_step3_title'),
         desc:  t(locale, 'welcome_step3_desc'),
-        href:  'https://antcpu-ads.vercel.app/arena',
+        href:  `${BASE_URL}/arena`,
       },
     ];
 
-    const body = `
-      <!-- Hero -->
+    // ── Hero block — source-aware ─────────────────────────────────────────────
+
+    const heroBlock = isTV ? `
+      <!-- Hero — TV -->
+      <div style="background:#111;border:1px solid #f0883e30;border-radius:16px;
+        padding:2rem;margin-bottom:1.5rem;text-align:center;
+        position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;
+          background:linear-gradient(90deg,#f0883e,#7928ca,transparent)"></div>
+        <div style="font-size:0.65rem;color:#f0883e;font-weight:700;
+          letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.5rem">
+          📡 ANTCPU TV
+        </div>
+        <div style="font-size:1.4rem;font-weight:800;margin-bottom:0.5rem">
+          You're ready to go live, ${firstName}. 📡
+        </div>
+        <div style="font-size:0.88rem;color:#aaa;margin-bottom:1.5rem">
+          <strong style="color:#fff">${brand}</strong> is set up.<br>
+          Start your first stream — no installs, no plugins, no waiting.
+        </div>
+        <a href="https://antcpu.com/tv"
+          style="display:inline-block;background:#f0883e;color:#000;
+          text-decoration:none;font-weight:800;font-size:1rem;
+          padding:0.85rem 2rem;border-radius:10px">
+          📡 Go Live Now →
+        </a>
+        <div style="margin-top:0.75rem">
+          <a href="${myDash}"
+            style="font-size:0.78rem;color:#555;text-decoration:none">
+            Or visit your dashboard →
+          </a>
+        </div>
+      </div>
+    ` : `
+      <!-- Hero — Arena -->
       <div style="background:#111;border:1px solid #1a1a1a;border-radius:16px;
         padding:2rem;margin-bottom:1.5rem;text-align:center">
         <div style="font-size:1.4rem;font-weight:800;margin-bottom:0.5rem">
@@ -139,33 +179,69 @@ export async function POST(req: NextRequest) {
           ${t(locale, 'arena_join_cta')} →
         </a>
       </div>
+    `;
 
-      <!-- Steps -->
-      <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;
-        padding:1.25rem;margin-bottom:1.5rem">
-        <div style="font-size:0.7rem;color:#555;font-weight:700;
-          letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem">
-          ${t(locale, 'welcome_steps_label')}
-        </div>
-        ${steps.map(s => `
-          <div style="display:flex;gap:1rem;padding:0.75rem 0;
-            border-bottom:1px solid #1a1a1a">
-            <div style="font-size:0.7rem;font-weight:800;color:#f0883e;
-              min-width:24px;padding-top:2px">${s.n}</div>
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:0.88rem;
-                margin-bottom:0.2rem">${s.title}</div>
-              <div style="font-size:0.78rem;color:#555;
-                line-height:1.5">${s.desc}</div>
-            </div>
-            <a href="${s.href}"
-              style="font-size:0.75rem;color:#f0883e;text-decoration:none;
-              font-weight:700;white-space:nowrap;padding-top:2px">
-              ${t(locale, 'partner_visit_cta')} →
-            </a>
+    const body = `
+      ${heroBlock}
+
+      <!-- Steps — arena only, TV gets stream-focused steps -->
+      ${isTV ? `
+        <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;
+          padding:1.25rem;margin-bottom:1.5rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem">
+            📡 Your First Stream
           </div>
-        `).join('')}
-      </div>
+          ${[
+            { n: '01', title: 'Open your studio',       desc: 'Go to antcpu.com/tv and click Start Broadcasting.',  href: 'https://antcpu.com/tv' },
+            { n: '02', title: 'Share your room link',   desc: 'Send it to your audience — they join instantly.',     href: 'https://antcpu.com/tv' },
+            { n: '03', title: 'Grow in the Arena',      desc: 'Your brand is live in the ad network too.',           href: `${BASE_URL}/arena` },
+          ].map(s => `
+            <div style="display:flex;gap:1rem;padding:0.75rem 0;
+              border-bottom:1px solid #1a1a1a">
+              <div style="font-size:0.7rem;font-weight:800;color:#f0883e;
+                min-width:24px;padding-top:2px">${s.n}</div>
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:0.88rem;
+                  margin-bottom:0.2rem">${s.title}</div>
+                <div style="font-size:0.78rem;color:#555;
+                  line-height:1.5">${s.desc}</div>
+              </div>
+              <a href="${s.href}"
+                style="font-size:0.75rem;color:#f0883e;text-decoration:none;
+                font-weight:700;white-space:nowrap;padding-top:2px">
+                Go →
+              </a>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div style="background:#111;border:1px solid #1a1a1a;border-radius:12px;
+          padding:1.25rem;margin-bottom:1.5rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem">
+            ${t(locale, 'welcome_steps_label')}
+          </div>
+          ${steps.map(s => `
+            <div style="display:flex;gap:1rem;padding:0.75rem 0;
+              border-bottom:1px solid #1a1a1a">
+              <div style="font-size:0.7rem;font-weight:800;color:#f0883e;
+                min-width:24px;padding-top:2px">${s.n}</div>
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:0.88rem;
+                  margin-bottom:0.2rem">${s.title}</div>
+                <div style="font-size:0.78rem;color:#555;
+                  line-height:1.5">${s.desc}</div>
+              </div>
+              <a href="${s.href}"
+                style="font-size:0.75rem;color:#f0883e;text-decoration:none;
+                font-weight:700;white-space:nowrap;padding-top:2px">
+                ${t(locale, 'partner_visit_cta')} →
+              </a>
+            </div>
+          `).join('')}
+        </div>
+      `}
 
       <!-- Featured partner -->
       <div style="background:#111;border:1px solid #D4AF3730;border-radius:12px;
@@ -231,25 +307,25 @@ export async function POST(req: NextRequest) {
 
     await heraldSend({
       to:      email,
-      subject: `⚡ ${t(locale, 'welcome_subject')} ${firstName}`,
+      subject: isTV
+        ? `📡 You're ready to go live, ${firstName}`
+        : `⚡ ${t(locale, 'welcome_subject')} ${firstName}`,
       html,
       locale,
     });
 
-    // Increment per-user email counters
     await recordEmailSent(supabase, email);
 
-    // FIX: was plain text no event — now rich embed 'new_signup'
     await notifyDiscord('', 'new_signup', {
       title:  '📧 Welcome Sent',
       color:  DC.green,
       fields: [
-        { name: 'Name',   value: name,                              inline: true  },
-        { name: 'Brand',  value: brand,                             inline: true  },
-        { name: 'Status', value: isTeam ? '🔵 Team' : '🟢 Trial',  inline: true  },
-        { name: 'Email',  value: email,                             inline: false },
-        { name: 'Locale', value: locale,                            inline: true  },
-        { name: 'Role',   value: role,                              inline: true  },
+        { name: 'Name',   value: name,                             inline: true  },
+        { name: 'Brand',  value: brand,                            inline: true  },
+        { name: 'Status', value: isTeam ? '🔵 Team' : '🟢 Trial', inline: true  },
+        { name: 'Email',  value: email,                            inline: false },
+        { name: 'Locale', value: locale,                           inline: true  },
+        { name: 'Source', value: source,                           inline: true  },
       ],
       footer:    'ANTCPU ADS · Herald',
       timestamp: true,
