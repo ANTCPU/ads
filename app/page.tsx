@@ -4,7 +4,7 @@
 import { useState, useEffect }    from 'react';
 import VaultModal                 from './components/VaultModal';
 import FeaturedPartnerCard        from './components/FeaturedPartnerCard';
-import LanguageSwitcher           from './components/LanguageSwitcher';
+import NavIsland        from './components/NavIsland';
 import { Locale, t, isRTL }       from './lib/i18n/index';
 import { getStoredLocale }        from './lib/locale';
 
@@ -49,6 +49,7 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
 
   // ── UI state ────────────────────────────────────────────────────────────
   const [scrolled,         setScrolled]         = useState(false);
+  const [season1Visible, setSeason1Visible]     = useState(false);
   const [vaultOpen,        setVaultOpen]         = useState(false);
   const [vaultDefaultMode, setVaultDefaultMode]  = useState<'signin' | 'signup'>('signin');
 
@@ -95,7 +96,10 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
       }).catch(() => {});
 
     // Scroll nav blur
-    const onScroll = () => setScrolled(window.scrollY > 20);
+   const onScroll = () => {
+      setScrolled(window.scrollY > 20);
+      if (window.scrollY > 40) setSeason1Visible(true);
+      };
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
 
@@ -338,7 +342,34 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <LanguageSwitcher />
+          <NavIsland />
+<a href="/arena/season1" style={{
+  display:       'flex',
+  alignItems:    'center',
+  gap:           6,
+  fontSize:      '12px',
+  fontWeight:    700,
+  color:         C.gold,
+  textDecoration:'none',
+  background:    `${C.gold}12`,
+  border:        `1px solid ${C.gold}35`,
+  borderRadius:  '999px',
+  padding:       '4px 10px',
+  flexShrink:    0,
+  whiteSpace:    'nowrap',
+  opacity:       season1Visible ? 1 : 0,
+  maxWidth:      season1Visible ? '140px' : '0px',
+  overflow:      'hidden',
+  pointerEvents: season1Visible ? 'auto' : 'none',
+  transition:    'opacity 0.5s ease, max-width 0.4s ease',
+}}>
+  <span style={{
+    width: 6, height: 6, borderRadius: '50%',
+    background: C.gold, animation: 'pulse 2s infinite',
+    display: 'inline-block', flexShrink: 0,
+  }} />
+  🍂 Season 1
+</a>
 
           <a href="/arena" className="nav-a"
             style={{ fontSize: '13px', color: C.muted2,
@@ -362,45 +393,6 @@ export default function SplashPage({ locale = 'en' }: { locale?: Locale }) {
       </nav>
 
       <div style={{ paddingTop: 60 }}>
-
-        {/* ── SEASON 1 LIVE BANNER ── */}
-        {/* Countdown branch removed — Season 1 is live, always shows this */}
-        <div style={{
-          background:     `linear-gradient(90deg, ${C.gold}20, ${C.orange}15, transparent)`,
-          borderBottom:   `1px solid ${C.gold}40`,
-          padding:        '10px clamp(16px,5vw,48px)',
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'space-between',
-          gap:            '8px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Live pulse dot */}
-            <span style={{
-              width:       8,
-              height:      8,
-              borderRadius:'50%',
-              background:  C.gold,
-              animation:   'pulse 2s infinite',
-              display:     'inline-block',
-              flexShrink:  0,
-            }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: C.gold }}>
-              🍂 Season 1 is live — The Foundation has begun
-            </span>
-            <span style={{ fontSize: '12px', color: C.muted2, display: 'none' }}
-              // Hidden on mobile via inline — visible on wider screens via parent flex wrap
-            >
-              Sep 22 → Dec 21
-            </span>
-          </div>
-
-          <a href="/arena/season1"
-            style={{ ...btn(C.gold), padding: '5px 14px', fontSize: '12px',
-              flexShrink: 0 }}>
-            Enter Season 1 →
-          </a>
-        </div>
 
         {/* ── HERO ── */}
         <section style={{
