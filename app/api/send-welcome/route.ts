@@ -43,7 +43,7 @@ const BASE_URL = 'https://antcpu-ads.vercel.app';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dashboardUrl(role: string, email: string): string {
-  if (role === 'super' || email === 'antcpu@gmail.com')
+  if (role === 'super')
     return `${BASE_URL}/dashboard/antcpu`;
   if (role === 'admin')
     return `${BASE_URL}/dashboard/users`;
