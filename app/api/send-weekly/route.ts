@@ -10,7 +10,8 @@
 //          Users < 7 days old → in-app notification instead
 //
 // Log:     Every run writes one row to digest_runs
-//          Every sent email writes one row to email_sends
+//          Every sent email writes one row to email_sends via logEmailSend
+//          Every gated email writes one row to email_sends via logSkippedSend
 //          Discord summary includes sent/gated/error counts
 //          Proof: digest_runs is the source of truth for "did it fire?"
 //
@@ -23,19 +24,21 @@
 //   6. 💬 Quote                — random from pool
 //   7. Status badge + CTA
 //
+// v4 (Sep 2026):
+//   — logEmailSend replaces raw supabase insert — correct schema, no .catch()
+//   — logSkippedSend added to gate block — blocked sends now recorded
+//   — hardcoded super email replaced with NEXT_PUBLIC_SUPER_EMAIL env var
+//
 // v3 (Sep 2026):
-//   — email_sends insert on every successful send — Send Log tab now populates
-//   — totalAds/totalPoints/totalShares hoisted out of try block — no shadow
-//   — logRun receives real stats not zeros
+//   — email_sends insert on every successful send
+//   — totalAds/totalPoints/totalShares hoisted — logRun receives real values
 //
 // v2 (Sep 2026):
-//   — Profile of the Week block — reads featured-profile badge holder
+//   — Profile of the Week block
 //   — Arena This Week block — live stats + delta from digest_runs snapshot
-//   — Most Active Ad block — highest points ad created this week
-//   — Featured Partner (Map of Pi) replaced by Profile of the Week
-//   — digest_runs now stores total_ads + total_points + total_shares snapshot
+//   — Most Active Ad block
+//   — digest_runs stores arena snapshot
 //   — dashboardUrl fixed: /dashboard/admin → /dashboard/antcpu
-//   — getFeaturedProfileHolder() imported from lib/badges
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse }  from 'next/server';
@@ -46,17 +49,20 @@ import { heraldSend, heraldWrap,
 import { t }                          from '../../lib/i18n';
 import type { Locale }                from '../../lib/i18n';
 import { checkEmailGate, recordEmailSent,
-         gatedNotify, EMAIL_LIMITS }  from '../../lib/emailGate';
+         gatedNotify, logEmailSend,
+         logSkippedSend,
+         EMAIL_LIMITS }               from '../../lib/emailGate';
 import { getFeaturedProfileHolder }   from '../../lib/badges';
 
 // ─── Service role client ──────────────────────────────────────────────────────
 
-const supabase = createClient(
+const supabase    = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
+const BASE_URL    = process.env.NEXT_PUBLIC_APP_URL    || 'https://antcpu-ads.vercel.app';
+const SUPER_EMAIL = process.env.NEXT_PUBLIC_SUPER_EMAIL || '';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,13 +102,13 @@ type FeaturedProfile = {
 // ─── Quotes ───────────────────────────────────────────────────────────────────
 
 const QUOTES = [
-  { quote: "The best marketing doesn't feel like marketing.",                                              author: 'Tom Fishburne'       },
-  { quote: 'Content is fire. Social media is gasoline.',                                                  author: 'Jay Baer'            },
-  { quote: 'Make it simple. Make it memorable. Make it inviting to look at.',                             author: 'Leo Burnett'         },
-  { quote: "Your brand is what people say about you when you're not in the room.",                        author: 'Jeff Bezos'          },
-  { quote: "Stop interrupting what people are interested in and be what people are interested in.",       author: 'Craig Davis'         },
-  { quote: 'Do not be afraid to give up the good to go for the great.',                                   author: 'John D. Rockefeller' },
-  { quote: 'The aim of marketing is to know and understand the customer so well the product sells itself.', author: 'Peter Drucker'     },
+  { quote: "The best marketing doesn't feel like marketing.",                                                author: 'Tom Fishburne'       },
+  { quote: 'Content is fire. Social media is gasoline.',                                                    author: 'Jay Baer'            },
+  { quote: 'Make it simple. Make it memorable. Make it inviting to look at.',                               author: 'Leo Burnett'         },
+  { quote: "Your brand is what people say about you when you're not in the room.",                          author: 'Jeff Bezos'          },
+  { quote: 'Stop interrupting what people are interested in and be what people are interested in.',         author: 'Craig Davis'         },
+  { quote: 'Do not be afraid to give up the good to go for the great.',                                     author: 'John D. Rockefeller' },
+  { quote: 'The aim of marketing is to know and understand the customer so well the product sells itself.', author: 'Peter Drucker'       },
 ];
 
 // ─── Brand color map ──────────────────────────────────────────────────────────
@@ -117,7 +123,7 @@ const DEFAULT_FEATURED_COLOR = '#f0883e';
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dashboardUrl(user: Signup): string {
-  if (user.role === 'super' || user.email === 'antcpu@gmail.com')
+  if (user.role === 'super' || (SUPER_EMAIL && user.email === SUPER_EMAIL))
     return `${BASE_URL}/dashboard/antcpu`;
   if (user.role === 'admin')
     return `${BASE_URL}/dashboard/users`;
@@ -335,8 +341,7 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
   let errors        = 0;
   const notes: string[] = [];
 
-  // ── Hoisted stats — populated inside try, used in logRun ─────────────────
-  // Declared here so logRun always receives real values not zeros.
+  // ── Hoisted stats — real values passed to logRun ──────────────────────────
   let runTotalAds    = 0;
   let runTotalPoints = 0;
   let runTotalShares = 0;
@@ -401,21 +406,18 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
       return NextResponse.json({ sent: 0, reason: 'no_eligible_users' });
     }
 
-    totalEligible = signups.length;
-
-    // ── Arena stats ───────────────────────────────────────────────────────────
+    totalEligible  = signups.length;
     runTotalAds    = allAds.length;
     runTotalPoints = allAds.reduce((s, a) => s + (a.points || 0), 0);
 
-    const now     = Date.now();
-    const weekMs  = 7 * 86_400_000;
+    const now         = Date.now();
+    const weekMs      = 7 * 86_400_000;
     const newThisWeek = allAds.filter(a =>
       now - new Date(a.created_at).getTime() < weekMs
     );
-    const newAds     = newThisWeek.length;
+    const newAds      = newThisWeek.length;
     const prevMembers = lastRun?.total_eligible || 0;
     const newMembers  = Math.max(0, totalEligible - prevMembers);
-
     const mostActiveAd = newThisWeek.length > 0
       ? newThisWeek.sort((a, b) => b.points - a.points)[0]
       : topAds[0] || null;
@@ -425,7 +427,9 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
       .select('share_count')
       .eq('status', 'active');
 
-    runTotalShares = (shareData || []).reduce((s: number, a: any) => s + (a.share_count || 0), 0);
+    runTotalShares = (shareData || []).reduce(
+      (s: number, a: any) => s + (a.share_count || 0), 0
+    );
 
     // ── Featured profile ──────────────────────────────────────────────────────
     let featuredProfile: FeaturedProfile | null = null;
@@ -474,6 +478,7 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
       const firstName = user.name?.split(' ')[0] || 'there';
       const isTeam    = user.status === 'team';
       const myDash    = dashboardUrl(user);
+      const subject   = `⚡ ANTCPU ADS — ${t(locale, 'weekly_digest_label')} · ${week}`;
 
       const gate = await checkEmailGate(supabase, user.email, 'digest');
 
@@ -484,6 +489,15 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
           t(locale, 'weekly_greeting'),
           'info'
         );
+
+        // Skip log — records why this send was blocked for Scout report
+        try {
+          await logSkippedSend(supabase, user.email, 'digest', gate.reason, {
+            segment: 'weekly',
+            locale,
+          });
+        } catch {}
+
         notified++;
         if (gate.reason === 'too_new')     gatedTooNew++;
         if (gate.reason === 'daily_cap')   gatedDailyCap++;
@@ -554,24 +568,18 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
       );
 
       try {
-        await heraldSend({
-          to:      user.email,
-          subject: `⚡ ANTCPU ADS — ${t(locale, 'weekly_digest_label')} · ${week}`,
-          html,
-          locale,
-        });
-
+        await heraldSend({ to: user.email, subject, html, locale });
         await recordEmailSent(supabase, user.email);
 
-        // ── email_sends insert — populates Send Log tab ───────────────────
-        void supabase.from('email_sends').insert({
-          email:      user.email,
-          type:       'digest',
-          subject:    `⚡ ANTCPU ADS — ${t(locale, 'weekly_digest_label')} · ${week}`,
-          locale,
-          sent_at:    new Date().toISOString(),
-          week_label: week,
-        }).catch(() => {});
+        // ── Send log — powers Scout monthly report ────────────────────────
+        try {
+          await logEmailSend(supabase, user.email, 'digest', {
+            segment: 'weekly',
+            subject,
+            locale,
+            status:  'sent',
+          });
+        } catch {}
 
         sent++;
 
@@ -590,7 +598,6 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
 
   const durationMs = Date.now() - startMs;
 
-  // ── Write run log — real stats, not zeros ─────────────────────────────────
   await logRun({
     week, triggeredBy, totalEligible, sent,
     gatedTooNew, gatedDailyCap, gatedMonthly,
@@ -600,13 +607,12 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
     totalShares: runTotalShares,
   });
 
-  // ── Discord summary ───────────────────────────────────────────────────────
   await notifyDiscord('', 'general', {
     title:  `📧 Weekly Digest · ${week}`,
     color:  DC.orange,
     fields: [
       { name: 'Sent',     value: String(sent),                                       inline: true },
-      { name: 'Gated',    value: String(gatedTooNew + gatedDailyCap + gatedMonthly), inline: true },
+      { name: 'Gated',    value: String(gatedTooNew + gatedDailyCap + gatedMonthly),
       { name: 'In-app',   value: String(notified),                                   inline: true },
       { name: 'Errors',   value: String(errors),        inline: true },
       { name: 'Eligible', value: String(totalEligible), inline: true },
@@ -692,4 +698,3 @@ export async function GET(req: NextRequest) {
   }
   return runDigest(isAuthorizedCron(req) ? 'cron' : 'manual');
 }
-
