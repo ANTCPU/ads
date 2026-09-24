@@ -1,21 +1,46 @@
 // app/lib/theme.ts
 // ─── Season Theme Definitions ─────────────────────────────────────────────────
+//
 // DEFAULT — pure #0a0a0a black. Never touched. Zero change when flags off.
+//
 // Visual stack when a season is active:
 //   1. html background  — season gradient
 //   2. page surfaces    — bgLevel CSS overrides
 //   3. particles        — fixed overlay
+//
+// BgLevel ladder (dark → white):
+//   dark        #0a0a0a  — default, never applied via CSS
+//   dark-grey   #111111  — summer
+//   grey        #1a1a1a  — fall
+//   grey-2      #202020  — mid step
+//   grey-3      #262626  — mid step
+//   light-grey  #2a2a2a  — spring
+//   white       #f5f5f5  — winter
+//
+// Light/white levels: text-shadow applied to white inline text
+// so it remains readable without touching any page color tokens.
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SeasonId       = 'fall' | 'winter' | 'spring' | 'summer';
-export type BgLevel        = 'dark' | 'dark-grey' | 'grey' | 'grey-2' | 'grey-3' | 'light-grey' | 'white';
+export type SeasonId  = 'fall' | 'winter' | 'spring' | 'summer';
+export type BgLevel   = 'dark' | 'dark-grey' | 'grey' | 'grey-2' | 'grey-3' | 'light-grey' | 'white';
+
+// ─── Particle shape ───────────────────────────────────────────────────────────
 
 export type ParticleShape = {
-  w: number; h: number; left: number;
-  delay: number; dur: number;
-  color: string; radius: string; clip?: string;
-  opacity: number; anim: string;
+  w:       number;
+  h:       number;
+  left:    number;
+  delay:   number;
+  dur:     number;
+  color:   string;
+  radius:  string;
+  clip?:   string;
+  opacity: number;
+  anim:    string;
 };
+
+// ─── Season theme ─────────────────────────────────────────────────────────────
 
 export type SeasonTheme = {
   id:        SeasonId;
@@ -27,10 +52,17 @@ export type SeasonTheme = {
   keyframes: string;
 };
 
+// ─── BgLevel tokens ───────────────────────────────────────────────────────────
+
 export type BgTokens = {
-  htmlBg: string; pageBg: string; cardBg: string;
-  altBg: string; borderCol: string;
-  textCol: string; mutedCol: string; muted2Col: string;
+  htmlBg:    string;
+  pageBg:    string;
+  cardBg:    string;
+  altBg:     string;
+  borderCol: string;
+  textCol:   string;
+  mutedCol:  string;
+  muted2Col: string;
 };
 
 export const BG_LEVELS: Record<BgLevel, BgTokens> = {
@@ -42,6 +74,11 @@ export const BG_LEVELS: Record<BgLevel, BgTokens> = {
   'light-grey': { htmlBg:'#2a2a2a', pageBg:'#2a2a2a', cardBg:'#333333', altBg:'#2e2e2e', borderCol:'#444444', textCol:'#f5f5f5', mutedCol:'#aaaaaa', muted2Col:'#777777' },
   'white':      { htmlBg:'#f5f5f5', pageBg:'#f5f5f5', cardBg:'#ffffff', altBg:'#eeeeee', borderCol:'#e0e0e0', textCol:'#0a0a0a', mutedCol:'#555555', muted2Col:'#888888' },
 };
+
+// ─── Light level detection ────────────────────────────────────────────────────
+// Used by buildThemeCSS to decide whether text-shadow is needed.
+
+const LIGHT_LEVELS = new Set<BgLevel>(['light-grey', 'white']);
 
 // ─── Brightness resolver ──────────────────────────────────────────────────────
 
@@ -71,6 +108,7 @@ const KEYFRAMES_FALL = `
     100% { transform: translateY(110vh)  translateX(-140px) rotate(380deg); opacity: 0; }
   }
 `;
+
 const KEYFRAMES_SNOW = `
   @keyframes drift-snow {
     0%   { transform: translateY(-20px) translateX(0px); opacity: 0; }
@@ -79,6 +117,7 @@ const KEYFRAMES_SNOW = `
     100% { transform: translateY(110vh) translateX(30px); opacity: 0; }
   }
 `;
+
 const KEYFRAMES_PETAL = `
   @keyframes drift-petal {
     0%   { transform: translateY(-30px) translateX(0px)  rotate(0deg);   opacity: 0; }
@@ -87,6 +126,7 @@ const KEYFRAMES_PETAL = `
     100% { transform: translateY(110vh) translateX(60px) rotate(180deg); opacity: 0; }
   }
 `;
+
 const KEYFRAMES_ORB = `
   @keyframes pulse-orb {
     0%,100% { transform: scale(1);    opacity: 0.08; }
@@ -181,6 +221,17 @@ export function resolveTheme(flags: Record<string, boolean>): SeasonTheme | null
 }
 
 // ─── CSS builder ──────────────────────────────────────────────────────────────
+//
+// Section order:
+//   1. Html + body + root div backgrounds
+//   2. Inline background overrides — targets React's rendered style strings
+//   3. Nav + footer
+//   4. Text color cascade — muted values
+//   5. Light/white text shadow — makes white inline text visible on light bg
+//   6. H1 emoji
+//   7. Particle keyframes
+//
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function buildThemeCSS(
   theme:         SeasonTheme,
@@ -191,25 +242,91 @@ export function buildThemeCSS(
   const t  = theme.id;
   const lv = BG_LEVELS[theme.bgLevel];
 
+  // 1. Html + body + root div
   lines.push(`
-    html[data-theme="${t}"] { background: ${theme.gradient}; min-height: 100vh; }
-    html[data-theme="${t}"] body { background: ${lv.htmlBg}; color: ${lv.textCol}; min-height: 100vh; }
-    html[data-theme="${t}"] body > div { background: ${lv.pageBg} !important; color: ${lv.textCol} !important; }
+    html[data-theme="${t}"] {
+      background: ${theme.gradient};
+      min-height: 100vh;
+    }
+    html[data-theme="${t}"] body {
+      background: ${lv.htmlBg};
+      color:      ${lv.textCol};
+      min-height: 100vh;
+    }
+    html[data-theme="${t}"] body > div {
+      background: ${lv.pageBg} !important;
+      color:      ${lv.textCol} !important;
+    }
+  `);
+
+  // 2. Inline background overrides
+  lines.push(`
     html[data-theme="${t}"] [style*="background: rgb(10, 10, 10)"],
     html[data-theme="${t}"] [style*="background: #0a0a0a"],
-    html[data-theme="${t}"] [style*="background:#0a0a0a"] { background: ${lv.pageBg} !important; }
+    html[data-theme="${t}"] [style*="background:#0a0a0a"] {
+      background: ${lv.pageBg} !important;
+    }
     html[data-theme="${t}"] [style*="background: rgb(17, 17, 17)"],
     html[data-theme="${t}"] [style*="background: #111111"],
     html[data-theme="${t}"] [style*="background: #111"],
-    html[data-theme="${t}"] [style*="background:#111"] { background: ${lv.cardBg} !important; }
+    html[data-theme="${t}"] [style*="background:#111"] {
+      background: ${lv.cardBg} !important;
+    }
     html[data-theme="${t}"] [style*="background: rgb(13, 13, 13)"],
-    html[data-theme="${t}"] [style*="background: #0d0d0d"] { background: ${lv.altBg} !important; }
-    html[data-theme="${t}"] nav { background: ${lv.pageBg} !important; border-bottom-color: ${lv.borderCol} !important; }
-    html[data-theme="${t}"] footer { background: ${lv.pageBg} !important; border-top-color: ${lv.borderCol} !important; }
-    html[data-theme="${t}"] [style*="color: #888"] { color: ${lv.mutedCol} !important; }
-    html[data-theme="${t}"] [style*="color: #555"] { color: ${lv.muted2Col} !important; }
+    html[data-theme="${t}"] [style*="background: #0d0d0d"] {
+      background: ${lv.altBg} !important;
+    }
   `);
 
+  // 3. Nav + footer
+  lines.push(`
+    html[data-theme="${t}"] nav {
+      background:          ${lv.pageBg}   !important;
+      border-bottom-color: ${lv.borderCol} !important;
+    }
+    html[data-theme="${t}"] footer {
+      background:      ${lv.pageBg}   !important;
+      border-top-color:${lv.borderCol} !important;
+    }
+  `);
+
+  // 4. Text color cascade
+  lines.push(`
+    html[data-theme="${t}"] [style*="color: #888"],
+    html[data-theme="${t}"] [style*="color: rgb(136, 136, 136)"] {
+      color: ${lv.mutedCol} !important;
+    }
+    html[data-theme="${t}"] [style*="color: #555"],
+    html[data-theme="${t}"] [style*="color: rgb(85, 85, 85)"] {
+      color: ${lv.muted2Col} !important;
+    }
+  `);
+
+  // 5. Light/white text shadow
+  // When bgLevel is light-grey or white, white and near-white inline text
+  // becomes invisible. Text-shadow makes it readable without touching colors.
+  // Scoped to white/near-white inline color values only — buttons and
+  // colored accent text are untouched.
+  if (LIGHT_LEVELS.has(theme.bgLevel)) {
+    lines.push(`
+      html[data-theme="${t}"] [style*="color: #fff"],
+      html[data-theme="${t}"] [style*="color: #ffffff"],
+      html[data-theme="${t}"] [style*="color: rgb(255, 255, 255)"],
+      html[data-theme="${t}"] [style*="color: #f0f0f0"],
+      html[data-theme="${t}"] [style*="color: rgb(240, 240, 240)"],
+      html[data-theme="${t}"] [style*="color: #f5f5f5"],
+      html[data-theme="${t}"] [style*="color: rgb(245, 245, 245)"],
+      html[data-theme="${t}"] [style*="color: #f2f2f2"],
+      html[data-theme="${t}"] [style*="color: rgb(242, 242, 242)"],
+      html[data-theme="${t}"] [style*="color: #aaa"],
+      html[data-theme="${t}"] [style*="color: #aaaa"],
+      html[data-theme="${t}"] [style*="color: rgb(170, 170, 170)"] {
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55) !important;
+      }
+    `);
+  }
+
+  // 6. H1 emoji
   if (showH1Emoji) {
     lines.push(`
       html[data-theme="${t}"] h1::before,
@@ -222,6 +339,7 @@ export function buildThemeCSS(
     `);
   }
 
+  // 7. Particle keyframes
   if (showParticles) lines.push(theme.keyframes);
 
   return lines.join('\n');
