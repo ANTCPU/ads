@@ -1,26 +1,34 @@
 'use client';
 
 // app/components/ThemeSwitcher.tsx
-// ─── User brightness toggle ───────────────────────────────────────────────────
-// BrightnessLevel type lives here — imported by ThemeProvider.
+// ─── User brightness control ──────────────────────────────────────────────────
+// BrightnessLevel type lives here — imported by ThemeProvider + NavIsland.
 // Stored in localStorage as arena_brightness.
-// Only renders when a season theme is active (data-theme set on html).
+//
+// Levels match brightnessToLevel() in theme.ts exactly:
+//   dark       → season default (no shift)
+//   mid        → one step up
+//   light-grey → two steps up — subtle shadow on white text
+//   light      → three steps up — full shadow on white text
+//
+// Component not used directly in ArenaNav — NavIsland wraps this logic.
+// Exports only: BrightnessLevel type, getStoredBrightness, setStoredBrightness.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from 'react';
 
-// Single source of truth for BrightnessLevel
-export type BrightnessLevel = 'dark' | 'mid' | 'mid-2' | 'mid-3' | 'light' | 'white';
+// ─── Single source of truth for BrightnessLevel ───────────────────────────────
+// Must match brightnessToLevel() signature in theme.ts.
+
+export type BrightnessLevel = 'dark' | 'mid' | 'light-grey' | 'light';
 
 const STORAGE_KEY = 'arena_brightness';
 
-const LEVELS: { id: BrightnessLevel; icon: string; label: string }[] = [
-  { id: 'dark',  icon: '🌑', label: 'Dark'  },
-  { id: 'mid',   icon: '🌘', label: 'Mid'   },
-  { id: 'mid-2', icon: '🌗', label: 'Mid+'  },
-  { id: 'mid-3', icon: '🌖', label: 'Mid++' },
-  { id: 'light', icon: '🌕', label: 'Light' },
-  { id: 'white', icon: '☀️', label: 'White' },
+export const BRIGHTNESS_LEVELS: { id: BrightnessLevel; icon: string; label: string }[] = [
+  { id: 'dark',       icon: '🌑', label: 'Dark'       },
+  { id: 'mid',        icon: '🌗', label: 'Mid'        },
+  { id: 'light-grey', icon: '🌕', label: 'Light Grey' },
+  { id: 'light',      icon: '☀️', label: 'Light'      },
 ];
 
 export function getStoredBrightness(): BrightnessLevel {
@@ -31,6 +39,10 @@ export function getStoredBrightness(): BrightnessLevel {
 export function setStoredBrightness(level: BrightnessLevel) {
   localStorage.setItem(STORAGE_KEY, level);
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
+// Standalone cycle button — kept for backward compat.
+// NavIsland is the primary surface going forward.
 
 export default function ThemeSwitcher() {
   const [active,      setActive]      = useState<BrightnessLevel>('dark');
@@ -47,16 +59,16 @@ export default function ThemeSwitcher() {
   if (!mounted || !themeActive) return null;
 
   function cycle() {
-    const idx  = LEVELS.findIndex(l => l.id === active);
-    const next = LEVELS[(idx + 1) % LEVELS.length];
+    const idx  = BRIGHTNESS_LEVELS.findIndex(l => l.id === active);
+    const next = BRIGHTNESS_LEVELS[(idx + 1) % BRIGHTNESS_LEVELS.length];
     setActive(next.id);
     setStoredBrightness(next.id);
     window.dispatchEvent(new CustomEvent('arena-brightness-change', {
-      detail: { level: next.id }
+      detail: { level: next.id },
     }));
   }
 
-  const current = LEVELS.find(l => l.id === active) ?? LEVELS[0];
+  const current = BRIGHTNESS_LEVELS.find(l => l.id === active) ?? BRIGHTNESS_LEVELS[0];
 
   return (
     <button
