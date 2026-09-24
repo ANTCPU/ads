@@ -32,6 +32,8 @@ type Props = {
   onClose:      () => void;
   onSuccess:    (user: VaultUser) => void;
   redirectTo?:  string;
+  // defaultMode: lets callers open directly into signup
+  // e.g. "Join the Arena" button passes defaultMode='signup'
   defaultMode?: VaultMode;
   // source: entry point context — drives header copy, CTA label, redirect
   // 'tv-pro'    → TV streamer signup path
