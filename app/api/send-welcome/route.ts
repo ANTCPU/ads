@@ -358,7 +358,7 @@ export async function POST(req: NextRequest) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function dashboardUrl(role: string, email: string): string {
-  if (role === 'super' || email === 'antcpu@gmail.com')
+  if (role === 'super')
     return `${BASE_URL}/dashboard/antcpu`;
   if (role === 'admin')
     return `${BASE_URL}/dashboard/users`;
