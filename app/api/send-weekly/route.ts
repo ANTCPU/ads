@@ -612,7 +612,7 @@ async function runDigest(triggeredBy: 'cron' | 'manual'): Promise<NextResponse> 
     color:  DC.orange,
     fields: [
       { name: 'Sent',     value: String(sent),                                       inline: true },
-      { name: 'Gated',    value: String(gatedTooNew + gatedDailyCap + gatedMonthly),
+      { name: 'Gated',    value: String(gatedTooNew + gatedDailyCap + gatedMonthly), inline: true },
       { name: 'In-app',   value: String(notified),                                   inline: true },
       { name: 'Errors',   value: String(errors),        inline: true },
       { name: 'Eligible', value: String(totalEligible), inline: true },
