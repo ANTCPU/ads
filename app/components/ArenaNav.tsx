@@ -6,6 +6,10 @@
 // Props are optional overrides — existing call sites work unchanged.
 // New pages can drop <ArenaNav /> with zero props.
 //
+// v3 (Sep 2026):
+//   — LanguageSwitcher + ThemeSwitcher replaced by NavIsland
+//   — NavIsland sits in nav bar right side — brightness + language unified
+//
 // v2 (Sep 2026):
 //   — role made optional — defaults to localStorage then 'user'
 //   — self-hydrates name, email, brand, role from arena_user in localStorage
@@ -17,8 +21,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter }                         from 'next/navigation';
 import { clearSessionCookie }                from '../lib/session';
 import { createClient }                      from '@supabase/supabase-js';
-import LanguageSwitcher                      from './LanguageSwitcher';
-import ThemeSwitcher   from './ThemeSwitcher'; 
+import NavIsland                             from './NavIsland';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,7 +51,7 @@ type MenuItem = {
 };
 
 type ArenaNavProps = {
-  role?:         Role;       // optional — falls back to localStorage then 'user'
+  role?:         Role;
   userName?:     string;
   userEmail?:    string;
   userBrand?:    string;
@@ -106,7 +109,6 @@ export default function ArenaNav({
   const [membershipTier, setMembershipTier] = useState('trial');
   const [streakDays,     setStreakDays]     = useState(0);
 
-  // ── Self-hydration state — used when props not passed ─────────────────────
   const [localRole,  setLocalRole]  = useState<Role>('user');
   const [localName,  setLocalName]  = useState('');
   const [localEmail, setLocalEmail] = useState('');
@@ -115,7 +117,7 @@ export default function ArenaNav({
   const [brands,       setBrands]       = useState<Brand[]>([]);
   const [brandsLoaded, setBrandsLoaded] = useState(false);
 
-  // ── Load brands from DB ───────────────────────────────────────────────────
+  // ── Load brands ───────────────────────────────────────────────────────────
   const loadBrands = useCallback(async () => {
     if (brandsLoaded) return;
     try {
@@ -148,28 +150,21 @@ export default function ArenaNav({
       const stored = localStorage.getItem('arena_user');
       if (stored) {
         const u = JSON.parse(stored);
-
-        // Existing — membership + streak
-        if (u.membershipTier)          setMembershipTier(u.membershipTier);
-        if (u.streakDays)              setStreakDays(u.streakDays);
-        if (u.trialStatus === 'team')  setMembershipTier('team');
-
-        // New — self-hydrate identity when props not passed
-        if (u.role)  setLocalRole(u.role  as Role);
-        if (u.name)  setLocalName(u.name);
-        if (u.email) setLocalEmail(u.email);
-        if (u.brand) setLocalBrand(u.brand);
+        if (u.membershipTier)         setMembershipTier(u.membershipTier);
+        if (u.streakDays)             setStreakDays(u.streakDays);
+        if (u.trialStatus === 'team') setMembershipTier('team');
+        if (u.role)                   setLocalRole(u.role as Role);
+        if (u.name)                   setLocalName(u.name);
+        if (u.email)                  setLocalEmail(u.email);
+        if (u.brand)                  setLocalBrand(u.brand);
       }
     } catch {}
-
   }, []);
 
-  // ── Notification fetch — runs when effective email is known ───────────────
-  // Separate effect so it re-runs if userEmail prop arrives after mount
+  // ── Notifications ─────────────────────────────────────────────────────────
   useEffect(() => {
     const email = userEmail || localEmail;
     if (!email) return;
-
     supabase
       .from('notifications')
       .select('id, type, title, message, created_at')
@@ -187,7 +182,7 @@ export default function ArenaNav({
     if (brandsOpen) loadBrands();
   }, [brandsOpen, loadBrands]);
 
-  // ── Resolved values — props win, localStorage fallback ───────────────────
+  // ── Resolved values ───────────────────────────────────────────────────────
   const effectiveRole  = role      || localRole;
   const effectiveName  = userName  || localName;
   const effectiveEmail = userEmail || localEmail;
@@ -231,7 +226,6 @@ export default function ArenaNav({
     .map(s => brands.find(b => b.slug === s))
     .filter(Boolean) as Brand[];
 
-  // ── Tier pill ─────────────────────────────────────────────────────────────
   const effectiveTier = trialStatus === 'team' ? 'team' : membershipTier;
   const tierDef       = TIER_DISPLAY[effectiveTier] || TIER_DISPLAY.trial;
 
@@ -480,7 +474,7 @@ export default function ArenaNav({
           )}
         </div>
 
-        {/* RIGHT — tier pill + envelope + hamburger */}
+        {/* RIGHT — tier pill + NavIsland + envelope + hamburger */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
 
           {(effectiveRole === 'user' || effectiveRole === 'team') && (
@@ -504,6 +498,8 @@ export default function ArenaNav({
               )}
             </span>
           )}
+
+          <NavIsland />
 
           {effectiveEmail && (
             <button
@@ -578,13 +574,6 @@ export default function ArenaNav({
 
                 <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
 
-                <div style={{ padding: '0.2rem 0.5rem 0.4rem' }}>
-                  <LanguageSwitcher />
-                  <ThemeSwitcher /> 
-                </div>
-
-                <div style={{ borderTop: '1px solid #1a1a1a', margin: '0.3rem 0' }} />
-
                 {isPrevAdmin && (
                   <button
                     onClick={() => { setOpen(false); localStorage.removeItem('arena_prev_admin'); router.push('/dashboard/antcpu'); }}
@@ -615,8 +604,7 @@ export default function ArenaNav({
   );
 }
 
-// ─── BrandRow sub-component ──────────────────────────────────────────────────
-// onDash is optional — only shown when brand has a dashboard_url in DB
+// ─── BrandRow sub-component ───────────────────────────────────────────────────
 
 function BrandRow({ b, onVisit, onDash }: {
   b:        Brand;
@@ -661,3 +649,4 @@ function BrandRow({ b, onVisit, onDash }: {
     </div>
   );
 }
+        
