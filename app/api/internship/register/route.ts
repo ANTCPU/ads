@@ -80,7 +80,11 @@ function emailFooter() {
 }
 
 function taskRow(t: ChallengeTask, track: string, highlight = false) {
-  const edu = t.edu?.[track as 'dev' | 'marketing'];
+  const edu        = t.edu?.[track as 'dev' | 'marketing'];
+  const resolvedUrl = track === 'marketing' && t.urlMarketing
+    ? t.urlMarketing
+    : t.url;
+
   return `
     <div style="padding:0.75rem 0;border-bottom:1px solid ${BORDER}">
       <div style="display:flex;gap:0.75rem;align-items:flex-start">
@@ -98,7 +102,7 @@ function taskRow(t: ChallengeTask, track: string, highlight = false) {
               🎓 ${edu.label} →
             </a></div>` : ''}
         </div>
-        <a href="${t.url}" style="font-size:0.72rem;background:${ACCENT}20;
+        <a href="${resolvedUrl}" style="font-size:0.72rem;background:${ACCENT}20;
           color:${ACCENT};text-decoration:none;padding:0.25rem 0.6rem;
           border-radius:6px;border:1px solid ${ACCENT}40;
           white-space:nowrap;flex-shrink:0">${t.cta}</a>
