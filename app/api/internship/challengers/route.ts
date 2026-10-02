@@ -1,8 +1,8 @@
 // ============================================================
 // app/api/internship/challengers/route.ts
-// GET  — Admin: full name + email (default)
-// GET  — Public: first name only (?view=public)
-// Called by: antcpu.io/admin/ and antcpu.io/leaderboard/
+// GET  — Public leaderboard (?view=public)
+// GET  — Admin: full data (default — requires x-admin-token)
+// Called by: antcpu.io/leaderboard/ and antcpu.io/admin/
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,9 +14,10 @@ const supabase = createClient(
 );
 
 const CORS = {
-  'Access-Control-Allow-Origin': 'https://antcpu.io',
+  'Access-Control-Allow-Origin':  'https://antcpu.io',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, x-admin-token',
+  'Cache-Control':                'no-store, max-age=0',
 };
 
 export async function OPTIONS() {
@@ -26,18 +27,31 @@ export async function OPTIONS() {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const view = searchParams.get('view');
+    const view   = searchParams.get('view');
+    const cohort = searchParams.get('cohort') || 'october-2026';
 
+    // ── Public leaderboard — no auth required ──────────────
     if (view === 'public') {
       const { data, error } = await supabase
         .from('public_leaderboard')
         .select('*')
+        .eq('cohort', cohort)
         .order('progress_pct', { ascending: false });
 
       if (error) throw error;
+
       return NextResponse.json(
         { challengers: data ?? [] },
         { headers: CORS }
+      );
+    }
+
+    // ── Admin view — requires x-admin-token ────────────────
+    const token = req.headers.get('x-admin-token');
+    if (!token || token !== process.env.ADMIN_TOKEN) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401, headers: CORS }
       );
     }
 
@@ -47,6 +61,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
     return NextResponse.json(
       { challengers: data ?? [] },
       { headers: CORS }
