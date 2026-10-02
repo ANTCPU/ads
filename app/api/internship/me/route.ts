@@ -34,7 +34,6 @@ export async function OPTIONS() {
 }
 
 // ── Role milestone map ────────────────────────────────────────
-// Gates that earn a named CV role — aligned to DB gates table
 
 const ROLE_GATES: Array<{ gate: string; pct: number; role: string }> = [
   { gate: 'd1',  pct: 5,  role: 'Registered'     },
@@ -52,7 +51,6 @@ function buildEarnedRoles(completedGates: string[]) {
 }
 
 // ── CV block builder ──────────────────────────────────────────
-// Consumed by Arena profile page + workspace identity load
 
 function buildCv(data: Record<string, unknown>) {
   const email          = data.email           as string;
@@ -68,7 +66,6 @@ function buildCv(data: Record<string, unknown>) {
   const handle         = (data.handle          as string)  || null;
   const cohort_short   = (data.cohort_short    as string)  || null;
 
-  // "october-2026" → "October 2026"
   const cohortLabel = cohort
     .replace('-', ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
@@ -143,7 +140,10 @@ export async function GET(req: NextRequest) {
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.error('Internship register error:', message);
-    return err(message);
+    console.error('[internship/me] GET error:', message);
+    return NextResponse.json(
+      { error: message },
+      { status: 500, headers: CORS }
+    );
   }
 }
