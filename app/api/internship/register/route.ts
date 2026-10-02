@@ -569,13 +569,9 @@ export async function POST(req: NextRequest) {
     // ── 4. Fetch challenger back ──────────────────────────────
     const { data: challenger } = await supabase
       .from('challengers')
-      .select('id, intern_id, email')
+      .select('id, intern_id, email, challenger_num, handle, cohort_short')
       .eq('email', cleanEmail)
       .single();
-
-    let dbSessionId: string | null = null;
-
-    if (challenger) {
 
       // ── 5. Session row ────────────────────────────────────
       const { data: session } = await supabase
@@ -633,25 +629,22 @@ export async function POST(req: NextRequest) {
       `📧 ${cleanEmail} · ${dayLabel} · ${day <= 7 ? 'Founding Member ⭐' : 'Next Cohort'}\n` +
       `🎒 Background: ${background ?? '—'} · AI: ${ai_exp ?? '—'} · ${availability ?? '—'}/wk\n` +
       `🌐 Timezone: ${timezone ?? '—'} · intern_id: \`${internId}\`\n` +
+      `🏷️ Handle: \`${challenger?.handle ?? internId}\` · cohort: \`${challenger?.cohort_short ?? cohort}\`\n` +
       `🔗 https://antcpu.io/apply/`, 'internship');
 
     // ── 10. Return session to frontend ────────────────────────
     return ok({
-      success:    true,
-      signupId:   signup.id,
-      adId:       ad?.id     ?? null,
-      session_id: dbSessionId,
-      intern_id:  internId,
-      email:      cleanEmail,
-      first_name: firstName,
+      success:         true,
+      signupId:        signup.id,
+      adId:            ad?.id          ?? null,
+      session_id:      dbSessionId,
+      intern_id:       internId,
+      challenger_num:  challenger?.challenger_num ?? null,
+      handle:          challenger?.handle         ?? null,
+      cohort_short:    challenger?.cohort_short   ?? null,
+      email:           cleanEmail,
+      first_name:      firstName,
+      track,
       day,
       cohort,
     });
-
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Unknown error';
-    console.error('Internship register error:', message);
-    return err(message);
-  }
-}
-
