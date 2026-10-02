@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
 export async function GET(req) {
-
-  // Inside handler — not module level
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -12,36 +10,20 @@ export async function GET(req) {
   const email = searchParams.get('email')?.toLowerCase().trim();
 
   if (!email) {
-    return Response.json(
-      { ok: false, error: 'email required' },
-      { status: 400 }
-    );
+    return Response.json({ ok: false, error: 'email required' }, { status: 400 });
   }
 
-  // Look up access record — no nested select on granted_by
   const { data: user, error } = await supabase
     .from('antcpu_users')
-    .select(
-      'id, email, name, access_level, status, ' +
-      'can_access_admin, can_access_arena, ' +
-      'can_access_internship, can_access_edu, ' +
-      'track_scope, cohort_scope, ' +
-      'brand_name, brand_role, ' +
-      'intern_id, ad_signup_id, ' +
-      'notes, granted_by'
-    )
+    .select('id, email, name, access_level, status, can_access_admin, can_access_arena, can_access_internship, can_access_edu, track_scope, cohort_scope, brand_name, brand_role, intern_id, ad_signup_id, notes, granted_by')
     .eq('email', email)
     .eq('status', 'active')
     .single();
 
   if (error || !user) {
-    return Response.json(
-      { ok: false, error: 'no access record', access_level: 'none' },
-      { status: 404 }
-    );
+    return Response.json({ ok: false, error: 'no access record', access_level: 'none' }, { status: 404 });
   }
 
-  // Resolve granted_by name separately if needed
   let grantedByName = null;
   if (user.granted_by) {
     const { data: grantor } = await supabase
@@ -53,11 +35,11 @@ export async function GET(req) {
   }
 
   const access = {
-    ok:           true,
-    id:           user.id,
-    email:        user.email,
-    name:         user.name,
-    access_level: user.access_level,
+    ok:             true,
+    id:             user.id,
+    email:          user.email,
+    name:           user.name,
+    access_level:   user.access_level,
     is_owner:       user.access_level === 'owner',
     is_staff:       ['owner','staff'].includes(user.access_level),
     is_observer:    user.access_level === 'staff',
@@ -81,7 +63,6 @@ export async function GET(req) {
     context:    {}
   };
 
-  // Parallel context fetches
   const fetches = [];
 
   if (access.can.arena) {
@@ -99,10 +80,8 @@ export async function GET(req) {
         .then(r => r.json())
         .then(d => {
           let list = d.challengers || [];
-          if (access.scope.track  !== 'all')
-            list = list.filter(c => c.track  === access.scope.track);
-          if (access.scope.cohort !== 'all')
-            list = list.filter(c => c.cohort === access.scope.cohort);
+          if (access.scope.track  !== 'all') list = list.filter(c => c.track  === access.scope.track);
+          if (access.scope.cohort !== 'all') list = list.filter(c => c.cohort === access.scope.cohort);
           return { type: 'challengers', data: list };
         })
         .catch(() => ({ type: 'challengers', data: [] }))
@@ -124,11 +103,7 @@ export async function GET(req) {
     fetches.push(
       supabase
         .from('challengers')
-        .select(
-          'intern_id, first_name, last_name, track, ' +
-          'progress_pct, role_title, completed_gates, ' +
-          'badges, cohort, status'
-        )
+        .select('intern_id, first_name, last_name, track, progress_pct, role_title, completed_gates, badges, cohort, status')
         .eq('intern_id', access.intern_id)
         .single()
         .then(({ data }) => ({ type: 'challenger', data }))
@@ -148,21 +123,16 @@ export async function GET(req) {
           total_points: r.data.totalPoints,
           top_brand:    r.data.topBrand,
           top_brands:   r.data.topBrands?.slice(0, 3),
-          brand_stats:  access.brand
-            ? r.data.topBrands?.find(b => b.brand === access.brand) || null
-            : null
+          brand_stats:  access.brand ? r.data.topBrands?.find(b => b.brand === access.brand) || null : null
         } : null;
         break;
       case 'challengers':
         access.context.challengers = {
           total:    r.data.length,
           list:     r.data,
-          by_track: {
-            dev:       r.data.filter(c => c.track === 'dev'),
-            marketing: r.data.filter(c => c.track === 'marketing')
-          },
-          active:  r.data.filter(c => (c.completed_gates||[]).length > 1),
-          stalled: r.data.filter(c => (c.completed_gates||[]).length <= 1)
+          by_track: { dev: r.data.filter(c => c.track === 'dev'), marketing: r.data.filter(c => c.track === 'marketing') },
+          active:   r.data.filter(c => (c.completed_gates||[]).length > 1),
+          stalled:  r.data.filter(c => (c.completed_gates||[]).length <= 1)
         };
         break;
       case 'brand_team':
