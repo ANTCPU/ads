@@ -143,10 +143,7 @@ export async function GET(req: NextRequest) {
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.error('[internship/me] GET error:', message);
-    return NextResponse.json(
-      { error: message },
-      { status: 500, headers: CORS }
-    );
+    console.error('Internship register error:', message);
+    return err(message);
   }
 }
