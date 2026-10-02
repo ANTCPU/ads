@@ -1,7 +1,7 @@
 // ============================================================
 // app/api/internship/progress/route.ts
-// POST — Mark a gate complete, advance progress_pct + role
-// Writes to: challengers table
+// POST — Mark a gate complete, advance progress + log activity
+// Writes to: challengers + activity_log
 // Called by: antcpu.io/dev/ and antcpu.io/marketing/
 // ============================================================
 
@@ -23,7 +23,8 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: CORS });
 }
 
-// Gate → pct map
+// ── Progress maps ─────────────────────────────────────────────
+
 const GATE_PCT: Record<string, number> = {
   d1:5,  d2:10, d3:15, d4:20, d5:22, d6:24, d7:25,
   d8:30, d9:33, d10:36,d11:40,d12:44,d13:47,d14:50,
@@ -32,66 +33,88 @@ const GATE_PCT: Record<string, number> = {
   d29:95,d30:97,d31:100
 };
 
-// Gate → week map
 const GATE_WEEK: Record<string, number> = {
-  d1:1, d2:1, d3:1, d4:1, d5:1, d6:1, d7:1,
-  d8:2, d9:2, d10:2,d11:2,d12:2,d13:2,d14:2,
+  d1:1,d2:1,d3:1,d4:1,d5:1,d6:1,d7:1,
+  d8:2,d9:2,d10:2,d11:2,d12:2,d13:2,d14:2,
   d15:3,d16:3,d17:3,d18:3,d19:3,d20:3,d21:3,
   d22:4,d23:4,d24:4,d25:4,d26:4,d27:4,d28:4,
   d29:4,d30:4,d31:4
 };
 
-// Role titles by pct threshold
 const ROLE_TITLES: Array<[number, string]> = [
-  [100, 'Intern'],
-  [95,  'Finalist'],
-  [75,  'Week 3 Complete'],
-  [50,  'Week 2 Complete'],
-  [25,  'Week 1 Complete'],
-  [20,  'Creator'],
-  [15,  'Explorer'],
-  [10,  'AI Tool User'],
-  [5,   'Registered'],
+  [100,'Intern'],[95,'Finalist'],[75,'Week 3 Complete'],
+  [50,'Week 2 Complete'],[25,'Week 1 Complete'],
+  [20,'Creator'],[15,'Explorer'],[10,'AI Tool User'],[5,'Registered']
 ];
 
+const GATE_LABELS: Record<string, string> = {
+  d1:'Registered & Introduced Yourself',
+  d2:'Completed Your Profile',
+  d3:'Explored Workspace + EDU',
+  d4:'Showed Your Best Work',
+  d5:'Joined the Community Session',
+  d6:'Gave Peer Feedback',
+  d7:'Submitted Week 1 Reflection',
+  d8:'Started Week 2 Build',
+  d9:'Analyzed Your Work',
+  d10:'Documented Your Process',
+  d11:'Gave Specific Feedback',
+  d12:'Improved Based on Feedback',
+  d13:'Submitted Week 2 Progress',
+  d14:'Submitted Week 2 Reflection',
+  d15:'Met Your Cross-Track Partner',
+  d16:'Explained Your Work Cross-Track',
+  d17:'Received Cross-Track Feedback',
+  d18:'Improved Based on Partner Feedback',
+  d19:'Submitted Joint Deliverable',
+  d20:'Reviewed Joint Submission',
+  d21:'Submitted Week 3 Reflection',
+  d22:'Defined Week 4 Mission',
+  d23:'Built Week 4 Feature',
+  d24:'Shipped Week 4 Feature',
+  d25:'Handed Off + Supported',
+  d26:'Submitted Final Code + Docs',
+  d27:'Submitted Final Campaign',
+  d28:'Submitted Honest Assessment',
+  d29:'Completed Final Submission',
+  d30:'Attended Selection Day',
+  d31:'Completed the Challenge'
+};
+
+const GATE_ICONS: Record<string, string> = {
+  d1:'🚀',d2:'👤',d3:'🔭',d4:'💼',d5:'💬',d6:'🤝',d7:'📝',
+  d8:'⚡',d9:'🔍',d10:'📋',d11:'💡',d12:'🔧',d13:'📤',d14:'📝',
+  d15:'🤝',d16:'💬',d17:'👂',d18:'🔧',d19:'📦',d20:'✅',d21:'📝',
+  d22:'🎯',d23:'🏗️',d24:'🚢',d25:'🔄',d26:'📁',d27:'📣',d28:'🪞',
+  d29:'🏁',d30:'🎤',d31:'🏆'
+};
+
 function roleForPct(pct: number): string {
-  for (const [threshold, title] of ROLE_TITLES) {
-    if (pct >= threshold) return title;
-  }
+  for (const [t, r] of ROLE_TITLES) if (pct >= t) return r;
   return 'Registered';
 }
+
+// ── POST ──────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
-    // Accept both naming conventions
-    const intern_id     = body.intern_id     || body.challenger_id;
-    const gate_id       = body.gate_id       || body.gate;
-    const pct_override  = body.pct;
+    const { intern_id, gate_id } = body;
 
     if (!intern_id || !gate_id) {
       return NextResponse.json(
-        { error: 'intern_id (or challenger_id) and gate_id (or gate) required' },
+        { error: 'intern_id and gate_id required' },
         { status: 400, headers: CORS }
       );
     }
 
-    // Fetch current challenger — by intern_id string or UUID
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      .test(intern_id);
-
-    const { data: challenger, error: fetchError } = isUuid
-      ? await supabase
-          .from('challengers')
-          .select('id, completed_gates, progress_pct, week')
-          .eq('id', intern_id)
-          .single()
-      : await supabase
-          .from('challengers')
-          .select('id, completed_gates, progress_pct, week')
-          .eq('intern_id', intern_id)
-          .single();
+    // ── Fetch challenger ──────────────────────────────────────
+    const { data: challenger, error: fetchError } = await supabase
+      .from('challengers')
+      .select('id, completed_gates, progress_pct, week')
+      .eq('intern_id', intern_id)
+      .eq('status', 'active')
+      .single();
 
     if (fetchError || !challenger) {
       return NextResponse.json(
@@ -100,7 +123,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Skip if gate already completed
+    // ── Skip if already complete ──────────────────────────────
     if (challenger.completed_gates?.includes(gate_id)) {
       return NextResponse.json(
         { ok: true, already_complete: true },
@@ -108,25 +131,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build updated values
+    // ── Build updated values ──────────────────────────────────
     const updatedGates = [...(challenger.completed_gates || []), gate_id];
-    const gatePct      = pct_override ?? GATE_PCT[gate_id] ?? challenger.progress_pct ?? 0;
+    const gatePct      = GATE_PCT[gate_id]  ?? challenger.progress_pct ?? 0;
     const newPct       = Math.max(challenger.progress_pct ?? 0, gatePct);
-    const newWeek      = GATE_WEEK[gate_id]  ?? challenger.week ?? 1;
+    const newWeek      = GATE_WEEK[gate_id] ?? challenger.week ?? 1;
     const newRole      = roleForPct(newPct);
 
-    // Update
-    const { data: updated, error: updateError } = await supabase
-      .from('challengers')
-      .update({
-        completed_gates: updatedGates,
-        progress_pct:    newPct,
-        week:            newWeek,
-        role_title:      newRole
-      })
-      .eq('id', challenger.id)
-      .select('id, intern_id, first_name, track, progress_pct, week, role_title, completed_gates')
-      .single();
+    // ── Update challenger + log activity — parallel ───────────
+    const [{ data: updated, error: updateError }] = await Promise.all([
+      supabase
+        .from('challengers')
+        .update({
+          completed_gates: updatedGates,
+          progress_pct:    newPct,
+          week:            newWeek,
+          role_title:      newRole
+        })
+        .eq('id', challenger.id)
+        .select('id, intern_id, first_name, track, progress_pct, week, role_title, completed_gates')
+        .single(),
+
+      supabase
+        .from('activity_log')
+        .insert({
+          challenger_id: challenger.id,
+          type:          'gate',
+          event:         'gate_complete',
+          label:         GATE_LABELS[gate_id] ?? `Completed ${gate_id}`,
+          icon:          GATE_ICONS[gate_id]  ?? '⚡',
+          gate_id,
+          points:        gatePct
+        })
+    ]);
 
     if (updateError) {
       return NextResponse.json(
