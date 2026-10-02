@@ -21,11 +21,16 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+export async function GET(req) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
+  const ARENA_STATS_URL = 'https://antcpu-ads.vercel.app/api/stats';
+  const CHALLENGERS_URL = 'https://antcpu-ads.vercel.app/api/internship/challengers?view=public';
+
+  const { searchParams } = new URL(req.url);
 // Arena stats API — already live
 const ARENA_STATS_URL =
   'https://antcpu-ads.vercel.app/api/stats';
