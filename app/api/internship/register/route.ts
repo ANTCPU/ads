@@ -486,7 +486,7 @@ export async function POST(req: NextRequest) {
     const trackIcon  = track === 'dev' ? '💻' : '📣';
     const brandName  = `${cleanName} — ${trackLabel}`;
     const day        = getChallengeDay();
-    const cohort     = getChallengeCohort();   // ← dynamic, was hardcoded
+    const cohort     = getChallengeCohort();
 
     // ── Duplicate check ───────────────────────────────────────
     const { data: existing } = await supabase
@@ -573,7 +573,11 @@ export async function POST(req: NextRequest) {
       .eq('email', cleanEmail)
       .single();
 
-      // ── 5. Session row ────────────────────────────────────
+    let dbSessionId: string | null = null;
+
+    if (challenger) {
+
+      // ── 5. Session row ──────────────────────────────────
       const { data: session } = await supabase
         .from('sessions')
         .insert({
@@ -587,7 +591,7 @@ export async function POST(req: NextRequest) {
 
       dbSessionId = session?.id ?? null;
 
-      // ── 6 + 7. Activity log + submission — parallel ───────
+      // ── 6 + 7. Activity log + submission — parallel ─────
       await Promise.all([
         supabase.from('activity_log').insert({
           challenger_id: challenger.id,
@@ -611,7 +615,7 @@ export async function POST(req: NextRequest) {
       ]);
     }
 
-    // ── 8. Email ──────────────────────────────────────────────
+    // ── 8. Email ────────────────────────────────────────────
     const { subject, html } = buildEmail({
       firstName, trackLabel, trackIcon, track, country, day,
     });
@@ -619,7 +623,7 @@ export async function POST(req: NextRequest) {
     heraldSend({ to: cleanEmail, subject, html })
       .catch(e => console.error('[herald] internship email error:', e));
 
-    // ── 9. Discord ────────────────────────────────────────────
+    // ── 9. Discord ──────────────────────────────────────────
     const dayLabel = day === 0 ? 'pre-launch'
       : day <= 7  ? `Day ${day} · Week 1`
       : `Day ${day} · next cohort`;
@@ -632,7 +636,7 @@ export async function POST(req: NextRequest) {
       `🏷️ Handle: \`${challenger?.handle ?? internId}\` · cohort: \`${challenger?.cohort_short ?? cohort}\`\n` +
       `🔗 https://antcpu.io/apply/`, 'internship');
 
-    // ── 10. Return session to frontend ────────────────────────
+    // ── 10. Return session to frontend ──────────────────────
     return ok({
       success:         true,
       signupId:        signup.id,
@@ -648,3 +652,10 @@ export async function POST(req: NextRequest) {
       day,
       cohort,
     });
+
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    console.error('Internship register error:', message);
+    return err(message);
+  }
+}
