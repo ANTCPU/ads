@@ -6,14 +6,14 @@
 //   1. antcpu_users  — master table (owner/staff/alumni)
 //   2. challengers   — internship participants
 //
-// Removes .eq('status','active') filter — any account resolves.
-// Injects access flags from antcpu_users into response.
+// No status filter — any active account resolves.
+// Access flags injected from antcpu_users into response.
 //
 // Lookup params (any one):
 //   ?email=     ?intern_id=     ?handle=     ?num=
 // ============================================================
 
-import { createClient }          from '@supabase/supabase-js';
+import { createClient }              from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 const supabase = createClient(
@@ -34,7 +34,7 @@ export async function OPTIONS() {
 
 // ── Role milestone map ────────────────────────────────────────
 
-const ROLE_GATES = [
+const ROLE_GATES: Array<{ gate: string; pct: number; role: string }> = [
   { gate: 'd1',  pct: 5,  role: 'Registered'     },
   { gate: 'd2',  pct: 10, role: 'AI Tool User'    },
   { gate: 'd3',  pct: 15, role: 'Explorer'        },
@@ -52,18 +52,18 @@ function buildEarnedRoles(completedGates: string[]) {
 // ── CV block ──────────────────────────────────────────────────
 
 function buildCv(data: Record<string, unknown>) {
-  const email          = data.email           as string;
-  const intern_id      = data.intern_id        as string;
-  const track          = data.track            as string;
-  const cohort         = (data.cohort          as string) || 'october-2026';
-  const role_title     = (data.role_title      as string) || 'Registered';
-  const progress       = (data.progress_pct    as number) || 0;
-  const week           = (data.week            as number) || 1;
-  const submissions    = (data.submissions     as number) || 0;
-  const gates          = (data.completed_gates as string[]) || [];
-  const challenger_num = (data.challenger_num  as number)  || null;
-  const handle         = (data.handle          as string)  || null;
-  const cohort_short   = (data.cohort_short    as string)  || null;
+  const email          = data.email            as string;
+  const intern_id      = data.intern_id         as string;
+  const track          = data.track             as string;
+  const cohort         = (data.cohort           as string) || 'october-2026';
+  const role_title     = (data.role_title       as string) || 'Registered';
+  const progress       = (data.progress_pct     as number) || 0;
+  const week           = (data.week             as number) || 1;
+  const submissions    = (data.submissions      as number) || 0;
+  const gates          = (data.completed_gates  as string[]) || [];
+  const challenger_num = (data.challenger_num   as number)  || null;
+  const handle         = (data.handle           as string)  || null;
+  const cohort_short   = (data.cohort_short     as string)  || null;
 
   const cohortLabel = cohort
     .replace('-', ' ')
@@ -98,7 +98,7 @@ function buildCv(data: Record<string, unknown>) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const email     = searchParams.get('email');
+    const email     = searchParams.get('email')?.toLowerCase().trim() ?? null;
     const intern_id = searchParams.get('intern_id');
     const handle    = searchParams.get('handle');
     const num       = searchParams.get('num');
@@ -110,23 +110,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ── 1. Check antcpu_users first ───────────────────────────
-    // Master table — owner, staff, alumni
-
-    let masterRecord = null;
+    // ── 1. antcpu_users lookup — master table ─────────────────
+    let masterRecord: Record<string, unknown> | null = null;
 
     if (email) {
       const { data } = await supabase
         .from('antcpu_users')
         .select('*')
         .eq('email', email)
-        .single();
-      masterRecord = data || null;
+        .maybeSingle();
+      masterRecord = data ?? null;
     }
 
-    // ── 2. Check challengers ──────────────────────────────────
-    // No status filter — any challenger resolves
-
+    // ── 2. challengers lookup — no status filter ───────────────
     let challengerQuery = supabase
       .from('challengers')
       .select('*');
@@ -137,10 +133,9 @@ export async function GET(req: NextRequest) {
     else if (num)       challengerQuery = challengerQuery.eq('challenger_num', parseInt(num));
 
     const { data: challenger, error: challengerError } =
-      await challengerQuery.single();
+      await challengerQuery.maybeSingle();
 
-    // ── 3. Nothing found ──────────────────────────────────────
-
+    // ── 3. Nothing found anywhere ──────────────────────────────
     if (!masterRecord && (challengerError || !challenger)) {
       return NextResponse.json(
         { error: 'Challenger not found' },
@@ -148,49 +143,46 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ── 4. Build access flags ─────────────────────────────────
-
-    const access = masterRecord ?? {};
+    // ── 4. Build access flags from antcpu_users ────────────────
+    const m = masterRecord as any;
 
     const accessFlags = {
-      antcpu_user_id:        (access as any).id            || null,
-      access_level:          (access as any).access_level  || 'challenger',
-      can_access_admin:      (access as any).can_access_admin      ?? false,
-      can_access_arena:      (access as any).can_access_arena      ?? true,
-      can_access_internship: (access as any).can_access_internship ?? true,
-      can_access_edu:        (access as any).can_access_edu        ?? false,
-      track_scope:           (access as any).track_scope   || null,
-      cohort_scope:          (access as any).cohort_scope  || null,
-      brand_name:            (access as any).brand_name    || null,
-      brand_role:            (access as any).brand_role    || null,
-      is_owner:              (access as any).access_level === 'owner',
-      is_staff:              (access as any).access_level === 'staff',
-      is_alumni:             (access as any).access_level === 'alumni',
+      antcpu_user_id:        m?.id                        ?? null,
+      access_level:          m?.access_level              ?? 'challenger',
+      can_access_admin:      m?.can_access_admin          ?? false,
+      can_access_arena:      m?.can_access_arena          ?? true,
+      can_access_internship: m?.can_access_internship     ?? true,
+      can_access_edu:        m?.can_access_edu            ?? false,
+      track_scope:           m?.track_scope               ?? null,
+      cohort_scope:          m?.cohort_scope              ?? null,
+      brand_name:            m?.brand_name                ?? null,
+      brand_role:            m?.brand_role                ?? null,
+      is_owner:              m?.access_level === 'owner',
+      is_staff:              m?.access_level === 'staff',
+      is_alumni:             m?.access_level === 'alumni',
     };
 
-    // ── 5. Merge challenger + access ──────────────────────────
-    // If challenger row exists use it as base.
-    // If master-only (owner with no challenger row) use master.
-
-    const base = challenger ?? {
-      email:          (access as any).email,
-      name:           (access as any).name,
-      intern_id:      (access as any).intern_id || null,
-      first_name:     ((access as any).name || '').split(' ')[0],
-      track:          (access as any).track_scope || 'dev',
-      progress_pct:   0,
-      completed_gates: [],
-      role_title:     (access as any).access_level || 'Member',
-      cohort:         (access as any).cohort_scope || null,
+    // ── 5. Base — challenger row or master-only fallback ───────
+    const base: Record<string, unknown> = challenger ?? {
+      email:           m?.email,
+      name:            m?.name,
+      first_name:      (m?.name as string)?.split(' ')[0] ?? null,
+      intern_id:       m?.intern_id ?? null,
+      track:           m?.track_scope ?? 'dev',
+      progress_pct:    100,
+      completed_gates: ['d1'],
+      role_title:      m?.access_level ?? 'Member',
+      cohort:          m?.cohort_scope ?? 'october-2026',
+      week:            4,
     };
+
+    // ── 6. Merge and return ────────────────────────────────────
+    const merged = { ...base, ...accessFlags };
 
     return NextResponse.json(
       {
-        challenger: {
-          ...base,
-          ...accessFlags,
-        },
-        cv: challenger ? buildCv(challenger) : null,
+        challenger: merged,
+        cv:         buildCv(merged),
       },
       { headers: CORS }
     );
