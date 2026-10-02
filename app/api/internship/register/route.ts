@@ -656,6 +656,10 @@ export async function POST(req: NextRequest) {
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     console.error('Internship register error:', message);
-    return err(message);
+      return NextResponse.json(
+      { error: message },
+      { status: 500, headers: CORS }
+    );
+
   }
 }
