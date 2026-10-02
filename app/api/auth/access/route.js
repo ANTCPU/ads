@@ -20,9 +20,16 @@ export async function GET(req) {
     .eq('status', 'active')
     .single();
 
-  if (error || !user) {
-    return Response.json({ ok: false, error: 'no access record', access_level: 'none' }, { status: 404 });
-  }
+if (error || !user) {
+  return Response.json({ 
+    ok: false, 
+    error: error?.message || 'no user found',
+    code: error?.code || null,
+    details: error?.details || null,
+    email_queried: email
+  }, { status: 404 });
+}
+
 
   let grantedByName = null;
   if (user.granted_by) {
