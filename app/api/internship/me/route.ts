@@ -1,11 +1,17 @@
 // ============================================================
 // app/api/internship/me/route.ts
-// GET — Load challenger by email or intern_id
+// GET — Load challenger by email, intern_id, handle, or num
 //       Returns full challenger row + CV block
 // Called by:
 //   antcpu.io/dev/        — workspace identity load
 //   antcpu.io/marketing/  — workspace identity load
 //   antcpu-ads.vercel.app/profile/[slug] — CV layer on Arena profile
+//
+// Lookup params (any one):
+//   ?email=rutvik@gmail.com
+//   ?intern_id=intern-32421a03
+//   ?handle=Rutvik5
+//   ?num=5
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -27,17 +33,17 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: CORS });
 }
 
-// ── Role milestone map — gates that earn a named role ─────────
+// ── Role milestone map ────────────────────────────────────────
+// Gates that earn a named CV role — aligned to DB gates table
 
 const ROLE_GATES: Array<{ gate: string; pct: number; role: string }> = [
-  { gate: 'd1',  pct: 5,   role: 'Registered'       },
-  { gate: 'd2',  pct: 10,  role: 'AI Tool User'      },
-  { gate: 'd3',  pct: 15,  role: 'Explorer'          },
-  { gate: 'd7',  pct: 25,  role: 'Week 1 Complete'   },
-  { gate: 'd14', pct: 50,  role: 'Week 2 Complete'   },
-  { gate: 'd21', pct: 75,  role: 'Week 3 Complete'   },
-  { gate: 'd29', pct: 95,  role: 'Finalist'          },
-  { gate: 'd31', pct: 100, role: 'Intern'            },
+  { gate: 'd1',  pct: 5,  role: 'Registered'     },
+  { gate: 'd2',  pct: 10, role: 'AI Tool User'    },
+  { gate: 'd3',  pct: 15, role: 'Explorer'        },
+  { gate: 'd7',  pct: 25, role: 'Week 1 Complete' },
+  { gate: 'd14', pct: 50, role: 'Week 2 Complete' },
+  { gate: 'd21', pct: 75, role: 'Week 3 Complete' },
+  { gate: 'd24', pct: 95, role: 'Finalist'        },
 ];
 
 function buildEarnedRoles(completedGates: string[]) {
@@ -45,18 +51,24 @@ function buildEarnedRoles(completedGates: string[]) {
   return ROLE_GATES.filter(r => completedGates.includes(r.gate));
 }
 
-function buildCv(data: Record<string, unknown>) {
-  const email       = data.email        as string;
-  const intern_id   = data.intern_id    as string;
-  const track       = data.track        as string;
-  const cohort      = data.cohort       as string || 'october-2026';
-  const role_title  = data.role_title   as string || 'Registered';
-  const progress    = data.progress_pct as number || 0;
-  const week        = data.week         as number || 1;
-  const submissions = data.submissions  as number || 0;
-  const gates       = data.completed_gates as string[] || [];
+// ── CV block builder ──────────────────────────────────────────
+// Consumed by Arena profile page + workspace identity load
 
-  // Format cohort — "october-2026" → "October 2026"
+function buildCv(data: Record<string, unknown>) {
+  const email          = data.email           as string;
+  const intern_id      = data.intern_id        as string;
+  const track          = data.track            as string;
+  const cohort         = (data.cohort          as string) || 'october-2026';
+  const role_title     = (data.role_title      as string) || 'Registered';
+  const progress       = (data.progress_pct    as number) || 0;
+  const week           = (data.week            as number) || 1;
+  const submissions    = (data.submissions     as number) || 0;
+  const gates          = (data.completed_gates as string[]) || [];
+  const challenger_num = (data.challenger_num  as number)  || null;
+  const handle         = (data.handle          as string)  || null;
+  const cohort_short   = (data.cohort_short    as string)  || null;
+
+  // "october-2026" → "October 2026"
   const cohortLabel = cohort
     .replace('-', ' ')
     .replace(/\b\w/g, c => c.toUpperCase());
@@ -68,17 +80,20 @@ function buildCv(data: Record<string, unknown>) {
     : `https://antcpu.io/leaderboard/`;
 
   return {
-    is_challenger: true,
-    track_label:   trackLabel,
-    cohort:        cohortLabel,
-    current_role:  role_title,
-    progress_pct:  progress,
+    is_challenger:  true,
+    challenger_num,
+    handle,
+    cohort_short,
+    track_label:    trackLabel,
+    cohort:         cohortLabel,
+    current_role:   role_title,
+    progress_pct:   progress,
     week,
-    earned_roles:  buildEarnedRoles(gates),
+    earned_roles:   buildEarnedRoles(gates),
     submissions,
-    profile_url:   profileUrl,
+    profile_url:    profileUrl,
     intern_id,
-    verified_url:  'https://antcpu.io/leaderboard/',
+    verified_url:   'https://antcpu.io/leaderboard/',
   };
 }
 
@@ -89,10 +104,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const email     = searchParams.get('email');
     const intern_id = searchParams.get('intern_id');
+    const handle    = searchParams.get('handle');
+    const num       = searchParams.get('num');
 
-    if (!email && !intern_id) {
+    if (!email && !intern_id && !handle && !num) {
       return NextResponse.json(
-        { error: 'email or intern_id required' },
+        { error: 'email, intern_id, handle or num required' },
         { status: 400, headers: CORS }
       );
     }
@@ -104,6 +121,8 @@ export async function GET(req: NextRequest) {
 
     if (email)     query = query.eq('email', email);
     if (intern_id) query = query.eq('intern_id', intern_id);
+    if (handle)    query = query.eq('handle', handle);
+    if (num)       query = query.eq('challenger_num', parseInt(num));
 
     const { data, error } = await query.single();
 
@@ -117,7 +136,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         challenger: data,
-        cv:         buildCv(data)
+        cv:         buildCv(data),
       },
       { headers: CORS }
     );
