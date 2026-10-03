@@ -8,6 +8,7 @@
 //   v1testing  — v1 feature under test before promotion
 //   v2         — planned for v2, not yet built
 //   v2testing  — v2 feature under test
+//   month      — monthly h1 emoji override, sub-layer of season themes
 //
 // STATUS:
 //   on       — live for all users
@@ -25,7 +26,7 @@
 //   Not engineering notes. Not implementation details.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type FlagVersion = 'beta' | 'v1' | 'v1testing' | 'v2' | 'v2testing';
+export type FlagVersion = 'beta' | 'v1' | 'v1testing' | 'v2' | 'v2testing' | 'month';
 export type FlagStatus  = 'on' | 'off' | 'testing' | 'killed';
 
 export type FeatureFlag = {
@@ -44,6 +45,7 @@ export type FeatureFlag = {
 export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
 
   // ── Beta — current session ────────────────────────────────────────────────
+
   {
     id:          'streak-tracking',
     label:       'Streak Tracking',
@@ -88,63 +90,158 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── Theme — season visual system ──────────────────────────────────────────
-  // All off by default. Default dark theme is preserved when all are off.
+  // All off by default. Default dark theme preserved when all are off.
   // Only one season flag should be on at a time.
+  // Month flags are sub-layer overrides — see month section below.
   // Super admin flips these from /dashboard/antcpu — no deploy needed.
+
   {
     id:          'theme-fall',
     label:       'Theme: Fall 🍂',
-    description: 'Activates the Fall season theme — warm amber gradient tint on html background + leaf particles drifting down. Season 1. Flip on to test before going live.',
+    description: 'Activates the Fall season theme — warm amber gradient tint on html background. Season 1. Sep 22 → Dec 21.',
     version:     'beta',
     status:      'testing',
-    notes:       'Current season — Sep 22 → Dec 21. Set to on when ready to go live.',
+    notes:       'Current season — Sep 22 → Dec 21. Default h1: 🍂. Month overrides: Oct 🎃 Nov 🦃 Dec 🎄.',
   },
   {
     id:          'theme-winter',
     label:       'Theme: Winter ❄️',
-    description: 'Activates the Winter season theme — cool blue-black gradient tint + snowflake particles. Season 2. Keep off until Dec 21.',
+    description: 'Activates the Winter season theme — cool blue-black gradient tint. Season 2. Dec 22 → Mar 19.',
     version:     'beta',
     status:      'off',
-    notes:       'Season 2 — Dec 21 → Mar 20.',
+    notes:       'Season 2 — Dec 22 → Mar 19. Default h1: ❄️. Month overrides: Jan 🎉 Feb ❤️ Mar 🍀.',
   },
   {
     id:          'theme-spring',
     label:       'Theme: Spring 🌸',
-    description: 'Activates the Spring season theme — soft green-black gradient tint + petal particles tumbling down. Season 3. Keep off until Mar 20.',
+    description: 'Activates the Spring season theme — soft green-black gradient tint. Season 3. Mar 20 → Jun 20.',
     version:     'beta',
     status:      'off',
-    notes:       'Season 3 — Mar 20 → Jun 21.',
+    notes:       'Season 3 — Mar 20 → Jun 20. Default h1: 🌸. Month overrides: Apr 🌷 May 🌺 Jun 🌻.',
   },
   {
     id:          'theme-summer',
     label:       'Theme: Summer ☀️',
-    description: 'Activates the Summer season theme — warm gold-black gradient tint + slow pulsing light orbs. Season 4. Keep off until Jun 21.',
+    description: 'Activates the Summer season theme — warm gold-black gradient tint. Season 4. Jun 21 → Sep 21.',
     version:     'beta',
     status:      'off',
-    notes:       'Season 4 — Jun 21 → Sep 22.',
-  },
-  {
-    id:          'theme-particles',
-    label:       'Theme Particles',
-    description: 'Enables animated particles for the active season — leaves, snow, petals, or orbs. Requires a season theme flag to also be on. Toggle off for performance testing.',
-    version:     'beta',
-    status:      'off',
-    notes:       'Safe to flip independently. No season = no particles regardless.',
+    notes:       'Season 4 — Jun 21 → Sep 21. Default h1: 🌊. Month overrides: Jul 🎆 Aug ☀️ Sep 🍎.',
   },
   {
     id:          'theme-h1-emoji',
     label:       'H1 Season Emoji',
-    description: 'Prepends a season emoji to every h1 element via CSS ::before. Fall = 🎃, Winter = ❄️, Spring = 🌸, Summer = ☀️. Requires a season theme flag to also be on.',
+    description: 'Prepends an emoji to every h1 on antcpu.cloud via CSS ::before. Season default shows when no month override is active. Flip a month flag to override.',
     version:     'beta',
     status:      'off',
-    notes:       'CSS ::before — survives React re-renders. Safe to toggle live.',
+    notes:       'CSS ::before — survives React re-renders. Safe to toggle live. Only affects antcpu.cloud frontend.',
+  },
+
+  // ── Month — h1 emoji overrides ────────────────────────────────────────────
+  // Sub-layer of the season theme system.
+  // Requires theme-h1-emoji ON + the matching season flag ON.
+  // Only one month flag should be on at a time.
+  // Flip current month ON on the 1st. Flip previous month OFF same day.
+  // When month flag is OFF, season default emoji shows instead.
+
+  {
+    id:          'theme-october',
+    label:       'Month: October 🎃',
+    description: 'H1 emoji shows 🎃 instead of season default 🍂. Requires theme-fall ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🎃 Pumpkin. Season default: 🍂 Leaf. Flip OFF Nov 1.',
+  },
+  {
+    id:          'theme-november',
+    label:       'Month: November 🦃',
+    description: 'H1 emoji shows 🦃 instead of season default 🍂. Requires theme-fall ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🦃 Turkey. Season default: 🍂 Leaf. Flip ON Nov 1, OFF Dec 1.',
+  },
+  {
+    id:          'theme-december',
+    label:       'Month: December 🎄',
+    description: 'H1 emoji shows 🎄 instead of season default 🍂. Requires theme-fall ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🎄 Christmas Tree. Season default: 🍂 Leaf. Flip ON Dec 1, OFF Dec 22 when winter starts.',
+  },
+  {
+    id:          'theme-january',
+    label:       'Month: January 🎉',
+    description: 'H1 emoji shows 🎉 instead of season default ❄️. Requires theme-winter ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🎉 New Year. Season default: ❄️ Snowflake. Flip ON Jan 1, OFF Feb 1.',
+  },
+  {
+    id:          'theme-february',
+    label:       'Month: February ❤️',
+    description: 'H1 emoji shows ❤️ instead of season default ❄️. Requires theme-winter ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: ❤️ Valentine. Season default: ❄️ Snowflake. Flip ON Feb 1, OFF Mar 1.',
+  },
+  {
+    id:          'theme-march',
+    label:       'Month: March 🍀',
+    description: 'H1 emoji shows 🍀 instead of season default ❄️. Requires theme-winter ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🍀 Clover. Season default: ❄️ Snowflake. Flip ON Mar 1, OFF Mar 20 when spring starts.',
+  },
+  {
+    id:          'theme-april',
+    label:       'Month: April 🌷',
+    description: 'H1 emoji shows 🌷 instead of season default 🌸. Requires theme-spring ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🌷 Tulip. Season default: 🌸 Flower. Flip ON Apr 1, OFF May 1.',
+  },
+  {
+    id:          'theme-may',
+    label:       'Month: May 🌺',
+    description: 'H1 emoji shows 🌺 instead of season default 🌸. Requires theme-spring ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🌺 Hibiscus. Season default: 🌸 Flower. Flip ON May 1, OFF Jun 1.',
+  },
+  {
+    id:          'theme-june',
+    label:       'Month: June 🌻',
+    description: 'H1 emoji shows 🌻 instead of season default 🌸. Requires theme-spring ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🌻 Sunflower. Season default: 🌸 Flower. Flip ON Jun 1, OFF Jun 21 when summer starts.',
+  },
+  {
+    id:          'theme-july',
+    label:       'Month: July 🎆',
+    description: 'H1 emoji shows 🎆 instead of season default 🌊. Requires theme-summer ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🎆 Fireworks. Season default: 🌊 Wave. Flip ON Jul 1, OFF Aug 1.',
+  },
+  {
+    id:          'theme-august',
+    label:       'Month: August ☀️',
+    description: 'H1 emoji shows ☀️ instead of season default 🌊. Requires theme-summer ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: ☀️ Sun. Season default: 🌊 Wave. Flip ON Aug 1, OFF Sep 1.',
+  },
+  {
+    id:          'theme-september',
+    label:       'Month: September 🍎',
+    description: 'H1 emoji shows 🍎 instead of season default 🌊. Requires theme-summer ON.',
+    version:     'month',
+    status:      'off',
+    notes:       'Override: 🍎 Apple. Season default: 🌊 Wave. Flip ON Sep 1, OFF Sep 22 when fall starts.',
   },
 
   // ── TV / Streaming ────────────────────────────────────────────────────────
-  // Controls all video and streaming surfaces across the network.
-  // tv-live-banner auto-flips via Redis when a broadcaster connects —
-  // signal.js writes room state, /api/tv-live reads it and updates the flag.
-  // All others are manual — flip when the feature is built and ready.
+
   {
     id:          'tv-live-banner',
     label:       'TV Live Banner',
@@ -195,6 +292,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v1 — stable, shipped ──────────────────────────────────────────────────
+
   {
     id:          'agent-registry',
     label:       'Agent Registry',
@@ -218,6 +316,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v1 modules ────────────────────────────────────────────────────────────
+
   {
     id:          'module-create-ad',
     label:       'Module: Create Ad',
@@ -283,6 +382,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v1testing — in progress ───────────────────────────────────────────────
+
   {
     id:          'antbot-assignment',
     label:       'Antbot Assignment',
@@ -306,6 +406,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v2 — planned ──────────────────────────────────────────────────────────
+
   {
     id:          'module-video-feed',
     label:       'Module: Video Feed',
@@ -329,7 +430,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v2 — Map of Pi Membership Arena ──────────────────────────────────────
-  // Flip in order. One per deploy. Spec: app/lib/mapofpi-membership.ts
+
   {
     id:          'store-image-upload',
     label:       'Store Image Upload',
@@ -356,6 +457,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v2 — Universal share nudge ────────────────────────────────────────────
+
   {
     id:          'post-submit-share',
     label:       'Post-Submit Share Nudge',
@@ -366,6 +468,7 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
   },
 
   // ── v2testing ─────────────────────────────────────────────────────────────
+
   {
     id:          'custom-brand-voice',
     label:       'Custom Brand Voice',
@@ -399,18 +502,70 @@ export function getKilledFlags() {
   return FLAG_DEFAULTS.filter(f => f.status === 'killed');
 }
 
+// ─── H1 emoji resolution ──────────────────────────────────────────────────────
+// Month override wins over season default.
+// Returns null if theme-h1-emoji is OFF.
+
+const SEASON_EMOJI: Record<string, string> = {
+  'theme-fall':   '🍂',
+  'theme-winter': '❄️',
+  'theme-spring': '🌸',
+  'theme-summer': '🌊',
+};
+
+const MONTH_EMOJI: Record<string, string> = {
+  'theme-october':   '🎃',
+  'theme-november':  '🦃',
+  'theme-december':  '🎄',
+  'theme-january':   '🎉',
+  'theme-february':  '❤️',
+  'theme-march':     '🍀',
+  'theme-april':     '🌷',
+  'theme-may':       '🌺',
+  'theme-june':      '🌻',
+  'theme-july':      '🎆',
+  'theme-august':    '☀️',
+  'theme-september': '🍎',
+};
+
+export function resolveH1Emoji(
+  flags: { id: string; enabled: boolean }[]
+): string | null {
+  const h1Active = flags.find(f => f.id === 'theme-h1-emoji' && f.enabled);
+  if (!h1Active) return null;
+
+  const monthFlag  = flags.find(f => MONTH_EMOJI[f.id]  && f.enabled);
+  const seasonFlag = flags.find(f => SEASON_EMOJI[f.id] && f.enabled);
+
+  return monthFlag
+    ? MONTH_EMOJI[monthFlag.id]
+    : seasonFlag
+    ? SEASON_EMOJI[seasonFlag.id]
+    : null;
+}
+
+export function applyH1Emoji(flags: { id: string; enabled: boolean }[]): void {
+  const emoji = resolveH1Emoji(flags);
+  if (emoji) {
+    document.documentElement.style.setProperty('--h1-emoji', `"${emoji} "`);
+  } else {
+    document.documentElement.style.removeProperty('--h1-emoji');
+  }
+}
+
 // ─── Version metadata ─────────────────────────────────────────────────────────
 
 export const VERSION_ORDER: FlagVersion[] = [
-  'beta', 'v1', 'v1testing', 'v2', 'v2testing',
+  'beta', 'v1', 'v1testing', 'v2', 'v2testing', 'month',
 ];
 
 export const VERSION_META: Record<FlagVersion, { label: string; color: string; desc: string }> = {
-  'beta':      { label: '🧪 Beta',       color: '#f0883e', desc: 'Active development' },
-  'v1':        { label: '✅ v1',          color: '#22c55e', desc: 'Stable — shipped'   },
-  'v1testing': { label: '🔬 v1 Testing', color: '#0070f3', desc: 'Under test'          },
-  'v2':        { label: '🚀 v2',          color: '#7928ca', desc: 'Planned'             },
-  'v2testing': { label: '🔭 v2 Testing', color: '#D4AF37', desc: 'Future test'         },
+  'beta':      { label: '🧪 Beta',       color: '#f0883e', desc: 'Active development'        },
+  'v1':        { label: '✅ v1',          color: '#22c55e', desc: 'Stable — shipped'           },
+  'v1testing': { label: '🔬 v1 Testing', color: '#0070f3', desc: 'Under test'                 },
+  'v2':        { label: '🚀 v2',          color: '#7928ca', desc: 'Planned'                    },
+  'v2testing': { label: '🔭 v2 Testing', color: '#D4AF37', desc: 'Future test'                },
+  'month':     { label: '📅 Month',       color: '#e85d04', desc: 'Monthly h1 emoji overrides' },
 };
 
 export const STATUS_META: Record<FlagStatus, { label: string; color: string }> = {
@@ -421,7 +576,6 @@ export const STATUS_META: Record<FlagStatus, { label: string; color: string }> =
 };
 
 // ─── Runtime flag fetcher ─────────────────────────────────────────────────────
-// Fetches live flags from /api/flags once per session, caches in module scope.
 
 let _runtimeCache: Record<string, boolean> | null = null;
 
@@ -442,7 +596,6 @@ export function isEnabled(flags: Record<string, boolean>, id: string): boolean {
 }
 
 // ─── Agent flag map ───────────────────────────────────────────────────────────
-// null = always active. string = only runs when that flag is ON.
 
 export type AgentId = 'scout' | 'aria' | 'herald' | 'ledger' | 'mac' | 'antbot';
 
@@ -473,6 +626,14 @@ export const MODULE_FLAG_IDS = FLAG_DEFAULTS
 export const TV_FLAG_IDS = FLAG_DEFAULTS
   .filter(f => f.id.startsWith('tv-'))
   .map(f => f.id);
+
+export const MONTH_FLAG_IDS = FLAG_DEFAULTS
+  .filter(f => f.version === 'month')
+  .map(f => f.id);
+
+export const SEASON_FLAG_IDS = [
+  'theme-fall', 'theme-winter', 'theme-spring', 'theme-summer',
+];
 
 export const PERSISTENT_AGENTS: AgentId[] = ['aria', 'herald', 'scout'];
 export const GATED_AGENTS:      AgentId[] = ['ledger', 'mac', 'antbot'];
