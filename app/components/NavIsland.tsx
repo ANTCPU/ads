@@ -130,7 +130,7 @@ export default function NavIsland() {
 
   const dropdownStyle: React.CSSProperties = {
     position:     'absolute',
-    bottom:       '110%',
+    top:       'calc(100% + 6px)', 
     right:        0,
     background:   '#111',
     border:       '1px solid #222',
@@ -138,7 +138,7 @@ export default function NavIsland() {
     overflow:     'hidden',
     zIndex:       300,
     minWidth:     '140px',
-    boxShadow:    '0 -8px 32px rgba(0,0,0,0.4)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.4)', 
   };
 
   const currentBright = BRIGHTNESS_LEVELS.find(l => l.id === brightness) ?? BRIGHTNESS_LEVELS[0];
