@@ -1,20 +1,25 @@
 // ============================================================
-// app/api/internship/progress/route.ts
-// POST — Mark a gate complete, advance progress + log activity
-// Writes to: challengers + activity_log
+// app/api/internship/profile/route.ts
+// POST — Complete profile (gate d2), advance progress + log
+//
+// Writes to: challengers (bio, links, open_to, availability,
+//            profile_type, profile_complete, completed_gates,
+//            progress_pct, week, role_title)
+//          + activity_log
 //
 // Lookup params (any one):
 //   intern_id, handle, num, email
 //
 // Body:
-//   { intern_id|handle|num|email, gate_id }
+//   { intern_id|handle|num|email,
+//     bio, links, open_to, availability, profile_intent }
 //
-// Called by: antcpu.io/dev/ and antcpu.io/marketing/
-// Replaces:  internship/challenger/progress/route.ts (retired)
+// Called by: antcpu.io/assets/js/profile-popup.js
 // ============================================================
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient }        from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { notifyDiscord, DC }   from '../../../lib/discord';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,60 +36,14 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: CORS });
 }
 
-// ── Gate maps — d1–d24 only (matches live DB) ─────────────────
+// ── Gate d2 constants — mirrors progress/route.ts ─────────
+const GATE_ID    = 'd2';
+const GATE_PCT   = 10;
+const GATE_WEEK  = 1;
+const GATE_LABEL = 'Completed Your Profile';
+const GATE_ICON  = '👤';
 
-const GATE_PCT: Record<string, number> = {
-  d1:5,   d2:10,  d3:15,  d4:20,  d5:22,  d6:24,  d7:25,
-  d8:30,  d9:35,  d10:38, d11:42, d12:46, d13:48, d14:50,
-  d15:55, d16:58, d17:62, d18:65, d19:70, d20:72, d21:75,
-  d22:80, d23:85, d24:95,
-};
-
-const GATE_WEEK: Record<string, number> = {
-  d1:1,  d2:1,  d3:1,  d4:1,  d5:1,  d6:1,  d7:1,
-  d8:2,  d9:2,  d10:2, d11:2, d12:2, d13:2, d14:2,
-  d15:3, d16:3, d17:3, d18:3, d19:3, d20:3, d21:3,
-  d22:4, d23:4, d24:4,
-};
-
-const GATE_LABELS: Record<string, string> = {
-  d1:  'Registered & Introduced Yourself',
-  d2:  'Completed Your Profile',
-  d3:  'Explored Workspace + EDU',
-  d4:  'Showed Your Best Work',
-  d5:  'Joined the Community Session',
-  d6:  'Gave Peer Feedback',
-  d7:  'Submitted Week 1 Reflection',
-  d8:  'Started Week 2 Build',
-  d9:  'Analyzed Your Work',
-  d10: 'Documented Your Process',
-  d11: 'Gave Specific Feedback',
-  d12: 'Improved Based on Feedback',
-  d13: 'Submitted Week 2 Progress',
-  d14: 'Submitted Week 2 Reflection',
-  d15: 'Met Your Cross-Track Partner',
-  d16: 'Explained Your Work Cross-Track',
-  d17: 'Received Cross-Track Feedback',
-  d18: 'Improved Based on Partner Feedback',
-  d19: 'Submitted Joint Deliverable',
-  d20: 'Reviewed Joint Submission',
-  d21: 'Submitted Week 3 Reflection',
-  d22: 'Defined Week 4 Mission',
-  d23: 'Built Week 4 Feature',
-  d24: 'Final Submission & Showcase',
-};
-
-const GATE_ICONS: Record<string, string> = {
-  d1:  '🚀', d2:  '👤', d3:  '🔭', d4:  '💼',
-  d5:  '💬', d6:  '🤝', d7:  '📝', d8:  '⚡',
-  d9:  '🔍', d10: '📋', d11: '💡', d12: '🔧',
-  d13: '📤', d14: '📝', d15: '🤝', d16: '💬',
-  d17: '👂', d18: '🔧', d19: '📦', d20: '✅',
-  d21: '📝', d22: '🎯', d23: '🏗️', d24: '🏆',
-};
-
-// ── Role map — merged from both routes, complete ──────────────
-
+// ── Role map — copied from progress/route.ts ───────────────
 const ROLE_AT_PCT: Array<[number, string]> = [
   [100, 'Human in the Loop Intern'],
   [95,  'Finalist'                ],
@@ -114,8 +73,19 @@ function roleForPct(pct: number): string {
   return 'Registered';
 }
 
-// ── Challenger resolver ───────────────────────────────────────
+// ── profile_type resolver ──────────────────────────────────
+function resolveProfileType(
+  track: string,
+  intent: string
+): string {
+  if (track === 'dev')                          return 'builder';
+  if (track === 'marketing' && intent === 'grow') return 'creator';
+  if (track === 'marketing' && intent === 'all')  return 'connector';
+  if (track === 'marketing' && intent === 'learn') return 'strategist';
+  return 'builder'; // safe default
+}
 
+// ── Challenger resolver — matches progress/route.ts ────────
 async function resolveChallenger(params: {
   intern_id?: string | null;
   handle?:    string | null;
@@ -124,36 +94,34 @@ async function resolveChallenger(params: {
 }) {
   let query = supabase
     .from('challengers')
-    .select('id, intern_id, challenger_num, handle, completed_gates, progress_pct, week')
+    .select(
+      'id, intern_id, challenger_num, handle, email, ' +
+      'first_name, track, country, completed_gates, ' +
+      'progress_pct, week, profile_complete'
+    )
     .eq('status', 'active');
 
-  if (params.intern_id) query = query.eq('intern_id', params.intern_id);
-  else if (params.handle) query = query.eq('handle', params.handle);
-  else if (params.num)    query = query.eq('challenger_num', parseInt(params.num));
-  else if (params.email)  query = query.eq('email', params.email);
+  if (params.intern_id)      query = query.eq('intern_id',       params.intern_id);
+  else if (params.handle)    query = query.eq('handle',          params.handle);
+  else if (params.num)       query = query.eq('challenger_num',  parseInt(params.num));
+  else if (params.email)     query = query.eq('email',           params.email);
   else return null;
 
   const { data } = await query.single();
   return data || null;
 }
 
-// ── POST ──────────────────────────────────────────────────────
-
+// ── POST ───────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
     const {
       intern_id, handle, num, email,
-      gate_id,
+      bio, links, open_to, availability, profile_intent,
     } = body;
 
-    if (!gate_id) {
-      return NextResponse.json(
-        { error: 'gate_id required' },
-        { status: 400, headers: CORS }
-      );
-    }
-
+    // ── Require at least one lookup param ────────────────
     if (!intern_id && !handle && !num && !email) {
       return NextResponse.json(
         { error: 'intern_id, handle, num or email required' },
@@ -161,7 +129,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Resolve challenger ────────────────────────────────────
+    // ── Resolve challenger ────────────────────────────────
     const challenger = await resolveChallenger(
       { intern_id, handle, num, email }
     );
@@ -173,8 +141,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Skip if already complete ──────────────────────────────
-    if (challenger.completed_gates?.includes(gate_id)) {
+    // ── Skip if already complete ──────────────────────────
+    if (challenger.profile_complete) {
       return NextResponse.json(
         {
           ok:               true,
@@ -186,33 +154,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Validate gate exists in map ───────────────────────────
-    if (!(gate_id in GATE_PCT)) {
-      return NextResponse.json(
-        { error: `Unknown gate: ${gate_id}` },
-        { status: 400, headers: CORS }
-      );
-    }
+    // ── Derive profile_type ───────────────────────────────
+    const profile_type = resolveProfileType(
+      challenger.track   || 'dev',
+      profile_intent     || 'build'
+    );
 
-    // ── Build updated values ──────────────────────────────────
-    const updatedGates = [...(challenger.completed_gates || []), gate_id];
-    const gatePct      = GATE_PCT[gate_id];
-    const newPct       = Math.max(challenger.progress_pct ?? 0, gatePct);
-    const newWeek      = GATE_WEEK[gate_id] ?? challenger.week ?? 1;
-    const newRole      = roleForPct(newPct);
+    // ── Build updated gate values ─────────────────────────
+    const updatedGates = [
+      ...(challenger.completed_gates || []),
+      GATE_ID,
+    ];
+    const newPct  = Math.max(challenger.progress_pct ?? 0, GATE_PCT);
+    const newRole = roleForPct(newPct);
 
-    // ── Update challenger + log activity — parallel ───────────
+    // ── Update challengers + log activity — parallel ──────
     const [{ data: updated, error: updateError }] = await Promise.all([
+
       supabase
         .from('challengers')
         .update({
-          completed_gates: updatedGates,
-          progress_pct:    newPct,
-          week:            newWeek,
-          role_title:      newRole,
+          // profile fields
+          bio:              bio              || null,
+          links:            links            || {},
+          open_to:          open_to          || [],
+          availability:     availability     || null,
+          profile_type,
+          profile_complete: true,
+          // gate fields — mirrors progress/route.ts
+          completed_gates:  updatedGates,
+          progress_pct:     newPct,
+          week:             GATE_WEEK,
+          role_title:       newRole,
         })
         .eq('id', challenger.id)
-        .select('id, intern_id, challenger_num, handle, first_name, track, progress_pct, week, role_title, completed_gates')
+        .select(
+          'id, intern_id, challenger_num, handle, first_name, ' +
+          'track, country, progress_pct, week, role_title, ' +
+          'completed_gates, profile_type, profile_complete'
+        )
         .single(),
 
       supabase
@@ -221,27 +201,80 @@ export async function POST(req: NextRequest) {
           challenger_id: challenger.id,
           type:          'gate',
           event:         'gate_complete',
-          label:         GATE_LABELS[gate_id] ?? `Completed ${gate_id}`,
-          icon:          GATE_ICONS[gate_id]  ?? '⚡',
-          gate_id,
-          points:        gatePct,
+          label:         GATE_LABEL,
+          icon:          GATE_ICON,
+          gate_id:       GATE_ID,
+          points:        GATE_PCT,
         }),
     ]);
 
     if (updateError) {
       return NextResponse.json(
-        { error: 'Failed to update progress' },
+        { error: 'Failed to update profile' },
         { status: 500, headers: CORS }
       );
     }
 
+    // ── Discord embed ─────────────────────────────────────
+    const firstName  = updated?.first_name || challenger.first_name || 'Challenger';
+    const track      = updated?.track      || challenger.track      || 'dev';
+    const country    = updated?.country    || challenger.country    || '—';
+    const trackLabel = track === 'dev' ? '💻 Dev' : '📣 Marketing';
+    const openToStr  = Array.isArray(open_to) && open_to.length
+      ? open_to.join(' · ')
+      : '—';
+    const topLink    = links?.github
+      || links?.portfolio
+      || links?.instagram
+      || null;
+
+    notifyDiscord('', 'internship', {
+      title:       '✅ Profile Complete',
+      color:       DC.intern,
+      fields: [
+        {
+          name:   'Challenger',
+          value:  `${firstName} · ${trackLabel}`,
+          inline: true,
+        },
+        {
+          name:   'Progress',
+          value:  `5% → ${newPct}% · gate d2 ✓`,
+          inline: true,
+        },
+        {
+          name:   'Type',
+          value:  profile_type,
+          inline: true,
+        },
+        {
+          name:   'Open to',
+          value:  openToStr,
+          inline: true,
+        },
+        {
+          name:   'Country',
+          value:  country,
+          inline: true,
+        },
+        ...(topLink ? [{
+          name:   'Link',
+          value:  topLink,
+          inline: true,
+        }] : []),
+      ],
+      footer:    `intern_id: ${updated?.intern_id || '—'} · October 2026`,
+      timestamp: true,
+    }).catch(() => {/* silent — never block the response */});
+
+    // ── Return same shape as progress/route.ts ────────────
     return NextResponse.json(
       {
         ok:             true,
-        gate_id,
+        gate_id:        GATE_ID,
         new_pct:        newPct,
         new_role:       newRole,
-        new_week:       newWeek,
+        new_week:       GATE_WEEK,
         challenger_num: updated?.challenger_num ?? null,
         handle:         updated?.handle         ?? null,
         challenger:     updated,
@@ -251,7 +284,7 @@ export async function POST(req: NextRequest) {
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.error('[internship/progress] POST error:', message);
+    console.error('[internship/profile] POST error:', message);
     return NextResponse.json(
       { error: message },
       { status: 500, headers: CORS }
