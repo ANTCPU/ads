@@ -123,7 +123,7 @@ async function resolveChallenger(params: {
   else return null;
 
   const { data } = await query.single();
-  return (data as ChallengerRow) ?? null;
+  return (data as unknown as ChallengerRow) ?? null;
 }
 
 // ── POST ───────────────────────────────────────────────────
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const updated = updatedRaw as UpdatedRow | null;
+    const updated = updatedRaw as unknown as UpdatedRow | null;
 
     const firstName  = updated?.first_name ?? challenger.first_name ?? 'Challenger';
     const track      = updated?.track      ?? challenger.track      ?? 'dev';
