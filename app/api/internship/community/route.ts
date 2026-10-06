@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500, headers: CORS });
 
     // ── Side effects — all .then(() => {}) to satisfy Promise<any>[] ──
-    const sideEffects: Promise<any>[] = [];
+    const sideEffects: PromiseLike<any>[] = [];
 
     if (authorType === 'challenger' && challenger) {
       sideEffects.push(
