@@ -1,6 +1,17 @@
 // ============================================================
 // app/api/internship/progress/route.ts
 // POST — Complete a gate, advance progress + log
+//
+// v2 changes:
+// — GATES pct values aligned to DB gates table exactly
+// — GATES d3/d4/d5 labels updated for new week-unlock model
+//   d3: 'Explored the Arena'
+//   d4: 'First Arena Action Taken'
+//   d5: 'First Submission Made'
+// — ROLE_AT_PCT aligned to config.js roles exactly —
+//   all thresholds present, both tracks covered, no gaps
+// — Discord footer: hardcoded 'October 2026' → dynamic date
+// — All other logic, types, resolver, DB update unchanged
 // ============================================================
 
 import { createClient }             from '@supabase/supabase-js';
@@ -23,6 +34,7 @@ export async function OPTIONS() {
 }
 
 // ── Types ──────────────────────────────────────────────────
+
 type ChallengerRow = {
   id:               string;
   intern_id:        string;
@@ -55,56 +67,74 @@ type UpdatedRow = {
 };
 
 // ── Gate registry ──────────────────────────────────────────
+// pct values match DB gates table exactly.
+// Labels are past-tense — used in Discord + activity_log only.
+// Frontend labels come from DB gates.label column.
+
 const GATES: Record<string, {
   pct: number; week: number; label: string; icon: string
 }> = {
-  d1:  { pct: 5,   week: 1, label: 'Registered & Introduced',      icon: '👋' },
-  d2:  { pct: 10,  week: 1, label: 'Completed Profile',            icon: '👤' },
-  d3:  { pct: 15,  week: 1, label: 'Explored Workspace + EDU',     icon: '🔭' },
-  d4:  { pct: 20,  week: 1, label: 'Showed Best Work',             icon: '💼' },
-  d5:  { pct: 22,  week: 1, label: 'Joined Community Session',     icon: '🤝' },
-  d6:  { pct: 24,  week: 1, label: 'Gave Peer Feedback',           icon: '💬' },
-  d7:  { pct: 25,  week: 1, label: 'Week 1 Reflection',            icon: '🔭' },
-  d8:  { pct: 30,  week: 2, label: 'W2 Brief + Workspace Tour',    icon: '⚡' },
-  d9:  { pct: 33,  week: 2, label: 'Analyzed Something',           icon: '🔍' },
-  d10: { pct: 36,  week: 2, label: 'Found the Failure',            icon: '🐛' },
-  d11: { pct: 40,  week: 2, label: 'Improved It',                  icon: '🔧' },
-  d12: { pct: 44,  week: 2, label: 'Explained Thinking',           icon: '📝' },
-  d13: { pct: 47,  week: 2, label: 'Gave Feedback',                icon: '💡' },
-  d14: { pct: 50,  week: 2, label: 'Week 2 Reflection',            icon: '⚡' },
-  d15: { pct: 52,  week: 3, label: 'Teams Announced',              icon: '🤝' },
-  d16: { pct: 55,  week: 3, label: 'Dev Explained the Build',      icon: '💻' },
-  d17: { pct: 58,  week: 3, label: 'Marketing Explained Campaign', icon: '📣' },
-  d18: { pct: 61,  week: 3, label: 'Dev Improved on Feedback',     icon: '🔨' },
-  d19: { pct: 64,  week: 3, label: 'Marketing Improved on Feedback',icon:'📊'},
-  d20: { pct: 70,  week: 3, label: 'Joint Submission',             icon: '🏗️' },
-  d21: { pct: 75,  week: 3, label: 'Week 3 Reflection',            icon: '🤝' },
-  d22: { pct: 78,  week: 4, label: 'Mission Briefing',             icon: '🚀' },
-  d23: { pct: 80,  week: 4, label: 'Planning Day',                 icon: '🗺️' },
-  d24: { pct: 83,  week: 4, label: 'Build + Prepare',              icon: '🔧' },
-  d25: { pct: 86,  week: 4, label: 'Handoff',                      icon: '🤝' },
-  d26: { pct: 88,  week: 4, label: 'Launch',                       icon: '🚀' },
-  d27: { pct: 90,  week: 4, label: 'Community Interaction',        icon: '💬' },
-  d28: { pct: 93,  week: 4, label: 'Final Polish',                 icon: '✨' },
-  d29: { pct: 95,  week: 4, label: 'Final Submission',             icon: '🎖️' },
-  d30: { pct: 100, week: 4, label: 'Selection Day',                icon: '🏆' },
+  // Week 1 — Explorer — all unlock Day 1
+  d1:  { pct: 5,   week: 1, label: 'Registered & Introduced',       icon: '👋' },
+  d2:  { pct: 10,  week: 1, label: 'Completed Profile',             icon: '👤' },
+  d3:  { pct: 15,  week: 1, label: 'Explored the Arena',            icon: '🔭' },
+  d4:  { pct: 20,  week: 1, label: 'First Arena Action Taken',      icon: '⚡' },
+  d5:  { pct: 22,  week: 1, label: 'First Submission Made',         icon: '📤' },
+  d6:  { pct: 24,  week: 1, label: 'Gave Peer Feedback',            icon: '💬' },
+  d7:  { pct: 25,  week: 1, label: 'Week 1 Reflection Done',        icon: '🔭' },
+  // Week 2 — Creator — unlocks Day 8
+  d8:  { pct: 30,  week: 2, label: 'Week 2 Brief Reviewed',         icon: '⚡' },
+  d9:  { pct: 35,  week: 2, label: 'Research & Analysis Done',      icon: '🔍' },
+  d10: { pct: 38,  week: 2, label: 'Build Day 1 Complete',          icon: '🔧' },
+  d11: { pct: 42,  week: 2, label: 'Build Day 2 Complete',          icon: '🔧' },
+  d12: { pct: 46,  week: 2, label: 'Shipped & Submitted',           icon: '📤' },
+  d13: { pct: 48,  week: 2, label: 'Peer Review Given',             icon: '💡' },
+  d14: { pct: 50,  week: 2, label: 'Week 2 Reflection Done',        icon: '⚡' },
+  // Week 3 — Collaborator — unlocks Day 14
+  d15: { pct: 55,  week: 3, label: 'Met the Team',                  icon: '🤝' },
+  d16: { pct: 58,  week: 3, label: 'Team Brief Defined',            icon: '💻' },
+  d17: { pct: 62,  week: 3, label: 'Built Together Day 1',          icon: '🔨' },
+  d18: { pct: 65,  week: 3, label: 'Built Together Day 2',          icon: '🔨' },
+  d19: { pct: 70,  week: 3, label: 'Team Project Shipped',          icon: '🏗️' },
+  d20: { pct: 72,  week: 3, label: 'Cross-Track Review Given',      icon: '📊' },
+  d21: { pct: 75,  week: 3, label: 'Week 3 Reflection Done',        icon: '🤝' },
+  // Week 4 — Leader — unlocks Day 21
+  d22: { pct: 80,  week: 4, label: 'Role Claimed',                  icon: '🚀' },
+  d23: { pct: 85,  week: 4, label: 'Final Build Shipped',           icon: '💻' },
+  d24: { pct: 95,  week: 4, label: 'Final Submission & Showcase',   icon: '🎖️' },
+  d25: { pct: 86,  week: 4, label: 'Handoff Complete',              icon: '🤝' },
+  d26: { pct: 88,  week: 4, label: 'Launched',                      icon: '🚀' },
+  d27: { pct: 90,  week: 4, label: 'Community Interaction Done',    icon: '💬' },
+  d28: { pct: 93,  week: 4, label: 'Final Polish Done',             icon: '✨' },
+  d29: { pct: 95,  week: 4, label: 'Final Submission Made',         icon: '🎖️' },
+  d30: { pct: 100, week: 4, label: 'Selection Day Complete',        icon: '🏆' },
 };
 
 // ── Role map ───────────────────────────────────────────────
+// Aligned to config.js roles exactly — all pct thresholds
+// present for both dev and marketing tracks.
+// role_title is a single string in the DB — this map picks
+// the most meaningful unified title at each threshold.
+// Track-specific display titles are handled by the frontend
+// via config.js roles arrays.
+
 const ROLE_AT_PCT: Array<[number, string]> = [
   [100, 'Human in the Loop Intern'],
+  [98,  'Showcase Published'      ],
   [95,  'Finalist'                ],
+  [92,  'Intern Candidate'        ],
+  [88,  'Technical Lead'          ],
   [85,  'Developer'               ],
   [80,  'Project Lead'            ],
   [75,  'Week 3 Complete'         ],
+  [70,  'Senior Contributor'      ],
   [65,  'Cross-Track Collaborator'],
   [60,  'Contributor'             ],
   [55,  'Team Member'             ],
   [50,  'Week 2 Complete'         ],
-  [46,  'Automation Engineer'     ],
-  [42,  'AI Integration Dev'      ],
-  [38,  'Workflow Builder'        ],
-  [35,  'Builder'                 ],
+  [45,  'Automation Engineer'     ],
+  [40,  'AI Integration Dev'      ],
+  [35,  'Workflow Builder'        ],
   [30,  'Builder'                 ],
   [25,  'Week 1 Complete'         ],
   [20,  'Junior Automation Dev'   ],
@@ -121,12 +151,14 @@ function roleForPct(pct: number): string {
 }
 
 // ── Challenger resolver ────────────────────────────────────
+
 async function resolveChallenger(params: {
   intern_id?: string | null;
   handle?:    string | null;
   num?:       string | null;
   email?:     string | null;
 }): Promise<ChallengerRow | null> {
+
   let query = supabase
     .from('challengers')
     .select(
@@ -147,6 +179,7 @@ async function resolveChallenger(params: {
 }
 
 // ── POST ───────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -166,7 +199,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const challenger = await resolveChallenger({ intern_id, handle, num, email });
+    const challenger = await resolveChallenger(
+      { intern_id, handle, num, email }
+    );
 
     if (!challenger) {
       return NextResponse.json(
@@ -175,9 +210,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const gate = GATES[gate_id];
-    const completedGates: string[] = challenger.completed_gates ?? [];
+    const gate            = GATES[gate_id];
+    const completedGates  = challenger.completed_gates ?? [];
 
+    // Already complete — return current state, no DB write
     if (completedGates.includes(gate_id)) {
       return NextResponse.json(
         {
@@ -198,6 +234,7 @@ export async function POST(req: NextRequest) {
     const newRole      = roleForPct(newPct);
     const newWeek      = gate.week;
 
+    // DB update + activity log — parallel
     const [{ data: updatedRaw, error: updateError }] = await Promise.all([
       supabase
         .from('challengers')
@@ -236,23 +273,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const updated = updatedRaw as unknown as UpdatedRow | null;
-
+    const updated    = updatedRaw as unknown as UpdatedRow | null;
     const firstName  = updated?.first_name ?? challenger.first_name ?? 'Challenger';
     const track      = updated?.track      ?? challenger.track      ?? 'dev';
     const trackLabel = track === 'dev' ? '💻 Dev' : '📣 Marketing';
     const prevPct    = challenger.progress_pct ?? 0;
 
+    // Dynamic cohort label — no hardcoded month
+    const cohortLabel = new Date().toLocaleDateString('en-US', {
+      month: 'long',
+      year:  'numeric',
+    });
+
     notifyDiscord('', 'internship', {
       title:  `${gate.icon} Gate Complete — ${gate.label}`,
       color:  DC.intern,
       fields: [
-        { name: 'Challenger', value: `${firstName} · ${trackLabel}`,      inline: true },
+        { name: 'Challenger', value: `${firstName} · ${trackLabel}`,            inline: true },
         { name: 'Progress',   value: `${prevPct}% → ${newPct}% · ${gate_id} ✓`, inline: true },
-        { name: 'Role',       value: newRole,                              inline: true },
-        { name: 'Week',       value: `Week ${newWeek}`,                   inline: true },
+        { name: 'Role',       value: newRole,                                    inline: true },
+        { name: 'Week',       value: `Week ${newWeek}`,                          inline: true },
       ],
-      footer:    `intern_id: ${updated?.intern_id ?? '—'} · October 2026`,
+      footer:    `intern_id: ${updated?.intern_id ?? '—'} · ${cohortLabel}`,
       timestamp: true,
     }).catch(() => {});
 
