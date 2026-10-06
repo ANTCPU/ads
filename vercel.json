@@ -42,9 +42,13 @@
     }
   ],
   "crons": [
-    {
-      "path": "/api/send-weekly",
-      "schedule": "0 9 * * 1"
-    }
-  ]
+  {
+    "path": "/api/send-weekly",
+    "schedule": "0 9 * * 1"
+  },
+  {
+    "path": "/api/cron/nudge",
+    "schedule": "0 10 * * *"
+  }
+]
 }
