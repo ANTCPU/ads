@@ -568,14 +568,23 @@ export async function POST(req: NextRequest) {
 
     // ── 4. Fetch challenger back ──────────────────────────────
     const { data: challenger } = await supabase
-      .from('challengers')
-      .select('id, intern_id, email, challenger_num, handle, cohort_short')
-      .eq('email', cleanEmail)
-      .single();
+  .from('challengers')
+  .select('id, intern_id, email, challenger_num, handle, cohort_short')
+  .eq('email', cleanEmail)
+  .single();
 
-    let dbSessionId: string | null = null;
+// ── 4b. Write ad_id back if not set ────────────────────── 
+if (challenger && ad?.id) {
+  await supabase
+    .from('challengers')
+    .update({ ad_id: ad.id })
+    .eq('id', challenger.id)
+    .is('ad_id', null);
+}
 
-    if (challenger) {
+let dbSessionId: string | null = null;
+
+if (challenger) {
 
       // ── 5. Session row ──────────────────────────────────
       const { data: session } = await supabase
