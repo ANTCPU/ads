@@ -40,11 +40,15 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const CORS = {
-  'Access-Control-Allow-Origin':  'https://antcpu-ads.vercel.app',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+function getCORS(origin: string) {
+  const allowed = /^https:\/\/([\w-]+\.)?antcpu\.(io|com|cloud)$/.test(origin)
+    || origin === 'https://antcpu-ads.vercel.app';
+  return {
+    'Access-Control-Allow-Origin':  allowed ? origin : 'https://antcpu-ads.vercel.app',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
 
 // ── Email constants — antcpu.io branded ───────────────────────
 const ACCENT  = '#2563eb';
