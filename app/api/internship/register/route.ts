@@ -3,17 +3,25 @@
 // POST — Internship challenger registration
 // Writes: ad_signups → ads → challengers → sessions
 //         → activity_log → submissions
-// Then:   day-aware email + Discord notify
+// Then:   day-aware email + Discord structured embed
 // Called by: https://antcpu.io/apply/
+//
+// v2 (Oct 2026):
+// — Cohort close gate: Day 7+ → next cohort redirect
+// — is_early_adopter: day <= 6 (Day 7 = last day, still founding)
+// — Discord step 9: notifyInternship() structured embed
+//   replaces plain-text notifyDiscord() call
+// — getNextCohort + notifyInternship + DC imported
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient }              from '@supabase/supabase-js';
 import { heraldSend }                from '../../../lib/herald';
-import { notifyDiscord }             from '../../../lib/discord';
+import { notifyInternship, DC }      from '../../../lib/discord';
 import {
   getChallengeDay,
   getChallengeCohort,
+  getNextCohort,
   getCatchUpTasks,
   getMaxAchievable,
   WEEK1_TASKS,
@@ -55,7 +63,7 @@ const BORDER = '#1a1a1a';
 function emailHeader(trackIcon: string) {
   const cohortLabel = getChallengeCohort()
     .replace('-', ' ')
-    .replace(/\b\w/g, c => c.toUpperCase()); // "september-2026" → "September 2026"
+    .replace(/\b\w/g, c => c.toUpperCase());
   return `
     <div style="text-align:center;margin-bottom:2rem">
       <div style="font-size:1.5rem;font-weight:800;color:${ACCENT}">⚡ antcpu.io</div>
@@ -80,11 +88,10 @@ function emailFooter() {
 }
 
 function taskRow(t: ChallengeTask, track: string, highlight = false) {
-  const edu        = t.edu?.[track as 'dev' | 'marketing'];
+  const edu         = t.edu?.[track as 'dev' | 'marketing'];
   const resolvedUrl = track === 'marketing' && t.urlMarketing
     ? t.urlMarketing
     : t.url;
-
   return `
     <div style="padding:0.75rem 0;border-bottom:1px solid ${BORDER}">
       <div style="display:flex;gap:0.75rem;align-items:flex-start">
@@ -110,7 +117,7 @@ function taskRow(t: ChallengeTask, track: string, highlight = false) {
     </div>`;
 }
 
-function dashboardBlock(firstName: string) {
+function dashboardBlock(_firstName: string) {
   return `
     <div style="background:${CARD};border:1px solid ${ACCENT}30;
       border-radius:12px;padding:1.25rem;margin-top:1.25rem">
@@ -488,10 +495,43 @@ export async function POST(req: NextRequest) {
     const day        = getChallengeDay();
     const cohort     = getChallengeCohort();
 
+    // ── Cohort close gate ─────────────────────────────────────
+    // Days 1–6: open — founding member, current cohort
+    // Day 7+:   closed — redirect to next cohort, no registration
+    if (day >= 7) {
+      const nextCohort  = getNextCohort();
+      const nextLabel   = nextCohort
+        .replace('-', ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+      notifyInternship('intern_closed', {
+        title: '📅 Late Applicant — Routed to Next Cohort',
+        color: DC.grey,
+        fields: [
+          { name: 'Name',        value: cleanName,    inline: true  },
+          { name: 'Track',       value: trackLabel,   inline: true  },
+          { name: 'Country',     value: country,      inline: true  },
+          { name: 'Day',         value: String(day),  inline: true  },
+          { name: 'Next Cohort', value: nextLabel,    inline: true  },
+          { name: 'Email',       value: cleanEmail,   inline: false },
+        ],
+        footer: `Redirected — not registered in ${cohort}`,
+      }).catch(() => {});
+
+      return NextResponse.json({
+        closed:      true,
+        day,
+        cohort:      nextCohort,
+        next_cohort: nextCohort,
+        message:     `October 2026 cohort is closed. You're on the ${nextLabel} waitlist.`,
+      }, { status: 200, headers: CORS });
+    }
+
     // ── Duplicate check ───────────────────────────────────────
     const { data: existing } = await supabase
       .from('challengers').select('id')
       .eq('email', cleanEmail).maybeSingle();
+
     if (existing)
       return err('You\'re already registered as a challenger.', 409);
 
@@ -510,6 +550,7 @@ export async function POST(req: NextRequest) {
           { month: 'long', day: 'numeric', year: 'numeric' }),
         role: 'user',
       }).select('id').single();
+
     if (signupErr) return err(signupErr.message);
 
     // ── 2. ads ────────────────────────────────────────────────
@@ -524,6 +565,7 @@ export async function POST(req: NextRequest) {
         status: 'active', tier: 'entry',
         promo_code: 'INTERNSHIP', country, points: 0,
       }).select('id').single();
+
     if (adErr) console.error('Ad insert error:', adErr.message);
 
     // ── 3. challengers ────────────────────────────────────────
@@ -559,34 +601,35 @@ export async function POST(req: NextRequest) {
         tasks_done:       1,
         submissions:      0,
         role_title:       'Registered',
-        is_early_adopter: day <= 7,
+        is_early_adopter: day <= 6,   // Day 7 = last day, still founding
+                                      // Day 8+ blocked by close gate above
         status:           'active',
         cohort,
         intern_id:        internId,
       });
+
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);
 
     // ── 4. Fetch challenger back ──────────────────────────────
     const { data: challenger } = await supabase
-  .from('challengers')
-  .select('id, intern_id, email, challenger_num, handle, cohort_short')
-  .eq('email', cleanEmail)
-  .single();
+      .from('challengers')
+      .select('id, intern_id, email, challenger_num, handle, cohort_short')
+      .eq('email', cleanEmail)
+      .single();
 
-// ── 4b. Write ad_id back if not set ────────────────────── 
-if (challenger && ad?.id) {
-  await supabase
-    .from('challengers')
-    .update({ ad_id: ad.id })
-    .eq('id', challenger.id)
-    .is('ad_id', null);
-}
+    // ── 4b. Write ad_id back if not set ──────────────────────
+    if (challenger && ad?.id) {
+      await supabase
+        .from('challengers')
+        .update({ ad_id: ad.id })
+        .eq('id', challenger.id)
+        .is('ad_id', null);
+    }
 
-let dbSessionId: string | null = null;
+    let dbSessionId: string | null = null;
 
-if (challenger) {
-
-      // ── 5. Session row ──────────────────────────────────
+    if (challenger) {
+      // ── 5. Session row ────────────────────────────────────
       const { data: session } = await supabase
         .from('sessions')
         .insert({
@@ -600,7 +643,7 @@ if (challenger) {
 
       dbSessionId = session?.id ?? null;
 
-      // ── 6 + 7. Activity log + submission — parallel ─────
+      // ── 6 + 7. Activity log + submission — parallel ───────
       await Promise.all([
         supabase.from('activity_log').insert({
           challenger_id: challenger.id,
@@ -624,7 +667,7 @@ if (challenger) {
       ]);
     }
 
-    // ── 8. Email ────────────────────────────────────────────
+    // ── 8. Email ──────────────────────────────────────────────
     const { subject, html } = buildEmail({
       firstName, trackLabel, trackIcon, track, country, day,
     });
@@ -632,31 +675,42 @@ if (challenger) {
     heraldSend({ to: cleanEmail, subject, html })
       .catch(e => console.error('[herald] internship email error:', e));
 
-    // ── 9. Discord ──────────────────────────────────────────
-    const dayLabel = day === 0 ? 'pre-launch'
-      : day <= 7  ? `Day ${day} · Week 1`
-      : `Day ${day} · next cohort`;
+    // ── 9. Discord — structured embed ─────────────────────────
+    const cohortNum   = challenger?.challenger_num ?? '?';
+    const founderFlag = day <= 6 ? '⭐ Founding Member' : '📅 Last Day (Day 7)';
+    const trackEmoji  = track === 'dev' ? '💻 Dev' : '📣 Marketing';
 
-    await notifyDiscord(
-      `🎯 **New Challenger** — ${cleanName} · ${trackLabel} · ${country}\n` +
-      `📧 ${cleanEmail} · ${dayLabel} · ${day <= 7 ? 'Founding Member ⭐' : 'Next Cohort'}\n` +
-      `🎒 Background: ${background ?? '—'} · AI: ${ai_exp ?? '—'} · ${availability ?? '—'}/wk\n` +
-      `🌐 Timezone: ${timezone ?? '—'} · intern_id: \`${internId}\`\n` +
-      `🏷️ Handle: \`${challenger?.handle ?? internId}\` · cohort: \`${challenger?.cohort_short ?? cohort}\`\n` +
-      `🔗 https://antcpu.io/apply/`, 'internship');
+    notifyInternship('intern_registered', {
+      title: `🎯 New Challenger — ${cleanName}`,
+      color: DC.intern,
+      fields: [
+        { name: 'Track',    value: trackEmoji,                                    inline: true  },
+        { name: 'Country',  value: country,                                       inline: true  },
+        { name: 'Status',   value: founderFlag,                                   inline: true  },
+        { name: 'Day',      value: `Day ${day} · Week 1`,                         inline: true  },
+        { name: 'Cohort #', value: `#${cohortNum}`,                               inline: true  },
+        { name: 'Handle',   value: `\`${challenger?.handle ?? internId}\``,       inline: true  },
+        { name: 'AI Exp',   value: ai_exp       ?? '—',                           inline: true  },
+        { name: 'Hrs/wk',   value: availability ?? '—',                           inline: true  },
+        { name: 'Timezone', value: timezone     ?? '—',                           inline: true  },
+        { name: 'Why',      value: (background  ?? '—').slice(0, 200),            inline: false },
+        { name: 'Email',    value: cleanEmail,                                    inline: false },
+      ],
+      footer: `intern_id: ${internId} · cohort: ${cohort}`,
+    }).catch(() => {});
 
-    // ── 10. Return session to frontend ──────────────────────
+    // ── 10. Return session to frontend ────────────────────────
     return ok({
-      success:         true,
-      signupId:        signup.id,
-      adId:            ad?.id          ?? null,
-      session_id:      dbSessionId,
-      intern_id:       internId,
-      challenger_num:  challenger?.challenger_num ?? null,
-      handle:          challenger?.handle         ?? null,
-      cohort_short:    challenger?.cohort_short   ?? null,
-      email:           cleanEmail,
-      first_name:      firstName,
+      success:        true,
+      signupId:       signup.id,
+      adId:           ad?.id          ?? null,
+      session_id:     dbSessionId,
+      intern_id:      internId,
+      challenger_num: challenger?.challenger_num ?? null,
+      handle:         challenger?.handle         ?? null,
+      cohort_short:   challenger?.cohort_short   ?? null,
+      email:          cleanEmail,
+      first_name:     firstName,
       track,
       day,
       cohort,
@@ -665,10 +719,10 @@ if (challenger) {
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
     console.error('Internship register error:', message);
-      return NextResponse.json(
+    return NextResponse.json(
       { error: message },
       { status: 500, headers: CORS }
     );
-
   }
 }
+
