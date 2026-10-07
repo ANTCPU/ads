@@ -1,8 +1,14 @@
 // app/api/internship/notifications/route.ts
-// GET  ?email= or ?intern_id=  → unread count + list
-// PATCH ?id=                   → mark single read
-// PATCH ?email= (body: all)    → mark all read
-// ─────────────────────────────────────────────────────
+// GET   ?email= or ?intern_id=  → unread count + list
+// PATCH ?id=                    → mark single notification read
+// PATCH ?email= or ?intern_id=  → mark all read for challenger
+//
+// v2 (Oct 2026):
+// — PATCH mark-all: intern_id support added
+//   fixes chat.js mark-all call which passes intern_id not email
+// — PATCH mark-all: accepts email OR intern_id OR both
+// — File 1 (app/api/notifications/route.ts) deprecated → redirects here
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient }             from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
@@ -24,9 +30,11 @@ export async function OPTIONS() {
 }
 
 /* ── GET ─────────────────────────────────────────────── */
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+
     const email     = searchParams.get('email')     || null;
     const intern_id = searchParams.get('intern_id') || null;
     const unread    = searchParams.get('unread')    === 'true';
@@ -45,7 +53,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    // Match by email OR intern_id — whichever is provided
+    // Match by intern_id OR email — whichever is provided, prefer both
     if (email && intern_id) {
       query = query.or(`email.eq.${email},intern_id.eq.${intern_id}`);
     } else if (email) {
@@ -54,7 +62,6 @@ export async function GET(req: NextRequest) {
       query = query.eq('intern_id', intern_id!);
     }
 
-    // Unread only filter
     if (unread) query = query.eq('read', false);
 
     const { data, error } = await query;
@@ -83,13 +90,16 @@ export async function GET(req: NextRequest) {
 }
 
 /* ── PATCH ───────────────────────────────────────────── */
+
 export async function PATCH(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const id    = searchParams.get('id')    || null;
-    const email = searchParams.get('email') || null;
 
-    // Mark single notification read
+    const id        = searchParams.get('id')        || null;
+    const email     = searchParams.get('email')     || null;
+    const intern_id = searchParams.get('intern_id') || null;
+
+    // ── Mark single notification read ─────────────────────
     if (id) {
       const { error } = await supabase
         .from('notifications')
@@ -105,13 +115,24 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: true, marked: 'single' }, { headers: CORS });
     }
 
-    // Mark all read for email
-    if (email) {
-      const { error } = await supabase
+    // ── Mark all read — email OR intern_id OR both ─────────
+    // v2: intern_id support added — chat.js passes intern_id not email
+    if (email || intern_id) {
+      let query = supabase
         .from('notifications')
         .update({ read: true })
-        .eq('email', email)
         .eq('read', false);
+
+      if (email && intern_id) {
+        // Both provided — use OR to catch rows matched by either
+        query = query.or(`email.eq.${email},intern_id.eq.${intern_id}`);
+      } else if (email) {
+        query = query.eq('email', email);
+      } else {
+        query = query.eq('intern_id', intern_id!);
+      }
+
+      const { error } = await query;
 
       if (error)
         return NextResponse.json(
@@ -123,7 +144,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'id or email required' },
+      { error: 'id, email, or intern_id required' },
       { status: 400, headers: CORS }
     );
 
