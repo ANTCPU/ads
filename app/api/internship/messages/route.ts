@@ -9,6 +9,14 @@
 // Direct messages only — 1:1 between challenger and owner/staff.
 // community_posts is for the public board only.
 //
+// v1.1 (Oct 2026):
+// — POST: Discord fires to DISCORD_INTERN on send
+//   Flagged messages insert silently, skip Discord, DB only
+//   isReply flag — new thread vs reply shown in embed title
+//   trackEmoji from sender.track — requires track in select
+// — POST: duplicate return removed (build error fix)
+// — resolveChallenger: track added to select (Discord embed)
+//
 // v1.0 (Oct 2026):
 // — New table: direct_messages
 // — GET: returns threads where intern_id is sender OR recipient
@@ -65,10 +73,11 @@ function sanitize(raw: string): {
 }
 
 // ── Resolve challenger by intern_id ────────────────────────────
+// track included — needed for Discord embed trackEmoji
 async function resolveChallenger(intern_id: string) {
   const { data } = await supabase
     .from('challengers')
-    .select('id, intern_id, first_name, initials, color, email, cohort')
+    .select('id, intern_id, first_name, initials, color, email, cohort, track')
     .eq('intern_id', intern_id)
     .maybeSingle();
   return data ?? null;
@@ -133,7 +142,7 @@ export async function GET(req: NextRequest) {
 
       const shaped = messages.map(m => ({
         ...m,
-        author: authorMap[m.sender_intern_id] ?? null,
+        author:  authorMap[m.sender_intern_id] ?? null,
         is_mine: m.sender_intern_id === intern_id,
       }));
 
@@ -144,8 +153,6 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Thread list — top-level messages only ──────────────────
-    // Returns messages where this intern_id is sender or recipient
-    // and parent_id is null (thread starters only)
     const { data, error } = await supabase
       .from('direct_messages')
       .select('id, content, sender_intern_id, recipient_intern_id, is_read, created_at')
@@ -248,7 +255,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve sender
     const sender = await resolveChallenger(sender_intern_id);
     if (!sender) {
       return NextResponse.json(
@@ -257,8 +263,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolve recipient — owner (intern-antcpu-001) always valid
-    // For challenger-to-challenger: both must be in same cohort
     const recipient = await resolveChallenger(recipient_intern_id);
     if (!recipient) {
       return NextResponse.json(
@@ -267,9 +271,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Sanitize
     const { clean, flagged, reason } = sanitize(content);
-
     const resolvedCohort = cohort || sender.cohort || currentCohort();
 
     const { data: message, error: insertError } = await supabase
@@ -294,16 +296,56 @@ export async function POST(req: NextRequest) {
         { status: 500, headers: CORS }
       );
 
-    // Fire notification to recipient — non-blocking
-    supabase.from('notifications').insert({
-      intern_id: recipient.intern_id,
-      email:     recipient.email,
-      type:      'chat',
-      title:     `💬 Message from ${sender.first_name}`,
-      message:   clean.slice(0, 80),
-      link:      '/workspace/',
-      read:      false,
-    }).then(() => {}).catch(() => {});
+    // ── Side effects — non-blocking ───────────────────────────
+    const sideEffects: Promise<any>[] = [];
+
+    // In-app notification to recipient
+    sideEffects.push(
+      supabase.from('notifications').insert({
+        intern_id: recipient.intern_id,
+        email:     recipient.email,
+        type:      'chat',
+        title:     `💬 Message from ${sender.first_name}`,
+        message:   clean.slice(0, 80),
+        link:      '/workspace/',
+        read:      false,
+      }).then(() => {}).catch(() => {})
+    );
+
+    // Discord — DMs go to DISCORD_INTERN (same channel as ops)
+    // Flagged messages insert silently, skip Discord, visible in DB only
+    if (!flagged) {
+      const webhook = process.env.DISCORD_INTERN;
+      if (webhook) {
+        const isReply    = !!parent_id;
+        const trackEmoji = sender.track === 'marketing' ? '📣' : '💻';
+
+        sideEffects.push(
+          fetch(webhook, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              embeds: [{
+                title:       isReply
+                  ? `💬 Reply — ${sender.first_name}`
+                  : `💬 New DM — ${sender.first_name}`,
+                description: clean.slice(0, 200),
+                color:       0x2563EB,
+                fields: [
+                  { name: 'From',  value: `${trackEmoji} ${sender.first_name} · ${sender.intern_id}`, inline: true },
+                  { name: 'To',    value: recipient.first_name,                                        inline: true },
+                  { name: 'Type',  value: isReply ? 'Reply' : 'New thread',                           inline: true },
+                ],
+                footer:    { text: `direct message · ${resolvedCohort}` },
+                timestamp: new Date().toISOString(),
+              }]
+            }),
+          }).catch(() => {})
+        );
+      }
+    }
+
+    await Promise.allSettled(sideEffects);
 
     return NextResponse.json(
       {
@@ -347,13 +389,12 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Mark single message read
     if (id) {
       const { error } = await supabase
         .from('direct_messages')
         .update({ is_read: true })
         .eq('id', id)
-        .eq('recipient_intern_id', intern_id); // can only mark your own as read
+        .eq('recipient_intern_id', intern_id);
 
       if (error)
         return NextResponse.json({ error: error.message }, { status: 500, headers: CORS });
@@ -361,7 +402,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: true, marked: 'single' }, { headers: CORS });
     }
 
-    // Mark full thread read
     if (thread_id) {
       const { error } = await supabase
         .from('direct_messages')
