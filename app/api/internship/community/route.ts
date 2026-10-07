@@ -1,13 +1,18 @@
 // ============================================================
 // app/api/internship/community/route.ts
-// GET  — fetch posts for a cohort
+// GET  — fetch posts for a cohort / channel / thread
 // POST — create a post (challenger or staff)
 // POST /prompt — staff structured prompt post
 //
-// v3 changes:
-// — Fix: .then(() => {}) on all sideEffects Supabase builders
-//   — resolves TS2345 PostgrestFilterBuilder → Promise error
-// — Fix: same pattern in handlePromptPost Promise.allSettled
+// v4 changes:
+// — GET: channel param added — filters by community_posts.channel
+//   fixes 500 on ?channel=direct from chat.js
+// — GET: intern_id param read for auth context on direct channel
+// — GET: challenger join made safe — left join, null author handled
+// — POST: channel field written from body (defaults 'general')
+// — POST: intern_id written to post for direct message threading
+// — v3: .then(() => {}) on all sideEffect Supabase builders
+//   resolves TS2345 PostgrestFilterBuilder → Promise error
 // ============================================================
 
 import { createClient }             from '@supabase/supabase-js';
@@ -44,16 +49,12 @@ function sanitizeContent(raw: string): {
   reason:  string | null;
 } {
   const trimmed = raw.trim();
-
   if (/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(trimmed))
     return { clean: trimmed, flagged: true, reason: 'email_detected' };
-
   if (/https?:\/\/(?!antcpu\.(io|com|cloud)|github\.com\/ANTCPU)[^\s]+/i.test(trimmed))
     return { clean: trimmed, flagged: true, reason: 'external_url' };
-
   if (/\b(find me on|dm me|reach me at|contact me outside|message me outside|whatsapp|telegram|signal)\b/i.test(trimmed))
     return { clean: trimmed, flagged: true, reason: 'contact_fishing' };
-
   const hasPhone = /\b\d[\d\s\-().]{6,}\d\b/.test(trimmed);
   return { clean: trimmed, flagged: hasPhone, reason: hasPhone ? 'possible_phone' : null };
 }
@@ -106,12 +107,12 @@ async function resolveChallenger(params: {
 }) {
   const query = params.intern_id
     ? supabase.from('challengers')
-        .select('id, first_name, handle, track, cohort, initials, color')
+        .select('id, intern_id, first_name, handle, track, cohort, initials, color, email')
         .eq('intern_id', params.intern_id)
         .eq('status', 'active')
         .maybeSingle()
     : supabase.from('challengers')
-        .select('id, first_name, handle, track, cohort, initials, color')
+        .select('id, intern_id, first_name, handle, track, cohort, initials, color, email')
         .eq('email', params.email!.trim().toLowerCase())
         .eq('status', 'active')
         .maybeSingle();
@@ -124,12 +125,24 @@ async function resolveChallenger(params: {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const cohort    = searchParams.get('cohort')  || currentCohort();
-    const post_type = searchParams.get('type')    || null;
-    const gate_id   = searchParams.get('gate_id') || null;
-    const thread_id = searchParams.get('thread')  || null;
+
+    const cohort    = searchParams.get('cohort')    || currentCohort();
+    const channel   = searchParams.get('channel')   || null;  // ← v4: read channel
+    const intern_id = searchParams.get('intern_id') || null;  // ← v4: auth context
+    const post_type = searchParams.get('type')      || null;
+    const gate_id   = searchParams.get('gate_id')   || null;
+    const thread_id = searchParams.get('thread')    || null;
     const limit     = Math.min(parseInt(searchParams.get('limit')  || '50'), 100);
     const offset    = parseInt(searchParams.get('offset') || '0');
+
+    // ── Direct channel auth ────────────────────────────────────
+    // channel=direct requires intern_id — no anonymous reads
+    if (channel === 'direct' && !intern_id) {
+      return NextResponse.json(
+        { error: 'intern_id required for direct channel' },
+        { status: 401, headers: CORS }
+      );
+    }
 
     let query = supabase
       .from('community_posts')
@@ -138,15 +151,18 @@ export async function GET(req: NextRequest) {
         post_type,
         content,
         cohort,
+        channel,
         day,
         gate_id,
         is_pinned,
         is_system,
         is_flagged,
         author_type,
+        author_id,
         parent_id,
         created_at,
-        challengers!author_id (
+        challengers!left (
+          intern_id,
           first_name,
           handle,
           track,
@@ -159,6 +175,21 @@ export async function GET(req: NextRequest) {
       .order('is_pinned',  { ascending: false })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // ── Channel filter ─────────────────────────────────────────
+    // direct: only posts where this intern_id is author or recipient
+    // general/null: exclude direct channel posts
+    if (channel === 'direct' && intern_id) {
+      query = query.eq('channel', 'direct');
+      // Show threads where this challenger is the author
+      // Phase 2: add recipient_id column for full DM threading
+      query = query.eq('author_intern_id', intern_id);
+    } else if (channel) {
+      query = query.eq('channel', channel);
+    } else {
+      // Default: exclude direct messages from public feed
+      query = query.neq('channel', 'direct');
+    }
 
     query = query.or(`cohort.eq.${cohort},cohort.eq.all`);
 
@@ -177,24 +208,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500, headers: CORS });
 
     const posts = (data || []).map((p: any) => {
-      const isStaff = p.author_type === 'staff';
-      const author = isStaff
-        ? { first_name: 'Mentor', handle: null, track: null, initials: 'M', color: '#059669', progress_pct: null, is_staff: true }
-        : p.challengers
-          ? { first_name: p.challengers.first_name, handle: p.challengers.handle, track: p.challengers.track, initials: p.challengers.initials, color: p.challengers.color, progress_pct: p.challengers.progress_pct, is_staff: false }
+      const isStaff  = p.author_type === 'staff';
+      // ← v4: safe null check — left join may return null challenger
+      const chal     = p.challengers ?? null;
+      const author   = isStaff
+        ? { first_name: 'Mentor', handle: null, track: null,
+            initials: 'M', color: '#059669', progress_pct: null,
+            intern_id: null, is_staff: true }
+        : chal
+          ? { first_name: chal.first_name, handle: chal.handle,
+              track: chal.track, initials: chal.initials,
+              color: chal.color, progress_pct: chal.progress_pct,
+              intern_id: chal.intern_id, is_staff: false }
           : null;
 
       return {
-        id: p.id, post_type: p.post_type, content: p.content,
-        cohort: p.cohort, day: p.day, gate_id: p.gate_id,
-        is_pinned: p.is_pinned, is_system: p.is_system,
-        author_type: p.author_type, parent_id: p.parent_id,
-        created_at: p.created_at, author,
+        id:          p.id,
+        post_type:   p.post_type,
+        content:     p.content,
+        cohort:      p.cohort,
+        channel:     p.channel,
+        day:         p.day,
+        gate_id:     p.gate_id,
+        is_pinned:   p.is_pinned,
+        is_system:   p.is_system,
+        author_type: p.author_type,
+        parent_id:   p.parent_id,
+        created_at:  p.created_at,
+        author,
       };
     });
 
     return NextResponse.json(
-      { posts, count: posts.length, cohort, offset, limit },
+      { posts, count: posts.length, cohort, channel, offset, limit },
       { headers: CORS }
     );
 
@@ -217,6 +263,7 @@ export async function POST(req: NextRequest) {
       post_type = 'post',
       gate_id   = null,
       parent_id = null,
+      channel   = 'general',   // ← v4: read channel from body
       cohort,
     } = body;
 
@@ -231,7 +278,7 @@ export async function POST(req: NextRequest) {
     if (!intern_id && !email)
       return NextResponse.json({ error: 'intern_id or email required' }, { status: 400, headers: CORS });
 
-    let challenger = await resolveChallenger({ intern_id, email });
+    const challenger = await resolveChallenger({ intern_id, email });
     let authorType: 'challenger' | 'staff' = 'challenger';
     let staffUser: any = null;
 
@@ -246,32 +293,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Author not found' }, { status: 401, headers: CORS });
     }
 
-    let flagged = false;
+    let flagged      = false;
     let flagReason: string | null = null;
     let cleanContent = content.trim();
 
     if (authorType === 'challenger') {
       const sanitized = sanitizeContent(content);
-      cleanContent = sanitized.clean;
-      flagged      = sanitized.flagged;
-      flagReason   = sanitized.reason;
+      cleanContent    = sanitized.clean;
+      flagged         = sanitized.flagged;
+      flagReason      = sanitized.reason;
     }
 
-    const authorId = authorType === 'staff' ? staffUser.id : challenger!.id;
+    const authorId      = authorType === 'staff' ? staffUser.id : challenger!.id;
+    const authorInternId = authorType === 'challenger' ? (challenger!.intern_id ?? null) : null;
+    const cleanChannel  = ['general','direct','dev','marketing','showcase','feedback','question']
+      .includes(channel) ? channel : 'general';
 
     const { data: post, error: insertError } = await supabase
       .from('community_posts')
       .insert({
-        author_id:   authorId,
-        author_type: authorType,
+        author_id:       authorId,
+        author_intern_id: authorInternId,   // ← v4: write intern_id for DM threading
+        author_type:     authorType,
         post_type,
-        content:     cleanContent,
-        cohort:      resolvedCohort,
+        content:         cleanContent,
+        cohort:          resolvedCohort,
         gate_id,
         parent_id,
-        is_pinned:   authorType === 'staff' && !parent_id,
-        is_system:   false,
-        is_flagged:  flagged,
+        channel:         cleanChannel,      // ← v4: write channel
+        is_pinned:       authorType === 'staff' && !parent_id,
+        is_system:       false,
+        is_flagged:      flagged,
       })
       .select()
       .single();
@@ -279,16 +331,15 @@ export async function POST(req: NextRequest) {
     if (insertError)
       return NextResponse.json({ error: insertError.message }, { status: 500, headers: CORS });
 
-    // ── Side effects — all .then(() => {}) to satisfy Promise<any>[] ──
+    // ── Side effects ───────────────────────────────────────────
     const sideEffects: PromiseLike<any>[] = [];
 
     if (authorType === 'challenger' && challenger) {
       sideEffects.push(
-        supabase
-          .from('challengers')
+        supabase.from('challengers')
           .update({ last_seen: new Date().toISOString() })
           .eq('id', challenger.id)
-          .then(() => {})                                          // ← FIX 1
+          .then(() => {})
       );
     }
 
@@ -297,7 +348,6 @@ export async function POST(req: NextRequest) {
       const actLabel = isReply
         ? `Replied in community${gate_id ? ': ' + gate_id : ''}`
         : `Posted in community${gate_id ? ': ' + gate_id : ''}`;
-
       sideEffects.push(
         supabase.from('activity_log').insert({
           challenger_id: challenger.id,
@@ -308,27 +358,28 @@ export async function POST(req: NextRequest) {
           gate_id:       gate_id || null,
           points:        0,
           actor:         challenger.handle,
-        }).then(() => {})                                          // ← FIX 2
+        }).then(() => {})
       );
     }
 
     if (flagged && authorType === 'challenger' && challenger) {
       sideEffects.push(
         supabase.from('notifications').insert({
-          email:   email || null,
-          type:    'nudge',
-          title:   '⚠️ Your post is under review',
-          message: 'Your post was flagged for review. It will appear once approved.',
-          read:    false,
-        }).then(() => {})                                          // ← FIX 3
+          email:     challenger.email ?? email ?? null,
+          intern_id: challenger.intern_id ?? null,
+          type:      'nudge',
+          title:     '⚠️ Your post is under review',
+          message:   'Your post was flagged for review. It will appear once approved.',
+          read:      false,
+        }).then(() => {})
       );
     }
 
+    // Discord — skip direct channel messages (private)
     const webhookUrl = process.env.DISCORD_WEBHOOK_COMMUNITY;
-    if (webhookUrl && !flagged) {
+    if (webhookUrl && !flagged && cleanChannel !== 'direct') {
       const trackEmoji  = (challenger?.track || staffUser?.track_scope) === 'marketing' ? '📣' : '💻';
       const authorLabel = authorType === 'staff' ? `${staffUser.name} · Staff` : challenger?.handle;
-
       sideEffects.push(
         fetch(webhookUrl, {
           method:  'POST',
@@ -356,8 +407,10 @@ export async function POST(req: NextRequest) {
         post: {
           ...post,
           author: authorType === 'staff'
-            ? { first_name: staffUser.name, handle: null, track: staffUser.track_scope, is_staff: true }
-            : { first_name: challenger!.first_name, handle: challenger!.handle, track: challenger!.track, is_staff: false },
+            ? { first_name: staffUser.name, handle: null,
+                track: staffUser.track_scope, is_staff: true }
+            : { first_name: challenger!.first_name, handle: challenger!.handle,
+                track: challenger!.track, is_staff: false },
         },
       },
       { status: 201, headers: CORS }
@@ -398,11 +451,9 @@ async function handlePromptPost(body: any): Promise<NextResponse> {
   if (note?.trim()) {
     if (note.trim().length > 280)
       return NextResponse.json({ error: 'note exceeds 280 characters' }, { status: 400, headers: CORS });
-
     const sanitized = sanitizeContent(note);
     if (sanitized.flagged)
       return NextResponse.json({ error: `Note blocked: ${sanitized.reason}` }, { status: 400, headers: CORS });
-
     content = `${promptText}\n\n${sanitized.clean}`;
   }
 
@@ -416,6 +467,7 @@ async function handlePromptPost(body: any): Promise<NextResponse> {
       cohort:      resolvedCohort,
       gate_id,
       parent_id:   null,
+      channel:     'general',
       is_pinned:   true,
       is_system:   false,
       is_flagged:  false,
@@ -428,19 +480,20 @@ async function handlePromptPost(body: any): Promise<NextResponse> {
 
   const { data: challengers } = await supabase
     .from('challengers')
-    .select('id, email, first_name, handle')
+    .select('id, email, intern_id, first_name, handle')
     .eq('status', 'active')
     .eq('cohort',  resolvedCohort)
     .eq('track',   track);
 
   const targets = challengers || [];
 
-  const notifInserts    = targets.map((c: any) => ({
-    email:   c.email,
-    type:    'mentor',
-    title:   `📣 Mentor thread opened: ${gate_id.toUpperCase()}`,
-    message: `${staffUser.name} posted a question for you. Reply in the community.`,
-    read:    false,
+  const notifInserts = targets.map((c: any) => ({
+    email:     c.email,
+    intern_id: c.intern_id,
+    type:      'mentor',
+    title:     `📣 Mentor thread opened: ${gate_id.toUpperCase()}`,
+    message:   `${staffUser.name} posted a question for you. Reply in the community.`,
+    read:      false,
   }));
 
   const activityInserts = targets.map((c: any) => ({
@@ -456,10 +509,10 @@ async function handlePromptPost(body: any): Promise<NextResponse> {
 
   await Promise.allSettled([
     notifInserts.length > 0
-      ? supabase.from('notifications').insert(notifInserts).then(() => {})    // ← FIX 4
+      ? supabase.from('notifications').insert(notifInserts).then(() => {})
       : Promise.resolve(),
     activityInserts.length > 0
-      ? supabase.from('activity_log').insert(activityInserts).then(() => {})  // ← FIX 5
+      ? supabase.from('activity_log').insert(activityInserts).then(() => {})
       : Promise.resolve(),
   ]);
 
