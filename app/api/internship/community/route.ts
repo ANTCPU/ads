@@ -127,16 +127,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
     const cohort    = searchParams.get('cohort')    || currentCohort();
-    const channel   = searchParams.get('channel')   || null;  // ← v4: read channel
-    const intern_id = searchParams.get('intern_id') || null;  // ← v4: auth context
+    const channel   = searchParams.get('channel')   || null;
+    const intern_id = searchParams.get('intern_id') || null;
     const post_type = searchParams.get('type')      || null;
     const gate_id   = searchParams.get('gate_id')   || null;
     const thread_id = searchParams.get('thread')    || null;
     const limit     = Math.min(parseInt(searchParams.get('limit')  || '50'), 100);
     const offset    = parseInt(searchParams.get('offset') || '0');
 
-    // ── Direct channel auth ────────────────────────────────────
-    // channel=direct requires intern_id — no anonymous reads
     if (channel === 'direct' && !intern_id) {
       return NextResponse.json(
         { error: 'intern_id required for direct channel' },
@@ -144,6 +142,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Fetch posts — no join, author resolved separately
     let query = supabase
       .from('community_posts')
       .select(`
@@ -159,35 +158,21 @@ export async function GET(req: NextRequest) {
         is_flagged,
         author_type,
         author_id,
+        author_intern_id,
         parent_id,
-        created_at,
-        challengers!left (
-          intern_id,
-          first_name,
-          handle,
-          track,
-          initials,
-          color,
-          progress_pct
-        )
+        created_at
       `)
       .eq('is_flagged', false)
       .order('is_pinned',  { ascending: false })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    // ── Channel filter ─────────────────────────────────────────
-    // direct: only posts where this intern_id is author or recipient
-    // general/null: exclude direct channel posts
     if (channel === 'direct' && intern_id) {
-      query = query.eq('channel', 'direct');
-      // Show threads where this challenger is the author
-      // Phase 2: add recipient_id column for full DM threading
-      query = query.eq('author_intern_id', intern_id);
+      query = query.eq('channel', 'direct')
+                   .eq('author_intern_id', intern_id);
     } else if (channel) {
       query = query.eq('channel', channel);
     } else {
-      // Default: exclude direct messages from public feed
       query = query.neq('channel', 'direct');
     }
 
@@ -207,40 +192,57 @@ export async function GET(req: NextRequest) {
     if (error)
       return NextResponse.json({ error: error.message }, { status: 500, headers: CORS });
 
-    const posts = (data || []).map((p: any) => {
-      const isStaff  = p.author_type === 'staff';
-      // ← v4: safe null check — left join may return null challenger
-      const chal     = p.challengers ?? null;
-      const author   = isStaff
-        ? { first_name: 'Mentor', handle: null, track: null,
-            initials: 'M', color: '#059669', progress_pct: null,
-            intern_id: null, is_staff: true }
-        : chal
-          ? { first_name: chal.first_name, handle: chal.handle,
-              track: chal.track, initials: chal.initials,
-              color: chal.color, progress_pct: chal.progress_pct,
-              intern_id: chal.intern_id, is_staff: false }
-          : null;
+    const posts = data || [];
+
+    // Batch author lookup — single query, no N+1
+    const internIds = [
+      ...new Set(
+        posts
+          .filter((p: any) => p.author_type === 'challenger' && p.author_intern_id)
+          .map((p: any) => p.author_intern_id as string)
+      )
+    ];
+
+    const authorMap: Record<string, any> = {};
+    if (internIds.length > 0) {
+      const { data: challengers } = await supabase
+        .from('challengers')
+        .select('intern_id, first_name, handle, track, initials, color, progress_pct')
+        .in('intern_id', internIds);
+      (challengers || []).forEach((c: any) => {
+        authorMap[c.intern_id] = c;
+      });
+    }
+
+    const shaped = posts.map((p: any) => {
+      let author = null;
+
+      if (p.author_type === 'staff') {
+        author = { first_name: 'Mentor', handle: null, track: null,
+                   initials: 'M', color: '#059669', progress_pct: null,
+                   intern_id: null, is_staff: true };
+      } else if (p.author_type === 'cpu') {
+        author = { first_name: 'antcpu', handle: null, track: null,
+                   initials: '⚡', color: '#2563eb', progress_pct: null,
+                   intern_id: null, is_staff: false, is_cpu: true };
+      } else if (p.author_intern_id && authorMap[p.author_intern_id]) {
+        const c = authorMap[p.author_intern_id];
+        author = { first_name: c.first_name, handle: c.handle, track: c.track,
+                   initials: c.initials, color: c.color, progress_pct: c.progress_pct,
+                   intern_id: c.intern_id, is_staff: false };
+      }
 
       return {
-        id:          p.id,
-        post_type:   p.post_type,
-        content:     p.content,
-        cohort:      p.cohort,
-        channel:     p.channel,
-        day:         p.day,
-        gate_id:     p.gate_id,
-        is_pinned:   p.is_pinned,
-        is_system:   p.is_system,
-        author_type: p.author_type,
-        parent_id:   p.parent_id,
-        created_at:  p.created_at,
-        author,
+        id: p.id, post_type: p.post_type, content: p.content,
+        cohort: p.cohort, channel: p.channel, day: p.day, gate_id: p.gate_id,
+        is_pinned: p.is_pinned, is_system: p.is_system,
+        author_type: p.author_type, parent_id: p.parent_id,
+        created_at: p.created_at, author,
       };
     });
 
     return NextResponse.json(
-      { posts, count: posts.length, cohort, channel, offset, limit },
+      { posts: shaped, count: shaped.length, cohort, channel, offset, limit },
       { headers: CORS }
     );
 
