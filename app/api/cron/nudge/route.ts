@@ -3,7 +3,7 @@
 // GET — Daily nudge cron for internship challengers
 //
 // Schedule: daily at 10:00 UTC (vercel.json)
-// Secured:  CRON_SECRET header check
+// Secured:  CRON_SECRET bearer token
 //
 // Logic:
 //   1. Read today's email send count from email_sends
@@ -19,12 +19,13 @@
 // Priority: hard_d1 → hard_d2 → week2_unlock → soft
 //   light:  in-app notification only, no email
 //
-// v1.1 (Oct 2026):
-//   — Fixed structural bug: Discord summary + return were
-//     inside the for loop — cron exited after first iteration
-//     sending 0 emails every run
-//   — Light tier in-app loop moved outside email send loop
-//   — sent/skipped counters now accumulate correctly
+// CORS: open (*) — auth is CRON_SECRET bearer, not origin
+//   antcpu.io admin dashboard triggers this from browser
+//
+// v1.2 (Oct 2026):
+//   — CORS headers added — OPTIONS + all GET returns
+//   — getCORS() helper — consistent headers on every response
+//   — No logic changes from v1.1
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -40,12 +41,38 @@ const supabase = createClient(
 const BASE_URL    = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
 const CRON_SECRET = process.env.CRON_SECRET || '';
 
+// ── CORS ───────────────────────────────────────────────────
+// Open origin — CRON_SECRET is the auth layer, not the origin.
+// Admin dashboard at antcpu.io triggers this from the browser.
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: CORS });
+}
+
+// ── TYPES ──────────────────────────────────────────────────
+type QueueItem = {
+  email:        string;
+  nudge_type:   string;
+  first_name:   string;
+  track:        string;
+  progress_pct: number;
+};
+
+// ── GET ────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
 
-  // ── Auth ───────────────────────────────────────────────────
+  // ── Auth ─────────────────────────────────────────────────
   const authHeader = req.headers.get('authorization');
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthorized' },
+      { status: 401, headers: CORS }
+    );
   }
 
   const startedAt = new Date().toISOString();
@@ -53,16 +80,16 @@ export async function GET(req: NextRequest) {
 
   try {
 
-    // ── Step 1: How many emails sent today already ─────────────
+    // ── Step 1: Daily budget check ──────────────────────────
     const { count: sentToday } = await supabase
       .from('email_sends')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'sent')
       .gte('created_at', `${today}T00:00:00.000Z`);
 
-    const alreadySent  = sentToday  || 0;
-    const dailyBudget  = EMAIL_LIMITS.DAILY_TRANSACTIONAL;
-    const remaining    = Math.max(0, dailyBudget - alreadySent);
+    const alreadySent = sentToday  || 0;
+    const dailyBudget = EMAIL_LIMITS.DAILY_TRANSACTIONAL;
+    const remaining   = Math.max(0, dailyBudget - alreadySent);
 
     if (remaining === 0) {
       await notifyDiscord('', 'internship', {
@@ -84,10 +111,10 @@ export async function GET(req: NextRequest) {
         reason:     'daily_budget_exhausted',
         budget:     dailyBudget,
         sent_today: alreadySent,
-      });
+      }, { headers: CORS });
     }
 
-    // ── Step 2: Get nudge lists from herald ────────────────────
+    // ── Step 2: Herald — get nudge tiers ───────────────────
     const heraldRes = await fetch(`${BASE_URL}/api/herald`, {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -96,24 +123,19 @@ export async function GET(req: NextRequest) {
       throw new Error(`Herald fetch failed: ${heraldRes.status}`);
     }
 
-    const heraldData  = await heraldRes.json();
-    const internship  = heraldData.internship;
+    const heraldData = await heraldRes.json();
+    const internship = heraldData.internship;
 
     if (!internship) {
-      return NextResponse.json({ ok: true, sent: 0, reason: 'no_internship_data' });
+      return NextResponse.json(
+        { ok: true, sent: 0, reason: 'no_internship_data' },
+        { headers: CORS }
+      );
     }
 
-    // ── Step 3: Build send queue — priority order ──────────────
-    type QueueItem = {
-      email:        string;
-      nudge_type:   string;
-      first_name:   string;
-      track:        string;
-      progress_pct: number;
-    };
-
+    // ── Step 3: Build queue — priority order ───────────────
     const queue: QueueItem[] = [
-      // Priority 1 — registered, never came back
+      // P1 — registered, never came back
       ...(internship.hard_d1 || []).map((c: any) => ({
         email:        c.email,
         nudge_type:   'hard_d1',
@@ -121,7 +143,7 @@ export async function GET(req: NextRequest) {
         track:        c.track        || 'dev',
         progress_pct: c.progress_pct || 5,
       })),
-      // Priority 2 — profile done, hasn't touched Arena
+      // P2 — profile done, hasn't touched Arena
       ...(internship.hard_d2 || []).map((c: any) => ({
         email:        c.email,
         nudge_type:   'hard_d2',
@@ -129,7 +151,7 @@ export async function GET(req: NextRequest) {
         track:        c.track        || 'dev',
         progress_pct: c.progress_pct || 10,
       })),
-      // Priority 3 — Week 1 done, Week 2 not started
+      // P3 — Week 1 done, Week 2 not started
       ...(internship.week2_unlock || []).map((c: any) => ({
         email:        c.email,
         nudge_type:   'week2_unlock',
@@ -137,7 +159,7 @@ export async function GET(req: NextRequest) {
         track:        c.track        || 'dev',
         progress_pct: c.progress_pct || 25,
       })),
-      // Priority 4 — stalled before Week 1 complete
+      // P4 — stalled before Week 1 complete
       ...(internship.soft || []).map((c: any) => ({
         email:        c.email,
         nudge_type:   'soft',
@@ -147,13 +169,12 @@ export async function GET(req: NextRequest) {
       })),
     ];
 
-    // ── Step 4: Send up to remaining budget ────────────────────
-    const batch  = queue.slice(0, remaining);
-    let sent     = 0;
-    let skipped  = 0;
+    // ── Step 4: Send up to budget ──────────────────────────
+    const batch          = queue.slice(0, remaining);
+    let sent             = 0;
+    let skipped          = 0;
     const errors: string[] = [];
 
-    // ← v1.1 FIX: loop runs to completion before Discord summary
     for (const item of batch) {
       try {
         const res = await fetch(`${BASE_URL}/api/internship/nudge`, {
@@ -169,12 +190,9 @@ export async function GET(req: NextRequest) {
         });
 
         const data = await res.json();
+        if (data.sent === true) sent++;
+        else skipped++;
 
-        if (data.sent === true) {
-          sent++;
-        } else {
-          skipped++;
-        }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'unknown';
         errors.push(`${item.email}: ${msg}`);
@@ -182,10 +200,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Step 5: Light tier — in-app only, no email ─────────────
-    // ← v1.1 FIX: moved outside email loop — runs after all emails
-    const lightTier  = internship.light || [];
-    let inAppSent    = 0;
+    // ── Step 5: Light tier — in-app only ──────────────────
+    const lightTier = internship.light || [];
+    let inAppSent   = 0;
 
     for (const c of lightTier) {
       try {
@@ -198,29 +215,26 @@ export async function GET(req: NextRequest) {
             (c.track === 'marketing'
               ? 'go to your Marketing Workspace.'
               : 'go to your Dev Workspace.'),
-          link:  c.track === 'marketing'
-            ? '/marketing/'
-            : '/dev/',
-          read:  false,
+          link: c.track === 'marketing' ? '/marketing/' : '/dev/',
+          read: false,
         });
         inAppSent++;
       } catch { /* silent — non-critical */ }
     }
 
-    // ── Step 6: Discord summary ────────────────────────────────
-    // ← v1.1 FIX: moved outside both loops — fires once at end
+    // ── Step 6: Discord summary ────────────────────────────
     const remaining_after = Math.max(0, remaining - sent);
 
     await notifyDiscord('', 'internship', {
       title:  `📧 Nudge Cron — ${sent} sent`,
       color:  sent > 0 ? DC.green : DC.grey,
       fields: [
-        { name: 'Sent',        value: `${sent}`,                       inline: true },
-        { name: 'Skipped',     value: `${skipped}`,                    inline: true },
-        { name: 'In-App',      value: `${inAppSent}`,                  inline: true },
-        { name: 'Budget Used', value: `${alreadySent + sent}/${dailyBudget}`, inline: true },
-        { name: 'Remaining',   value: `${remaining_after}`,            inline: true },
-        { name: 'Queue Size',  value: `${queue.length}`,               inline: true },
+        { name: 'Sent',        value: `${sent}`,                            inline: true },
+        { name: 'Skipped',     value: `${skipped}`,                         inline: true },
+        { name: 'In-App',      value: `${inAppSent}`,                       inline: true },
+        { name: 'Budget Used', value: `${alreadySent + sent}/${dailyBudget}`,inline: true },
+        { name: 'Remaining',   value: `${remaining_after}`,                 inline: true },
+        { name: 'Queue Size',  value: `${queue.length}`,                    inline: true },
         ...(errors.length > 0 ? [{
           name:   'Errors',
           value:  `${errors.length} failed`,
@@ -231,8 +245,7 @@ export async function GET(req: NextRequest) {
       timestamp: true,
     }).catch(() => {});
 
-    // ── Step 7: Return ─────────────────────────────────────────
-    // ← v1.1 FIX: single return at end of function
+    // ── Step 7: Return ─────────────────────────────────────
     return NextResponse.json({
       ok:               true,
       sent,
@@ -243,7 +256,7 @@ export async function GET(req: NextRequest) {
       sent_today_total: alreadySent + sent,
       remaining_after,
       errors:           errors.length > 0 ? errors : undefined,
-    });
+    }, { headers: CORS });
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
@@ -257,6 +270,9 @@ export async function GET(req: NextRequest) {
       timestamp: true,
     }).catch(() => {});
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message },
+      { status: 500, headers: CORS }
+    );
   }
 }
