@@ -2,6 +2,11 @@
 // Challenge day helpers — fully dynamic, no hardcoded dates
 // Works for any month forever
 //
+// v4 changes:
+// — getNextCohort() added — returns next cohort slug
+//   used by register/route.ts to redirect Day 7+ applicants
+//   and by discord notifier for closed-cohort embeds
+//
 // v3 changes:
 // — WEEK1_TASKS updated to week-unlock model:
 //   all tasks day:1 — open from Day 1, no daily unlock
@@ -37,7 +42,7 @@ export type ChallengeTask = {
 // ─── Week 1 tasks ─────────────────────────────────────────────
 // Week-unlock model: all tasks open from Day 1.
 // day field kept for display compat — all set to 1.
-// url       = dev track destination (or shared if no urlMarketing)
+// url          = dev track destination (or shared if no urlMarketing)
 // urlMarketing = marketing track destination (only where different)
 // edu.dev / edu.marketing = track-specific class shown in email
 
@@ -121,6 +126,8 @@ export const WEEK1_TASKS: ChallengeTask[] = [
 ];
 
 // ─── Dynamic day calculation ───────────────────────────────────
+// Returns challenge day 1–31 based on EST clock.
+// Day 1 = Oct 1 00:00 EST. Clamped to days in month.
 
 export function getChallengeDay(): number {
   const TZ_OFFSET_MS   = -5 * 60 * 60 * 1000;
@@ -136,6 +143,10 @@ export function getChallengeDay(): number {
   return Math.min(Math.max(raw, 0), daysInMonth);
 }
 
+// ─── Current cohort slug ───────────────────────────────────────
+// Returns 'october-2026', 'november-2026', etc.
+// Always reads from EST clock — no hardcoded month.
+
 export function getChallengeCohort(): string {
   const TZ_OFFSET_MS = -5 * 60 * 60 * 1000;
   const nowEST = new Date(new Date().getTime() + TZ_OFFSET_MS);
@@ -146,12 +157,40 @@ export function getChallengeCohort(): string {
   return `${months[nowEST.getUTCMonth()]}-${nowEST.getUTCFullYear()}`;
 }
 
+// ─── Next cohort slug ──────────────────────────────────────────
+// Returns the cohort slug for the month after the current one.
+// 'october-2026' → 'november-2026'
+// 'december-2026' → 'january-2027'
+//
+// Used by:
+// — register/route.ts  — redirect Day 7+ applicants to next cohort
+// — discord notifier   — label closed-cohort embeds
+// — apply page         — show correct waitlist CTA after close
+
+export function getNextCohort(): string {
+  const TZ_OFFSET_MS = -5 * 60 * 60 * 1000;
+  const nowEST  = new Date(new Date().getTime() + TZ_OFFSET_MS);
+  const month   = nowEST.getUTCMonth();
+  const year    = nowEST.getUTCFullYear();
+  const nextM   = (month + 1) % 12;
+  const nextY   = month === 11 ? year + 1 : year;
+  const months  = [
+    'january','february','march','april','may','june',
+    'july','august','september','october','november','december'
+  ];
+  return `${months[nextM]}-${nextY}`;
+}
+
+// ─── Challenge end date ────────────────────────────────────────
+// Midnight EST on the 1st of next month.
+// Used for countdown timers and cohort close logic.
+
 export const CHALLENGE_END: Date = (() => {
   const TZ_OFFSET_MS = -5 * 60 * 60 * 1000;
   const nowEST    = new Date(new Date().getTime() + TZ_OFFSET_MS);
   const year      = nowEST.getUTCFullYear();
   const month     = nowEST.getUTCMonth();
-  const nextMonth = month === 11 ? 0  : month + 1;
+  const nextMonth = month === 11 ? 0      : month + 1;
   const nextYear  = month === 11 ? year + 1 : year;
   return new Date(Date.UTC(nextYear, nextMonth, 1, 5, 0, 0));
 })();
