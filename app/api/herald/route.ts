@@ -6,13 +6,19 @@
 // — Internship challenger nudge tiers added as parallel read
 //   alongside existing ADS advertiser lists
 // — Returns { noAd, noShares, inactive, internship }
-// — internship contains 4 tiers:
-//     hard_d1:  stuck at 5%, last_seen > 48hrs
-//     hard_d2:  stuck at 10%, last_seen > 48hrs
-//     soft:     15–24%, last_seen > 48hrs
-//     light:    < 25%, last_seen < 24hrs (active, not done)
+// — internship contains 5 tiers:
+//     hard_d1:     stuck at 5%, last_seen > 48hrs
+//     hard_d2:     stuck at 10%, last_seen > 48hrs
+//     soft:        15–24%, last_seen > 48hrs
+//     light:       < 25%, last_seen < 24hrs (active, not done)
+//     week2_unlock: 25–29%, last_seen > 48hrs
 // — Cohort filter: only current active cohort challengers
 // — EXCLUDE list applied to challengers same as ADS users
+//
+// v2.1 (Oct 2026):
+// — challengers table uses last_seen not last_seen_at
+//   Fixed in select + all 5 tier filters
+//   ad_signups correctly keeps last_seen_at (different table)
 // ============================================================
 
 import { NextResponse }  from 'next/server';
@@ -33,7 +39,7 @@ const EXCLUDE = ['test@antcpu.com', 'antcpu@gmail.com'];
 
 // Current cohort — dynamic from date, no hardcode
 function currentCohort(): string {
-  const now = new Date();
+  const now    = new Date();
   const months = [
     'january','february','march','april','may','june',
     'july','august','september','october','november','december'
@@ -47,22 +53,23 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const now              = Date.now();
-    const fortyEightHrsAgo = new Date(now - 48 * 3600 * 1000).toISOString();
-    const twentyFourHrsAgo = new Date(now - 24 * 3600 * 1000).toISOString();
-    const sevenDaysAgo     = new Date(now -  7 * 86400 * 1000).toISOString();
-    const cohort           = currentCohort();
+    const now               = Date.now();
+    const fortyEightHrsAgo  = new Date(now - 48 *  3600 * 1000).toISOString();
+    const twentyFourHrsAgo  = new Date(now - 24 *  3600 * 1000).toISOString();
+    const sevenDaysAgo      = new Date(now -  7 * 86400 * 1000).toISOString();
+    const cohort            = currentCohort();
 
     // ── Parallel reads — ADS + internship ─────────────────────────────────
     const [
-      { data: allUsers  },
-      { data: adEmails  },
-      { data: shareAds  },
-      { data: activeAds },
+      { data: allUsers    },
+      { data: adEmails    },
+      { data: shareAds    },
+      { data: activeAds   },
       { data: challengers },
     ] = await Promise.all([
 
       // ── ADS: all ad_signups ──────────────────────────────────────────────
+      // ad_signups uses last_seen_at — correct, do not change
       supabase
         .from('ad_signups')
         .select('name, email, brand_name, status, country, created_at, last_seen_at, visit_count, streak_days')
@@ -92,21 +99,22 @@ export async function GET() {
         .limit(500),
 
       // ── Internship: active challengers in current cohort ─────────────────
+      // challengers table uses last_seen (not last_seen_at)
       supabase
         .from('challengers')
         .select(
           'email, first_name, track, progress_pct, ' +
-          'last_seen_at, completed_gates, cohort, country'
+          'last_seen, completed_gates, cohort, country'  // ← last_seen
         )
-        .eq('status',  'active')
-        .eq('cohort',  cohort)
+        .eq('status', 'active')
+        .eq('cohort', cohort)
         .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`)
         .limit(200),
     ]);
 
     // ── ADS: compute existing lists (unchanged) ────────────────────────────
-    const users      = allUsers  || [];
-    const withAd     = new Set((adEmails  || []).map((r: any) => r.email));
+    const users      = allUsers || [];
+    const withAd     = new Set((adEmails || []).map((r: any) => r.email));
     const withShares = new Set(
       (shareAds || [])
         .filter((r: any) => (r.share_count || 0) > 0 || (r.click_count || 0) > 0)
@@ -124,6 +132,7 @@ export async function GET() {
         }
       }
     }
+
     const noShares = Object.values(noShareMap).filter((u: any) => !withShares.has(u.email));
 
     const inactive = users.filter((u: any) =>
@@ -132,44 +141,41 @@ export async function GET() {
     );
 
     // ── Internship: compute nudge tiers ────────────────────────────────────
+    // All filters use c.last_seen — confirmed column name Oct 2026
     const all = (challengers || []) as any[];
 
     // Tier 1 — registered only (5%), not seen in 48hrs
-    // These people registered and never came back
     const hard_d1 = all.filter(c =>
       (c.progress_pct || 0) === 5 &&
-      (!c.last_seen_at || c.last_seen_at < fortyEightHrsAgo)
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
     );
 
     // Tier 2 — profile done (10%), not seen in 48hrs
-    // Completed d2 but haven't touched the Arena
     const hard_d2 = all.filter(c =>
       (c.progress_pct || 0) === 10 &&
-      (!c.last_seen_at || c.last_seen_at < fortyEightHrsAgo)
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
     );
 
     // Tier 3 — some progress (15–24%), not seen in 48hrs
-    // Started Week 1 but stalled before completing it
     const soft = all.filter(c =>
       (c.progress_pct || 0) >= 15 &&
-      (c.progress_pct || 0) < 25 &&
-      (!c.last_seen_at || c.last_seen_at < fortyEightHrsAgo)
+      (c.progress_pct || 0) <  25 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
     );
 
     // Tier 4 — active (seen in last 24hrs), Week 1 not complete
-    // Moving but not done — light touch only, no hard nudge
+    // In-app only — no email, light touch
     const light = all.filter(c =>
       (c.progress_pct || 0) < 25 &&
-      c.last_seen_at &&
-      c.last_seen_at > twentyFourHrsAgo
+      c.last_seen &&                                      // ← last_seen
+      c.last_seen > twentyFourHrsAgo                      // ← last_seen
     );
 
-    // Week 2 unlock — completed Week 1 (25%+), not yet seen since Day 8
-    // These challengers earned Week 2 — tell them it's open
+    // Tier 5 — Week 2 unlock: completed Week 1 (25%+), not seen in 48hrs
     const week2_unlock = all.filter(c =>
       (c.progress_pct || 0) >= 25 &&
-      (c.progress_pct || 0) < 30 &&
-      (!c.last_seen_at || c.last_seen_at < fortyEightHrsAgo)
+      (c.progress_pct || 0) <  30 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
     );
 
     const internship = {
@@ -180,7 +186,6 @@ export async function GET() {
       soft,
       light,
       week2_unlock,
-      // Counts for quick dashboard view
       counts: {
         hard_d1:      hard_d1.length,
         hard_d2:      hard_d2.length,
