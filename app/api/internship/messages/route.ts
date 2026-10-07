@@ -300,17 +300,19 @@ export async function POST(req: NextRequest) {
     const sideEffects: Promise<any>[] = [];
 
     // In-app notification to recipient
-    sideEffects.push(
-      supabase.from('notifications').insert({
-        intern_id: recipient.intern_id,
-        email:     recipient.email,
-        type:      'chat',
-        title:     `💬 Message from ${sender.first_name}`,
-        message:   clean.slice(0, 80),
-        link:      '/workspace/',
-        read:      false,
-      }).then(() => {}).catch(() => {})
-    );
+sideEffects.push(
+  Promise.resolve(
+    supabase.from('notifications').insert({
+      intern_id: recipient.intern_id,
+      email:     recipient.email,
+      type:      'chat',
+      title:     `💬 Message from ${sender.first_name}`,
+      message:   clean.slice(0, 80),
+      link:      '/workspace/',
+      read:      false,
+    })
+  ).then(() => {}).catch(() => {})
+);
 
     // Discord — DMs go to DISCORD_INTERN (same channel as ops)
     // Flagged messages insert silently, skip Discord, visible in DB only
