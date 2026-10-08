@@ -1,9 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-// ── Themes ────────────────────────────────────────────────────────────────────
+// ── Timezone map — country → IANA tz ─────────────────────────
+const COUNTRY_TZ: Record<string, string> = {
+  'United States': 'America/New_York',
+  'United Kingdom': 'Europe/London',
+  'Pakistan': 'Asia/Karachi',
+  'India': 'Asia/Kolkata',
+  'Nigeria': 'Africa/Lagos',
+  'Kenya': 'Africa/Nairobi',
+  'Ghana': 'Africa/Accra',
+  'South Africa': 'Africa/Johannesburg',
+  'Egypt': 'Africa/Cairo',
+  'Germany': 'Europe/Berlin',
+  'France': 'Europe/Paris',
+  'Italy': 'Europe/Rome',
+  'Spain': 'Europe/Madrid',
+  'Turkey': 'Europe/Istanbul',
+  'China': 'Asia/Shanghai',
+  'Japan': 'Asia/Tokyo',
+  'South Korea': 'Asia/Seoul',
+  'Indonesia': 'Asia/Jakarta',
+  'Vietnam': 'Asia/Ho_Chi_Minh',
+  'Philippines': 'Asia/Manila',
+  'Brazil': 'America/Sao_Paulo',
+  'Mexico': 'America/Mexico_City',
+  'Canada': 'America/Toronto',
+  'Australia': 'Australia/Sydney',
+  'Saudi Arabia': 'Asia/Riyadh',
+  'United Arab Emirates': 'Asia/Dubai',
+};
 
+// ── Themes ────────────────────────────────────────────────────
 const THEMES = {
   dev: {
     bg: '#0d1117',
@@ -14,6 +43,7 @@ const THEMES = {
     badge: 'bg-cyan-900 text-cyan-300',
     label: '💻 Developer',
     glow: '0 0 20px rgba(0,229,255,0.15)',
+    particle: '#00e5ff',
   },
   marketing: {
     bg: '#2c1a0e',
@@ -24,12 +54,20 @@ const THEMES = {
     badge: 'bg-amber-900 text-amber-200',
     label: '📣 Marketer',
     glow: '0 0 20px rgba(232,124,46,0.15)',
+    particle: '#e87c2e',
   },
 } as const;
 
 type TrackKey = keyof typeof THEMES;
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
+type NextCohort = {
+  cohort: string;
+  opens: string;
+  opens_in_days: number;
+  signups: number;
+  apply_url: string;
+};
 
 type OfficeData = {
   handle: string;
@@ -54,6 +92,7 @@ type OfficeData = {
   links: Record<string, string> | null;
   cohort: string;
   is_captain: boolean | null;
+  cutoff_status: string | null;
   arena: {
     points: number;
     tier: string | null;
@@ -72,11 +111,12 @@ type OfficeData = {
     week: number;
     week_name: string;
     days_left_total: number;
+    entry_open: boolean;
+    next_cohort: NextCohort | null;
   } | null;
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
+// ── Helpers ───────────────────────────────────────────────────
 function safeFlag(flag: string | null): string {
   if (!flag) return '';
   const invalid = ['none', 'stalled', 'nudge', 'at-risk', 'shining'];
@@ -94,6 +134,7 @@ function stripGithubUrl(raw: string | null): string {
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
+  if (mins < 2) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -102,29 +143,29 @@ function relativeTime(iso: string): string {
 
 function tierLabel(tier: string | null): string {
   const map: Record<string, string> = {
-    trial: 'Trial',
-    member: 'Member',
-    rising: '⬆ Rising',
-    featured: '⭐ Featured',
-    top: '🏆 Top',
+    trial: 'Trial', member: 'Member',
+    rising: '⬆ Rising', featured: '⭐ Featured', top: '🏆 Top',
   };
   return tier ? (map[tier] ?? tier) : '';
 }
 
-// ── Share Strip ───────────────────────────────────────────────────────────────
+function localTime(country: string): string {
+  const tz = COUNTRY_TZ[country] ?? 'UTC';
+  return new Intl.DateTimeFormat('en', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+    hour12: false,
+  }).format(new Date());
+}
 
+// ── Share Strip ───────────────────────────────────────────────
 function OfficeShareStrip({
-  handle,
-  name,
-  track,
-  accent,
-  border,
+  handle, name, track, accent, border,
 }: {
-  handle: string;
-  name: string;
-  track: string;
-  accent: string;
-  border: string;
+  handle: string; name: string; track: string;
+  accent: string; border: string;
 }) {
   const [copied, setCopied] = useState(false);
   const officeUrl = `https://antcpu-ads.vercel.app/office/${handle}`;
@@ -138,39 +179,18 @@ function OfficeShareStrip({
   }
 
   const platforms = [
-    {
-      label: 'WhatsApp',
-      icon: '💬',
-      url: `https://wa.me/?text=${encodeURIComponent(shareText)}`,
-    },
-    {
-      label: 'X',
-      icon: '𝕏',
-      url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,
-    },
-    {
-      label: 'LinkedIn',
-      icon: 'in',
-      url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(officeUrl)}`,
-    },
+    { label: 'WhatsApp', icon: '💬', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { label: 'X', icon: '𝕏', url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
+    { label: 'LinkedIn', icon: 'in', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(officeUrl)}` },
   ];
 
   return (
-    <div
-      className="rounded-lg p-4 mt-6"
-      style={{ border: `1px solid ${border}` }}
-    >
+    <div className="rounded-lg p-4 mt-6" style={{ border: `1px solid ${border}` }}>
       <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-3">
         Share This Office
       </p>
-
-      {/* URL copy row */}
       <div className="flex items-center gap-2 mb-3">
-        <span
-          className="flex-1 text-xs truncate opacity-60 font-mono"
-        >
-          {officeUrl}
-        </span>
+        <span className="flex-1 text-xs truncate opacity-60 font-mono">{officeUrl}</span>
         <button
           onClick={copyUrl}
           className="text-xs px-3 py-1 rounded font-semibold transition-all"
@@ -183,20 +203,11 @@ function OfficeShareStrip({
           {copied ? '✓ Copied' : 'Copy'}
         </button>
       </div>
-
-      {/* Platform buttons */}
       <div className="flex gap-2">
         {platforms.map((p) => (
-          <a
-            key={p.label}
-            href={p.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 text-center text-xs py-2 rounded font-semibold transition-opacity hover:opacity-80"
-            style={{
-              border: `1px solid ${border}`,
-              color: accent,
-            }}
+          <a key={p.label} href={p.url} target="_blank" rel="noopener noreferrer"
+            className="flex-1 text-center text-xs py-2 rounded font-semibold"
+            style={{ border: `1px solid ${border}`, color: accent }}
           >
             {p.icon} {p.label}
           </a>
@@ -206,22 +217,103 @@ function OfficeShareStrip({
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Next Cohort Bubble ────────────────────────────────────────
+function NextCohortBubble({
+  next, accent, border, subtext, isInactive,
+}: {
+  next: NextCohort; accent: string; border: string;
+  subtext: string; isInactive: boolean;
+}) {
+  const month = new Date(next.opens).toLocaleDateString('en', {
+    month: 'long', year: 'numeric',
+  });
 
+  return (
+    <div
+      className="rounded-lg p-4 mt-4"
+      style={{
+        border: `1px solid ${isInactive ? accent : border}`,
+        background: isInactive ? 'rgba(255,255,255,0.03)' : 'transparent',
+      }}
+    >
+      {isInactive && (
+        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: accent }}>
+          ⚡ Still time to compete
+        </p>
+      )}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm font-semibold">🗓 {month} Cohort</p>
+        <span
+          className="text-xs px-2 py-0.5 rounded-full font-bold"
+          style={{ background: accent, color: '#000' }}
+        >
+          {next.opens_in_days}d
+        </span>
+      </div>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-xs" style={{ color: subtext }}>
+          Opens {new Date(next.opens).toLocaleDateString('en', {
+            month: 'short', day: 'numeric',
+          })}
+        </span>
+        {next.signups > 0 && (
+          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: accent }}>
+            <span
+              className="inline-block w-2 h-2 rounded-full animate-pulse"
+              style={{ background: accent }}
+            />
+            {next.signups} already signed up
+          </span>
+        )}
+      </div>
+      <a
+        href={next.apply_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block text-center text-xs font-bold py-2 rounded transition-opacity hover:opacity-80"
+        style={{ background: accent, color: '#000' }}
+      >
+        Apply for {month} →
+      </a>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────
 export default function OfficeClient({ data }: { data: OfficeData }) {
   const theme = THEMES[data.track] ?? THEMES.dev;
   const flag = safeFlag(data.flag);
   const githubHandle = stripGithubUrl(data.github_handle);
   const arenaUrl = 'https://antcpu-ads.vercel.app/arena';
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // Inactive = paused or low progress
+  const isInactive =
+    data.cutoff_status === 'paused' ||
+    (data.progress_pct < 25 && data.progress_pct > 0);
+
+  const tz = COUNTRY_TZ[data.country] ?? 'UTC';
+  const tzName = tz.split('/').pop()?.replace('_', ' ') ?? 'UTC';
 
   return (
     <>
-      {/* Scoped style — beats global layout override */}
       <style>{`
         .office-root {
           background: ${theme.bg} !important;
           color: ${theme.text} !important;
           min-height: 100vh;
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: ${theme.glow}; }
+          50% { box-shadow: 0 0 32px ${theme.particle}55; }
+        }
+        @keyframes drift-particle {
+          0% { transform: translateY(-20px) translateX(0px); opacity: 0; }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.3; }
+          100% { transform: translateY(110vh) translateX(40px); opacity: 0; }
         }
       `}</style>
 
@@ -230,14 +322,13 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Header ── */}
           <div className="flex items-center gap-4 mb-6">
-            {/* Avatar with color ring + glow */}
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold flex-shrink-0"
               style={{
                 background: data.color ?? theme.accent,
                 color: theme.bg,
-                boxShadow: theme.glow,
                 border: `2px solid ${theme.accent}`,
+                animation: mounted ? 'pulse-glow 3s ease-in-out infinite' : 'none',
               }}
             >
               {data.initials ?? data.name?.[0]}
@@ -252,12 +343,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                   </span>
                 )}
               </div>
-
               <p className="text-sm mt-0.5" style={{ color: theme.accent }}>
                 {flag && <span className="mr-1">{flag}</span>}
                 {data.country} · {theme.label}
               </p>
-
               <div className="flex items-center gap-2 flex-wrap mt-1">
                 <span className="text-sm opacity-70">{data.role_title}</span>
                 {data.arena?.is_champion && (
@@ -266,10 +355,8 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                   </span>
                 )}
                 {data.arena?.tier && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}
-                  >
+                  <span className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}>
                     {tierLabel(data.arena.tier)}
                   </span>
                 )}
@@ -289,22 +376,20 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                 {data.progress_pct}%
               </span>
             </div>
-            <div
-              className="h-3 rounded-full overflow-hidden"
-              style={{ background: theme.border }}
-            >
+            <div className="h-3 rounded-full overflow-hidden" style={{ background: theme.border }}>
               <div
-                className="h-3 rounded-full transition-all duration-700"
+                className="h-3 rounded-full"
                 style={{
-                  width: `${data.progress_pct}%`,
+                  width: mounted ? `${data.progress_pct}%` : '0%',
                   background: theme.accent,
                   boxShadow: data.progress_pct > 0 ? theme.glow : 'none',
+                  transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               />
             </div>
           </div>
 
-          {/* ── Stats grid — 4 cards ── */}
+          {/* ── Stats grid ── */}
           <div className="grid grid-cols-4 gap-2 mb-6">
             {[
               { label: 'Tasks', value: data.tasks_done, icon: '✅' },
@@ -312,18 +397,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               { label: 'Arena Pts', value: data.arena?.points ?? 0, icon: '⚡' },
               { label: 'Badges', value: data.badges.length, icon: '🎖' },
             ].map(({ label, value, icon }) => (
-              <div
-                key={label}
-                className="rounded-lg p-3 text-center"
-                style={{ border: `1px solid ${theme.border}` }}
-              >
+              <div key={label} className="rounded-lg p-3 text-center"
+                style={{ border: `1px solid ${theme.border}` }}>
                 <div className="text-lg mb-0.5">{icon}</div>
-                <div
-                  className="text-xl font-bold"
-                  style={{ color: theme.accent }}
-                >
-                  {value}
-                </div>
+                <div className="text-xl font-bold" style={{ color: theme.accent }}>{value}</div>
                 <div className="text-xs opacity-50 mt-0.5">{label}</div>
               </div>
             ))}
@@ -331,47 +408,32 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Bio ── */}
           {data.bio && (
-            <div
-              className="rounded-lg p-4 mb-4 text-sm leading-relaxed"
-              style={{
-                border: `1px solid ${theme.border}`,
-                color: theme.subtext,
-              }}
-            >
+            <div className="rounded-lg p-4 mb-4 text-sm leading-relaxed"
+              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}>
               {data.bio}
             </div>
           )}
 
           {/* ── Dev extras ── */}
           {data.track === 'dev' && (githubHandle || data.stack) && (
-            <div
-              className="rounded-lg p-3 mb-4 flex flex-wrap gap-3 text-sm"
-              style={{ border: `1px solid ${theme.border}` }}
-            >
+            <div className="rounded-lg p-3 mb-4 flex flex-wrap gap-3 text-sm"
+              style={{ border: `1px solid ${theme.border}` }}>
               {githubHandle && (
-                <a
-                  href={`https://github.com/${githubHandle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: theme.accent }}
-                >
+                <a href={`https://github.com/${githubHandle}`} target="_blank"
+                  rel="noopener noreferrer" style={{ color: theme.accent }}>
                   🐙 {githubHandle}
                 </a>
               )}
               {data.stack && (
-                <span style={{ color: theme.subtext }}>
-                  🛠 {data.stack}
-                </span>
+                <span style={{ color: theme.subtext }}>🛠 {data.stack}</span>
               )}
             </div>
           )}
 
           {/* ── Marketer extras ── */}
           {data.track === 'marketing' && data.channels && (
-            <div
-              className="rounded-lg p-3 mb-4 text-sm"
-              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}
-            >
+            <div className="rounded-lg p-3 mb-4 text-sm"
+              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}>
               📣 {data.channels}
             </div>
           )}
@@ -382,17 +444,9 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               {Object.entries(data.links)
                 .filter(([, v]) => v)
                 .map(([k, v]) => (
-                  <a
-                    key={k}
-                    href={v}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs px-3 py-1.5 rounded-full font-medium transition-opacity hover:opacity-80"
-                    style={{
-                      border: `1px solid ${theme.border}`,
-                      color: theme.accent,
-                    }}
-                  >
+                  <a key={k} href={v} target="_blank" rel="noopener noreferrer"
+                    className="text-xs px-3 py-1.5 rounded-full font-medium"
+                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}>
                     {k} →
                   </a>
                 ))}
@@ -401,16 +455,9 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Arena ad link ── */}
           {data.ad_id && (
-            <a
-              href={arenaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between rounded-lg p-4 mb-4 text-sm font-medium transition-opacity hover:opacity-80"
-              style={{
-                border: `1px solid ${theme.accent}`,
-                color: theme.accent,
-              }}
-            >
+            <a href={arenaUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-lg p-4 mb-4 text-sm font-medium"
+              style={{ border: `1px solid ${theme.accent}`, color: theme.accent }}>
               <span>⚡ View Live Arena Ad</span>
               <span>→</span>
             </a>
@@ -424,10 +471,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               </p>
               <div className="flex flex-wrap gap-2">
                 {data.badges.map((b, i) => (
-                  <span
-                    key={i}
-                    className={`text-xs px-2 py-1 rounded-full ${theme.badge}`}
-                  >
+                  <span key={i} className={`text-xs px-2 py-1 rounded-full ${theme.badge}`}>
                     {b}
                   </span>
                 ))}
@@ -443,18 +487,13 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               </p>
               <ul className="space-y-2">
                 {data.activity.map((a, i) => (
-                  <li
-                    key={i}
-                    className="flex items-center justify-between text-sm py-2"
-                    style={{ borderBottom: `1px solid ${theme.border}` }}
-                  >
+                  <li key={i} className="flex items-center justify-between text-sm py-2"
+                    style={{ borderBottom: `1px solid ${theme.border}` }}>
                     <span className="flex items-center gap-2">
                       <span>{a.icon}</span>
                       <span style={{ color: theme.subtext }}>{a.label}</span>
                     </span>
-                    <span className="text-xs opacity-40">
-                      {relativeTime(a.created_at)}
-                    </span>
+                    <span className="text-xs opacity-40">{relativeTime(a.created_at)}</span>
                   </li>
                 ))}
               </ul>
@@ -463,19 +502,32 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Share strip ── */}
           <OfficeShareStrip
-            handle={data.handle}
-            name={data.name}
-            track={data.track}
-            accent={theme.accent}
-            border={theme.border}
+            handle={data.handle} name={data.name} track={data.track}
+            accent={theme.accent} border={theme.border}
           />
 
+          {/* ── Next cohort bubble ── */}
+          {data.clock?.next_cohort && (
+            <NextCohortBubble
+              next={data.clock.next_cohort}
+              accent={theme.accent}
+              border={theme.border}
+              subtext={theme.subtext}
+              isInactive={isInactive}
+            />
+          )}
+
           {/* ── Footer ── */}
-          <p className="text-xs opacity-30 mt-6 text-center">
-            {data.clock
-              ? `Day ${data.clock.day} · Week ${data.clock.week} · ${data.clock.week_name} · ${data.cohort}`
-              : data.cohort}
-          </p>
+          <div className="mt-6 text-center space-y-1">
+            <p className="text-xs opacity-30">
+              {data.clock
+                ? `Day ${data.clock.day} · Week ${data.clock.week} · ${data.clock.week_name} · ${data.cohort}`
+                : data.cohort}
+            </p>
+            <p className="text-xs opacity-20">
+              {mounted ? localTime(data.country) : ''} · {tzName}
+            </p>
+          </div>
 
         </div>
       </div>
