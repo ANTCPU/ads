@@ -499,33 +499,61 @@ export async function POST(req: NextRequest) {
     // Days 1–6: open — founding member, current cohort
     // Day 7+:   closed — redirect to next cohort, no registration
     if (day >= 7) {
-      const nextCohort  = getNextCohort();
-      const nextLabel   = nextCohort
-        .replace('-', ' ')
-        .replace(/\b\w/g, c => c.toUpperCase());
+      // ── Clock — DB source of truth, not local EST calc ────────
+let day = 1;
+let cohort = getChallengeCohort(); // fallback only
+let entryOpen = true;
+let nextCohortData: { cohort: string; opens_in_days: number; signups: number } | null = null;
 
-      notifyInternship('intern_closed', {
-        title: '📅 Late Applicant — Routed to Next Cohort',
-        color: DC.grey,
-        fields: [
-          { name: 'Name',        value: cleanName,    inline: true  },
-          { name: 'Track',       value: trackLabel,   inline: true  },
-          { name: 'Country',     value: country,      inline: true  },
-          { name: 'Day',         value: String(day),  inline: true  },
-          { name: 'Next Cohort', value: nextLabel,    inline: true  },
-          { name: 'Email',       value: cleanEmail,   inline: false },
-        ],
-        footer: `Redirected — not registered in ${cohort}`,
-      }).catch(() => {});
+try {
+  const clockRes = await fetch('https://antcpu-ads.vercel.app/api/clock', {
+    cache: 'no-store',
+  });
+  if (clockRes.ok) {
+    const clock = await clockRes.json();
+    day = clock.day ?? 1;
+    cohort = clock.cohort ?? cohort;
+    entryOpen = clock.entry_open ?? true;
+    nextCohortData = clock.next_cohort ?? null;
+  }
+} catch {
+  // Clock fetch failed — fall back to challengeDays.ts
+  day = getChallengeDay();
+}
 
-      return NextResponse.json({
-        closed:      true,
-        day,
-        cohort:      nextCohort,
-        next_cohort: nextCohort,
-        message:     `October 2026 cohort is closed. You're on the ${nextLabel} waitlist.`,
-      }, { status: 200, headers: CORS });
-    }
+// ── Cohort close gate ─────────────────────────────────────
+// Days 1–7: open — founding member window
+// Day 8+:   closed — current cohort underway, route to next
+if (!entryOpen || day >= 8) {
+  const nextCohort = getNextCohort();
+  const nextLabel  = nextCohort
+    .replace('-', ' ')
+    .replace(/\b\w/g, (c: string) => c.toUpperCase());
+
+  notifyInternship('intern_closed', {
+    title: '📅 Late Applicant — Routed to Next Cohort',
+    color: DC.grey,
+    fields: [
+      { name: 'Name',        value: cleanName,    inline: true  },
+      { name: 'Track',       value: trackLabel,   inline: true  },
+      { name: 'Country',     value: country,      inline: true  },
+      { name: 'Day',         value: String(day),  inline: true  },
+      { name: 'Next Cohort', value: nextLabel,    inline: true  },
+      { name: 'Email',       value: cleanEmail,   inline: false },
+    ],
+    footer: `Redirected — not registered in ${cohort}`,
+  }).catch(() => {});
+
+  return NextResponse.json({
+    closed:      true,
+    day,
+    cohort:      nextCohort,
+    next_cohort: nextCohort,
+    signups:     nextCohortData?.signups ?? 0,
+    opens_in_days: nextCohortData?.opens_in_days ?? null,
+    message:     `October 2026 cohort is underway. You're on the ${nextLabel} waitlist.`,
+  }, { status: 200, headers: CORS });
+}
 
     // ── Duplicate check ───────────────────────────────────────
     const { data: existing } = await supabase
