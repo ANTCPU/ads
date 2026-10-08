@@ -1,32 +1,25 @@
 'use client';
 
-{data.ad_id && (
-  <div className="mt-4 p-3 rounded text-sm text-center opacity-60"
-    style={{ border: `1px solid ${theme.border}` }}>
-    ⚡ Share module — wiring next
-  </div>
-)}
-
-
-// Track theme tokens
 const THEMES = {
   dev: {
-    bg: 'var(--office-dev-bg, #0d1117)',
-    accent: 'var(--office-dev-accent, #00e5ff)',
-    border: 'var(--office-dev-border, #1e3a4a)',
-    text: 'var(--office-dev-text, #e6edf3)',
+    bg: '#0d1117',
+    accent: '#00e5ff',
+    border: '#1e3a4a',
+    text: '#e6edf3',
     badge: 'bg-cyan-900 text-cyan-300',
     label: '💻 Developer',
   },
   marketing: {
-    bg: 'var(--office-mktr-bg, #2c1a0e)',
-    accent: 'var(--office-mktr-accent, #e87c2e)',
-    border: 'var(--office-mktr-border, #8b4513)',
-    text: 'var(--office-mktr-text, #fdf3e7)',
+    bg: '#2c1a0e',
+    accent: '#e87c2e',
+    border: '#8b4513',
+    text: '#fdf3e7',
     badge: 'bg-amber-900 text-amber-200',
     label: '📣 Marketer',
   },
-};
+} as const;
+
+type TrackKey = keyof typeof THEMES;
 
 type OfficeData = {
   handle: string;
@@ -34,7 +27,7 @@ type OfficeData = {
   initials: string;
   flag: string;
   color: string;
-  track: 'dev' | 'marketing';
+  track: TrackKey;
   country: string;
   progress_pct: number;
   role_title: string;
@@ -69,7 +62,7 @@ type OfficeData = {
 
 export default function OfficeClient({ data }: { data: OfficeData }) {
   const theme = THEMES[data.track] ?? THEMES.dev;
-  const arenaUrl = `https://antcpu-ads.vercel.app/arena`;
+  const arenaUrl = 'https://antcpu-ads.vercel.app/arena';
 
   return (
     <main
@@ -100,16 +93,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           <span>Progress</span>
           <span style={{ color: theme.accent }}>{data.progress_pct}%</span>
         </div>
-        <div
-          className="h-2 rounded-full"
-          style={{ background: theme.border }}
-        >
+        <div className="h-2 rounded-full" style={{ background: theme.border }}>
           <div
             className="h-2 rounded-full transition-all"
-            style={{
-              width: `${data.progress_pct}%`,
-              background: theme.accent,
-            }}
+            style={{ width: `${data.progress_pct}%`, background: theme.accent }}
           />
         </div>
       </div>
@@ -126,10 +113,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             className="rounded-lg p-3 text-center"
             style={{ border: `1px solid ${theme.border}` }}
           >
-            <div
-              className="text-2xl font-bold"
-              style={{ color: theme.accent }}
-            >
+            <div className="text-2xl font-bold" style={{ color: theme.accent }}>
               {value}
             </div>
             <div className="text-xs opacity-60">{label}</div>
@@ -137,7 +121,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
         ))}
       </div>
 
-      {/* Arena ad link */}
+      {/* Arena link */}
       {data.ad_url && (
         <a
           href={arenaUrl}
@@ -186,29 +170,27 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
       {data.badges.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2">
           {data.badges.map((b, i) => (
-            <span
-              key={i}
-              className={`text-xs px-2 py-1 rounded-full ${theme.badge}`}
-            >
+            <span key={i} className={`text-xs px-2 py-1 rounded-full ${theme.badge}`}>
               {b}
             </span>
           ))}
         </div>
       )}
 
-      {/* Share module */}
+      {/* Share placeholder — wiring next */}
       {data.ad_id && (
-        <ShareModule
-          adId={data.ad_id}
-          context="office"
-        />
+        <div
+          className="mt-4 p-3 rounded text-sm text-center opacity-60"
+          style={{ border: `1px solid ${theme.border}` }}
+        >
+          ⚡ Share module — wiring next
+        </div>
       )}
 
       {/* Clock context */}
       {data.clock && (
         <p className="text-xs opacity-40 mt-6 text-center">
-          Day {data.clock.day} · Week {data.clock.week} · {data.clock.week_name}
-          · {data.cohort}
+          Day {data.clock.day} · Week {data.clock.week} · {data.clock.week_name} · {data.cohort}
         </p>
       )}
     </main>
