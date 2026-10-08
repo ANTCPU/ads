@@ -1,6 +1,12 @@
 'use client';
 
-import { ShareModule } from '@/app/modules/share';
+{data.ad_id && (
+  <div className="mt-4 p-3 rounded text-sm text-center opacity-60"
+    style={{ border: `1px solid ${theme.border}` }}>
+    ⚡ Share module — wiring next
+  </div>
+)}
+
 
 // Track theme tokens
 const THEMES = {
