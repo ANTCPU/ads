@@ -116,7 +116,7 @@ export async function GET(
       )
       .eq('handle', handle)
       .single(),
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/clock`)
+    fetch('https://antcpu-ads.vercel.app/api/clock')
       .then(r => r.json())
       .catch(() => null),
   ]);
