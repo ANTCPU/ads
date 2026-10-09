@@ -65,11 +65,11 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Resolve challenger ────────────────────────────────
     const { data: challenger } = await supabase
-      .from('challengers')
-      .select('id, handle, intern_id, sessions.ip_country')
-      .eq('intern_id', intern_id)
-      .eq('status', 'active')
-      .maybeSingle();
+  .from('challengers')
+  .select('id, handle, intern_id')
+  .eq('intern_id', intern_id)
+  .eq('status', 'active')
+  .maybeSingle();
 
     if (!challenger) return err('Challenger not found', 404);
 
