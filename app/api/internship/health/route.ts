@@ -2,12 +2,15 @@
 // app/api/internship/health/route.ts
 // Central Nervous System — antcpu internship platform
 //
-// v2 (Oct 2026):
-// — /calendar → /clock (source of truth, includes next_cohort)
-// — Fixed field names: days_left_week, days_left_total
-// — Fixed stale intern_id in activity ping
-// — next_cohort block surfaced in AI context
-// — sanitize import added for future message sanitization
+// v3 (Oct 2026):
+// — office_messages counts added (total + 24h)
+// — sessions_active_1h added
+// — badges_total added
+// — session/office/messages route pings added
+// — session: '⏳ pending' replaced with live ping
+// — actions: office + session wire checks added
+// — db block renamed to db_counts for clarity
+// — presence block added to response
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -33,6 +36,7 @@ export async function OPTIONS() {
 }
 
 // ── Route ping ────────────────────────────────────────────────
+
 async function ping(path: string, method = 'GET'): Promise<string> {
   try {
     const r = await fetch(`${BASE}${path}`, {
@@ -49,6 +53,7 @@ async function ping(path: string, method = 'GET'): Promise<string> {
 }
 
 // ── Mood map ──────────────────────────────────────────────────
+
 const MOOD: Record<string, string> = {
   shining:   '🌟',
   none:      '😊',
@@ -66,22 +71,34 @@ export async function GET() {
 
   // ── 2. DB counts — parallel ───────────────────────────────
   const [
-    { count: cCount  },
-    { count: gCount  },
-    { count: seCount },
-    { count: aCount  },
-    { count: sCount  },
-    { count: mCount  },
-    { count: subCount },
+    { count: cCount          },
+    { count: gCount          },
+    { count: seCount         },
+    { count: aCount          },
+    { count: sCount          },
+    { count: mCount          },
+    { count: subCount        },
+    { count: officeCount     },
+    { count: officeCount24h  },
+    { count: sessionsActive1h},
+    { count: badgesTotal     },
+    { count: dmCount         },
   ] = await Promise.all([
-    supabase.from('challengers') .select('*', { count: 'exact', head: true }),
-    supabase.from('gates')       .select('*', { count: 'exact', head: true }),
-    supabase.from('sessions')    .select('*', { count: 'exact', head: true }),
-    supabase.from('activity_log').select('*', { count: 'exact', head: true }),
-    supabase.from('submissions') .select('*', { count: 'exact', head: true }),
-    supabase.from('moods')       .select('*', { count: 'exact', head: true }),
-    supabase.from('submissions') .select('*', { count: 'exact', head: true })
+    supabase.from('challengers')   .select('*', { count: 'exact', head: true }),
+    supabase.from('gates')         .select('*', { count: 'exact', head: true }),
+    supabase.from('sessions')      .select('*', { count: 'exact', head: true }),
+    supabase.from('activity_log')  .select('*', { count: 'exact', head: true }),
+    supabase.from('submissions')   .select('*', { count: 'exact', head: true }),
+    supabase.from('moods')         .select('*', { count: 'exact', head: true }),
+    supabase.from('submissions')   .select('*', { count: 'exact', head: true })
       .eq('status', 'reviewed'),
+    supabase.from('office_messages').select('*', { count: 'exact', head: true }),
+    supabase.from('office_messages').select('*', { count: 'exact', head: true })
+      .gt('created_at', new Date(Date.now() - 86400000).toISOString()),
+    supabase.from('sessions')      .select('*', { count: 'exact', head: true })
+      .gt('last_seen', new Date(Date.now() - 3600000).toISOString()),
+    supabase.from('user_badges')   .select('*', { count: 'exact', head: true }),
+    supabase.from('direct_messages').select('*', { count: 'exact', head: true }),
   ]);
 
   // ── 3. Challengers detail ─────────────────────────────────
@@ -163,17 +180,21 @@ export async function GET() {
   // ── 8. Route pings — parallel ─────────────────────────────
   const [
     rMe, rGates, rCalendar, rActivity,
-    rMoods, rFlags, rProgress, rSubmit, rRegister,
+    rMoods, rFlags, rProgress, rSubmit,
+    rRegister, rSession, rOffice, rMessages,
   ] = await Promise.all([
-    ping('/me?handle=Lawi10'),                       // active oct26 challenger
+    ping('/me?handle=Lawi10'),
     ping('/gates'),
     ping('/calendar'),
-    ping('/activity?intern_id=intern-antcpu-001'),   // ← fixed: real intern_id
+    ping('/activity?intern_id=intern-antcpu-001'),
     ping('/moods'),
     ping('/flags'),
     ping('/progress',  'POST'),
     ping('/submit',    'POST'),
     ping('/register',  'POST'),
+    ping('/session',   'POST'),
+    ping('/office?cohort=october-2026&room=general'),
+    ping('/messages?intern_id=intern-antcpu-001'),
   ]);
 
   // ── 9. Recommended actions ────────────────────────────────
@@ -201,11 +222,19 @@ export async function GET() {
       `${clock.next_cohort.signups} signed up for ${clock.next_cohort.cohort} — ${clock.next_cohort.opens_in_days} days until open`
     );
 
+  if ((officeCount24h ?? 0) <= 4)
+    actions.push('Virtual office has no challenger posts today — seed a standup prompt');
+
+  if ((sessionsActive1h ?? 0) === 0)
+    actions.push('No active sessions in last hour — session ping not yet wired on antcpu.io');
+
   // ── 10. Assemble response ─────────────────────────────────
   const routeValues = [
     rMe, rGates, rCalendar, rActivity,
-    rMoods, rFlags, rProgress, rSubmit, rRegister,
+    rMoods, rFlags, rProgress, rSubmit,
+    rRegister, rSession, rOffice, rMessages,
   ];
+
   const allOk = !routeValues.some(v => v.startsWith('❌'));
 
   return NextResponse.json({
@@ -232,17 +261,31 @@ export async function GET() {
     // ── Next cohort ───────────────────────────────────────
     next_cohort: clock.next_cohort ?? null,
 
-    // ── DB state ──────────────────────────────────────────
-    db: {
-      challengers:    cCount,
-      gates_total:    gCount,
-      gates_unlocked: unlockedGates.length,
-      gates_locked:   lockedGates.length,
-      sessions:       seCount,
-      activity_log:   aCount,
-      submissions:    sCount,
-      reviewed:       subCount,
-      moods:          mCount,
+    // ── DB counts ─────────────────────────────────────────
+    db_counts: {
+      challengers:         cCount,
+      gates_total:         gCount,
+      gates_unlocked:      unlockedGates.length,
+      gates_locked:        lockedGates.length,
+      sessions:            seCount,
+      activity_log:        aCount,
+      submissions:         sCount,
+      reviewed:            subCount,
+      moods:               mCount,
+      office_messages:     officeCount,
+      office_24h:          officeCount24h,
+      sessions_active_1h:  sessionsActive1h,
+      badges_total:        badgesTotal,
+      direct_messages:     dmCount,
+    },
+
+    // ── Presence ──────────────────────────────────────────
+    presence: {
+      sessions_active_1h:  sessionsActive1h ?? 0,
+      office_posts_today:  officeCount24h   ?? 0,
+      office_total:        officeCount      ?? 0,
+      dms_total:           dmCount          ?? 0,
+      virtual_office_live: (officeCount     ?? 0) > 0,
     },
 
     // ── Cohort overview ───────────────────────────────────
@@ -285,6 +328,9 @@ export async function GET() {
         `Mood: ${Object.entries(moodCounts).map(([f, n]) => `${MOOD[f]}${n}`).join(' ')}`,
         `Today's gate: ${todayGate?.label ?? 'none'} (+${todayGate?.pct ?? 0}%)`,
         `Week closes: ${clock.days_left_week} days`,
+        `Office: ${officeCount ?? 0} messages · ${officeCount24h ?? 0} today`,
+        `Sessions active 1h: ${sessionsActive1h ?? 0}`,
+        `Badges total: ${badgesTotal ?? 0}`,
         clock.next_cohort
           ? `Next cohort: ${clock.next_cohort.cohort} · ${clock.next_cohort.opens_in_days}d · ${clock.next_cohort.signups} signed up`
           : 'Next cohort: not configured',
@@ -308,7 +354,9 @@ export async function GET() {
       progress: rProgress,
       submit:   rSubmit,
       register: rRegister,
-      session:  '⏳ pending',
+      session:  rSession,
+      office:   rOffice,
+      messages: rMessages,
     },
 
   }, { headers: CORS });
