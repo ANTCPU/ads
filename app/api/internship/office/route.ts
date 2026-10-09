@@ -8,14 +8,15 @@
 // community_posts = async feed, day-gated
 // office_messages = presence-aware room chat, always open
 //
-// Auth: intern_id validated against challengers table
+// Auth: handle OR intern_id validated against challengers table
 // System posts: author_type = 'system' blocked on POST
 //               written directly via SQL only
 //
-// v1 (Oct 2026) — new file
+// v2 (Oct 2026) — accept handle OR intern_id on POST
+//               — status filter removed for mentors + leads
 // ============================================================
 
-import { createClient }         from '@supabase/supabase-js';
+import { createClient }              from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 const supabase = createClient(
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       parseInt(params.get('limit') || String(DEFAULT_LIMIT)),
       MAX_LIMIT
     );
-    const before = params.get('before') || null; // cursor for pagination
+    const before = params.get('before') || null;
 
     if (!cohort) {
       return NextResponse.json(
@@ -85,7 +86,6 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    // Cursor pagination — fetch messages before this timestamp
     if (before) {
       query = query.lt('created_at', before);
     }
@@ -99,7 +99,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Return in ascending order for display (newest last)
     const messages = (data ?? []).reverse();
 
     return NextResponse.json(
@@ -107,7 +106,7 @@ export async function GET(req: NextRequest) {
         messages,
         room,
         cohort,
-        count: messages.length,
+        count:    messages.length,
         has_more: messages.length === limit,
       },
       { headers: CORS }
@@ -128,17 +127,34 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       cohort,
-      room      = 'general',
+      room        = 'general',
       intern_id,
+      author_id,
       content,
       author_type = 'challenger',
     } = body;
 
     // ── Validate required fields ──────────────────────────────
-    if (!cohort)    return NextResponse.json({ error: 'cohort required' },    { status: 400, headers: CORS });
-    if (!intern_id) return NextResponse.json({ error: 'intern_id required' }, { status: 400, headers: CORS });
+    // Accept handle via author_id OR intern_id — either works
+    const lookup = intern_id || author_id;
+
+    if (!cohort) {
+      return NextResponse.json(
+        { error: 'cohort required' },
+        { status: 400, headers: CORS }
+      );
+    }
+    if (!lookup) {
+      return NextResponse.json(
+        { error: 'intern_id or author_id required' },
+        { status: 400, headers: CORS }
+      );
+    }
     if (!content || String(content).trim().length < 1) {
-      return NextResponse.json({ error: 'content required' }, { status: 400, headers: CORS });
+      return NextResponse.json(
+        { error: 'content required' },
+        { status: 400, headers: CORS }
+      );
     }
 
     // ── Block system author types from client ─────────────────
@@ -152,12 +168,13 @@ export async function POST(req: NextRequest) {
     // ── Validate room ─────────────────────────────────────────
     const cleanRoom = VALID_ROOMS.has(room) ? room : 'general';
 
-    // ── Resolve challenger — auth + get display name ──────────
+    // ── Resolve challenger — accept handle OR intern_id ───────
+    // Status filter removed — mentors + leads must post too
+    const isInternId = lookup.startsWith('intern-');
     const { data: challenger } = await supabase
       .from('challengers')
       .select('id, intern_id, first_name, handle, track, cohort, flag')
-      .eq('intern_id', intern_id)
-      .eq('status', 'active')
+      .eq(isInternId ? 'intern_id' : 'handle', lookup)
       .maybeSingle();
 
     if (!challenger) {
@@ -176,11 +193,17 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Track room check — dev room = dev track only ──────────
-    if (cleanRoom === 'dev'       && challenger.track !== 'dev')       {
-      return NextResponse.json({ error: 'Dev room is for dev track only' },       { status: 403, headers: CORS });
+    if (cleanRoom === 'dev' && challenger.track !== 'dev') {
+      return NextResponse.json(
+        { error: 'Dev room is for dev track only' },
+        { status: 403, headers: CORS }
+      );
     }
     if (cleanRoom === 'marketing' && challenger.track !== 'marketing') {
-      return NextResponse.json({ error: 'Marketing room is for marketing track only' }, { status: 403, headers: CORS });
+      return NextResponse.json(
+        { error: 'Marketing room is for marketing track only' },
+        { status: 403, headers: CORS }
+      );
     }
 
     // ── Sanitise content ──────────────────────────────────────
@@ -192,8 +215,8 @@ export async function POST(req: NextRequest) {
       .insert({
         cohort:      cohort,
         room:        cleanRoom,
-        author_id:   intern_id,
-        author_name: challenger.handle ?? challenger.first_name ?? intern_id,
+        author_id:   challenger.intern_id,
+        author_name: challenger.handle ?? challenger.first_name ?? lookup,
         author_type: 'challenger',
         track:       challenger.track ?? null,
         content:     cleanContent,
