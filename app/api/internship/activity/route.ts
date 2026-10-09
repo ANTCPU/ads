@@ -41,7 +41,7 @@ export async function OPTIONS() {
 // ── Challenger resolver ───────────────────────────────────────
 // Accepts any of the four lookup keys.
 // Returns { id, intern_id, challenger_num, handle } or null.
-
+// Status filter removed — mentors + leads must resolve too.
 async function resolveChallenger(params: {
   intern_id?: string | null;
   handle?:    string | null;
@@ -50,8 +50,7 @@ async function resolveChallenger(params: {
 }) {
   let query = supabase
     .from('challengers')
-    .select('id, intern_id, challenger_num, handle')
-    .eq('status', 'active');
+    .select('id, intern_id, challenger_num, handle');
 
   if (params.intern_id) query = query.eq('intern_id', params.intern_id);
   else if (params.handle) query = query.eq('handle', params.handle);
@@ -64,11 +63,9 @@ async function resolveChallenger(params: {
 }
 
 // ── GET ───────────────────────────────────────────────────────
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-
     const intern_id = searchParams.get('intern_id');
     const handle    = searchParams.get('handle');
     const num       = searchParams.get('num');
@@ -110,11 +107,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       {
-        activity:        activity || [],
-        total:           activity?.length || 0,
-        challenger_num:  challenger.challenger_num,
-        handle:          challenger.handle,
-        intern_id:       challenger.intern_id,
+        activity:       activity || [],
+        total:          activity?.length || 0,
+        challenger_num: challenger.challenger_num,
+        handle:         challenger.handle,
+        intern_id:      challenger.intern_id,
         limit,
         offset,
       },
@@ -132,11 +129,9 @@ export async function GET(req: NextRequest) {
 }
 
 // ── POST ──────────────────────────────────────────────────────
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-
     const {
       intern_id, handle, num, email,
       type, label, icon, gate_id, points,
