@@ -3,40 +3,50 @@
 // GET — Daily nudge cron for internship challengers
 //
 // Schedule: daily at 10:00 UTC (vercel.json)
-// Secured:  CRON_SECRET header — Vercel passes automatically
+// Secured:  CRON_SECRET header — Vercel injects automatically
 //
-// Architecture:
-//   This is a thin orchestrator — it does NOT build emails.
-//   All email logic lives in /api/internship/nudge.
-//   This route: checks budget → gets tiers → routes each
-//   challenger to the right channel → logs summary.
+// Architecture — thin orchestrator:
+//   This route does NOT build emails or notification copy.
+//   All email logic lives in /api/internship/nudge (545 lines).
+//   This route: checks budget → gets tiers from herald →
+//   decides channel per challenger → delegates → logs.
 //
 // Channel routing per challenger:
-//   email_ok = true  + send_count < 3 OR open_count > 0
-//     → POST /api/internship/nudge  (email + activity log)
+//   email_ok = true, open_count > 0 OR send_count < 3
+//     → POST /api/internship/nudge  (full email + activity log)
 //   email_ok = false OR (send_count >= 3 AND open_count = 0)
-//     → INSERT app_notifications    (in-app only)
-//   unsubscribed_at IS NOT NULL OR bounced
-//     → skip entirely
+//     → INSERT app_notifications    (in-app bell only)
+//   unsubscribed_at IS NOT NULL OR bounce_count >= 2
+//     → skip entirely — fully opted out
 //
-// Priority order (email budget consumed in this order):
-//   1. hard_d1     — registered, never returned (5%)
-//   2. hard_d2     — profile done, never touched Arena (10%)
+// Priority order (email budget consumed top-down):
+//   1. hard_d1      — registered, never returned (5%)
+//   2. hard_d2      — profile done, never touched Arena (10%)
 //   3. week2_unlock — Week 1 done, Week 2 just opened (25%+)
-//   4. soft        — stalled 15-24%, >48hrs gone
-//   5. light       — active <25%, seen <24hrs → app only, no email
+//   4. soft         — stalled 15–24%, >48hrs gone
+//   5. light        — active <25%, seen <24hrs
+//                     → app_notifications only, never email
 //
-// Dedup: challengers.nudge_sent_at — skip if nudged < 7 days ago
-// Budget: EMAIL_LIMITS.DAILY_TRANSACTIONAL from emailGate.ts
+// Dedup: challengers.nudge_sent_at
+//   Skip if nudged within NUDGE_COOLDOWN_DAYS (7).
+//   Seeded to now() before first deploy to protect budget.
+//
+// Budget: EMAIL_LIMITS.DAILY_TRANSACTIONAL (30 on free plan)
+//   Upgrade Resend plan → update EMAIL_LIMITS → done.
+//   Mid-queue budget exhaustion → remaining go to app_only.
+//
+// Admin visibility:
+//   Every run seeds notifications table (Antony's bell).
+//   Fatal errors also seed notifications + Discord.
 //
 // v2 (Oct 2026):
-//   — Full rewrite — previous version never sent emails (bug)
-//   — Routes to app_notifications for non-email users
-//   — Checks email_prefs before every send
-//   — Dedup via challengers.nudge_sent_at (not email_sends)
-//   — Calls /api/internship/nudge — no duplicate email logic
-//   — Seeds admin notification on completion
-//   — CORS + OPTIONS + numbered steps + file standard applied
+//   — Full rewrite — v1 never sent emails (broken loop bug)
+//   — Delegates to /api/internship/nudge — no duplicate logic
+//   — Channel routing via email_prefs (open_count, send_count)
+//   — Dedup via challengers.nudge_sent_at not email_sends
+//   — app_notifications for challengers, notifications for admin
+//   — try/catch on all Supabase writes — no .catch() chaining
+//   — CORS + OPTIONS + numbered steps + full file standard
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -52,14 +62,16 @@ const supabase = createClient(
 
 // ─── Constants ────────────────────────────────────────────────
 const BASE_URL    = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app';
-const CRON_SECRET = process.env.CRON_SECRET || '';
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'antcpu@gmail.com';
+const CRON_SECRET = process.env.CRON_SECRET         || '';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL         || 'antcpu@gmail.com';
 
-// 7 days — minimum gap between nudges per challenger
+// Minimum days between nudges per challenger
+// Seeded to now() on first deploy — protects budget on day one
 const NUDGE_COOLDOWN_DAYS = 7;
 
-// Threshold: 3+ sends with 0 opens = switch to app-only
-const APP_ONLY_SEND_THRESHOLD = 3;
+// After this many sends with zero opens → switch to app_only
+// Inbox ignorer — email is wasted, use the bell instead
+const APP_ONLY_THRESHOLD = 3;
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -70,45 +82,54 @@ const CORS = {
 
 // ─── Types ────────────────────────────────────────────────────
 type NudgeItem = {
-  email:       string;
-  intern_id:   string;
-  handle:      string;
-  first_name:  string;
-  track:       string;
+  email:        string;
+  intern_id:    string;
+  handle:       string;
+  first_name:   string;
+  track:        string;
   progress_pct: number;
-  nudge_type:  string;
+  nudge_type:   string;
   nudge_sent_at: string | null;
-  country:     string;
 };
 
-type ChannelDecision = 'email' | 'app_only' | 'skip';
-
-// ─── Helpers ──────────────────────────────────────────────────
-const ok  = (data: object)         => NextResponse.json(data,           { headers: CORS });
-const err = (msg: string, s = 500) => NextResponse.json({ error: msg }, { status: s, headers: CORS });
-
-// Decide channel based on email_prefs behaviour data
-function resolveChannel(pref: {
+type EmailPref = {
   email_ok:        boolean;
   unsubscribed_at: string | null;
   bounce_count:    number;
   open_count:      number;
   send_count:      number;
-} | null): ChannelDecision {
-  if (!pref) return 'email'; // no pref row = new user, default to email
+} | null;
 
-  // Hard stops — never contact
-  if (pref.unsubscribed_at)                                    return 'skip';
-  if (!pref.email_ok && pref.bounce_count >= 2)                return 'skip';
+type Channel = 'email' | 'app_only' | 'skip';
 
-  // Soft stop — email blocked, app only
-  if (!pref.email_ok)                                          return 'app_only';
+// ─── Helpers ──────────────────────────────────────────────────
+const ok  = (data: object)         => NextResponse.json(data,           { headers: CORS });
+const err = (msg: string, s = 500) => NextResponse.json({ error: msg }, { status: s, headers: CORS });
 
-  // Behavioural: 3+ sends, zero opens = inbox ignorer → app only
-  if (pref.send_count >= APP_ONLY_SEND_THRESHOLD
-    && pref.open_count === 0)                                  return 'app_only';
-
+// Resolve send channel from email_prefs behaviour data.
+// No pref row = brand new user → default to email.
+function resolveChannel(pref: EmailPref): Channel {
+  if (!pref)                                                    return 'email';
+  if (pref.unsubscribed_at)                                     return 'skip';
+  if (!pref.email_ok && pref.bounce_count >= 2)                 return 'skip';
+  if (!pref.email_ok)                                           return 'app_only';
+  if (pref.send_count >= APP_ONLY_THRESHOLD && pref.open_count === 0)
+                                                                return 'app_only';
   return 'email';
+}
+
+// Build a NudgeItem array from a herald tier
+function buildItems(tier: any[], nudge_type: string): NudgeItem[] {
+  return (tier || []).map((c: any) => ({
+    email:         c.email,
+    intern_id:     c.intern_id    || '',
+    handle:        c.handle       || c.first_name || 'challenger',
+    first_name:    c.first_name   || 'there',
+    track:         c.track        || 'dev',
+    progress_pct:  c.progress_pct || 0,
+    nudge_type,
+    nudge_sent_at: c.nudge_sent_at || null,
+  }));
 }
 
 // ─── OPTIONS ──────────────────────────────────────────────────
@@ -119,7 +140,7 @@ export async function OPTIONS() {
 // ─── GET ──────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
 
-  // ── 1. Auth — Vercel cron passes CRON_SECRET as Bearer ────
+  // ── 1. Auth — Vercel cron injects CRON_SECRET as Bearer ───
   const authHeader = req.headers.get('authorization');
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
     return err('Unauthorized', 401);
@@ -131,15 +152,17 @@ export async function GET(req: NextRequest) {
   try {
 
     // ── 2. Check daily email budget ───────────────────────────
+    // Count emails already sent today across ALL routes
+    // (welcome, weekly, nudge — all share the same 30/day pool)
     const { count: sentToday } = await supabase
       .from('email_sends')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'sent')
       .gte('created_at', `${today}T00:00:00.000Z`);
 
-    const alreadySent  = sentToday || 0;
-    const dailyBudget  = EMAIL_LIMITS.DAILY_TRANSACTIONAL;
-    let   remaining    = Math.max(0, dailyBudget - alreadySent);
+    const alreadySent = sentToday  || 0;
+    const dailyBudget = EMAIL_LIMITS.DAILY_TRANSACTIONAL;
+    let   remaining   = Math.max(0, dailyBudget - alreadySent);
 
     if (remaining === 0) {
       await notifyDiscord('', 'internship', {
@@ -152,7 +175,7 @@ export async function GET(req: NextRequest) {
         ],
         footer:    `cron/nudge · ${today}`,
         timestamp: true,
-      }).catch(() => {});
+      });
 
       return ok({
         ok:         true,
@@ -164,7 +187,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── 3. Get nudge tiers from herald ────────────────────────
+    // ── 3. Fetch nudge tiers from herald ──────────────────────
+    // Herald computes tiers from challengers table in real time
     const heraldRes = await fetch(`${BASE_URL}/api/herald`, {
       headers: { 'Content-Type': 'application/json' },
       cache:   'no-store',
@@ -174,31 +198,17 @@ export async function GET(req: NextRequest) {
       throw new Error(`Herald fetch failed: ${heraldRes.status}`);
     }
 
-    const heraldData  = await heraldRes.json();
-    const internship  = heraldData.internship;
+    const { internship } = await heraldRes.json();
 
     if (!internship) {
       return ok({ ok: true, sent: 0, reason: 'no_internship_data' });
     }
 
     // ── 4. Build priority queue — email tiers only ────────────
-    // light tier handled separately — always app_only, no email
+    // light tier is handled separately — always app_only
     const cooldownCutoff = new Date(
-      Date.now() - NUDGE_COOLDOWN_DAYS * 86400000
+      Date.now() - NUDGE_COOLDOWN_DAYS * 86_400_000
     ).toISOString();
-
-    const buildItems = (tier: any[], nudge_type: string): NudgeItem[] =>
-      (tier || []).map((c: any) => ({
-        email:        c.email,
-        intern_id:    c.intern_id,
-        handle:       c.handle       || c.first_name || 'challenger',
-        first_name:   c.first_name   || 'there',
-        track:        c.track        || 'dev',
-        progress_pct: c.progress_pct || 0,
-        nudge_type,
-        nudge_sent_at: c.nudge_sent_at || null,
-        country:      c.country       || '',
-      }));
 
     const queue: NudgeItem[] = [
       ...buildItems(internship.hard_d1,      'hard_d1'),      // P1
@@ -208,27 +218,27 @@ export async function GET(req: NextRequest) {
     ];
 
     // ── 5. Process queue ──────────────────────────────────────
-    let emailSent  = 0;
-    let appSent    = 0;
-    let skipped    = 0;
-    const errors:  string[] = [];
+    let emailSent = 0;
+    let appSent   = 0;
+    let skipped   = 0;
+    const errors: string[] = [];
 
     for (const item of queue) {
 
-      // ── 5a. Dedup — nudged within cooldown window ──────────
+      // ── 5a. Dedup — skip if nudged within cooldown ─────────
       if (item.nudge_sent_at && item.nudge_sent_at > cooldownCutoff) {
         skipped++;
         continue;
       }
 
-      // ── 5b. Read email_prefs for this challenger ───────────
+      // ── 5b. Read email_prefs — resolve channel ─────────────
       const { data: pref } = await supabase
         .from('email_prefs')
         .select('email_ok, unsubscribed_at, bounce_count, open_count, send_count')
         .eq('email', item.email)
         .maybeSingle();
 
-      const channel = resolveChannel(pref);
+      const channel = resolveChannel(pref as EmailPref);
 
       // ── 5c. Skip — fully opted out ─────────────────────────
       if (channel === 'skip') {
@@ -238,9 +248,8 @@ export async function GET(req: NextRequest) {
 
       // ── 5d. App only — inbox ignorer or email blocked ──────
       if (channel === 'app_only') {
-        await supabase
-          .from('app_notifications')
-          .insert({
+        try {
+          await supabase.from('app_notifications').insert({
             email:        item.email,
             handle:       item.handle,
             type:         'nudge',
@@ -251,20 +260,17 @@ export async function GET(req: NextRequest) {
                             : `${BASE_URL}/dev`,
             action_label: 'Continue →',
             cohort:       internship.cohort,
-            lang:         pref?.email_ok !== undefined ? 'en' : 'en',
-          })
-          .catch(() => {});
-
-        appSent++;
+            lang:         'en',
+          });
+          appSent++;
+        } catch { /* silent — non-critical */ }
         continue;
       }
 
-      // ── 5e. Email — within budget ──────────────────────────
+      // ── 5e. Budget exhausted mid-queue → app_only fallback ─
       if (remaining <= 0) {
-        // Budget hit mid-queue — remaining go to app_only
-        await supabase
-          .from('app_notifications')
-          .insert({
+        try {
+          await supabase.from('app_notifications').insert({
             email:        item.email,
             handle:       item.handle,
             type:         'nudge',
@@ -273,15 +279,17 @@ export async function GET(req: NextRequest) {
             action_url:   `${BASE_URL}/dev`,
             action_label: 'Continue →',
             cohort:       internship.cohort,
-          })
-          .catch(() => {});
-
-        appSent++;
+            lang:         'en',
+          });
+          appSent++;
+        } catch { /* silent — non-critical */ }
         continue;
       }
 
+      // ── 5f. Email — delegate to internship/nudge ──────────
+      // internship/nudge owns: email build, heraldSend,
+      // recordEmailSent, logEmailSend, activity_log, Discord
       try {
-        // ── 5f. POST to internship/nudge — owns email logic ───
         const nudgeRes = await fetch(`${BASE_URL}/api/internship/nudge`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -292,8 +300,8 @@ export async function GET(req: NextRequest) {
         });
 
         if (!nudgeRes.ok) {
-          const nudgeErr = await nudgeRes.json().catch(() => ({}));
-          throw new Error(nudgeErr?.error || `nudge POST ${nudgeRes.status}`);
+          const body = await nudgeRes.json().catch(() => ({}));
+          throw new Error((body as any)?.error || `nudge POST ${nudgeRes.status}`);
         }
 
         emailSent++;
@@ -305,12 +313,12 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── 6. Light tier — always app_only, no email ─────────────
+    // ── 6. Light tier — always app_only, never email ──────────
+    // Active challengers seen in last 24hrs — gentle bell only
     const lightTier = internship.light || [];
     for (const c of lightTier) {
-      await supabase
-        .from('app_notifications')
-        .insert({
+      try {
+        await supabase.from('app_notifications').insert({
           email:        c.email,
           handle:       c.handle || c.first_name,
           type:         'nudge',
@@ -321,49 +329,47 @@ export async function GET(req: NextRequest) {
                           : `${BASE_URL}/dev`,
           action_label: 'Continue →',
           cohort:       internship.cohort,
-        })
-        .catch(() => {});
-
-      appSent++;
+          lang:         'en',
+        });
+        appSent++;
+      } catch { /* silent — non-critical */ }
     }
 
-    // ── 7. Seed admin notification — ops visibility ────────────
-    const totalProcessed = emailSent + appSent + skipped;
-    await supabase
-      .from('notifications')
-      .insert({
+    // ── 7. Seed admin notification — your ops bell ────────────
+    try {
+      await supabase.from('notifications').insert({
         email:   ADMIN_EMAIL,
         type:    'info',
-        title:   `📧 Nudge Cron — ${emailSent} emails, ${appSent} in-app`,
-        message: `Queue: ${queue.length} email + ${lightTier.length} light. ` +
-                 `Sent: ${emailSent} email, ${appSent} app. ` +
-                 `Skipped: ${skipped}. Budget: ${alreadySent + emailSent}/${dailyBudget}. ` +
-                 (errors.length ? `Errors: ${errors.length}.` : 'No errors.'),
+        title:   `📧 Nudge Cron — ${emailSent} emails · ${appSent} in-app`,
+        message: `Queue: ${queue.length} + ${lightTier.length} light. ` +
+                 `Email: ${emailSent}. App: ${appSent}. Skipped: ${skipped}. ` +
+                 `Budget: ${alreadySent + emailSent}/${dailyBudget}. ` +
+                 (errors.length ? `Errors: ${errors.length}.` : 'Clean run.'),
         cohort:  internship.cohort,
         read:    false,
-      })
-      .catch(() => {});
+      });
+    } catch { /* silent — non-critical */ }
 
     // ── 8. Discord summary ─────────────────────────────────────
     await notifyDiscord('', 'internship', {
       title:  `📧 Nudge Cron — ${emailSent} sent`,
       color:  emailSent > 0 ? DC.green : DC.grey,
       fields: [
-        { name: 'Email Sent',  value: `${emailSent}`,                        inline: true },
-        { name: 'In-App',      value: `${appSent}`,                          inline: true },
-        { name: 'Skipped',     value: `${skipped}`,                          inline: true },
+        { name: 'Email Sent',  value: `${emailSent}`,                         inline: true },
+        { name: 'In-App',      value: `${appSent}`,                           inline: true },
+        { name: 'Skipped',     value: `${skipped}`,                           inline: true },
         { name: 'Budget Used', value: `${alreadySent + emailSent}/${dailyBudget}`, inline: true },
-        { name: 'Remaining',   value: `${remaining}`,                        inline: true },
-        { name: 'Queue',       value: `${totalProcessed} total`,             inline: true },
+        { name: 'Remaining',   value: `${remaining}`,                         inline: true },
+        { name: 'Queue',       value: `${queue.length} + ${lightTier.length} light`, inline: true },
         ...(errors.length > 0 ? [{
-          name:   'Errors',
+          name:   `Errors (${errors.length})`,
           value:  errors.slice(0, 5).join('\n'),
           inline: false,
         }] : []),
       ],
       footer:    `cron/nudge · ${today}`,
       timestamp: true,
-    }).catch(() => {});
+    });
 
     // ── 9. Return summary ──────────────────────────────────────
     return ok({
@@ -385,16 +391,15 @@ export async function GET(req: NextRequest) {
     console.error('[cron/nudge] fatal error:', message);
 
     // Seed admin notification on fatal error
-    await supabase
-      .from('notifications')
-      .insert({
+    try {
+      await supabase.from('notifications').insert({
         email:   ADMIN_EMAIL,
         type:    'alert',
         title:   '🔴 Nudge Cron — Fatal Error',
         message: message,
         read:    false,
-      })
-      .catch(() => {});
+      });
+    } catch { /* silent */ }
 
     await notifyDiscord('', 'internship', {
       title:     '🔴 Nudge Cron — Fatal Error',
@@ -402,7 +407,7 @@ export async function GET(req: NextRequest) {
       fields:    [{ name: 'Error', value: message, inline: false }],
       footer:    `cron/nudge · ${startedAt}`,
       timestamp: true,
-    }).catch(() => {});
+    });
 
     return err(message);
   }
