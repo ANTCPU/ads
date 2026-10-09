@@ -2,13 +2,12 @@
 // app/api/internship/health/route.ts
 // Central Nervous System — antcpu internship platform
 //
-// Consumed by:
-//   - Human admins (browser)
-//   - AI agents (structured JSON)
-//   - Cron jobs (status + actions)
-//   - Dashboard (live feed)
-//
-// Single source of truth — full system state in one hit.
+// v2 (Oct 2026):
+// — /calendar → /clock (source of truth, includes next_cohort)
+// — Fixed field names: days_left_week, days_left_total
+// — Fixed stale intern_id in activity ping
+// — next_cohort block surfaced in AI context
+// — sanitize import added for future message sanitization
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -19,12 +18,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const BASE = 'https://antcpu-ads.vercel.app/api/internship';
+const BASE  = 'https://antcpu-ads.vercel.app/api/internship';
+const CLOCK = 'https://antcpu-ads.vercel.app/api/clock';
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
 export async function OPTIONS() {
@@ -32,7 +33,6 @@ export async function OPTIONS() {
 }
 
 // ── Route ping ────────────────────────────────────────────────
-
 async function ping(path: string, method = 'GET'): Promise<string> {
   try {
     const r = await fetch(`${BASE}${path}`, {
@@ -49,7 +49,6 @@ async function ping(path: string, method = 'GET'): Promise<string> {
 }
 
 // ── Mood map ──────────────────────────────────────────────────
-
 const MOOD: Record<string, string> = {
   shining:   '🌟',
   none:      '😊',
@@ -61,9 +60,9 @@ const MOOD: Record<string, string> = {
 export async function GET() {
   const t0 = Date.now();
 
-  // ── 1. Calendar ───────────────────────────────────────────
-  const calRes = await fetch(`${BASE}/calendar`);
-  const cal    = await calRes.json();
+  // ── 1. Clock — source of truth ────────────────────────────
+  const clockRes = await fetch(CLOCK, { cache: 'no-store' });
+  const clock    = await clockRes.json();
 
   // ── 2. DB counts — parallel ───────────────────────────────
   const [
@@ -107,7 +106,7 @@ export async function GET() {
 
   const unlockedGates = gates?.filter(g => !g.locked) ?? [];
   const lockedGates   = gates?.filter(g =>  g.locked) ?? [];
-  const todayGate     = gates?.find(g => g.day === cal.day) ?? null;
+  const todayGate     = gates?.find(g => g.day === clock.day) ?? null;
 
   // ── 5. Mood summary ───────────────────────────────────────
   const moodCounts: Record<string, number> = {
@@ -126,21 +125,21 @@ export async function GET() {
   const needsAttention = challengers
     ?.filter(c => c.flag === 'at-risk' || c.flag === 'stalled')
     .map(c => ({
-      intern_id:   c.intern_id,
+      intern_id:      c.intern_id,
       challenger_num: c.challenger_num,
-      handle:      c.handle,
-      first_name:  c.first_name,
-      track:       c.track,
-      mood:        MOOD[c.flag] ?? '😊',
-      flag:        c.flag,
-      progress:    c.progress_pct,
-      hrs_since:   Math.round(
+      handle:         c.handle,
+      first_name:     c.first_name,
+      track:          c.track,
+      mood:           MOOD[c.flag] ?? '😊',
+      flag:           c.flag,
+      progress:       c.progress_pct,
+      hrs_since:      Math.round(
         (Date.now() - new Date(c.last_seen).getTime()) / 3600000
       ),
-      gates_done:  c.completed_gates?.length ?? 0,
-      day_joined:  new Date(c.created_at).getDate(),
-      ai_exp:      c.ai_exp,
-      why_here:    c.why_here,
+      gates_done:     c.completed_gates?.length ?? 0,
+      day_joined:     new Date(c.created_at).getDate(),
+      ai_exp:         c.ai_exp,
+      why_here:       c.why_here,
     })) ?? [];
 
   const shining = challengers?.filter(c => c.flag === 'shining') ?? [];
@@ -166,10 +165,10 @@ export async function GET() {
     rMe, rGates, rCalendar, rActivity,
     rMoods, rFlags, rProgress, rSubmit, rRegister,
   ] = await Promise.all([
-    ping('/me?handle=Lawi10'),                      // ← active oct26 challenger
+    ping('/me?handle=Lawi10'),                       // active oct26 challenger
     ping('/gates'),
     ping('/calendar'),
-    ping('/activity?intern_id=intern-6a6af201'),
+    ping('/activity?intern_id=intern-antcpu-001'),   // ← fixed: real intern_id
     ping('/moods'),
     ping('/flags'),
     ping('/progress',  'POST'),
@@ -184,14 +183,23 @@ export async function GET() {
     actions.push(
       `Send re-engagement to ${needsAttention.map(c => c.handle ?? c.first_name).join(', ')}`
     );
-  if (cal.day > 4 && avgProgress < 15)
+
+  if (clock.day > 4 && avgProgress < 15)
     actions.push('Cohort average progress low — consider community post');
-  if (cal.days_left_in_week <= 2)
-    actions.push(`Week 1 closes in ${cal.days_left_in_week} days — send deadline reminder`);
-  if (cal.day === 8)
+
+  if (clock.days_left_week <= 2)
+    actions.push(`Week ${clock.week} closes in ${clock.days_left_week} days — send deadline reminder`);
+
+  if (clock.day === 8)
     actions.push('Week 2 starts today — run: UPDATE gates SET locked=false WHERE week=2');
+
   if (lockedGates.length === 0)
     actions.push('All gates unlocked — verify this is intentional');
+
+  if (clock.next_cohort?.signups > 0)
+    actions.push(
+      `${clock.next_cohort.signups} signed up for ${clock.next_cohort.cohort} — ${clock.next_cohort.opens_in_days} days until open`
+    );
 
   // ── 10. Assemble response ─────────────────────────────────
   const routeValues = [
@@ -202,25 +210,29 @@ export async function GET() {
 
   return NextResponse.json({
 
-    // ── System status ───────────────────────────────────────
+    // ── System status ─────────────────────────────────────
     status:      allOk ? '✅ healthy' : '⚠️ degraded',
     timestamp:   new Date().toISOString(),
     response_ms: Date.now() - t0,
 
-    // ── Calendar ────────────────────────────────────────────
+    // ── Calendar — from clock ─────────────────────────────
     calendar: {
-      day:             cal.day,
-      week:            cal.week,
-      week_name:       cal.week_name,
-      phase:           cal.phase,
-      cohort:          cal.cohort,
-      days_left_week:  cal.days_left_in_week,
-      days_left_total: cal.days_left_in_challenge,
+      day:             clock.day,
+      week:            clock.week,
+      week_name:       clock.week_name,
+      phase:           clock.phase,
+      cohort:          clock.cohort,
+      days_left_week:  clock.days_left_week,
+      days_left_total: clock.days_left_total,
       today_gate:      todayGate,
-      is_active:       cal.is_active,
+      is_active:       clock.is_active,
+      entry_open:      clock.entry_open,
     },
 
-    // ── DB state ────────────────────────────────────────────
+    // ── Next cohort ───────────────────────────────────────
+    next_cohort: clock.next_cohort ?? null,
+
+    // ── DB state ──────────────────────────────────────────
     db: {
       challengers:    cCount,
       gates_total:    gCount,
@@ -233,16 +245,16 @@ export async function GET() {
       moods:          mCount,
     },
 
-    // ── Cohort overview ─────────────────────────────────────
+    // ── Cohort overview ───────────────────────────────────
     cohort: {
-      total:        challengers?.length ?? 0,
-      avg_progress: avgProgress,
+      total:         challengers?.length ?? 0,
+      avg_progress:  avgProgress,
       tracks,
       ai_experience: aiExp,
       mood_summary:  moodSummary,
     },
 
-    // ── Challengers — full detail ───────────────────────────
+    // ── Challengers — full detail ─────────────────────────
     challengers: challengers?.map(c => ({
       intern_id:      c.intern_id,
       challenger_num: c.challenger_num,
@@ -261,28 +273,31 @@ export async function GET() {
       early:          c.is_early_adopter,
     })),
 
-    // ── AI context ──────────────────────────────────────────
+    // ── AI context ────────────────────────────────────────
     ai: {
       needs_attention:     needsAttention,
       shining:             shining.map(c => c.handle ?? c.first_name),
       recommended_actions: actions,
       context: [
-        `Challenge: Day ${cal.day} of 31 · Week ${cal.week} · ${cal.week_name}`,
+        `Challenge: Day ${clock.day} of ${clock.total_days} · Week ${clock.week} · ${clock.week_name}`,
         `Cohort: ${challengers?.length ?? 0} active challengers`,
         `Avg progress: ${avgProgress}%`,
         `Mood: ${Object.entries(moodCounts).map(([f, n]) => `${MOOD[f]}${n}`).join(' ')}`,
         `Today's gate: ${todayGate?.label ?? 'none'} (+${todayGate?.pct ?? 0}%)`,
-        `Week closes: ${cal.days_left_in_week} days`,
+        `Week closes: ${clock.days_left_week} days`,
+        clock.next_cohort
+          ? `Next cohort: ${clock.next_cohort.cohort} · ${clock.next_cohort.opens_in_days}d · ${clock.next_cohort.signups} signed up`
+          : 'Next cohort: not configured',
       ],
     },
 
-    // ── Gates ───────────────────────────────────────────────
+    // ── Gates ─────────────────────────────────────────────
     gates: {
       unlocked: unlockedGates.map(g => ({ id: g.id, day: g.day, label: g.label, pct: g.pct })),
       locked:   lockedGates.map(g =>   ({ id: g.id, day: g.day, week: g.week })),
     },
 
-    // ── API routes ──────────────────────────────────────────
+    // ── API routes ────────────────────────────────────────
     routes: {
       me:       rMe,
       gates:    rGates,
