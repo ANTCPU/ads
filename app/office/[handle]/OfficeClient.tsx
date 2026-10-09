@@ -60,6 +60,34 @@ const THEMES = {
 
 type TrackKey = keyof typeof THEMES;
 
+// ── Badge Map ─────────────────────────────────────────────────
+const BADGE_MAP: Record<string, { label: string; emoji: string }> = {
+  'first-click':   { label: 'First Click',      emoji: '🖱️' },
+  'first-share':   { label: 'First Share',       emoji: '📤' },
+  'first-like':    { label: 'First Like',        emoji: '❤️' },
+  'early-bird':    { label: 'Early Bird',        emoji: '🐦' },
+  'profile':       { label: 'Profile Complete',  emoji: '👤' },
+  'mentor':        { label: 'Mentor',            emoji: '🎓' },
+  'veteran':       { label: 'Veteran',           emoji: '🎖️' },
+  'country-champ': { label: 'Country Champion',  emoji: '🏆' },
+  'rising':        { label: 'Rising',            emoji: '⬆️' },
+  'd1':            { label: 'Explorer',          emoji: '🚀' },
+  'd2':            { label: 'Profile Set',       emoji: '✅' },
+  'd3':            { label: 'Arena Explorer',    emoji: '🏟️' },
+  'd6':            { label: 'Peer Reviewer',     emoji: '👥' },
+  'd7':            { label: 'Week 1 Complete',   emoji: '🎯' },
+  'd8':            { label: 'Planner',           emoji: '📋' },
+  'd12':           { label: 'Shipped',           emoji: '🚢' },
+  'd13':           { label: 'Code Reviewer',     emoji: '🔍' },
+};
+
+function formatBadge(slug: string): string {
+  const b = BADGE_MAP[slug];
+  return b
+    ? `${b.emoji} ${b.label}`
+    : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 // ── Types ─────────────────────────────────────────────────────
 type NextCohort = {
   cohort: string;
@@ -93,6 +121,8 @@ type OfficeData = {
   cohort: string;
   is_captain: boolean | null;
   cutoff_status: string | null;
+  elevation_level?: number;
+  elevation_note?: string | null;
   arena: {
     points: number;
     tier: string | null;
@@ -160,12 +190,182 @@ function localTime(country: string): string {
   }).format(new Date());
 }
 
+// ── Elevation Banner ──────────────────────────────────────────
+function ElevationBanner({
+  level, track, accent, border,
+}: {
+  level?: number; track: string;
+  accent: string; border: string;
+}) {
+  if (!level || level < 2) return null;
+
+  const isBuilder = level >= 3;
+  const emoji = isBuilder ? '🔥' : '⬆️';
+  const title = isBuilder
+    ? 'Week 2 Builder — Selected'
+    : 'Week 2 Contender — Watch List';
+  const message = isBuilder
+    ? "You've been selected as a potential Week 3 team lead. Gate d8 is open. Fork the repo, write your PLAN.md, reply to Issue #1. Your work gets reviewed by Arena4 personally."
+    : "You're on the Week 3 watch list. Hit d8 this week to move up to Builder status.";
+  const mentor = track === 'marketing'
+    ? 'Mohamed39, Marketing Lead'
+    : 'Arena4, Dev Lead';
+
+  return (
+    <div
+      className="rounded-lg p-4 mb-6"
+      style={{
+        border: `1px solid ${accent}`,
+        background: 'rgba(255,255,255,0.03)',
+      }}
+    >
+      <p
+        className="text-xs font-bold uppercase tracking-wide mb-1"
+        style={{ color: accent }}
+      >
+        {emoji} {title}
+      </p>
+      <p className="text-sm mb-2 leading-relaxed opacity-80">
+        {message}
+      </p>
+      <p className="text-xs opacity-40">
+        — {mentor} · antcpu.io
+      </p>
+    </div>
+  );
+}
+
+// ── Office Message Panel ──────────────────────────────────────
+function OfficeMessagePanel({
+  cohort, handle, track, accent, border, subtext,
+}: {
+  cohort: string; handle: string; track: string;
+  accent: string; border: string; subtext: string;
+}) {
+  const rooms = track === 'marketing'
+    ? ['general', 'marketing', 'standups']
+    : ['general', 'dev', 'standups'];
+
+  const roomLabels: Record<string, string> = {
+    general:   '💬 General',
+    dev:       '💻 Dev',
+    marketing: '📣 Marketing',
+    standups:  '📋 Standups',
+    mentors:   '🎓 Mentors',
+  };
+
+  const [activeRoom, setActiveRoom] = useState(rooms[0]);
+  const [messages, setMessages] = useState<{
+    id: string;
+    author_name: string;
+    content: string;
+    created_at: string;
+  }[]>([]);
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/internship/office?cohort=${cohort}&room=${activeRoom}`)
+      .then(r => r.json())
+      .then(d => setMessages(d.messages ?? []));
+  }, [activeRoom, cohort]);
+
+  async function send() {
+    if (!input.trim()) return;
+    setSending(true);
+    await fetch('/api/internship/office', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cohort,
+        room: activeRoom,
+        author_id: handle,
+        author_name: handle,
+        author_type: 'challenger',
+        content: input.trim(),
+      }),
+    });
+    setInput('');
+    setSending(false);
+    fetch(`/api/internship/office?cohort=${cohort}&room=${activeRoom}`)
+      .then(r => r.json())
+      .then(d => setMessages(d.messages ?? []));
+  }
+
+  return (
+    <div className="rounded-lg mb-6" style={{ border: `1px solid ${border}` }}>
+
+      {/* Room tabs */}
+      <div className="flex border-b" style={{ borderColor: border }}>
+        {rooms.map(r => (
+          <button
+            key={r}
+            onClick={() => setActiveRoom(r)}
+            className="flex-1 text-xs py-2.5 font-semibold transition-colors"
+            style={{
+              color: activeRoom === r ? accent : subtext,
+              borderBottom: activeRoom === r
+                ? `2px solid ${accent}`
+                : '2px solid transparent',
+            }}
+          >
+            {roomLabels[r]}
+          </button>
+        ))}
+      </div>
+
+      {/* Messages */}
+      <div className="p-3 space-y-3 min-h-[80px] max-h-[200px] overflow-y-auto">
+        {messages.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: subtext }}>
+            No messages yet. Be the first.
+          </p>
+        ) : (
+          messages.slice(0, 5).map((m) => (
+            <div key={m.id} className="text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold" style={{ color: accent }}>
+                  {m.author_name}
+                </span>
+                <span className="text-xs opacity-40">
+                  {relativeTime(m.created_at)}
+                </span>
+              </div>
+              <p className="opacity-80 mt-0.5">{m.content}</p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="flex gap-2 p-3 border-t" style={{ borderColor: border }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder={`Message #${activeRoom}...`}
+          className="flex-1 text-sm bg-transparent outline-none"
+          style={{ color: accent }}
+        />
+        <button
+          onClick={send}
+          disabled={sending || !input.trim()}
+          className="text-xs px-3 py-1 rounded font-semibold disabled:opacity-30"
+          style={{ background: accent, color: '#000' }}
+        >
+          {sending ? '...' : 'Send'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Share Strip ───────────────────────────────────────────────
 function OfficeShareStrip({
-  handle, name, track, accent, border,
+  handle, name, track, accent, border, subtext,
 }: {
   handle: string; name: string; track: string;
-  accent: string; border: string;
+  accent: string; border: string; subtext: string;
 }) {
   const [copied, setCopied] = useState(false);
   const officeUrl = `https://antcpu-ads.vercel.app/office/${handle}`;
@@ -180,14 +380,17 @@ function OfficeShareStrip({
 
   const platforms = [
     { label: 'WhatsApp', icon: '💬', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { label: 'X', icon: '𝕏', url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
+    { label: 'X',        icon: '𝕏',  url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
     { label: 'LinkedIn', icon: 'in', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(officeUrl)}` },
   ];
 
   return (
-    <div className="rounded-lg p-4 mt-6" style={{ border: `1px solid ${border}` }}>
-      <p className="text-xs font-semibold uppercase tracking-wide opacity-50 mb-3">
-        Share This Office
+    <div className="rounded-lg p-4 mb-6" style={{ border: `1px solid ${border}` }}>
+      <p className="text-xs font-bold uppercase tracking-wide mb-0.5" style={{ color: accent }}>
+        📣 Share Your Office
+      </p>
+      <p className="text-xs mb-3" style={{ color: subtext }}>
+        Show the world you're building.
       </p>
       <div className="flex items-center gap-2 mb-3">
         <span className="flex-1 text-xs truncate opacity-60 font-mono">{officeUrl}</span>
@@ -205,7 +408,11 @@ function OfficeShareStrip({
       </div>
       <div className="flex gap-2">
         {platforms.map((p) => (
-          <a key={p.label} href={p.url} target="_blank" rel="noopener noreferrer"
+          <a
+            key={p.label}
+            href={p.url}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex-1 text-center text-xs py-2 rounded font-semibold"
             style={{ border: `1px solid ${border}`, color: accent }}
           >
@@ -285,11 +492,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   const flag = safeFlag(data.flag);
   const githubHandle = stripGithubUrl(data.github_handle);
   const arenaUrl = 'https://antcpu-ads.vercel.app/arena';
-  const [mounted, setMounted] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // Inactive = paused or low progress
   const isInactive =
     data.cutoff_status === 'paused' ||
     (data.progress_pct < 25 && data.progress_pct > 0);
@@ -333,7 +539,6 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             >
               {data.initials ?? data.name?.[0]}
             </div>
-
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold">{data.name}</h1>
@@ -354,9 +559,11 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                     🏆 Country Champion
                   </span>
                 )}
-                {data.arena?.tier && (
-                  <span className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}>
+                {data.arena?.tier && data.arena.tier !== 'trial' && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}
+                  >
                     {tierLabel(data.arena.tier)}
                   </span>
                 )}
@@ -392,13 +599,16 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           {/* ── Stats grid ── */}
           <div className="grid grid-cols-4 gap-2 mb-6">
             {[
-              { label: 'Tasks', value: data.tasks_done, icon: '✅' },
-              { label: 'Submitted', value: data.submissions, icon: '📤' },
+              { label: 'Tasks',     value: data.tasks_done,        icon: '✅' },
+              { label: 'Submitted', value: data.submissions,       icon: '📤' },
               { label: 'Arena Pts', value: data.arena?.points ?? 0, icon: '⚡' },
-              { label: 'Badges', value: data.badges.length, icon: '🎖' },
+              { label: 'Badges',    value: data.badges.length,     icon: '🎖' },
             ].map(({ label, value, icon }) => (
-              <div key={label} className="rounded-lg p-3 text-center"
-                style={{ border: `1px solid ${theme.border}` }}>
+              <div
+                key={label}
+                className="rounded-lg p-3 text-center"
+                style={{ border: `1px solid ${theme.border}` }}
+              >
                 <div className="text-lg mb-0.5">{icon}</div>
                 <div className="text-xl font-bold" style={{ color: theme.accent }}>{value}</div>
                 <div className="text-xs opacity-50 mt-0.5">{label}</div>
@@ -406,21 +616,47 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             ))}
           </div>
 
+          {/* ── Elevation Banner ── */}
+          <ElevationBanner
+            level={data.elevation_level}
+            track={data.track}
+            accent={theme.accent}
+            border={theme.border}
+          />
+
+          {/* ── Message Panel ── */}
+          <OfficeMessagePanel
+            cohort={data.cohort}
+            handle={data.handle}
+            track={data.track}
+            accent={theme.accent}
+            border={theme.border}
+            subtext={theme.subtext}
+          />
+
           {/* ── Bio ── */}
           {data.bio && (
-            <div className="rounded-lg p-4 mb-4 text-sm leading-relaxed"
-              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}>
+            <div
+              className="rounded-lg p-4 mb-4 text-sm leading-relaxed"
+              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}
+            >
               {data.bio}
             </div>
           )}
 
           {/* ── Dev extras ── */}
           {data.track === 'dev' && (githubHandle || data.stack) && (
-            <div className="rounded-lg p-3 mb-4 flex flex-wrap gap-3 text-sm"
-              style={{ border: `1px solid ${theme.border}` }}>
+            <div
+              className="rounded-lg p-3 mb-4 flex flex-wrap gap-3 text-sm"
+              style={{ border: `1px solid ${theme.border}` }}
+            >
               {githubHandle && (
-                <a href={`https://github.com/${githubHandle}`} target="_blank"
-                  rel="noopener noreferrer" style={{ color: theme.accent }}>
+                <a
+                  href={`https://github.com/${githubHandle}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: theme.accent }}
+                >
                   🐙 {githubHandle}
                 </a>
               )}
@@ -432,8 +668,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Marketer extras ── */}
           {data.track === 'marketing' && data.channels && (
-            <div className="rounded-lg p-3 mb-4 text-sm"
-              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}>
+            <div
+              className="rounded-lg p-3 mb-4 text-sm"
+              style={{ border: `1px solid ${theme.border}`, color: theme.subtext }}
+            >
               📣 {data.channels}
             </div>
           )}
@@ -444,9 +682,14 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               {Object.entries(data.links)
                 .filter(([, v]) => v)
                 .map(([k, v]) => (
-                  <a key={k} href={v} target="_blank" rel="noopener noreferrer"
+                  <a
+                    key={k}
+                    href={v}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-xs px-3 py-1.5 rounded-full font-medium"
-                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}>
+                    style={{ border: `1px solid ${theme.border}`, color: theme.accent }}
+                  >
                     {k} →
                   </a>
                 ))}
@@ -455,9 +698,13 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Arena ad link ── */}
           {data.ad_id && (
-            <a href={arenaUrl} target="_blank" rel="noopener noreferrer"
+            <a
+              href={arenaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center justify-between rounded-lg p-4 mb-4 text-sm font-medium"
-              style={{ border: `1px solid ${theme.accent}`, color: theme.accent }}>
+              style={{ border: `1px solid ${theme.accent}`, color: theme.accent }}
+            >
               <span>⚡ View Live Arena Ad</span>
               <span>→</span>
             </a>
@@ -472,12 +719,22 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               <div className="flex flex-wrap gap-2">
                 {data.badges.map((b, i) => (
                   <span key={i} className={`text-xs px-2 py-1 rounded-full ${theme.badge}`}>
-                    {b}
+                    {formatBadge(b)}
                   </span>
                 ))}
               </div>
             </div>
           )}
+
+          {/* ── Share strip ── */}
+          <OfficeShareStrip
+            handle={data.handle}
+            name={data.name}
+            track={data.track}
+            accent={theme.accent}
+            border={theme.border}
+            subtext={theme.subtext}
+          />
 
           {/* ── Recent activity ── */}
           {data.activity.length > 0 && (
@@ -487,24 +744,21 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               </p>
               <ul className="space-y-2">
                 {data.activity.map((a, i) => (
-                  <li key={i} className="flex items-center justify-between text-sm py-2"
-                    style={{ borderBottom: `1px solid ${theme.border}` }}>
+                  <li
+                    key={i}
+                    className="flex items-center justify-between text-sm py-2"
+                    style={{ borderBottom: `1px solid ${theme.border}` }}
+                  >
                     <span className="flex items-center gap-2">
                       <span>{a.icon}</span>
                       <span style={{ color: theme.subtext }}>{a.label}</span>
                     </span>
                     <span className="text-xs opacity-40">{relativeTime(a.created_at)}</span>
                   </li>
-                ))}
+              ))}
               </ul>
             </div>
           )}
-
-          {/* ── Share strip ── */}
-          <OfficeShareStrip
-            handle={data.handle} name={data.name} track={data.track}
-            accent={theme.accent} border={theme.border}
-          />
 
           {/* ── Next cohort bubble ── */}
           {data.clock?.next_cohort && (
@@ -534,3 +788,5 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
     </>
   );
 }
+
+              
