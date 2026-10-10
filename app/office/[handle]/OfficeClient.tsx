@@ -46,15 +46,15 @@ const THEMES = {
     particle: '#00e5ff',
   },
   marketing: {
-    bg: '#2c1a0e',
-    accent: '#e87c2e',
-    border: '#8b4513',
-    text: '#fdf3e7',
-    subtext: '#c4a882',
-    badge: 'bg-amber-900 text-amber-200',
+    bg: '#faf6f0',
+    accent: '#c2600a',
+    border: '#e8d5c0',
+    text: '#1a0e00',
+    subtext: '#7a5c3a',
+    badge: 'bg-amber-100 text-amber-800',
     label: '📣 Marketer',
-    glow: '0 0 20px rgba(232,124,46,0.15)',
-    particle: '#e87c2e',
+    glow: '0 0 20px rgba(194,96,10,0.12)',
+    particle: '#c2600a',
   },
 } as const;
 
@@ -123,6 +123,7 @@ type OfficeData = {
   cutoff_status: string | null;
   elevation_level?: number;
   elevation_note?: string | null;
+  banner_url?: string | null;
   arena: {
     points: number;
     tier: string | null;
@@ -188,6 +189,39 @@ function localTime(country: string): string {
     timeZoneName: 'short',
     hour12: false,
   }).format(new Date());
+}
+
+// ── Office Banner ─────────────────────────────────────────────
+function OfficeBanner({
+  bannerUrl, name, accent, border,
+}: {
+  bannerUrl: string | null | undefined;
+  name: string; accent: string; border: string;
+}) {
+  if (!bannerUrl) return null;
+
+  return (
+    <div
+      className="w-full rounded-xl overflow-hidden mb-6"
+      style={{
+        border: `1px solid ${border}`,
+        aspectRatio: '1200 / 630',
+        position: 'relative',
+        background: '#f0e8dc',
+      }}
+    >
+      <img
+        src={bannerUrl}
+        alt={`${name}'s office`}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+        }}
+      />
+    </div>
+  );
 }
 
 // ── Elevation Banner ──────────────────────────────────────────
@@ -592,6 +626,14 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             </div>
           </div>
 
+                    {/* ── Office Banner ── */}
+          <OfficeBanner
+            bannerUrl={(data as any).banner_url}
+            name={data.name}
+            accent={theme.accent}
+            border={theme.border}
+          />
+          
           {/* ── Progress ── */}
           <div className="mb-6">
             <div className="flex justify-between text-sm mb-2">
