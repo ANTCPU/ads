@@ -84,7 +84,8 @@ type NudgeType =
   | 'hard_d2'
   | 'soft'
   | 'light'
-  | 'week2_unlock';
+  | 'week2_unlock'
+  | 'week3_unlock';
 
 // ── Email builders ─────────────────────────────────────────────
 
@@ -343,6 +344,76 @@ function buildNudgeEmail(opts: {
     };
   }
 
+  // ── week3_unlock ──────────────────────────────────────────
+  if (nudgeType === 'week3_unlock') {
+    return {
+      subject: `Your team forms in 4 days, ${name}`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ⚡ Week 3 starts Oct 14. Teams form that day.
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            Dev and Marketing challengers pair into squads on Day 14.
+            Only challengers who complete d8 get assigned to a team.
+            3 challengers are already at 100%. Your squad is forming.
+            You have 4 days.
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Complete before Oct 14
+          </div>
+          ${taskRow(
+            'Week 2 Brief — Plan Your Build',
+            isMkt
+              ? 'Define your Map of Pi country campaign concept.'
+              : 'Pick your PR from the open issues on the challenge repo.',
+            30
+          )}
+          ${taskRow(
+            'Build Day 1',
+            isMkt
+              ? 'Create your first campaign asset — hook, copy, visual.'
+              : 'Write your first commit on the intern branch.',
+            38
+          )}
+          ${taskRow(
+            'Ship & Submit',
+            isMkt
+              ? 'Submit your campaign concept to the Arena.'
+              : 'Open your pull request on the intern branch.',
+            46
+          )}
+        </div>
+        <div style="background:${CARD};border:1px solid ${ACCENT}20;
+          border-radius:12px;padding:1rem;margin-bottom:1.25rem;
+          text-align:center">
+          <div style="font-size:0.78rem;color:#aaa">
+            🏆 Already at 100%: <strong style="color:${ACCENT}">Arena4 · Mohamed39 · Antony0</strong>
+          </div>
+          <div style="font-size:0.72rem;color:#555;margin-top:0.25rem">
+            Your squad partner is waiting. Don't miss the pairing.
+          </div>
+        </div>
+        <div style="text-align:center">
+          ${ctaButton(
+            isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
+            isMkt ? 'https://antcpu.io/marketing/' : 'https://antcpu.io/dev/'
+          )}
+          <div style="margin-top:0.75rem">
+            <a href="https://antcpu.io/dashboard/"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              Or go to your dashboard →
+            </a>
+          </div>
+        </div>`),
+    };
+  }
+
   // ── week2_unlock ──────────────────────────────────────────
   return {
     subject: `Week 2 just unlocked, ${name}`,
@@ -426,7 +497,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock',
+      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock',
     ];
     if (!validTypes.includes(nudge_type)) {
       return NextResponse.json(
