@@ -11,6 +11,9 @@ import { instagram }       from './instagram';
 import { tiktok }          from './tiktok';
 import { youtube }         from './youtube';
 import { discordPlatform } from './discord';
+import { pinterest }      from './pinterest';
+import { bluesky }         from './bluesky';
+import { tumblr }          from './tumblr';
 import { Platform }        from '../socialShare';
 
 export const PLATFORMS: Platform[] = [
@@ -23,4 +26,7 @@ export const PLATFORMS: Platform[] = [
   tiktok,
   youtube,
   discordPlatform,
+  pinterest,
+  bluesky,
+  tumblr,
 ];
