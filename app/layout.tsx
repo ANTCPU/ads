@@ -1,4 +1,5 @@
 import React        from 'react';
+import './globals.css';
 import { Analytics } from '@vercel/analytics/next';
 import ThemeProvider from './components/ThemeProvider';
 
@@ -35,8 +36,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {/* Season theme engine — particles + gradient + h1 emoji */}
-        {/* Reads flags on mount. No active flag = zero DOM change. */}
         <ThemeProvider />
         {children}
         <Analytics />
