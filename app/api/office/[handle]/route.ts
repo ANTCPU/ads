@@ -64,6 +64,7 @@ type ChallengerRow = {
   cutoff_status:    string | null;
   elevation_level:  number | null;
   elevation_note:   string | null;
+  banner_url:       string | null; // ← ADD
 };
 
 type ArenaRow = {
@@ -114,7 +115,7 @@ export async function GET(
         'last_seen, cohort, cohort_short, ad_id, ad_url, ' +
         'github_handle, stack, channels, bio, links, ' +
         'is_captain, team_id, profile_complete, email, ' +
-        'cutoff_status, elevation_level, elevation_note'
+        'cutoff_status, elevation_level, elevation_note, banner_url' // ← ADD
       )
       .eq('handle', handle)
       .single(),
@@ -185,6 +186,7 @@ export async function GET(
       cutoff_status:    c.cutoff_status,
       elevation_level:  c.elevation_level ?? 0,
       elevation_note:   c.elevation_note,
+      banner_url:       c.banner_url ?? null, // ← ADD
       arena: arena
         ? {
             points:      arena.points ?? 0,
