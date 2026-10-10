@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --accent: #f0883e;
+  --bg: #0a0a0a;
+  --bg-card: #111;
+  --border: #1a1a1a;
+  --text-primary: #fff;
+  --text-secondary: #aaa;
+  --text-muted: #555;
+  --radius: 12px;
+  --transition: 0.2s ease;
+}
