@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
       // 1. Save submission
       supabase
         .from('submissions')
-        .insert({
+        .upsert({
           challenger_id: challenger.id,
           gate_id,
           type:          type        || 'notes',
@@ -202,9 +202,8 @@ export async function POST(req: NextRequest) {
           week:          week        || gateWeek,
           status:        'pending',
           points:        gatePct,
-        })
-        .select('id, gate_id, type, title, status, created_at')
-        .single(),
+        }, { onConflict: 'challenger_id,gate_id' })
+        .select('id, gate_id, type, title, status, created_at'),
 
       // 2. Advance gate + progress if not already done
       alreadyDone
@@ -230,8 +229,9 @@ export async function POST(req: NextRequest) {
     ]);
 
     if (insertError) {
+      console.error('[submit] insert error:', insertError.message, insertError.code);
       return NextResponse.json(
-        { error: 'Failed to save submission' },
+        { error: 'Failed to save submission', detail: insertError.message },
         { status: 500, headers: CORS }
       );
     }
