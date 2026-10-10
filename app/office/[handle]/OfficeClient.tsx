@@ -424,13 +424,52 @@ function OfficeShareStrip({
   );
 }
 
-// ── Next Cohort Bubble ────────────────────────────────────────
-function NextCohortBubble({
-  next, accent, border, subtext, isInactive,
+// ── Next Action Bubble ───────────────
+function NextActionPanel({
+  progress, clock, handle, accent, border, subtext,
 }: {
-  next: NextCohort; accent: string; border: string;
-  subtext: string; isInactive: boolean;
+  progress: number; clock: OfficeData['clock'];
+  handle: string; accent: string; border: string; subtext: string;
 }) {
+  if (!clock) return null;
+
+  const daysLeft = clock.days_left_total ?? 0;
+  const week     = clock.week ?? 1;
+  const weekName = clock.week_name ?? 'Explorer';
+  const day      = clock.day ?? 1;
+
+  // Active challenger — show next task prompt
+  if (progress > 0) {
+    return (
+      <div
+        className="rounded-lg p-4 mt-4"
+        style={{ border: `1px solid ${accent}`, background: 'rgba(255,255,255,0.03)' }}
+      >
+        <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: accent }}>
+          ⚡ Up Next
+        </p>
+        <p className="text-sm font-semibold mb-1">
+          Week {week} — {weekName}
+        </p>
+        <p className="text-xs mb-3" style={{ color: subtext }}>
+          Day {day} · {daysLeft} days left in the challenge
+        </p>
+        <a
+          href="https://antcpu.io/next/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center text-xs font-bold py-2 rounded transition-opacity hover:opacity-80"
+          style={{ background: accent, color: '#000' }}
+        >
+          Go to Next Task →
+        </a>
+      </div>
+    );
+  }
+
+  // Visitor / not yet a challenger — show next cohort
+  const next = clock.next_cohort;
+  if (!next) return null;
   const month = new Date(next.opens).toLocaleDateString('en', {
     month: 'long', year: 'numeric',
   });
@@ -438,16 +477,8 @@ function NextCohortBubble({
   return (
     <div
       className="rounded-lg p-4 mt-4"
-      style={{
-        border: `1px solid ${isInactive ? accent : border}`,
-        background: isInactive ? 'rgba(255,255,255,0.03)' : 'transparent',
-      }}
+      style={{ border: `1px solid ${border}` }}
     >
-      {isInactive && (
-        <p className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: accent }}>
-          ⚡ Still time to compete
-        </p>
-      )}
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold">🗓 {month} Cohort</p>
         <span
@@ -457,27 +488,16 @@ function NextCohortBubble({
           {next.opens_in_days}d
         </span>
       </div>
-      <div className="flex items-center gap-3 mb-3">
-        <span className="text-xs" style={{ color: subtext }}>
-          Opens {new Date(next.opens).toLocaleDateString('en', {
-            month: 'short', day: 'numeric',
-          })}
-        </span>
-        {next.signups > 0 && (
-          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: accent }}>
-            <span
-              className="inline-block w-2 h-2 rounded-full animate-pulse"
-              style={{ background: accent }}
-            />
-            {next.signups} already signed up
-          </span>
-        )}
-      </div>
+      {next.signups > 0 && (
+        <p className="text-xs mb-3 font-semibold" style={{ color: accent }}>
+          ⚡ {next.signups} already signed up
+        </p>
+      )}
       <a
         href={next.apply_url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block text-center text-xs font-bold py-2 rounded transition-opacity hover:opacity-80"
+        className="block text-center text-xs font-bold py-2 rounded"
         style={{ background: accent, color: '#000' }}
       >
         Apply for {month} →
@@ -485,6 +505,7 @@ function NextCohortBubble({
     </div>
   );
 }
+
 
 // ── Main Component ────────────────────────────────────────────
 export default function OfficeClient({ data }: { data: OfficeData }) {
@@ -760,16 +781,15 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             </div>
           )}
 
-          {/* ── Next cohort bubble ── */}
-          {data.clock?.next_cohort && (
-            <NextCohortBubble
-              next={data.clock.next_cohort}
-              accent={theme.accent}
-              border={theme.border}
-              subtext={theme.subtext}
-              isInactive={isInactive}
-            />
-          )}
+          {/* ── Next action / next cohort ── */}
+          <NextActionPanel
+            progress={data.progress_pct}
+            clock={data.clock}
+            handle={data.handle}
+            accent={theme.accent}
+            border={theme.border}
+            subtext={theme.subtext}
+          />
 
           {/* ── Footer ── */}
           <div className="mt-6 text-center space-y-1">
