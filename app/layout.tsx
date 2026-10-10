@@ -1,5 +1,5 @@
-import './globals.css';
 import React        from 'react';
+import './globals.css';
 import { Analytics } from '@vercel/analytics/next';
 import ThemeProvider from './components/ThemeProvider';
 
@@ -14,14 +14,7 @@ export const metadata = {
     description: 'The central hub for automated marketing systems. Free 3-day trial.',
     url:         'https://antcpu-ads.vercel.app',
     siteName:    'ANTCPU ADS',
-    images: [
-      {
-        url:    'https://antcpu-ads.vercel.app/og-image.jpg',
-        width:  1200,
-        height: 630,
-        alt:    'ANTCPU ADS',
-      },
-    ],
+    images: [{ url: 'https://antcpu-ads.vercel.app/og-image.jpg', width: 1200, height: 630, alt: 'ANTCPU ADS' }],
     type: 'website',
   },
   twitter: {
@@ -34,8 +27,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="bg-black">
+      <body className="bg-black text-white antialiased">
         <ThemeProvider />
         {children}
         <Analytics />
