@@ -60,6 +60,7 @@ async function getOfficeData(handle: string) {
       cutoff_status:   data.cutoff_status ?? null,
       elevation_level: data.elevation_level ?? null,
       is_captain:      data.is_captain ?? false,
+      banner_url:      data.banner_url ?? null,
     };
   } catch {
     return null;
@@ -86,6 +87,9 @@ export async function generateMetadata(
       description: `${data.role_title} · ${data.progress_pct}% · ${data.country}`,
       url:         `${APP_URL}/office/${handle}`,
       type:        'profile',
+      images: data.banner_url
+        ? [{ url: data.banner_url, width: 1200, height: 630 }]
+        : [{ url: `${APP_URL}/og-image.jpg`, width: 1200, height: 630 }],
     },
     twitter: {
       card:        'summary_large_image',
