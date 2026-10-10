@@ -1,5 +1,10 @@
 import { withSentryConfig } from '@sentry/nextjs/config';
 import type { NextConfig } from 'next';
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const nextConfig: NextConfig = {
   turbopack: {},
@@ -28,7 +33,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+export default withBundleAnalyzer(withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
@@ -64,4 +69,4 @@ export default withSentryConfig(nextConfig, {
       removeDebugLogging: true,
     },
   },
-});
+}));
