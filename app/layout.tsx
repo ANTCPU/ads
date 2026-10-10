@@ -1,5 +1,5 @@
-import React        from 'react';
 import './globals.css';
+import React        from 'react';
 import { Analytics } from '@vercel/analytics/next';
 import ThemeProvider from './components/ThemeProvider';
 
