@@ -19,6 +19,7 @@ import PostsModule               from '../../modules/posts';
 import ActiveAdsModule           from '../../modules/active-ads';
 import DigestMonitor             from '../../modules/digest-monitor';
 import ArenaFlagsModule          from '../../modules/arena-flags';
+import ElevationModule           from '../../modules/elevation';
 import { clearSessionCookie }    from '../../lib/session';
 import { ariaVerdict }           from '../../lib/aria';
 import {
@@ -329,6 +330,9 @@ export default function AntcpuDashboard() {
 
       {/* ── ARENA FLAGS MODULE ── */}
       <ArenaFlagsModule />
+
+      {/* ── ELEVATION MODULE ── */}
+      <ElevationModule />
 
       {/* ── POSTS MODULE ── */}
       <div style={sectionCard}>

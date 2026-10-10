@@ -404,7 +404,10 @@ function OfficeShareStrip({
   const [copied, setCopied] = useState(false);
   const officeUrl = `https://antcpu-ads.vercel.app/office/${handle}`;
   const trackLabel = track === 'dev' ? '💻 Dev' : '📣 Marketing';
-  const shareText = `${name} is building in the antcpu internship challenge — ${trackLabel} track.\n\n${officeUrl}`;
+  const isFounder  = handle === 'Antony0';
+  const shareText  = isFounder
+    ? `Building the antcpu Arena — automated marketing for the next generation of brands.\n\n${officeUrl}`
+    : `${name} is building in the antcpu internship challenge — ${trackLabel} track.\n\n${officeUrl}`;
 
   async function copyUrl() {
     await navigator.clipboard.writeText(officeUrl);
@@ -413,9 +416,15 @@ function OfficeShareStrip({
   }
 
   const platforms = [
-    { label: 'WhatsApp', icon: '💬', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
-    { label: 'X',        icon: '𝕏',  url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
-    { label: 'LinkedIn', icon: 'in', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(officeUrl)}` },
+    { label: 'WhatsApp',  icon: '💬', url: `https://wa.me/?text=${encodeURIComponent(shareText)}` },
+    { label: 'X',         icon: '𝕏',  url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}` },
+    { label: 'LinkedIn',  icon: 'in', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(officeUrl)}` },
+    { label: 'Bluesky',   icon: '🦋', url: `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}` },
+    { label: 'Pinterest', icon: '📌', url: `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(officeUrl)}&description=${encodeURIComponent(shareText)}` },
+    { label: 'Tumblr',    icon: '📝', url: `https://www.tumblr.com/share/link?url=${encodeURIComponent(officeUrl)}&description=${encodeURIComponent(shareText)}` },
+    { label: 'Telegram',  icon: '✈️', url: `https://t.me/share/url?url=${encodeURIComponent(officeUrl)}&text=${encodeURIComponent(shareText)}` },
+    { label: 'Reddit',    icon: '🔴', url: `https://reddit.com/submit?url=${encodeURIComponent(officeUrl)}&title=${encodeURIComponent(shareText)}` },
+    { label: 'Facebook',  icon: '👤', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(officeUrl)}` },
   ];
 
   return (
@@ -440,14 +449,14 @@ function OfficeShareStrip({
           {copied ? '✓ Copied' : 'Copy'}
         </button>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {platforms.map((p) => (
           <a
             key={p.label}
             href={p.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 text-center text-xs py-2 rounded font-semibold"
+            className="text-center text-xs py-2 px-3 rounded font-semibold"
             style={{ border: `1px solid ${border}`, color: accent }}
           >
             {p.icon} {p.label}
@@ -473,7 +482,7 @@ function NextActionPanel({
   const day      = clock.day ?? 1;
 
   // Active challenger — show next task prompt
-  if (progress > 0) {
+  if (progress > 0 && (data.elevation_level ?? 0) < 99) {
     return (
       <div
         className="rounded-lg p-4 mt-4"
@@ -622,7 +631,16 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                 {data.country} · {theme.label}
               </p>
               <div className="flex items-center gap-2 flex-wrap mt-1">
-                <span className="text-sm opacity-70">{data.role_title}</span>
+                {(data.elevation_level ?? 0) >= 99 ? (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-bold"
+                    style={{ background: theme.accent, color: '#000' }}
+                  >
+                    ⚡ Founder · ANTCPU
+                  </span>
+                ) : (
+                  <span className="text-sm opacity-70">{data.role_title}</span>
+                )}
                 {data.arena?.is_champion && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">
                     🏆 Country Champion
@@ -634,6 +652,11 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                     style={{ border: `1px solid ${theme.border}`, color: theme.accent }}
                   >
                     {tierLabel(data.arena.tier)}
+                  </span>
+                )}
+                {(data.elevation_level ?? 0) >= 99 && (
+                  <span className="text-xs opacity-50">
+                    Veteran-owned · United States
                   </span>
                 )}
               </div>
