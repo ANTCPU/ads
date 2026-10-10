@@ -31,9 +31,16 @@ export const BRIGHTNESS_LEVELS: { id: BrightnessLevel; icon: string; label: stri
   { id: 'light',      icon: '☀️', label: 'Light'      },
 ];
 
-export function getStoredBrightness(): BrightnessLevel {
-  if (typeof window === 'undefined') return 'dark';
-  return (localStorage.getItem(STORAGE_KEY) as BrightnessLevel) || 'dark';
+export function getStoredBrightness(flagDefault?: string): BrightnessLevel {
+  if (typeof window === 'undefined') return (flagDefault as BrightnessLevel) || 'dark';
+  const stored = localStorage.getItem(STORAGE_KEY) as BrightnessLevel;
+  if (stored) return stored;
+  // Fall back to admin-set default from theme-base-default flag
+  const valid: BrightnessLevel[] = ['dark', 'mid', 'light-grey', 'light'];
+  if (flagDefault && valid.includes(flagDefault as BrightnessLevel)) {
+    return flagDefault as BrightnessLevel;
+  }
+  return 'dark';
 }
 
 export function setStoredBrightness(level: BrightnessLevel) {

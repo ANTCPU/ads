@@ -128,6 +128,15 @@ export const FLAG_DEFAULTS: Omit<FeatureFlag, 'enabled'>[] = [
     notes:       'Season 4 — Jun 21 → Sep 21. Default h1: 🌊. Month overrides: Jul 🎆 Aug ☀️ Sep 🍎.',
   },
   {
+    id:          'theme-base-default',
+    label:       'Default Brightness',
+    description: 'Sets the default brightness level for all users who have not chosen one. Options: dark (default), mid, light-grey, light. Overrides the dark default for new visitors.',
+    version:     'v1',
+    status:      'off',
+    notes:       'dark',
+  },
+
+  {
     id:          'theme-h1-emoji',
     label:       'H1 Season Emoji',
     description: 'Prepends an emoji to every h1 on antcpu.cloud via CSS ::before. Season default shows when no month override is active. Flip a month flag to override.',

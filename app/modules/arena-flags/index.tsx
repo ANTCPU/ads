@@ -22,6 +22,7 @@ const VERSION_TABS = [
   { id: 'v1testing', label: '🔬 v1 Test' },
   { id: 'v2',        label: '🚀 v2'       },
   { id: 'v2testing', label: '🔭 v2 Test' },
+  { id: 'month',     label: '📅 Monthly'  },
 ];
 
 export default function ArenaFlagsModule() {

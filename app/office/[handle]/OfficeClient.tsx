@@ -544,6 +544,20 @@ function NextActionPanel({
 // ── Main Component ────────────────────────────────────────────
 export default function OfficeClient({ data }: { data: OfficeData }) {
   const theme = THEMES[data.track] ?? THEMES.dev;
+
+  // ── Brightness override — respect user sitewide preference ──────────────
+  // Reads arena_brightness from localStorage (set by NavIsland/ThemeSwitcher).
+  // Overrides track default bg when user has explicitly chosen a brightness.
+  const BG_OVERRIDE: Record<string, string> = {
+    'dark':       '#0a0a0a',
+    'mid':        '#111111',
+    'light-grey': '#2a2a2a',
+    'light':      '#3a3a3a',
+  };
+  const storedBrightness = typeof window !== 'undefined'
+    ? localStorage.getItem('arena_brightness') ?? ''
+    : '';
+  const resolvedBg = BG_OVERRIDE[storedBrightness] ?? theme.bg;
   const flag = safeFlag(data.flag);
   const githubHandle = stripGithubUrl(data.github_handle);
   const arenaUrl = 'https://antcpu-ads.vercel.app/arena';
@@ -562,7 +576,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
     <>
       <style>{`
         .office-root {
-          background: ${theme.bg} !important;
+          background: ${resolvedBg} !important;
           color: ${theme.text} !important;
           min-height: 100vh;
         }
