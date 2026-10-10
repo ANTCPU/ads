@@ -129,10 +129,22 @@ export default function ThemeProvider() {
         const showParts = !!flags['theme-particles'];
         const showEmoji = !!flags['theme-h1-emoji'];
 
-        // No active season — clean up any leftover state and exit
+        // No active season — still apply base brightness from user preference
         if (!resolved) {
           document.documentElement.removeAttribute('data-theme');
-          removeStyle();
+          const brightness = getStoredBrightness();
+          if (brightness !== 'dark') {
+            const { BG_LEVELS } = await import('../lib/theme');
+            const lv = BG_LEVELS[
+              brightness === 'mid'        ? 'dark-grey'  :
+              brightness === 'light-grey' ? 'light-grey' :
+              brightness === 'light'      ? 'light'      : 'dark'
+            ];
+            injectStyle(`:root { --page-bg: ${lv.pageBg}; --card-bg: ${lv.cardBg}; }
+html, body { background: ${lv.htmlBg} !important; }`);
+          } else {
+            removeStyle();
+          }
           setReady(true);
           return;
         }

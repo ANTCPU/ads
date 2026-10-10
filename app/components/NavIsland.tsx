@@ -149,7 +149,7 @@ export default function NavIsland() {
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
 
       {/* ── Brightness pill — only when theme active ── */}
-      {themeActive && (
+      {true && (
         <div style={{ position: 'relative' }}>
           <button
             onClick={e => { e.stopPropagation(); setBrightOpen(o => !o); setLangOpen(false); }}
