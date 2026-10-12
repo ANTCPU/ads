@@ -47,18 +47,34 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // ── Admin view — requires x-admin-token ────────────────
-    const token = req.headers.get('x-admin-token');
-    if (!token || token !== process.env.ADMIN_TOKEN) {
+    // ── Admin view — x-admin-token OR owner intern_id ────────
+    const token    = req.headers.get('x-admin-token');
+    const internId = searchParams.get('intern_id');
+    let authed = false;
+
+    if (token && token === process.env.ADMIN_TOKEN) {
+      authed = true;
+    } else if (internId) {
+      const { data: owner } = await supabase
+        .from('challengers')
+        .select('id, access_level')
+        .eq('intern_id', internId)
+        .maybeSingle();
+      if (owner?.access_level === 'owner') authed = true;
+    }
+
+    if (!authed) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401, headers: CORS }
       );
     }
 
+    const cohortFilter = searchParams.get('cohort') || 'october-2026';
     const { data, error } = await supabase
       .from('admin_challengers')
       .select('*')
+      .eq('cohort', cohortFilter)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
