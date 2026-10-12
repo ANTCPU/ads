@@ -170,10 +170,10 @@ function buildNudgeEmail(opts: {
   const isMkt = track === 'marketing';
   const name  = firstName || 'there';
   const t     = internId ? '?t=' + internId : '';
-  const devUrl = devUrl        + (internId ? '?t=' + internId : '');
-  const mktUrl = mktUrl  + (internId ? '?t=' + internId : '');
-  const dashUrl= dashUrl  + (internId ? '?t=' + internId : '');
-  const nextUrl= nextUrl       + (internId ? '?t=' + internId : '');
+  const devUrl  = 'https://antcpu.io/dev/'       + t;
+  const mktUrl  = 'https://antcpu.io/marketing/' + t;
+  const dashUrl = 'https://antcpu.io/dev/'       + t;
+  const nextUrl = 'https://antcpu.io/next/'      + t;
 
   // ── hard_d1 ───────────────────────────────────────────────
   if (nudgeType === 'hard_d1') {
