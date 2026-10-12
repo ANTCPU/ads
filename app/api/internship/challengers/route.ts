@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
         .from('public_leaderboard')
         .select('*')
         .eq('cohort', cohort)
+        .not('role_title', 'eq', 'Mentor')
         .order('progress_pct', { ascending: false });
 
       if (error) throw error;

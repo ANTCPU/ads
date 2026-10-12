@@ -113,6 +113,7 @@ export async function GET() {
       is_early_adopter, created_at
     `)
     .eq('status', 'active')
+    .not('role_title', 'eq', 'Mentor')
     .order('progress_pct', { ascending: false });
 
   // ── 4. Gates state ────────────────────────────────────────
