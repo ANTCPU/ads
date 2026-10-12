@@ -482,7 +482,7 @@ function NextActionPanel({
   const day      = clock.day ?? 1;
 
   // Active challenger — show next task prompt
-  if (progress > 0 && (data.elevation_level ?? 0) < 99) {
+  if (progress > 0 && progress < 99) {
     return (
       <div
         className="rounded-lg p-4 mt-4"
