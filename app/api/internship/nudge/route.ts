@@ -163,11 +163,17 @@ function buildNudgeEmail(opts: {
   track:       string;
   nudgeType:   NudgeType;
   progressPct: number;
+  internId?:   string;
 }): { subject: string; html: string } {
 
-  const { firstName, track, nudgeType, progressPct } = opts;
+  const { firstName, track, nudgeType, progressPct, internId } = opts;
   const isMkt = track === 'marketing';
   const name  = firstName || 'there';
+  const t     = internId ? '?t=' + internId : '';
+  const devUrl = devUrl        + (internId ? '?t=' + internId : '');
+  const mktUrl = mktUrl  + (internId ? '?t=' + internId : '');
+  const dashUrl= dashUrl  + (internId ? '?t=' + internId : '');
+  const nextUrl= nextUrl       + (internId ? '?t=' + internId : '');
 
   // ── hard_d1 ───────────────────────────────────────────────
   if (nudgeType === 'hard_d1') {
@@ -208,10 +214,10 @@ function buildNudgeEmail(opts: {
         <div style="text-align:center">
           ${ctaButton(
             isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-            isMkt ? 'https://antcpu.io/marketing/' : 'https://antcpu.io/dev/'
+            isMkt ? mktUrl : devUrl
           )}
           <div style="margin-top:0.75rem">
-            <a href="https://antcpu.io/dashboard/"
+            <a href=dashUrl
               style="font-size:0.78rem;color:#555;text-decoration:underline">
               Or go to your dashboard →
             </a>
@@ -266,7 +272,7 @@ function buildNudgeEmail(opts: {
         <div style="text-align:center">
           ${ctaButton('⚡ Go to the Arena →', 'https://antcpu.cloud/')}
           <div style="margin-top:0.75rem">
-            <a href="${isMkt ? 'https://antcpu.io/marketing/' : 'https://antcpu.io/dev/'}"
+            <a href="${isMkt ? mktUrl : devUrl}"
               style="font-size:0.78rem;color:#555;text-decoration:underline">
               Or open your workspace →
             </a>
@@ -309,7 +315,7 @@ function buildNudgeEmail(opts: {
           )}
         </div>
         <div style="text-align:center">
-          ${ctaButton('Go to Dashboard →', 'https://antcpu.io/dashboard/')}
+          ${ctaButton('Go to Dashboard →', dashUrl)}
           <div style="margin-top:0.75rem">
             <a href="https://antcpu.io/community/"
               style="font-size:0.78rem;color:#555;text-decoration:underline">
@@ -338,7 +344,7 @@ function buildNudgeEmail(opts: {
         <div style="text-align:center">
           ${ctaButton(
             isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-            isMkt ? 'https://antcpu.io/marketing/' : 'https://antcpu.io/dev/'
+            isMkt ? mktUrl : devUrl
           )}
         </div>`),
     };
@@ -402,10 +408,10 @@ function buildNudgeEmail(opts: {
         <div style="text-align:center">
           ${ctaButton(
             isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-            isMkt ? 'https://antcpu.io/marketing/' : 'https://antcpu.io/dev/'
+            isMkt ? mktUrl : devUrl
           )}
           <div style="margin-top:0.75rem">
-            <a href="https://antcpu.io/dashboard/"
+            <a href=dashUrl
               style="font-size:0.78rem;color:#555;text-decoration:underline">
               Or go to your dashboard →
             </a>
@@ -461,7 +467,7 @@ function buildNudgeEmail(opts: {
       <div style="text-align:center">
         ${ctaButton(
           isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-          isMkt ? 'https://antcpu.io/marketing/' : 'https://antcpu.io/dev/'
+          isMkt ? mktUrl : devUrl
         )}
       </div>`),
   };
@@ -523,7 +529,7 @@ export async function POST(req: NextRequest) {
     // ── Step 2: Idempotency ───────────────────────────────────
     const { data: challenger } = await supabase
       .from('challengers')
-      .select('id, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort')
+      .select('id, intern_id, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort')
       .eq('email', email.trim().toLowerCase())
       .eq('status', 'active')
       .maybeSingle();
@@ -552,6 +558,7 @@ export async function POST(req: NextRequest) {
       track:       resolvedTrack,
       nudgeType:   nudge_type,
       progressPct: resolvedPct,
+      internId:    challenger?.intern_id ?? undefined,
     });
 
     // ── Step 4: Send ──────────────────────────────────────────
