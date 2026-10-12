@@ -99,6 +99,7 @@ type NextCohort = {
 
 type OfficeData = {
   handle: string;
+  intern_id: string;
   name: string;
   initials: string;
   flag: string | null;
@@ -580,7 +581,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
     fetch('/api/internship/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ handle: data.handle }),
+      body: JSON.stringify({ intern_id: data.intern_id ?? data.handle }),
     }).catch(() => {});
   }, [data.handle]);
 
