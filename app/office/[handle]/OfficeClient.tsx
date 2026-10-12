@@ -574,6 +574,16 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  // ── Session ping — fires on mount, updates last_seen ──────
+  useEffect(() => {
+    if (!data.handle) return;
+    fetch('/api/internship/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ handle: data.handle }),
+    }).catch(() => {});
+  }, [data.handle]);
+
   const isInactive =
     data.cutoff_status === 'paused' ||
     (data.progress_pct < 25 && data.progress_pct > 0);
