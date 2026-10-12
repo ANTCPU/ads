@@ -56,11 +56,11 @@ export async function GET(req: NextRequest) {
       authed = true;
     } else if (internId) {
       const { data: owner } = await supabase
-        .from('challengers')
-        .select('id, access_level')
+        .from('antcpu_users')
+        .select('id, access_level, can_access_admin')
         .eq('intern_id', internId)
         .maybeSingle();
-      if (owner?.access_level === 'owner') authed = true;
+      if (owner?.access_level === 'owner' || owner?.can_access_admin) authed = true;
     }
 
     if (!authed) {
