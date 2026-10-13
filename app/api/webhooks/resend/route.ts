@@ -176,6 +176,26 @@ export async function POST(req: NextRequest) {
           updated_at:     now,
         }], { onConflict: 'email' });
 
+      // Log click to activity_log for challenger engagement tracking
+      const { data: ch } = await supabase
+        .from('challengers')
+        .select('id, completed_gates')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+
+      if (ch) {
+        await supabase
+          .from('activity_log')
+          .insert({
+            challenger_id: ch.id,
+            label:         'Opened nudge email',
+            icon:          '📧',
+            type:          'nudge_click',
+            points:        0,
+            created_at:    now,
+          });
+      }
+
       return ok({ action: 'clicked', email: cleanEmail, resendId });
     }
 

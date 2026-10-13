@@ -187,7 +187,7 @@ function buildNudgeEmail(opts: {
   const name  = firstName || 'there';
   const t         = internId ? '?t=' + internId : '';
   const officeUrl = handle
-    ? `https://antcpu-ads.vercel.app/office/${handle}`
+? `https://antcpu.io/office/?h=${handle}&src=nudge`
     : `https://antcpu.io/dashboard/${t}`;
   const dashUrl   = `https://antcpu.io/dashboard/${t}`;
   const primaryUrl  = isMkt ? 'https://antcpu.cloud/' : 'https://github.com/ANTCPU/ads';
