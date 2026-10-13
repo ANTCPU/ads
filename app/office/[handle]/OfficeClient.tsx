@@ -143,8 +143,14 @@ type OfficeData = {
     week: number;
     week_name: string;
     days_left_total: number;
+    days_left_week: number | null;
     entry_open: boolean;
     next_cohort: NextCohort | null;
+  } | null;
+  presence: {
+    sessions_active_1h: number;
+    office_posts_today: number;
+    virtual_office_live: boolean;
   } | null;
 };
 
@@ -575,6 +581,26 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  // ── Online count from presence ──
+  const onlineCount = data.presence?.sessions_active_1h ?? 0;
+
+  // ── Is this the session owner? ──
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
+      if (s?.handle && s.handle === data.handle) setIsOwner(true);
+    } catch {}
+  }, [data.handle]);
+
+  // ── Workspace route by track ──
+  const workspaceHref = data.track === 'marketing' ? '/marketing/' : '/dev/';
+  const workspaceLabel = data.track === 'marketing' ? '📣 Go to Workspace' : '💻 Go to Workspace';
+
+  // ── Week 2 deadline warning ──
+  const daysLeftWeek = data.clock?.days_left_week ?? null;
+  const showDeadlineBanner = daysLeftWeek !== null && daysLeftWeek <= 2 && (data.clock?.week ?? 0) === 2;
+
   // ── Session ping — fires on mount, updates last_seen ──────
   useEffect(() => {
     if (!data.handle) return;
@@ -670,6 +696,12 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                     Veteran-owned · United States
                   </span>
                 )}
+              {mounted && onlineCount > 0 && (
+                <span className="flex items-center gap-1 text-xs" style={{ color: theme.subtext }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+                  {onlineCount} online now
+                </span>
+              )}
               </div>
             </div>
           </div>
@@ -706,6 +738,29 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
               />
             </div>
           </div>
+
+          {/* ── Week 2 deadline banner ── */}
+          {showDeadlineBanner && (
+            <div
+              className="rounded-lg p-3 mb-4 text-sm font-medium flex items-center gap-2"
+              style={{ background: 'rgba(224,123,32,0.1)', border: `1px solid ${theme.accent}`, color: theme.accent }}
+            >
+              <span>⏳</span>
+              <span>Week 2 closes in {daysLeftWeek} day{daysLeftWeek === 1 ? '' : 's'} — submit your build.</span>
+            </div>
+          )}
+
+          {/* ── Workspace button — owner only ── */}
+          {isOwner && (
+            <a
+              href={workspaceHref}
+              className="flex items-center justify-between rounded-lg p-4 mb-4 text-sm font-bold"
+              style={{ background: theme.accent, color: '#fff', textDecoration: 'none' }}
+            >
+              <span>{workspaceLabel} →</span>
+              <span style={{ opacity: 0.7, fontSize: '0.72rem' }}>{data.progress_pct}% complete</span>
+            </a>
+          )}
 
           {/* ── Stats grid ── */}
           <div className="grid grid-cols-4 gap-2 mb-6">

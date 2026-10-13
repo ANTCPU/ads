@@ -36,10 +36,20 @@ async function getOfficeData(handle: string) {
           week:           health.calendar.week,
           week_name:      health.calendar.week_name,
           days_left_total: health.calendar.days_left_total,
+          days_left_week:  health.calendar.days_left_week ?? null,
           entry_open:     health.calendar.entry_open,
           next_cohort:    health.next_cohort ?? null,
         }
       : null;
+
+      // ── Presence from health ──
+      const presence = health?.presence
+        ? {
+            sessions_active_1h:  health.presence.sessions_active_1h  ?? 0,
+            office_posts_today:  health.presence.office_posts_today  ?? 0,
+            virtual_office_live: health.presence.virtual_office_live ?? false,
+          }
+        : null;
 
     // ── Sanitise flag — never expose internal values ──
     const INTERNAL_FLAGS = ['none', 'stalled', 'nudge', 'at-risk', 'shining'];
@@ -49,6 +59,7 @@ async function getOfficeData(handle: string) {
       ...data,
       flag,
       clock,
+      presence,
       // ── Safe defaults for optional fields ──
       badges:          Array.isArray(data.badges)   ? data.badges   : [],
       activity:        Array.isArray(data.activity) ? data.activity : [],
