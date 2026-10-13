@@ -133,8 +133,8 @@ export async function GET(
 
   const c = challengerRes.data as unknown as ChallengerRow;
 
-  // Parallel fetch — arena ad + recent activity
-  const [arenaRes, activityRes] = await Promise.all([
+  // Parallel fetch — arena ad + recent activity + ad content
+  const [arenaRes, activityRes, adRes] = await Promise.all([
     supabase
       .from('ad_signups')
       .select(
@@ -149,10 +149,19 @@ export async function GET(
       .eq('challenger_id', c.id)
       .order('created_at', { ascending: false })
       .limit(5),
+    supabase
+      .from('ads')
+      .select('id, title, description, url, status, category')
+      .eq('email', c.email)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const arena    = arenaRes.data as unknown as ArenaRow | null;
   const activity = (activityRes.data ?? []) as unknown as ActivityRow[];
+  const adData   = adRes.data as { id: string; title: string; description: string; url: string; status: string; category: string } | null;
 
   return NextResponse.json(
     {
@@ -200,6 +209,15 @@ export async function GET(
         : null,
       activity,
       clock: clockRes,
+      ad: adData
+        ? {
+            id:          adData.id,
+            title:       adData.title,
+            description: adData.description,
+            url:         adData.url,
+            category:    adData.category,
+          }
+        : null,
     },
     { headers: CORS }
   );
