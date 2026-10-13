@@ -205,27 +205,31 @@ export async function POST(req: NextRequest) {
         }, { onConflict: 'challenger_id,gate_id' })
         .select('id, gate_id, type, title, status, created_at'),
 
-      // 2. Advance gate + progress if not already done
-      alreadyDone
-        ? Promise.resolve({ data: null, error: null })
-        : (async () => {
-            const updatedGates = [...existing, gate_id];
-            const newPct       = Math.max(challenger.progress_pct ?? 0, gatePct);
-            const newWeek      = gateWeek;
-            const newRole      = roleForPct(newPct);
+      // 2. Advance gate + progress — always run if gate gives higher pct
+      // alreadyDone only blocks duplicate submission insert, not progress
+      (async () => {
+        const updatedGates = alreadyDone ? existing : [...existing, gate_id];
+        const newPct       = Math.max(challenger.progress_pct ?? 0, gatePct);
+        const newWeek      = gateWeek;
+        const newRole      = roleForPct(newPct);
 
-            return supabase
-              .from('challengers')
-              .update({
-                completed_gates: updatedGates,
-                progress_pct:    newPct,
-                week:            newWeek,
-                role_title:      newRole,
-              })
-              .eq('id', challenger.id)
-              .select('id, intern_id, challenger_num, handle, first_name, track, progress_pct, week, role_title, completed_gates')
-              .single();
-          })(),
+        // Only write if progress actually advances
+        if (newPct <= (challenger.progress_pct ?? 0) && alreadyDone) {
+          return { data: null, error: null };
+        }
+
+        return supabase
+          .from('challengers')
+          .update({
+            completed_gates: updatedGates,
+            progress_pct:    newPct,
+            week:            newWeek,
+            role_title:      newRole,
+          })
+          .eq('id', challenger.id)
+          .select('id, intern_id, challenger_num, handle, first_name, track, progress_pct, week, role_title, completed_gates')
+          .single();
+      })(),
     ]);
 
     if (insertError) {
