@@ -6,11 +6,13 @@
 //            (browser trigger from antcpu.io/admin/)
 //
 // Nudge types:
-//   hard_d1      — stuck at 5%, hasn't returned
-//   hard_d2      — stuck at 10%, hasn't touched Arena
-//   soft         — 15–24%, stalled before Week 1 complete
-//   light        — active but not done (gentle pointer)
-//   week2_unlock — Week 1 done, Week 2 just opened
+//   hard_d1       — stuck at 5%, hasn't returned
+//   hard_d2       — stuck at 10%, hasn't touched codebase/arena
+//   soft          — 15-24%, stalled before Week 1 complete
+//   light         — active but not done (gentle pointer)
+//   week2_unlock  — Week 1 done, Week 2 just opened
+//   week3_unlock  — Week 2 closing, team forms Day 14
+//   captain_alert — elevated to Node Captain, doesn't know yet
 //
 // Gate: checkEmailValidity only (bounce/unsub check)
 //       + nudge_sent_at idempotency on challengers table
@@ -29,6 +31,17 @@
 //   — CORS constant alias added for non-req contexts
 //   — OPTIONS handler updated to use getCORS
 //   — All NextResponse returns use getCORS(origin)
+//
+// v1.2 (Oct 2026):
+//   — B1: hard_d2 dev CTA -> github.com/ANTCPU/ads
+//   — B2: dashUrl fixed (was copy of devUrl)
+//   — B3: href=dashUrl quotes fixed (hard_d1 + week3_unlock)
+//   — B4: internal names removed from week3_unlock
+//   — B5: handle fetched from DB, used in officeUrl
+//   — handle + elevation_level + node_role added to select
+//   — officeUrl derived from handle, fallback dashboard/?t=
+//   — handle returned in POST response + Discord fields
+//   — captain_alert: see next patch
 // ============================================================
 
 import { NextRequest, NextResponse }   from 'next/server';
@@ -85,7 +98,8 @@ type NudgeType =
   | 'soft'
   | 'light'
   | 'week2_unlock'
-  | 'week3_unlock';
+  | 'week3_unlock'
+  | 'captain_alert';
 
 // ── Email builders ─────────────────────────────────────────────
 
@@ -159,21 +173,28 @@ function taskRow(label: string, desc: string, pct: number): string {
 // ── Build email ────────────────────────────────────────────────
 
 function buildNudgeEmail(opts: {
-  firstName:   string;
-  track:       string;
-  nudgeType:   NudgeType;
-  progressPct: number;
-  internId?:   string;
+  firstName:      string;
+  track:          string;
+  nudgeType:      NudgeType;
+  progressPct:    number;
+  internId?:      string;
+  handle?:        string;
+  elevationNote?: string;
 }): { subject: string; html: string } {
 
-  const { firstName, track, nudgeType, progressPct, internId } = opts;
+  const { firstName, track, nudgeType, progressPct, internId, handle, elevationNote } = opts;
   const isMkt = track === 'marketing';
   const name  = firstName || 'there';
-  const t     = internId ? '?t=' + internId : '';
-  const devUrl  = 'https://antcpu.io/dev/'       + t;
-  const mktUrl  = 'https://antcpu.io/marketing/' + t;
-  const dashUrl = 'https://antcpu.io/dev/'       + t;
-  const nextUrl = 'https://antcpu.io/next/'      + t;
+  const t         = internId ? '?t=' + internId : '';
+  const officeUrl = handle
+    ? `https://antcpu-ads.vercel.app/office/${handle}`
+    : `https://antcpu.io/dashboard/${t}`;
+  const dashUrl   = `https://antcpu.io/dashboard/${t}`;
+  const primaryUrl  = isMkt ? 'https://antcpu.cloud/' : 'https://github.com/ANTCPU/ads';
+  const primaryLabel = isMkt ? '⚡ Go to the Arena →' : '⚡ Go to the Codebase →';
+  // legacy aliases kept for soft/light/week2 templates
+  const mktUrl  = 'https://antcpu.cloud/';
+  const devUrl  = 'https://github.com/ANTCPU/ads';
 
   // ── hard_d1 ───────────────────────────────────────────────
   if (nudgeType === 'hard_d1') {
@@ -207,19 +228,16 @@ function buildNudgeEmail(opts: {
             'Explore the Arena',
             isMkt
               ? 'Go to antcpu.cloud. Find the Map of Pi ad. Claim your country.'
-              : 'Go to antcpu.cloud. Read the codebase. Find your first PR.',
+              : 'Go to github.com/ANTCPU/ads. Read the README. Find your first open issue.',
             15
           )}
         </div>
         <div style="text-align:center">
-          ${ctaButton(
-            isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-            isMkt ? mktUrl : devUrl
-          )}
+          ${ctaButton('Go to My Office →', officeUrl)}
           <div style="margin-top:0.75rem">
-            <a href=dashUrl
+            <a href="${dashUrl}"
               style="font-size:0.78rem;color:#555;text-decoration:underline">
-              Or go to your dashboard →
+              Or go to your office →
             </a>
           </div>
         </div>`),
@@ -251,26 +269,26 @@ function buildNudgeEmail(opts: {
             'Explore the Arena',
             isMkt
               ? 'Go to antcpu.cloud. Find the Map of Pi ad. Claim your country.'
-              : 'Go to antcpu.cloud. Read the README. Find your first open PR.',
+              : 'Go to github.com/ANTCPU/ads. Read the README. Find your first open issue.',
             15
           )}
           ${taskRow(
             'First Action in the Arena',
             isMkt
               ? "React to one ad. Screenshot it. That's your first submission."
-              : 'Read all open PRs. Pick your target. Write one paragraph on why.',
+              : 'Read open issues. Pick your target. Write one paragraph on why.',
             20
           )}
           ${taskRow(
             'First Submission',
             isMkt
               ? 'Post your first content piece — a caption, concept, or campaign idea for Map of Pi.'
-              : 'Submit your first PR draft or a written code note on your chosen PR.',
+              : 'Submit your first PR draft or a written code note on your chosen issue.',
             22
           )}
         </div>
         <div style="text-align:center">
-          ${ctaButton('⚡ Go to the Arena →', 'https://antcpu.cloud/')}
+          ${isMkt ? ctaButton('⚡ Go to the Arena →', 'https://antcpu.cloud/') : ctaButton('⚡ Go to the Codebase →', 'https://github.com/ANTCPU/ads')}
           <div style="margin-top:0.75rem">
             <a href="${isMkt ? mktUrl : devUrl}"
               style="font-size:0.78rem;color:#555;text-decoration:underline">
@@ -315,7 +333,7 @@ function buildNudgeEmail(opts: {
           )}
         </div>
         <div style="text-align:center">
-          ${ctaButton('Go to Dashboard →', dashUrl)}
+          ${ctaButton('Go to My Office →', officeUrl)}
           <div style="margin-top:0.75rem">
             <a href="https://antcpu.io/community/"
               style="font-size:0.78rem;color:#555;text-decoration:underline">
@@ -342,10 +360,71 @@ function buildNudgeEmail(opts: {
           </div>
         </div>
         <div style="text-align:center">
-          ${ctaButton(
-            isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-            isMkt ? mktUrl : devUrl
+          ${ctaButton('Go to My Office →', officeUrl)}
+        </div>`),
+    };
+  }
+
+
+  // -- captain_alert ------------------------------------------
+  // Sent to elevation_level 3 challengers selected as node captains.
+  // They were elevated after going dark — they don't know yet.
+  if (nudgeType === 'captain_alert') {
+    return {
+      subject: `⚡ You've been selected as Node Captain, ${name}`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ⚡ You've been selected as Node Captain.
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            Out of ${isMkt ? '4 marketing' : '29 dev'} challengers,
+            you were selected to lead a node into Week 3.
+            Your team is assigned. They're waiting for you.
+          </div>
+        </div>
+        ${elevationNote ? `
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem">
+            Why you were selected
+          </div>
+          <div style="font-size:0.85rem;color:#aaa;line-height:1.7">
+            ${elevationNote}
+          </div>
+        </div>` : ''}
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            What happens next
+          </div>
+          ${taskRow(
+            'Week 3 Brief — Lead Your Node',
+            'Your node has a dev captain, a marketer, and members. You set the direction.',
+            55
           )}
+          ${taskRow(
+            'First Node Check-in',
+            'Post in your node channel. Introduce yourself as captain. Set the tone.',
+            60
+          )}
+          ${taskRow(
+            'Ship Together',
+            'Your node submits one joint project. You own the outcome.',
+            75
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton('⚡ Go to My Office →', officeUrl)}
+          <div style="margin-top:0.75rem">
+            <a href="${primaryUrl}"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              ${primaryLabel}
+            </a>
+          </div>
         </div>`),
     };
   }
@@ -395,25 +474,12 @@ function buildNudgeEmail(opts: {
             46
           )}
         </div>
-        <div style="background:${CARD};border:1px solid ${ACCENT}20;
-          border-radius:12px;padding:1rem;margin-bottom:1.25rem;
-          text-align:center">
-          <div style="font-size:0.78rem;color:#aaa">
-            🏆 Already at 100%: <strong style="color:${ACCENT}">Arena4 · Mohamed39 · Antony0</strong>
-          </div>
-          <div style="font-size:0.72rem;color:#555;margin-top:0.25rem">
-            Your squad partner is waiting. Don't miss the pairing.
-          </div>
-        </div>
         <div style="text-align:center">
-          ${ctaButton(
-            isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-            isMkt ? mktUrl : devUrl
-          )}
+          ${ctaButton('Go to My Office →', officeUrl)}
           <div style="margin-top:0.75rem">
-            <a href=dashUrl
+            <a href="${dashUrl}"
               style="font-size:0.78rem;color:#555;text-decoration:underline">
-              Or go to your dashboard →
+              Or go to your office →
             </a>
           </div>
         </div>`),
@@ -465,10 +531,7 @@ function buildNudgeEmail(opts: {
         )}
       </div>
       <div style="text-align:center">
-        ${ctaButton(
-          isMkt ? 'Go to Marketing Workspace →' : 'Go to Dev Workspace →',
-          isMkt ? mktUrl : devUrl
-        )}
+        ${ctaButton('Go to My Office →', officeUrl)}
       </div>`),
   };
 }
@@ -503,7 +566,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock',
+      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert',
     ];
     if (!validTypes.includes(nudge_type)) {
       return NextResponse.json(
@@ -529,7 +592,7 @@ export async function POST(req: NextRequest) {
     // ── Step 2: Idempotency ───────────────────────────────────
     const { data: challenger } = await supabase
       .from('challengers')
-      .select('id, intern_id, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort')
+      .select('id, intern_id, handle, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort, elevation_level, elevation_note, node_role')
       .eq('email', email.trim().toLowerCase())
       .eq('status', 'active')
       .maybeSingle();
@@ -554,11 +617,13 @@ export async function POST(req: NextRequest) {
     const resolvedPct   = progress_pct ?? challenger.progress_pct ?? 0;
 
     const { subject, html } = buildNudgeEmail({
-      firstName:   resolvedName,
-      track:       resolvedTrack,
-      nudgeType:   nudge_type,
-      progressPct: resolvedPct,
-      internId:    challenger?.intern_id ?? undefined,
+      firstName:     resolvedName,
+      track:         resolvedTrack,
+      nudgeType:     nudge_type,
+      progressPct:   resolvedPct,
+      internId:      challenger.intern_id    ?? undefined,
+      handle:        challenger.handle       ?? undefined,
+      elevationNote: challenger.elevation_note ?? undefined,
     });
 
     // ── Step 4: Send ──────────────────────────────────────────
@@ -603,6 +668,7 @@ export async function POST(req: NextRequest) {
         { name: 'Challenger', value: `${resolvedName} · ${trackLabel}`, inline: true },
         { name: 'Progress',   value: `${resolvedPct}%`,                 inline: true },
         { name: 'Type',       value: nudge_type,                        inline: true },
+        { name: 'Handle',     value: challenger.handle || '—',          inline: true },
         { name: 'Email',      value: email,                             inline: false },
       ],
       footer:    `internship nudge · ${challenger.cohort || 'october-2026'}`,
@@ -610,7 +676,7 @@ export async function POST(req: NextRequest) {
     }).catch(() => {});
 
     return NextResponse.json(
-      { sent: true, nudge_type, email },
+      { sent: true, nudge_type, email, handle: challenger.handle },
       { headers: cors }
     );
 
@@ -623,3 +689,70 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File:    app/api/internship/nudge/route.ts
+// Version: v1.2
+// Updated: 2026-10-13
+//
+// WHAT THIS FILE DOES:
+//   Sends track-aware nudge emails to challengers via Resend/Herald.
+//   Each nudge type targets a specific progress state.
+//   All CTAs route to office/[handle] as primary destination.
+//   Click/open events tracked via Resend webhook -> email_sends.
+//
+// CHANGES v1.2:
+//   B1: hard_d2 dev CTA -> github.com/ANTCPU/ads (not antcpu.cloud)
+//   B2: dashUrl fixed — was copy of devUrl, now /dashboard/?t=
+//   B3: href=dashUrl quotes fixed in hard_d1 + week3_unlock
+//   B4: internal names removed from week3_unlock
+//   B5: handle fetched from DB, used in officeUrl
+//   NEW: captain_alert nudge type added
+//   NEW: handle + elevation_level + node_role in DB select
+//   NEW: officeUrl -> office/[handle], fallback dashboard/?t=
+//   NEW: secondaryLink pattern via inline div
+//   NEW: handle returned in POST response + Discord fields
+//
+// NUDGE TYPES:
+//   hard_d1       5%   -> hasn't returned since signup
+//   hard_d2       10%  -> profile done, hasn't touched codebase/arena
+//   soft          <25% -> stalled before Week 1 complete
+//   light         any  -> gentle active pointer
+//   week2_unlock  25%  -> Week 1 done, Week 2 just opened
+//   week3_unlock  any  -> Week 2 closing, team forms Day 14
+//   captain_alert any  -> elevated to Node Captain, doesn't know yet
+//
+// CTA ROUTING:
+//   dev primary   -> github.com/ANTCPU/ads
+//   mkt primary   -> antcpu.cloud
+//   all secondary -> antcpu-ads.vercel.app/office/[handle]
+//   fallback      -> antcpu.io/dashboard/?t=[intern_id]
+//
+// RESEND TRACKING:
+//   Click + open tracking enabled in Resend dashboard
+//   Webhook: antcpu-ads.vercel.app/api/webhooks/resend
+//   Events -> email_sends (status, opened_at, clicked_at)
+//          -> email_prefs (open_count, email_ok)
+//
+// NEXT TASKS:
+//   -> nav.js: login -> office/[handle]
+//   -> dashboard.js: owner redirect -> antcpu.com/admin/dashboard/
+//   -> admin/dashboard/index.html: gate + smart nudge type
+//   -> OfficeClient.tsx: online now counter
+//   -> office/[handle]/route.ts: add node_id, node_role
+//   -> desktop.html: email panel (outbox, counter, compose)
+//
+// DEPENDS ON:
+//   app/lib/herald.ts     heraldSend()
+//   app/lib/discord.ts    notifyDiscord(), DC
+//   app/lib/emailGate.ts  checkEmailValidity(), recordEmailSent(),
+//                         logEmailSend(), logSkippedSend()
+//   Supabase tables:
+//     challengers         source of truth + handle + elevation
+//     activity_log        nudge event log
+//     email_sends         send history + open/click status
+//     email_validity      bounce/unsub gate
+//     ad_signups          quota counters
+// ============================================================
