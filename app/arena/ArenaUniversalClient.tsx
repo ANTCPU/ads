@@ -12,7 +12,7 @@
 'use client';
 
 import { useRouter }                          from 'next/navigation';
-import { useState, useEffect }                from 'react';
+import { useState, useEffect, useRef }        from 'react';
 import { createClient }                       from '@supabase/supabase-js';
 import ArenaNav                               from '../components/ArenaNav';
 import ArenaFooter                            from '../components/ArenaFooter';
@@ -64,6 +64,7 @@ type Ad = {
   click_count: number; share_count: number; like_count: number;
   boost_count: number; reaction_count: number; rank_position?: number;
   image_url: string | null; is_country_champion?: boolean; country?: string;
+  created_at?: string;
 };
 type Toast    = { id: string; msg: string };
 type BrandCfg = { image_url: string | null; color: string | null };
@@ -159,6 +160,13 @@ export default function ArenaUniversalClient() {
   const [bookmarked,     setBookmarked]    = useState<Record<string, boolean>>({});
   const [reactionTarget, setReactionTarget]= useState<string | null>(null);
   const [nudgedAd,       setNudgedAd]      = useState<string | null>(null);
+  const [searchQ,        setSearchQ]       = useState('');
+  const [searchResults,  setSearchResults] = useState<Record<string, {id:string;type:string;title:string;subtitle:string|null;url:string;points:number}[]>>({});
+  const [searchLoading,  setSearchLoading] = useState(false);
+  const [searchOpen,     setSearchOpen]    = useState(false);
+  const [sortMode,       setSortMode]      = useState<'hot'|'new'|'top'|'champion'>('hot');
+  const [filterCat,      setFilterCat]     = useState<string|null>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
   const [liveStats,      setLiveStats]     = useState({
     totalBrands:    0,
     totalAds:       0,
@@ -169,6 +177,17 @@ export default function ArenaUniversalClient() {
 
   // ─── Derived ─────────────────────────────────────────────────────────────
   const maxPoints = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
+
+  // ─── Derived: sort + filter ───────────────────────────────────────────────
+  const categories = Array.from(new Set(ads.map(a => a.category).filter(Boolean)));
+  const displayAds = ads
+    .filter(a => !filterCat || a.category === filterCat)
+    .filter(a => sortMode === 'champion' ? !!a.is_country_champion : true)
+    .sort((a, b) => {
+      if (sortMode === 'new') return new Date(b.created_at||0).getTime() - new Date(a.created_at||0).getTime();
+      if (sortMode === 'top') return (b.click_count||0) - (a.click_count||0);
+      return (b.points||0) - (a.points||0); // hot + champion both sort by points
+    });
   const isSuper   = user.role === 'super' || (!!SUPER_EMAIL && user.email === SUPER_EMAIL);
 
   // ─── refreshStats ─────────────────────────────────────────────────────────
@@ -184,6 +203,28 @@ export default function ArenaUniversalClient() {
         totalShares:    data.totalShares    || 0,
       });
     } catch {}
+  }
+
+  // ─── Search ──────────────────────────────────────────────────────────────────
+  function handleSearchInput(q: string) {
+    setSearchQ(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.length < 2) { setSearchResults({}); setSearchOpen(false); return; }
+    setSearchLoading(true);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const res  = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=20`);
+        const data = await res.json();
+        setSearchResults(data.grouped || {});
+        setSearchOpen(true);
+      } catch {}
+      finally { setSearchLoading(false); }
+    }, 300);
+  }
+
+  function clearSearch() {
+    setSearchQ(''); setSearchResults({}); setSearchOpen(false);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
   }
 
   // ─── Module context ───────────────────────────────────────────────────────
@@ -659,18 +700,135 @@ export default function ArenaUniversalClient() {
       {/* ── Main content ── */}
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '1.5rem 1rem' }}>
 
-        {/* Header stats */}
-        <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {/* ── Search + Sort bar ── */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+
+          {/* Search input */}
+          <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <span style={{ position: 'absolute', left: '0.75rem', fontSize: '0.9rem', pointerEvents: 'none' }}>
+                {searchLoading ? '⏳' : '🔍'}
+              </span>
+              <input
+                type="text"
+                value={searchQ}
+                onChange={e => handleSearchInput(e.target.value)}
+                onKeyDown={e => e.key === 'Escape' && clearSearch()}
+                placeholder="Search ads, brands, advertisers..."
+                style={{ width: '100%', background: '#111', border: '1px solid #222',
+                  borderRadius: '10px', padding: '0.6rem 2.2rem 0.6rem 2.2rem',
+                  color: '#fff', fontSize: '0.85rem', outline: 'none',
+                  transition: 'border-color 0.15s' }}
+                onFocus={e => { e.currentTarget.style.borderColor = orange; if(searchQ.length>1) setSearchOpen(true); }}
+                onBlur={e  => { e.currentTarget.style.borderColor = '#222'; setTimeout(()=>setSearchOpen(false),200); }}
+              />
+              {searchQ && (
+                <button onClick={clearSearch}
+                  style={{ position: 'absolute', right: '0.6rem', background: 'none', border: 'none',
+                    color: muted, cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
+              )}
+            </div>
+
+            {/* Search results dropdown */}
+            {searchOpen && Object.keys(searchResults).length > 0 && (
+              <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 200,
+                background: '#111', border: '1px solid #222', borderRadius: '12px',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)', maxHeight: 400, overflowY: 'auto' }}>
+                {(['ad','brand','advertiser','challenger'] as const).map(type => {
+                  const rows = searchResults[type];
+                  if (!rows || rows.length === 0) return null;
+                  const typeLabel: Record<string,string> = { ad:'Ads', brand:'Brands', advertiser:'Advertisers', challenger:'Challengers' };
+                  const typeColor: Record<string,string> = { ad: orange, brand:'#0070f3', advertiser: gold, challenger:'#22c55e' };
+                  return (
+                    <div key={type}>
+                      <div style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.65rem',
+                        color: typeColor[type], letterSpacing: '0.1em', textTransform: 'uppercase',
+                        fontWeight: 700, borderTop: '1px solid #1a1a1a' }}>
+                        {typeLabel[type]}
+                      </div>
+                      {rows.slice(0,5).map(r => (
+                        <a key={r.id} href={r.url}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '0.5rem 0.75rem', textDecoration: 'none', color: '#fff',
+                            fontSize: '0.82rem', transition: 'background 0.1s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <div>
+                            <span style={{ fontWeight: 600 }}>{r.title}</span>
+                            {r.subtitle && <span style={{ color: muted, marginLeft: '0.4rem', fontSize: '0.75rem' }}>{r.subtitle}</span>}
+                          </div>
+                          {r.points > 0 && <span style={{ fontSize: '0.7rem', color: typeColor[type] }}>⚡{r.points}</span>}
+                        </a>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Sort buttons */}
+          <div style={{ display: 'flex', gap: '0.35rem', flexShrink: 0 }}>
+            {(['hot','new','top','champion'] as const).map(mode => {
+              const icons: Record<string,string> = { hot:'🔥', new:'✨', top:'👆', champion:'🏆' };
+              const active = sortMode === mode;
+              return (
+                <button key={mode} onClick={() => setSortMode(mode)}
+                  style={{ padding: '0.45rem 0.65rem', borderRadius: '8px', fontSize: '0.72rem',
+                    fontWeight: active ? 700 : 400, cursor: 'pointer', transition: 'all 0.15s',
+                    background: active ? `${orange}20` : '#111',
+                    border: `1px solid ${active ? orange : '#222'}`,
+                    color: active ? orange : muted }}>
+                  {icons[mode]} {mode}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Category filter pills ── */}
+        {categories.length > 0 && (
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            <button onClick={() => setFilterCat(null)}
+              style={{ padding: '0.25rem 0.65rem', borderRadius: '999px', fontSize: '0.7rem',
+                cursor: 'pointer', background: !filterCat ? `${orange}20` : '#111',
+                border: `1px solid ${!filterCat ? orange : '#222'}`,
+                color: !filterCat ? orange : muted, fontWeight: !filterCat ? 700 : 400 }}>
+              All
+            </button>
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setFilterCat(filterCat === cat ? null : cat)}
+                style={{ padding: '0.25rem 0.65rem', borderRadius: '999px', fontSize: '0.7rem',
+                  cursor: 'pointer', background: filterCat === cat ? `${orange}20` : '#111',
+                  border: `1px solid ${filterCat === cat ? orange : '#222'}`,
+                  color: filterCat === cat ? orange : muted,
+                  fontWeight: filterCat === cat ? 700 : 400 }}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Stats bar ── */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem',
+          flexWrap: 'wrap', alignItems: 'center',
+          padding: '0.6rem 0.75rem', background: '#0d0d0d',
+          border: '1px solid #1a1a1a', borderRadius: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginRight: '0.25rem' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e',
+              display: 'inline-block', boxShadow: '0 0 6px #22c55e' }} />
+            <span style={{ fontSize: '0.65rem', color: '#22c55e', fontWeight: 700, letterSpacing: '0.08em' }}>LIVE</span>
+          </div>
           {[
-           { label: t(locale, 'arena_stat_brands'),     value: liveStats.totalBrands,                     color: '#0070f3' },
-           { label: t(locale, 'arena_stat_ads'),        value: liveStats.totalAds,                        color: orange    },
-           { label: t(locale, 'arena_stat_points'),     value: liveStats.totalPoints.toLocaleString(),    color: gold      },
-           { label: t(locale, 'arena_stat_reactions'),  value: liveStats.totalReactions.toLocaleString(), color: '#f0883e' },
-           { label: t(locale, 'arena_stat_shares'),     value: liveStats.totalShares.toLocaleString(),    color: '#22c55e' },
+            { label: t(locale, 'arena_stat_brands'),    value: liveStats.totalBrands,                     color: '#0070f3' },
+            { label: t(locale, 'arena_stat_ads'),       value: liveStats.totalAds,                        color: orange    },
+            { label: t(locale, 'arena_stat_points'),    value: liveStats.totalPoints.toLocaleString(),    color: gold      },
+            { label: t(locale, 'arena_stat_reactions'), value: liveStats.totalReactions.toLocaleString(), color: '#f0883e' },
+            { label: t(locale, 'arena_stat_shares'),    value: liveStats.totalShares.toLocaleString(),    color: '#22c55e' },
           ].map(s => (
-            <div key={s.label}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: '0.68rem', color: muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</div>
+            <div key={s.label} style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 800, color: s.color }}>{s.value}</span>
+              <span style={{ fontSize: '0.62rem', color: muted, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{s.label}</span>
             </div>
           ))}
         </div>
@@ -690,7 +848,7 @@ export default function ArenaUniversalClient() {
           <div style={{ textAlign: 'center', padding: '3rem', color: muted }}>{t(locale, 'arena_empty')}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {ads.map(ad => {
+            {displayAds.map(ad => {
               const color         = getBrandColor(ad.brand);
               const heat          = Math.round(((ad.points || 0) / maxPoints) * 100);
               const hasLiked      = !!liked[ad.id];
