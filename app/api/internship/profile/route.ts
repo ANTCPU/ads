@@ -122,7 +122,7 @@ async function resolveChallenger(params: {
   else if (params.email)  query = query.eq('email',          params.email);
   else return null;
 
-  const { data } = await query.single();
+  const { data } = await query.maybeSingle();
   return (data as unknown as ChallengerRow) ?? null;
 }
 
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
           'track, country, progress_pct, week, role_title, ' +
           'completed_gates, profile_type, profile_complete'
         )
-        .single(),
+        .maybeSingle(),
 
       supabase
         .from('activity_log')

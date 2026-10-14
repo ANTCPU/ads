@@ -42,12 +42,12 @@ export async function GET(req: NextRequest) {
       .from('cohort_snapshots')
       .select('cohort, started_at, closed_at')
       .eq('cohort', cohort)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('cohort_snapshots')
       .select('cohort, started_at, closed_at')
       .eq('cohort', nextCohort)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('challengers')
       .select('id', { count: 'exact', head: true })

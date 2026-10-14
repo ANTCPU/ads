@@ -573,7 +573,7 @@ export async function POST(req: NextRequest) {
         trial_expiry: trialExpiry.toLocaleDateString('en-US',
           { month: 'long', day: 'numeric', year: 'numeric' }),
         role: 'user',
-      }).select('id').single();
+      }).select('id').maybeSingle();
 
     if (signupErr) return err(signupErr.message);
 
@@ -588,7 +588,7 @@ export async function POST(req: NextRequest) {
         category: track === 'dev' ? 'Service Offering' : 'Brand Awareness',
         status: 'active', tier: 'entry',
         promo_code: 'INTERNSHIP', country, points: 0,
-      }).select('id').single();
+      }).select('id').maybeSingle();
 
     if (adErr) console.error('Ad insert error:', adErr.message);
 
@@ -639,7 +639,7 @@ export async function POST(req: NextRequest) {
       .from('challengers')
       .select('id, intern_id, email, challenger_num, handle, cohort_short')
       .eq('email', cleanEmail)
-      .single();
+      .maybeSingle();
 
     // ── 4b. Write ad_id back if not set ──────────────────────
     if (challenger && ad?.id) {
@@ -663,7 +663,7 @@ export async function POST(req: NextRequest) {
           device:        req.headers.get('user-agent') || null,
         })
         .select('id')
-        .single();
+        .maybeSingle();
 
       dbSessionId = session?.id ?? null;
 

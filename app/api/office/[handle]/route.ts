@@ -118,7 +118,7 @@ export async function GET(
         'cutoff_status, elevation_level, elevation_note, banner_url' // ← ADD
       )
       .eq('handle', handle)
-      .single(),
+      .maybeSingle(),
     fetch('https://antcpu-ads.vercel.app/api/clock')
       .then(r => r.json())
       .catch(() => null),
@@ -142,7 +142,7 @@ export async function GET(
         'streak_days, visit_count, brand_name, last_seen_at'
       )
       .eq('email', c.email)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('activity_log')
       .select('label, icon, type, created_at, gate_id, points')
