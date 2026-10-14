@@ -198,35 +198,86 @@ function localTime(country: string): string {
   }).format(new Date());
 }
 
+
+const NODE_MAP: Record<string, { name: string; color: string; emoji: string }> = {
+  'node-1': { name: 'Alpha',  color: '#ff4d00', emoji: '🔴' },
+  'node-2': { name: 'Beta',   color: '#00d4ff', emoji: '🔵' },
+  'node-3': { name: 'Gamma',  color: '#ffd700', emoji: '🟡' },
+  'node-4': { name: 'Delta',  color: '#00ff88', emoji: '🟢' },
+};
+
 // ── Office Banner ─────────────────────────────────────────────
 function OfficeBanner({
-  bannerUrl, name, accent, border,
+  bannerUrl, name, accent, border, teamId, isCaptain, captainTeam, track,
 }: {
   bannerUrl: string | null | undefined;
   name: string; accent: string; border: string;
+  teamId?: string | null; isCaptain?: boolean | null;
+  captainTeam?: string | null; track?: string;
 }) {
-  if (!bannerUrl) return null;
+  const node = teamId ? NODE_MAP[teamId] : null;
+
+  // Track-aware CTA links
+  const devLink     = 'https://github.com/ANTCPU/ads/issues';
+  const mktLink     = 'https://antcpu-ads.vercel.app/arena';
+  const ctaUrl      = track === 'marketing' ? mktLink : devLink;
+  const ctaLabel    = track === 'marketing' ? '→ Arena' : '→ GitHub Issues';
+  const captainUrl  = captainTeam
+    ? `https://antcpu-ads.vercel.app/office/${captainTeam}`
+    : null;
 
   return (
-    <div
-      className="w-full rounded-xl overflow-hidden mb-6"
-      style={{
-        border: `1px solid ${border}`,
-        aspectRatio: '1200 / 630',
-        position: 'relative',
-        background: '#f0e8dc',
-      }}
-    >
-      <img
-        src={bannerUrl}
-        alt={`${name}'s office`}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          display: 'block',
-        }}
-      />
+    <div className="mb-6 rounded-xl overflow-hidden" style={{ border: `1px solid ${border}` }}>
+      {/* Banner image if set */}
+      {bannerUrl && (
+        <div style={{ aspectRatio: '1200 / 630', position: 'relative', background: '#f0e8dc' }}>
+          <img src={bannerUrl} alt={`${name}'s office`}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        </div>
+      )}
+
+      {/* Node team strip — always shown if team assigned */}
+      {node && (
+        <div style={{
+          background: `${node.color}18`,
+          borderTop: bannerUrl ? `1px solid ${border}` : 'none',
+          padding: '0.75rem 1rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{
+              background: node.color, color: '#000', fontWeight: 700,
+              fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '999px',
+            }}>
+              {node.emoji} NODE {teamId?.split('-')[1]?.toUpperCase()} — {node.name.toUpperCase()}
+            </span>
+            {isCaptain && (
+              <span style={{
+                background: '#ffd70022', color: '#ffd700', border: '1px solid #ffd70055',
+                fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '999px',
+              }}>
+                👑 Captain
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {captainUrl && !isCaptain && (
+              <a href={captainUrl} target="_blank" rel="noreferrer" style={{
+                fontSize: '0.72rem', padding: '0.25rem 0.75rem', borderRadius: '999px',
+                border: `1px solid ${node.color}`, color: node.color, textDecoration: 'none',
+              }}>
+                → Captain Office
+              </a>
+            )}
+            <a href={ctaUrl} target="_blank" rel="noreferrer" style={{
+              fontSize: '0.72rem', padding: '0.25rem 0.75rem', borderRadius: '999px',
+              background: node.color, color: '#000', fontWeight: 600, textDecoration: 'none',
+            }}>
+              {ctaLabel}
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -712,6 +763,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             name={data.name}
             accent={theme.accent}
             border={theme.border}
+            teamId={data.team_id}
+            isCaptain={data.is_captain}
+            captainTeam={(data as any).captain_team}
+            track={data.track}
           />
           
           {/* ── Progress ── */}
