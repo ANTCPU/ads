@@ -54,6 +54,7 @@ type ChallengerRow = {
   ad_url:           string | null;
   profile_complete: boolean | null;
   github_handle:    string | null;
+  brand_slug:       string | null;
   stack:            string | null;
   channels:         string | null;
   bio:              string | null;
