@@ -115,7 +115,7 @@ export async function GET(
         'last_seen, cohort, cohort_short, ad_id, ad_url, ' +
         'github_handle, stack, channels, bio, links, ' +
         'is_captain, team_id, profile_complete, email, ' +
-        'cutoff_status, elevation_level, elevation_note, banner_url' // ← ADD
+        'cutoff_status, elevation_level, elevation_note, banner_url, brand_slug' // ← ADD
       )
       .eq('handle', handle)
       .maybeSingle(),
@@ -186,6 +186,7 @@ export async function GET(
       ad_url:           c.ad_url,
       profile_complete: c.profile_complete,
       github_handle:    c.github_handle,
+      brand_slug:       c.brand_slug       ?? null,
       stack:            c.stack,
       channels:         c.channels,
       bio:              c.bio,
