@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     // ── 1. Fetch challengers to recalc ────────────────────
     let q = supabase
       .from('challengers')
-      .select('id, intern_id, handle, first_name, track, progress_pct, week, completed_gates, role_title, profile_complete')
+      .select('id, intern_id, handle, first_name, track, progress_pct, week, completed_gates, role_title, profile_complete, ad_id')
       .eq('status', 'active')
       .lte('progress_pct', maxPct);
 
@@ -116,6 +116,31 @@ export async function POST(req: NextRequest) {
           .eq('challenger_id', c.id)
           .not('gate_id', 'is', null),
       ]);
+
+      // Arena signals — fetch ad_signups row via ad_id
+      let arenaVisits = 0;
+      let arenaPoints = 0;
+      if (c.ad_id) {
+        const { data: arena } = await supabase
+          .from('ad_signups')
+          .select('visit_count, points')
+          .eq('id', c.ad_id)
+          .single();
+        arenaVisits = arena?.visit_count ?? 0;
+        arenaPoints = arena?.points      ?? 0;
+      }
+
+      // d3 — Explored the Arena (at least 1 visit)
+      if (arenaVisits > 0 && !inferred.has('d3')) {
+        sources.push('arena:d3');
+        inferred.add('d3');
+      }
+
+      // d4 — First Action in the Arena (earned points)
+      if (arenaPoints > 0 && !inferred.has('d4')) {
+        sources.push('arena:d4');
+        inferred.add('d4');
+      }
 
       // Submissions — non-draft gate_ids count
       for (const s of subs ?? []) {
