@@ -106,7 +106,7 @@ export async function GET(
         status:      ad.status,
         brand:       ad.brand,
         created_at:  ad.created_at,
-        permalink:   `https://antcpu.io/ad/${ad.id}`,
+        permalink:   `https://antcpu.io/ad/?id=${ad.id}`,
       },
       challenger: c
         ? {
