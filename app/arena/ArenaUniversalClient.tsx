@@ -463,6 +463,7 @@ export default function ArenaUniversalClient() {
       }
       await navigator.clipboard.writeText(megaText);
       showToast(ad.id, '📋 Mega Copy!');
+      await recordAdShare(ad, 'Mega Copy');
     } catch {
       showToast(ad.id, 'Copy failed');
     }
