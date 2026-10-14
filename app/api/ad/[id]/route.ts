@@ -59,10 +59,7 @@ export async function GET(
   // ── 2. Fetch challenger by email ──────────────────────────
   const { data: c } = await supabase
     .from('challengers')
-    .select(
-      'id, handle, first_name, initials, color, track, country, ' +
-      'cohort_short, progress_pct, role_title, badges'
-    )
+    .select('id, handle, first_name, initials, color, track, country, cohort_short, progress_pct, role_title, badges')
     .eq('email', ad.email)
     .maybeSingle();
 
