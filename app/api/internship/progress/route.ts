@@ -182,7 +182,8 @@ async function resolveChallenger(params: {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body: Record<string, string> = {};
+    try { body = await req.json(); } catch { /* empty body */ }
     const { intern_id, handle, num, email, gate_id } = body;
 
     if (!intern_id && !handle && !num && !email) {
