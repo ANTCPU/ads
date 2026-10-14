@@ -436,7 +436,7 @@ export default function ArenaNav({
       {/* ── NAV BAR ── */}
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '1.2rem 2rem', borderBottom: '1px solid #1a1a1a',
-        background: '#0a0a0a', position: 'sticky', top: 0, zIndex: 50 }}>
+        background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
 
         {/* LEFT — logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>

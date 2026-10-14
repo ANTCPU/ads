@@ -786,8 +786,8 @@ export default function ArenaUniversalClient() {
           </div>
         </div>
 
-        {/* ── Category filter pills ── */}
-        {categories.length > 0 && (
+        {/* ── Category filter pills — only when searching or filter active ── */}
+        {categories.length > 0 && (searchQ.length > 0 || filterCat !== null) && (
           <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
             <button onClick={() => setFilterCat(null)}
               style={{ padding: '0.25rem 0.65rem', borderRadius: '999px', fontSize: '0.7rem',
@@ -810,7 +810,7 @@ export default function ArenaUniversalClient() {
         )}
 
         {/* ── Stats bar ── */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem',
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem',
           flexWrap: 'wrap', alignItems: 'center',
           padding: '0.6rem 0.75rem', background: '#0d0d0d',
           border: '1px solid #1a1a1a', borderRadius: '10px' }}>
