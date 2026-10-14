@@ -131,6 +131,8 @@ export type DiscordEvent =
   // ── EDU ───────────────────────────────────────────────────
   | 'edu_nudge'          // EDU herald + completions      → DISCORD_WEBHOOK_EDU
   // ── Catch-all ─────────────────────────────────────────────
+  | 'new_brand'          // New brand registered          → DISCORD_WEBHOOK_ADS
+  | 'new_brand'          // New brand registered          → DISCORD_WEBHOOK_ADS
   | 'general';           // Catch-all                     → DISCORD_WEBHOOK_ADS
 
 // ─── Embed types ──────────────────────────────────────────────────────────────
@@ -219,6 +221,8 @@ function getWebhook(event?: DiscordEvent): string | undefined {
     case 'edu_nudge':            // EDU herald + lesson completions → #edu
       return process.env.DISCORD_WEBHOOK_EDU;
 
+    case 'new_brand':            // new brand registered — ops visibility
+    case 'new_brand':            // new brand registered — ops visibility
     case 'new_signup':           // explicit — was silently falling to general
     case 'flag_toggle':          // ops visibility — admin actions auditable
     default:
