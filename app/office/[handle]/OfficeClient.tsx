@@ -128,6 +128,7 @@ type OfficeData = {
   elevation_level?: number;
   elevation_note?: string | null;
   banner_url?: string | null;
+  brand_slug?: string | null;
   arena: {
     points: number;
     tier: string | null;
@@ -211,18 +212,19 @@ const NODE_MAP: Record<string, { name: string; color: string; emoji: string }> =
 
 // ── Office Banner ─────────────────────────────────────────────
 function OfficeBanner({
-  bannerUrl, name, accent, border, teamId, isCaptain, captainTeam, track,
+  bannerUrl, name, accent, border, teamId, isCaptain, captainTeam, track, brandSlug,
 }: {
   bannerUrl: string | null | undefined;
   name: string; accent: string; border: string;
   teamId?: string | null; isCaptain?: boolean | null;
   captainTeam?: string | null; track?: string;
+  brandSlug?: string | null;
 }) {
   const node = teamId ? NODE_MAP[teamId] : null;
 
   // Track-aware CTA links
   const devLink     = 'https://github.com/ANTCPU/ads/issues';
-  const mktLink     = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
+  const mktLink     = brandSlug ? `https://antcpu-ads.vercel.app/arena/${brandSlug}` : 'https://antcpu-ads.vercel.app/arena';
   const ctaUrl      = track === 'marketing' ? mktLink : devLink;
   const ctaLabel    = track === 'marketing' ? '→ Arena' : '→ GitHub Issues';
   const captainUrl  = captainTeam
@@ -808,6 +810,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             isCaptain={data.is_captain}
             captainTeam={(data as any).captain_team}
             track={data.track}
+            brandSlug={data.brand_slug}
           />
           
           {/* ── Progress ── */}
