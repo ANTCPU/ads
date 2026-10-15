@@ -492,6 +492,7 @@ export async function POST(req: NextRequest) {
     const trackLabel = track === 'dev' ? '💻 Developer' : '📣 Marketer';
     const trackIcon  = track === 'dev' ? '💻' : '📣';
         const brandName  = `${cleanName} — ${trackLabel}`;
+        const brandSlug  = firstName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'challenger';
 
     // ── Clock — DB source of truth, not local EST calc ────────
     let day = 1;
@@ -588,6 +589,7 @@ export async function POST(req: NextRequest) {
         category: track === 'dev' ? 'Service Offering' : 'Brand Awareness',
         status: 'active', tier: 'entry',
         promo_code: 'INTERNSHIP', country, points: 0,
+        ad_url: `https://antcpu-ads.vercel.app/arena/${brandSlug}`,
       }).select('id').maybeSingle();
 
     if (adErr) console.error('Ad insert error:', adErr.message);
@@ -630,6 +632,7 @@ export async function POST(req: NextRequest) {
         status:           'active',
         cohort,
         intern_id:        internId,
+        brand_slug:       brandSlug,
       });
 
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);

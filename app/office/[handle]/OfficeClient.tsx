@@ -222,7 +222,7 @@ function OfficeBanner({
 
   // Track-aware CTA links
   const devLink     = 'https://github.com/ANTCPU/ads/issues';
-  const mktLink     = 'https://antcpu-ads.vercel.app/arena';
+  const mktLink     = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
   const ctaUrl      = track === 'marketing' ? mktLink : devLink;
   const ctaLabel    = track === 'marketing' ? '→ Arena' : '→ GitHub Issues';
   const captainUrl  = captainTeam
@@ -630,7 +630,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   const resolvedBg = BG_OVERRIDE[storedBrightness] ?? theme.bg;
   const flag = safeFlag(data.flag);
   const githubHandle = stripGithubUrl(data.github_handle);
-  const arenaUrl = 'https://antcpu-ads.vercel.app/arena';
+  const arenaUrl = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
