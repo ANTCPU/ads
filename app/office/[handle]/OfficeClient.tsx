@@ -530,25 +530,74 @@ function OfficeShareStrip({
 
 // ── Next Action Bubble ───────────────
 function NextActionPanel({
-  progress, clock, handle, accent, border, subtext,
+  progress, clock, handle, accent, border, subtext, brandSlug,
 }: {
   progress: number; clock: OfficeData['clock'];
   handle: string; accent: string; border: string; subtext: string;
+  brandSlug?: string | null;
 }) {
   if (!clock) return null;
 
-  const daysLeft = clock.days_left_total ?? 0;
-  const week     = clock.week ?? 1;
-  const weekName = clock.week_name ?? 'Explorer';
-  const day      = clock.day ?? 1;
+  const daysLeft  = clock.days_left_total ?? 0;
+  const week      = clock.week ?? 1;
+  const weekName  = clock.week_name ?? 'Explorer';
+  const day       = clock.day ?? 1;
+  const arenaHref = brandSlug
+    ? `https://antcpu-ads.vercel.app/arena/${brandSlug}`
+    : 'https://antcpu-ads.vercel.app/arena';
 
-  // Active challenger — show next task prompt
-  if (progress > 0 && progress < 99) {
+  const iconRow = (
+    <div className="flex gap-2 mb-3 flex-wrap">
+      <a href={arenaHref} target="_blank" rel="noopener noreferrer"
+        className="text-xs px-2 py-1 rounded font-semibold"
+        style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}>
+        ⚡ Arena
+      </a>
+      <a href={`https://antcpu-ads.vercel.app/office/${handle}`} target="_blank" rel="noopener noreferrer"
+        className="text-xs px-2 py-1 rounded font-semibold"
+        style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}>
+        🏢 Office
+      </a>
+      <a href="https://github.com/ANTCPU" target="_blank" rel="noopener noreferrer"
+        className="text-xs px-2 py-1 rounded font-semibold"
+        style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}>
+        🐙 GitHub
+      </a>
+      <a href="https://antcpu.io" target="_blank" rel="noopener noreferrer"
+        className="text-xs px-2 py-1 rounded font-semibold"
+        style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}>
+        🌐 antcpu.io
+      </a>
+    </div>
+  );
+
+  // 100% complete
+  if (progress >= 99) {
     return (
-      <div
-        className="rounded-lg p-4 mt-4"
-        style={{ border: `1px solid ${accent}`, background: 'rgba(255,255,255,0.03)' }}
-      >
+      <div className="rounded-lg p-4 mt-4"
+        style={{ border: `1px solid ${accent}`, background: 'rgba(255,255,255,0.03)' }}>
+        <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: accent }}>
+          🏆 Challenge Complete
+        </p>
+        <p className="text-sm font-semibold mb-3">
+          Week {week} — {weekName} · {daysLeft} days left
+        </p>
+        {iconRow}
+        <a href={`https://antcpu-ads.vercel.app/office/${handle}`}
+          target="_blank" rel="noopener noreferrer"
+          className="block text-center text-xs font-bold py-2 rounded transition-opacity hover:opacity-80"
+          style={{ background: accent, color: '#000' }}>
+          Share Your Office →
+        </a>
+      </div>
+    );
+  }
+
+  // Active — in progress
+  if (progress > 0) {
+    return (
+      <div className="rounded-lg p-4 mt-4"
+        style={{ border: `1px solid ${accent}`, background: 'rgba(255,255,255,0.03)' }}>
         <p className="text-xs font-bold uppercase tracking-wide mb-1" style={{ color: accent }}>
           ⚡ Up Next
         </p>
@@ -558,20 +607,18 @@ function NextActionPanel({
         <p className="text-xs mb-3" style={{ color: subtext }}>
           Day {day} · {daysLeft} days left in the challenge
         </p>
-        <a
-          href="https://antcpu.io/next/"
-          target="_blank"
-          rel="noopener noreferrer"
+        {iconRow}
+        <a href="https://antcpu.io/next/"
+          target="_blank" rel="noopener noreferrer"
           className="block text-center text-xs font-bold py-2 rounded transition-opacity hover:opacity-80"
-          style={{ background: accent, color: '#000' }}
-        >
+          style={{ background: accent, color: '#000' }}>
           Go to Next Task →
         </a>
       </div>
     );
   }
 
-  // Visitor / not yet a challenger — show next cohort
+  // Visitor / not yet started — next cohort
   const next = clock.next_cohort;
   if (!next) return null;
   const month = new Date(next.opens).toLocaleDateString('en', {
@@ -579,16 +626,11 @@ function NextActionPanel({
   });
 
   return (
-    <div
-      className="rounded-lg p-4 mt-4"
-      style={{ border: `1px solid ${border}` }}
-    >
+    <div className="rounded-lg p-4 mt-4" style={{ border: `1px solid ${border}` }}>
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold">🗓 {month} Cohort</p>
-        <span
-          className="text-xs px-2 py-0.5 rounded-full font-bold"
-          style={{ background: accent, color: '#000' }}
-        >
+        <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+          style={{ background: accent, color: '#000' }}>
           {next.opens_in_days}d
         </span>
       </div>
@@ -597,13 +639,9 @@ function NextActionPanel({
           ⚡ {next.signups} already signed up
         </p>
       )}
-      <a
-        href={next.apply_url}
-        target="_blank"
-        rel="noopener noreferrer"
+      <a href={next.apply_url} target="_blank" rel="noopener noreferrer"
         className="block text-center text-xs font-bold py-2 rounded"
-        style={{ background: accent, color: '#000' }}
-      >
+        style={{ background: accent, color: '#000' }}>
         Apply for {month} →
       </a>
     </div>
@@ -992,6 +1030,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             accent={theme.accent}
             border={theme.border}
             subtext={theme.subtext}
+            brandSlug={data.brand_slug}
           />
 
           {/* ── Footer ── */}
