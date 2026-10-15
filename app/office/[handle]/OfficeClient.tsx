@@ -121,6 +121,9 @@ type OfficeData = {
   links: Record<string, string> | null;
   cohort: string;
   is_captain: boolean | null;
+  team_id: string | null;
+  captain_team: string | null;
+  team_notes: string | null;
   cutoff_status: string | null;
   elevation_level?: number;
   elevation_note?: string | null;
