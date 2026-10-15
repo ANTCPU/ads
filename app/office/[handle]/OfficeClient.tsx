@@ -274,6 +274,12 @@ function OfficeBanner({
                 → Captain Office
               </a>
             )}
+            <a href={`https://antcpu-ads.vercel.app/squad/${teamId}`} style={{
+              fontSize: '0.72rem', padding: '0.25rem 0.75rem', borderRadius: '999px',
+              border: `1px solid ${node.color}44`, color: node.color, textDecoration: 'none',
+            }}>
+              👥 View Squad
+            </a>
             <a href={ctaUrl} target="_blank" rel="noreferrer" style={{
               fontSize: '0.72rem', padding: '0.25rem 0.75rem', borderRadius: '999px',
               background: node.color, color: '#000', fontWeight: 600, textDecoration: 'none',
