@@ -73,17 +73,15 @@ export async function POST(req: NextRequest) {
 
     if (!challenger) return err('Challenger not found', 404);
 
-    const now = new Date().toISOString();
-
+  
     // ── 3. Update challengers.last_seen ──────────────────────
     // This is what flag recalculation reads for hrs_since
     try {
       await supabase
         .from('challengers')
         .update({
-          last_seen:    now,
-          last_seen_at: now,
-          updated_at:   now,
+          last_seen:    new Date().toISOString(),
+          last_seen_at: new Date().toISOString(),
         })
         .eq('intern_id', intern_id);
     } catch { /* non-fatal */ }
@@ -94,7 +92,7 @@ export async function POST(req: NextRequest) {
     try {
       const sessionQuery = supabase
         .from('sessions')
-        .update({ last_seen: now });
+        .update({ last_seen: new Date().toISOString() });
 
       if (session_id) {
         await sessionQuery.eq('id', session_id);
@@ -126,7 +124,7 @@ export async function POST(req: NextRequest) {
       ok:        true,
       handle:    challenger.handle,
       intern_id,
-      last_seen: now,
+      last_seen: new Date().toISOString(),
     });
 
   } catch (e: unknown) {
