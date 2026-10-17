@@ -86,36 +86,6 @@ const GATE_ICONS: Record<string, string> = {
   'd25-final': '🏆',
 };
 
-// ── Role map ──────────────────────────────────────────────────
-
-const ROLE_AT_PCT: Array<[number, string]> = [
-  [100, 'Human in the Loop Intern'],
-  [95,  'Finalist'                ],
-  [85,  'Developer'               ],
-  [80,  'Project Lead'            ],
-  [75,  'Week 3 Complete'         ],
-  [65,  'Cross-Track Collaborator'],
-  [60,  'Contributor'             ],
-  [55,  'Team Member'             ],
-  [50,  'Week 2 Complete'         ],
-  [46,  'Automation Engineer'     ],
-  [42,  'AI Integration Dev'      ],
-  [38,  'Workflow Builder'        ],
-  [35,  'Builder'                 ],
-  [30,  'Builder'                 ],
-  [25,  'Week 1 Complete'         ],
-  [20,  'Junior Automation Dev'   ],
-  [15,  'Explorer'                ],
-  [10,  'AI Tool User'            ],
-  [5,   'Registered'              ],
-];
-
-function roleForPct(pct: number): string {
-  for (const [threshold, role] of ROLE_AT_PCT) {
-    if (pct >= threshold) return role;
-  }
-  return 'Registered';
-}
 
 // ── Challenger resolver ───────────────────────────────────────
 
@@ -136,7 +106,7 @@ async function resolveChallenger(params: {
   else if (params.email)  query = query.eq('email', params.email);
   else return null;
 
-  const { data } = await query.single();
+  const { data } = await query.maybeSingle();
   return data || null;
 }
 
@@ -213,7 +183,7 @@ export async function POST(req: NextRequest) {
         const updatedGates = alreadyDone ? existing : [...existing, gate_id];
         const newPct       = Math.max(challenger.progress_pct ?? 0, gatePct);
         const newWeek      = gateWeek;
-        const newRole      = roleForPct(newPct);
+
 
         // Only write if progress actually advances
         if (newPct <= (challenger.progress_pct ?? 0) && alreadyDone) {
@@ -226,7 +196,7 @@ export async function POST(req: NextRequest) {
             completed_gates: updatedGates,
             progress_pct:    newPct,
             week:            newWeek,
-            role_title:      newRole,
+
           })
           .eq('id', challenger.id)
           .select('id, intern_id, challenger_num, handle, first_name, track, progress_pct, week, role_title, completed_gates')
