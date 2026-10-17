@@ -32,20 +32,20 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 200, headers: CORS });
 }
 
-// ── Gate maps — d1–d24 only (matches live DB) ─────────────────
+// ── Gate maps — d1–d25-final (matches live DB) ─────────────────
 
 const GATE_PCT: Record<string, number> = {
   d1:5,   d2:10,  d3:15,  d4:20,  d5:22,  d6:24,  d7:25,
   d8:30,  d9:35,  d10:38, d11:42, d12:46, d13:48, d14:50,
   d15:55, d16:58, d17:62, d18:65, d19:70, d20:72, d21:75,
-  d22:80, d23:85, d24:95,
+  d22:80, d23:85, d24:95, 'd25-final':100,
 };
 
 const GATE_WEEK: Record<string, number> = {
   d1:1,  d2:1,  d3:1,  d4:1,  d5:1,  d6:1,  d7:1,
   d8:2,  d9:2,  d10:2, d11:2, d12:2, d13:2, d14:2,
   d15:3, d16:3, d17:3, d18:3, d19:3, d20:3, d21:3,
-  d22:4, d23:4, d24:4,
+  d22:4, d23:4, d24:4, 'd25-final':4,
 };
 
 const GATE_LABELS: Record<string, string> = {
@@ -73,6 +73,7 @@ const GATE_LABELS: Record<string, string> = {
   d22: 'Defined Week 4 Mission',
   d23: 'Built Week 4 Feature',
   d24: 'Final Submission & Showcase',
+  'd25-final': 'Selection Day',
 };
 
 const GATE_ICONS: Record<string, string> = {
@@ -82,6 +83,7 @@ const GATE_ICONS: Record<string, string> = {
   d13: '📤', d14: '📝', d15: '🤝', d16: '💬',
   d17: '👂', d18: '🔧', d19: '📦', d20: '✅',
   d21: '📝', d22: '🎯', d23: '🏗️', d24: '🏆',
+  'd25-final': '🏆',
 };
 
 // ── Role map ──────────────────────────────────────────────────
