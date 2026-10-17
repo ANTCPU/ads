@@ -61,35 +61,6 @@ const GATE_WEEK  = 1;
 const GATE_LABEL = 'Completed Your Profile';
 const GATE_ICON  = '👤';
 
-// ── Role map ───────────────────────────────────────────────
-const ROLE_AT_PCT: Array<[number, string]> = [
-  [100, 'Human in the Loop Intern'],
-  [95,  'Finalist'                ],
-  [85,  'Developer'               ],
-  [80,  'Project Lead'            ],
-  [75,  'Week 3 Complete'         ],
-  [65,  'Cross-Track Collaborator'],
-  [60,  'Contributor'             ],
-  [55,  'Team Member'             ],
-  [50,  'Week 2 Complete'         ],
-  [46,  'Automation Engineer'     ],
-  [42,  'AI Integration Dev'      ],
-  [38,  'Workflow Builder'        ],
-  [35,  'Builder'                 ],
-  [30,  'Builder'                 ],
-  [25,  'Week 1 Complete'         ],
-  [20,  'Junior Automation Dev'   ],
-  [15,  'Explorer'                ],
-  [10,  'AI Tool User'            ],
-  [5,   'Registered'              ],
-];
-
-function roleForPct(pct: number): string {
-  for (const [threshold, role] of ROLE_AT_PCT) {
-    if (pct >= threshold) return role;
-  }
-  return 'Registered';
-}
 
 // ── profile_type resolver ──────────────────────────────────
 function resolveProfileType(track: string, intent: string): string {
@@ -170,7 +141,7 @@ export async function POST(req: NextRequest) {
 
     const updatedGates = [...(challenger.completed_gates ?? []), GATE_ID];
     const newPct       = Math.max(challenger.progress_pct ?? 0, GATE_PCT);
-    const newRole      = roleForPct(newPct);
+
 
     const [{ data: updatedRaw, error: updateError }] = await Promise.all([
       supabase
@@ -185,7 +156,7 @@ export async function POST(req: NextRequest) {
           completed_gates:  updatedGates,
           progress_pct:     newPct,
           week:             GATE_WEEK,
-          role_title:       newRole,
+
         })
         .eq('id', challenger.id)
         .select(
@@ -245,7 +216,7 @@ export async function POST(req: NextRequest) {
         ok:             true,
         gate_id:        GATE_ID,
         new_pct:        newPct,
-        new_role:       newRole,
+        new_role:       updated?.role_title ?? null,
         new_week:       GATE_WEEK,
         challenger_num: updated?.challenger_num ?? null,
         handle:         updated?.handle         ?? null,
