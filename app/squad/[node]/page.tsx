@@ -14,30 +14,32 @@ const NODE_MAP: Record<string, { name: string; color: string; emoji: string }> =
   'node-4': { name: 'Delta',  color: '#00ff88', emoji: '🟢' },
 }
 
-export async function generateMetadata({ params }: { params: { node: string } }) {
-  const n = NODE_MAP[params.node]
+export async function generateMetadata({ params }: { params: Promise<{ node: string }> }) {
+  const { node: nodeParam } = await params
+  const n = NODE_MAP[nodeParam]
   if (!n) return { title: 'Squad — antcpu' }
   return {
-    title: `${n.emoji} Node ${params.node.split('-')[1].toUpperCase()} — ${n.name} Squad · antcpu`,
+    title: `${n.emoji} Node ${nodeParam.split('-')[1].toUpperCase()} — ${n.name} Squad · antcpu`,
     description: `Meet the ${n.name} node team in the antcpu internship challenge.`,
   }
 }
 
-export default async function SquadPage({ params }: { params: { node: string } }) {
-  const node = NODE_MAP[params.node]
+export default async function SquadPage({ params }: { params: Promise<{ node: string }> }) {
+  const { node: nodeParam } = await params
+  const node = NODE_MAP[nodeParam]
   if (!node) notFound()
 
   const { data: members, error } = await supabase
     .from('challengers')
     .select('handle, name, initials, track, country, progress_pct, role_title, is_captain, flag')
-    .eq('team_id', params.node)
+    .eq('team_id', nodeParam)
     .eq('status', 'active')
     .order('is_captain', { ascending: false })
     .order('progress_pct', { ascending: false })
 
   if (error || !members) notFound()
 
-  const nodeNum = params.node.split('-')[1].toUpperCase()
+  const nodeNum = nodeParam.split('-')[1].toUpperCase()
   const marketers = members.filter(m => m.track === 'marketing')
   const devs      = members.filter(m => m.track === 'dev')
 
@@ -155,8 +157,8 @@ export default async function SquadPage({ params }: { params: { node: string } }
               href={`/squad/${key}`}
               className="text-xs px-3 py-1.5 rounded font-bold transition-opacity hover:opacity-80"
               style={{
-                background: key === params.node ? n.color : `${n.color}22`,
-                color: key === params.node ? '#000' : n.color,
+                background: key === nodeParam ? n.color : `${n.color}22`,
+                color: key === nodeParam ? '#000' : n.color,
                 border: `1px solid ${n.color}44`,
                 textDecoration: 'none',
               }}
