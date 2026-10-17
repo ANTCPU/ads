@@ -13,3 +13,8 @@
   --radius: 12px;
   --transition: 0.2s ease;
 }
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}

@@ -175,6 +175,22 @@ export default function ArenaUniversalClient() {
     totalShares:    0,
   });
 
+  // ── TV live status poll ──
+  useEffect(() => {
+    const checkTV = async () => {
+      try {
+        const r = await fetch('https://tv-ten-psi.vercel.app/api/health');
+        const d = await r.json();
+        setTvLive(d?.tv?.live === true);
+      } catch {}
+    };
+    checkTV();
+    const t = setInterval(checkTV, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+
+
   // ─── Derived ─────────────────────────────────────────────────────────────
   const maxPoints = ads.reduce((m, a) => Math.max(m, a.points || 0), 1);
 
@@ -872,6 +888,19 @@ export default function ArenaUniversalClient() {
                         padding: '0.15rem 0.5rem', fontSize: '0.62rem', color, fontWeight: 700 }}>
                         ⭐ FEATURED
                       </div>
+                    )}
+                    {tvLive && ['ANTCPU TV','ANTCPU','Map of Pi','antcpu'].includes(ad.brand) && (
+                      <a href="https://tv-ten-psi.vercel.app/watch.html?room=antcpu-tv-main"
+                        target="_blank" rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{ position: 'absolute', top: ad.pinned ? '2.2rem' : '0.75rem', right: '0.75rem',
+                          background: 'rgba(255,68,68,0.15)', border: '1px solid rgba(255,68,68,0.6)',
+                          borderRadius: '999px', padding: '0.15rem 0.5rem',
+                          fontSize: '0.62rem', color: '#ff4444', fontWeight: 700,
+                          textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                          animation: 'livePulse 2s ease-in-out infinite' }}>
+                        ● LIVE
+                      </a>
                     )}
                     {ad.rank_position && ad.rank_position >= 1 && ad.rank_position <= 3 && (
                       <div style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', fontSize: '1.1rem' }}>
