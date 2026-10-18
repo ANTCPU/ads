@@ -133,6 +133,7 @@ export async function POST(req: NextRequest) {
     // Fire Discord notify — fire and forget
     notifyDiscord('', 'new_brand', {
       title:  `🏷️ New Brand Registered — ${name}`,
+      url:    `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://antcpu-ads.vercel.app'}/arena/${cleanSlug}`,
       color:  DC.orange,
       fields: [
         { name: 'Slug',    value: cleanSlug,       inline: true },

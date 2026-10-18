@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
     // ── Discord ───────────────────────────────────────────────────────────────
     void notifyDiscord('', 'new_signup', {
       title:  '🆕 New Arena Member',
+      url:    `${BASE_URL}/arena/${cleanBrand.toLowerCase().replace(/\s+/g, '-')}`,
       color:  DC.green,
       fields: [
         { name: 'Name',   value: cleanName,   inline: true  },
