@@ -158,6 +158,9 @@ html, body { background: ${lv.htmlBg} !important; }`);
         // 3. Apply CSS — independent of particles flag
         if (!window.location.pathname.startsWith("/office/")) {
           applyTheme(resolved, brightness, showParts, showEmoji);
+        } else {
+          // Office pages — inject keyframes only, no background overrides
+          injectStyle(resolved.keyframes);
         }
 
         // 4. Update state — triggers particle portal render

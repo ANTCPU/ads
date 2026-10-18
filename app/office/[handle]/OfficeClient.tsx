@@ -723,7 +723,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
   // ── Track bg — elevation 99 gets cream, marketing gets gradient, dev stays flat
   const resolvedBg = (data.elevation_level ?? 0) >= 99
-    ? '#faf6f0'
+    ? 'linear-gradient(160deg, #c8a882 0%, #8b5e3c 40%, #5c3317 70%, #2a1500 100%)'
     : theme.bg;
   const githubHandle = stripGithubUrl(data.github_handle);
   const arenaUrl = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
