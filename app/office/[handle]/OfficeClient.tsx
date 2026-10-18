@@ -35,7 +35,7 @@ const COUNTRY_TZ: Record<string, string> = {
 // ── Themes ────────────────────────────────────────────────────
 const THEMES = {
   dev: {
-    bg: '#0d1117',
+    bg: 'linear-gradient(160deg, #0d1117 0%, #0a1628 40%, #0d1f2d 70%, #060d14 100%)',
     accent: '#00e5ff',
     border: '#1e3a4a',
     text: '#e6edf3',
@@ -46,7 +46,7 @@ const THEMES = {
     particle: '#00e5ff',
   },
   marketing: {
-    bg: 'linear-gradient(160deg, #1a0a2e 0%, #2d1b4e 40%, #1f0f35 70%, #0f0a00 100%)',
+    bg: 'linear-gradient(160deg, #1a0a2e 0%, #3b1f0f 40%, #2a1200 70%, #0f0800 100%)',
     accent: '#f0883e',
     border: '#2a1800',
     text: '#f5e6d0',
