@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --accent: #f0883e;
@@ -14,11 +12,11 @@
   --transition: 0.2s ease;
 }
 
+body {
+  background: var(--bg);
+}
+
 @keyframes livePulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.5; }
-}
-
-body {
-  background: var(--bg);
 }
