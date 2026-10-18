@@ -156,7 +156,9 @@ html, body { background: ${lv.htmlBg} !important; }`);
         const brightness = getStoredBrightness();
 
         // 3. Apply CSS — independent of particles flag
-        applyTheme(resolved, brightness, showParts, showEmoji);
+        if (!window.location.pathname.startsWith("/office/")) {
+          applyTheme(resolved, brightness, showParts, showEmoji);
+        }
 
         // 4. Update state — triggers particle portal render
         setTheme(resolved);
@@ -183,7 +185,9 @@ html, body { background: ${lv.htmlBg} !important; }`);
     function handleBrightnessChange(e: Event) {
       try {
         const level = (e as CustomEvent<{ level: BrightnessLevel }>).detail.level;
-        applyTheme(theme!, level, particles, h1Emoji);
+        if (!window.location.pathname.startsWith("/office/")) {
+          applyTheme(theme!, level, particles, h1Emoji);
+        }
       } catch {
         // Silent
       }
