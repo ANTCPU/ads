@@ -771,11 +771,6 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   return (
     <>
       <style>{`
-        .office-root {
-          background: ${resolvedBg} !important;
-          color: ${theme.text} !important;
-          min-height: 100vh;
-        }
         @keyframes pulse-glow {
           0%, 100% { box-shadow: ${theme.glow}; }
           50% { box-shadow: 0 0 32px ${theme.particle}55; }
@@ -788,7 +783,13 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
         }
       `}</style>
 
-      <div className="office-root">
+      <div
+        className="office-root"
+        style={{
+          background: resolvedBg,
+          color: theme.text,
+          minHeight: '100vh',
+        }}>
         <div className="p-6 max-w-2xl mx-auto pb-16">
 
           {/* ── Header ── */}
