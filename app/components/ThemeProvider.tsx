@@ -142,7 +142,7 @@ export default function ThemeProvider() {
             ];
             injectStyle(`:root { --page-bg: ${lv.pageBg}; --card-bg: ${lv.cardBg}; }
 html, body { background: ${lv.htmlBg} !important; }`);
-          } else {
+          } else if (!window.location.pathname.startsWith("/office/")) {
             removeStyle();
           }
           setReady(true);
