@@ -487,6 +487,7 @@ export default function ProfileClient() {
     await supabase.from('ads').update({ status: 'archived', pinned: false }).eq('id', id);
     setAds(prev => prev.map(a => a.id === id ? { ...a, status: 'archived', pinned: false } : a));
     setConfirmArchive(null);
+    router.push('/create-ad');
   }
 
   async function restoreAd(id: string) {
@@ -1107,7 +1108,7 @@ export default function ProfileClient() {
                           borderRadius: '8px', padding: '0.6rem 0.85rem',
                           marginBottom: '0.65rem', fontSize: '0.78rem', color: '#f0883e',
                         }}>
-                          Archive this ad? It will leave the Arena feed.
+                          Archive this ad? It will leave the Arena feed. You'll be taken to create a new one.
                         </div>
                       )}
 
