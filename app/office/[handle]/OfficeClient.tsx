@@ -46,15 +46,15 @@ const THEMES = {
     particle: '#00e5ff',
   },
   marketing: {
-    bg: '#faf6f0',
-    accent: '#c2600a',
-    border: '#e8d5c0',
-    text: '#1a0e00',
-    subtext: '#7a5c3a',
-    badge: 'bg-amber-100 text-amber-800',
+    bg: '#0f0a00',
+    accent: '#f0883e',
+    border: '#2a1800',
+    text: '#f5e6d0',
+    subtext: '#a07850',
+    badge: 'bg-amber-950 text-amber-400',
     label: '📣 Marketer',
-    glow: '0 0 20px rgba(194,96,10,0.12)',
-    particle: '#c2600a',
+    glow: '0 0 20px rgba(240,136,62,0.2)',
+    particle: '#f0883e',
   },
 } as const;
 
@@ -657,24 +657,72 @@ function NextActionPanel({
 }
 
 
+
+// ── D15 Intro Button — owner only, Week 3, at 50% ────────────
+function D15IntroButton({
+  handle, internId, name, track, country, cohort, accent, border,
+}: {
+  handle: string; internId: string; name: string;
+  track: string; country: string; cohort: string;
+  accent: string; border: string;
+}) {
+  const storageKey = `d15_done_${handle}`;
+  const [state, setState] = useState<'idle'|'loading'|'done'>(() => {
+    try { return localStorage.getItem(storageKey) === '1' ? 'done' : 'idle'; }
+    catch { return 'idle'; }
+  });
+
+  async function handleClick() {
+    if (state !== 'idle') return;
+    setState('loading');
+    const trackEmoji = track === 'marketing' ? '📣 Marketing' : '💻 Dev';
+    const msg = `👋 Hey team! I'm ${name} — ${trackEmoji} · ${country}. Ready to build. Check my office: https://antcpu-ads.vercel.app/office/${handle}`;
+    await Promise.allSettled([
+      fetch('/api/internship/office', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cohort, room: 'general', author_id: handle, content: msg }),
+      }),
+      fetch('/api/internship/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intern_id: internId, gate_id: 'd15' }),
+      }),
+    ]);
+    try { localStorage.setItem(storageKey, '1'); } catch {}
+    setState('done');
+  }
+
+  if (state === 'done') {
+    return (
+      <div className="rounded-lg p-4 mb-4 text-sm font-bold flex items-center gap-2"
+        style={{ background: `${accent}22`, border: `1px solid ${accent}`, color: accent }}>
+        <span>✅ d15 complete — Team intro posted · 55% unlocked</span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={state === 'loading'}
+      className="w-full rounded-lg p-4 mb-4 text-sm font-bold text-left flex items-center justify-between disabled:opacity-50"
+      style={{ background: accent, color: '#000', border: 'none', cursor: state === 'loading' ? 'wait' : 'pointer' }}
+    >
+      <span>{state === 'loading' ? 'Posting intro...' : '👋 Introduce Yourself to Your Team — d15'}</span>
+      <span style={{ opacity: 0.7, fontSize: '0.72rem' }}>50% → 55%</span>
+    </button>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────
 export default function OfficeClient({ data }: { data: OfficeData }) {
   const theme = THEMES[data.track] ?? THEMES.dev;
 
-  // ── Brightness override — respect user sitewide preference ──────────────
-  // Reads arena_brightness from localStorage (set by NavIsland/ThemeSwitcher).
-  // Overrides track default bg when user has explicitly chosen a brightness.
-  const BG_OVERRIDE: Record<string, string> = {
-    'dark':       '#0a0a0a',
-    'mid':        '#111111',
-    'light-grey': '#2a2a2a',
-    'light':      '#3a3a3a',
-  };
-  const storedBrightness = typeof window !== 'undefined'
-    ? localStorage.getItem('arena_brightness') ?? ''
-    : '';
-  const resolvedBg = BG_OVERRIDE[storedBrightness] ?? theme.bg;
   const flag = safeFlag(data.flag);
+
+  // ── Track bg is authoritative — no global brightness override on office pages
+  const resolvedBg = theme.bg;
   const githubHandle = stripGithubUrl(data.github_handle);
   const arenaUrl = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
 
@@ -819,6 +867,20 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             brandSlug={data.brand_slug}
           />
           
+          {/* ── D15 Intro Button — owner only, Week 3, at 50% ── */}
+          {isOwner && data.progress_pct === 50 && (data.clock?.week ?? 0) >= 3 && data.team_id && (
+            <D15IntroButton
+              handle={data.handle}
+              internId={data.intern_id}
+              name={data.name}
+              track={data.track}
+              country={data.country}
+              cohort={data.cohort}
+              accent={theme.accent}
+              border={theme.border}
+            />
+          )}
+
           {/* ── Progress ── */}
           <div className="mb-6">
             <div className="flex justify-between text-sm mb-2">
