@@ -12,6 +12,45 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { notifyTix, DC } from '../../lib/discord'
+
+const BASE_URL    = process.env.NEXT_PUBLIC_APP_URL || 'https://antcpu-ads.vercel.app'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL         || 'antcpu@gmail.com'
+
+async function nudgeTix(ticket: any, status: string): Promise<void> {
+  const map: Record<string, { emoji: string; color: number; msg: string }> = {
+    assigned:  { emoji: '🎫', color: DC.purple, msg: 'has been assigned to you'     },
+    open:      { emoji: '🟢', color: DC.green,  msg: 'is now open — start working' },
+    in_review: { emoji: '🔍', color: DC.blue,   msg: 'is ready for peer review'    },
+    closed:    { emoji: '✅', color: DC.green,  msg: 'has been closed'              },
+    rejected:  { emoji: '🔴', color: DC.red,    msg: 'was not approved — check notes' },
+  }
+  const s = map[status]
+  if (!s) return
+  const fields = [
+    { name: 'Ticket', value: ticket.id,    inline: true  },
+    { name: 'Type',   value: ticket.type,  inline: true  },
+    { name: 'Track',  value: ticket.track, inline: true  },
+    { name: 'Title',  value: ticket.title, inline: false },
+    ...(ticket.assignee ? [{ name: 'Assignee', value: ticket.assignee, inline: true }] : []),
+    ...(ticket.reviewer ? [{ name: 'Reviewer', value: ticket.reviewer, inline: true }] : []),
+  ]
+  if (ticket.assignee) {
+    fetch(`${BASE_URL}/api/notify`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: ticket.assignee, type: 'tix', title: `${s.emoji} Ticket ${ticket.id} ${s.msg}`, message: ticket.title }) }).catch(() => {})
+  }
+  if (status === 'in_review' && ticket.reviewer) {
+    fetch(`${BASE_URL}/api/notify`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: ticket.reviewer, type: 'tix', title: `🔍 Ticket ${ticket.id} needs your review`, message: ticket.title }) }).catch(() => {})
+  }
+  if (['in_review', 'closed'].includes(status)) {
+    fetch(`${BASE_URL}/api/notify`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: ADMIN_EMAIL, type: 'tix', title: `${s.emoji} ${ticket.id} — ${status}`, message: ticket.title }) }).catch(() => {})
+  }
+  notifyTix('tix_event', { title: `${s.emoji} ${ticket.id} — ${status.charAt(0).toUpperCase()+status.slice(1)}`,
+    url: `${BASE_URL}/health`, color: s.color, fields,
+    footer: `tix · ${ticket.prefix} · ${ticket.cohort || 'no cohort'}` }).catch(() => {})
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -143,6 +182,8 @@ export async function POST(req: NextRequest) {
   if (insertErr)
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
 
+  if (ticket && status === 'assigned') void nudgeTix(ticket, 'assigned')
+
   return NextResponse.json({ ok: true, ticket }, { status: 201, headers: CORS })
 }
 
@@ -173,6 +214,8 @@ export async function PATCH(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (data?.status) void nudgeTix(data, data.status)
+
 
   return NextResponse.json({ ok: true, ticket: data }, { headers: CORS })
 }
