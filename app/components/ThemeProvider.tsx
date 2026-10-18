@@ -126,7 +126,7 @@ export default function ThemeProvider() {
         if (cancelled) return;
 
         const resolved  = resolveTheme(flags);
-        const showParts = true; // theme-particles flag not yet in registry
+        const showParts = false; // disabled — particles cover content, needs proper z-index solution
         const showEmoji = !!flags['theme-h1-emoji'];
 
         // No active season — still apply base brightness from user preference
