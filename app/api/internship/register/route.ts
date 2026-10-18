@@ -528,6 +528,7 @@ export async function POST(req: NextRequest) {
 
       notifyInternship('intern_closed', {
         title: '📅 Late Applicant — Routed to Next Cohort',
+        url: 'https://antcpu-ads.vercel.app/internship/join',
         color: DC.grey,
         fields: [
           { name: 'Name',        value: cleanName,    inline: true  },
