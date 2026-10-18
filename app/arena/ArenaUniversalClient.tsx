@@ -164,6 +164,7 @@ export default function ArenaUniversalClient() {
   const [searchResults,  setSearchResults] = useState<Record<string, {id:string;type:string;title:string;subtitle:string|null;url:string;points:number}[]>>({});
   const [searchLoading,  setSearchLoading] = useState(false);
   const [searchOpen,     setSearchOpen]    = useState(false);
+  const [tvLive,         setTvLive]        = useState(false);
   const [sortMode,       setSortMode]      = useState<'hot'|'new'|'top'|'champion'>('hot');
   const [filterCat,      setFilterCat]     = useState<string|null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
