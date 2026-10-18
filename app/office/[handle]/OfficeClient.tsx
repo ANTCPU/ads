@@ -46,7 +46,7 @@ const THEMES = {
     particle: '#00e5ff',
   },
   marketing: {
-    bg: '#0f0a00',
+    bg: 'linear-gradient(160deg, #1a0a2e 0%, #2d1b4e 40%, #1f0f35 70%, #0f0a00 100%)',
     accent: '#f0883e',
     border: '#2a1800',
     text: '#f5e6d0',
@@ -721,8 +721,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
   const flag = safeFlag(data.flag);
 
-  // ── Track bg is authoritative — no global brightness override on office pages
-  const resolvedBg = theme.bg;
+  // ── Track bg — elevation 99 gets cream, marketing gets gradient, dev stays flat
+  const resolvedBg = (data.elevation_level ?? 0) >= 99
+    ? '#faf6f0'
+    : theme.bg;
   const githubHandle = stripGithubUrl(data.github_handle);
   const arenaUrl = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
 
