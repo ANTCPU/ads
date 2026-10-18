@@ -761,6 +761,16 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
     }).catch(() => {});
   }, [data.handle]);
 
+  // ── Season emoji ─────────────────────────────────────────────────────────
+  const [seasonEmoji, setSeasonEmoji] = useState('');
+  useEffect(() => {
+    const month = new Date().getMonth() + 1;
+    if (month === 10)                    setSeasonEmoji('🎃');
+    else if (month === 11 || month === 12 || month === 1) setSeasonEmoji('❄️');
+    else if (month === 4)                setSeasonEmoji('🌸');
+    else if (month >= 6 && month <= 8)   setSeasonEmoji('☀️');
+  }, []);
+
   const isInactive =
     data.cutoff_status === 'paused' ||
     (data.progress_pct < 25 && data.progress_pct > 0);
@@ -807,7 +817,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold">{data.name}</h1>
+                <h1 className="text-2xl font-bold" style={{ textShadow: `0 1px 8px rgba(0,0,0,0.5)` }}>{seasonEmoji ? `${seasonEmoji} ` : ''}{data.name}</h1>
                 {data.is_captain && (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-300">
                     ⚓ Captain
