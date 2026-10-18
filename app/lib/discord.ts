@@ -9,86 +9,85 @@
 //   intern_message    |
 //   intern_badge      |
 //   intern_digest     |
-//   internship                              → DISCORD_INTERN
+//   internship (deprecated)                 → DISCORD_INTERN
 //   new_champion                            → DISCORD_WEBHOOK_CHAMPIONS
 //   share | click_milestone                 → DISCORD_WEBHOOK_SHARES
 //   new_signup | flag_toggle |
 //   ad_approved | ad_rejected |
 //   ad_archived | aria_review |
 //   aria_auto_approved | aria_flagged |
-//   general                                 → DISCORD_WEBHOOK_ADS
+//   new_brand | tix_event | general         → DISCORD_WEBHOOK_ADS
 //   photo_lead | photo_booking              → DISCORD_WEBHOOK_MANDA_PHOTO
 //   photo_error                             → DISCORD_WEBHOOK_MANDA_HOOKS
 //   edu_nudge                               → DISCORD_WEBHOOK_EDU
 //
+// tix_event will route to DISCORD_WEBHOOK_TIX when that env var is set.
+// Falls back to DISCORD_WEBHOOK_ADS automatically — no config change needed now.
+//
 // Usage — general:
-//   await notifyDiscord(content, 'internship');
-//   await notifyDiscord(content, 'ad_approved', embed);
 //   await notifyDiscord('', 'new_signup', embed);
 //   await notifyDiscord('', 'flag_toggle', embed);
-//   await notifyDiscord('', 'photo_booking', embed);
-//   await notifyDiscord('', 'edu_nudge', embed);
+//   await notifyDiscord('', 'tix_event', embed);
 //
-// Usage — internship structured events (preferred over raw notifyDiscord):
+// Usage — internship structured events (preferred):
 //   await notifyInternship('intern_registered', {
 //     title:  '🎯 New Challenger — Ritik K.',
 //     color:  DC.intern,
+//     url:    'https://antcpu.io/office/?h=ritik-k',
 //     fields: [
 //       { name: 'Track',   value: '💻 Dev',  inline: true },
 //       { name: 'Country', value: 'India',   inline: true },
-//       { name: 'Status',  value: '⭐ Founding Member', inline: true },
 //     ],
 //     footer: 'october-2026 · Day 7',
 //   });
 //
-//   await notifyInternship('intern_gate', {
-//     title:  '✅ Gate Complete — Sreenidh B.',
-//     color:  DC.green,
+// Usage — tix events:
+//   await notifyTix('tix_event', {
+//     title:  '🎫 ADS-0001 — Assigned',
+//     color:  DC.purple,
+//     url:    'https://antcpu-ads.vercel.app/health',
 //     fields: [
-//       { name: 'Gate',     value: 'd2 — Complete Your Profile', inline: true },
-//       { name: 'Progress', value: '10%',                        inline: true },
-//       { name: 'Role',     value: '🤖 AI Tool User',            inline: true },
+//       { name: 'Ticket',   value: 'ADS-0001',       inline: true },
+//       { name: 'Assignee', value: 'ritik@email.com', inline: true },
+//       { name: 'Type',     value: 'bug',             inline: true },
 //     ],
-//     footer: 'october-2026 · Week 1',
+//     footer: 'tix · october-2026',
 //   });
 //
-//   await notifyInternship('intern_digest', {
-//     title:  '📊 Daily Digest — October 2026',
-//     color:  DC.dark,
-//     fields: [
-//       { name: 'Active Today',  value: '12',  inline: true },
-//       { name: 'Gates Done',    value: '8',   inline: true },
-//       { name: 'Submissions',   value: '3',   inline: true },
-//       { name: 'Drop-offs',     value: '2',   inline: false },
-//     ],
-//     footer: 'Cron · midnight EST',
-//   });
+// Embed url field — makes the title a clickable link in Discord.
+// Embed thumbnail field — small image top-right (brand logo, avatar).
+// Both are optional — existing callers unaffected.
 //
 // ⚠️  SERVER-ONLY — never import this file from a client component or page.
 //     Webhook URLs are resolved lazily at call time, never at module load.
 //
+// v6 (Oct 2026):
+//   — tix_event added → DISCORD_WEBHOOK_TIX ?? DISCORD_WEBHOOK_ADS
+//   — notifyTix() helper added — mirrors notifyInternship()
+//   — url field added to DiscordEmbed — clickable embed titles
+//   — thumbnail field added to DiscordEmbed — brand image support
+//   — url + thumbnail wired into notifyDiscord() body builder
+//   — duplicate 'new_brand' removed from type union + switch
+//   — DC.tix mapped to DC.purple in color reference
+//   — 'internship' marked @deprecated in type union
+//   — Header comment updated with tix routing + url/thumbnail docs
+//
 // v5 (Oct 2026):
-//   — 7 internship event types added:
-//     intern_registered, intern_closed, intern_gate, intern_submission,
-//     intern_message, intern_badge, intern_digest → all route DISCORD_INTERN
-//   — notifyInternship() helper added — structured embeds, timestamp always on
-//   — DC palette extended: teal (messages), yellow (badges/warnings), dark (digests)
-//   — getWebhook() updated with all 7 new intern event cases
-//   — Usage docs updated with internship examples
+//   — 7 internship event types added
+//   — notifyInternship() helper added
+//   — DC palette extended: teal, yellow, dark
 //
 // v4 (Sep 2026):
-//   — edu_nudge → DISCORD_WEBHOOK_EDU (#edu)
-//     Fires on: lesson completions, herald nudge sends, comeback emails,
-//     internship CTAs — all EDU activity in one channel
+//   — edu_nudge → DISCORD_WEBHOOK_EDU
 //
 // v3 (Sep 2026):
-//   — photo_lead, photo_booking → DISCORD_WEBHOOK_MANDA_PHOTO (#manda-photography)
-//   — photo_error               → DISCORD_WEBHOOK_MANDA_HOOKS (#web-dev)
+//   — photo_lead, photo_booking → DISCORD_WEBHOOK_MANDA_PHOTO
+//   — photo_error               → DISCORD_WEBHOOK_MANDA_HOOKS
 //
 // v2 (Sep 2026):
-//   — new_signup event explicit routing → DISCORD_WEBHOOK_ADS
-//   — click_milestone moved → DISCORD_WEBHOOK_SHARES (engagement, not ops)
-//   — flag_toggle event added → DISCORD_WEBHOOK_ADS (ops visibility)
+//   — new_signup explicit routing
+//   — click_milestone → DISCORD_WEBHOOK_SHARES
+//   — flag_toggle added
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'server-only'; // 🔒 Hard stop — Next.js will throw a build error
@@ -111,7 +110,8 @@ export type DiscordEvent =
   | 'intern_message'     // Direct message sent to owner
   | 'intern_badge'       // Badge awarded to challenger
   | 'intern_digest'      // Daily cohort snapshot — cron midnight EST
-  | 'internship'         // Legacy plain-text internship events
+  /** @deprecated use structured intern_* events instead */
+  | 'internship'         // Legacy plain-text — kept for old callers
   // ── Arena / Ads ───────────────────────────────────────────
   | 'new_champion'       // New country champion signup   → DISCORD_WEBHOOK_CHAMPIONS
   | 'share'              // Ad share events               → DISCORD_WEBHOOK_SHARES
@@ -124,6 +124,9 @@ export type DiscordEvent =
   | 'aria_review'        // First ad queued for review    → DISCORD_WEBHOOK_ADS
   | 'aria_auto_approved' // Subsequent ad auto-approved   → DISCORD_WEBHOOK_ADS
   | 'aria_flagged'       // Subsequent ad flagged by Aria → DISCORD_WEBHOOK_ADS
+  | 'new_brand'          // New brand registered          → DISCORD_WEBHOOK_ADS
+  // ── Tix ───────────────────────────────────────────────────
+  | 'tix_event'          // Ticket created/updated        → DISCORD_WEBHOOK_TIX ?? ADS
   // ── Photography ───────────────────────────────────────────
   | 'photo_lead'         // Amanda partial lead           → DISCORD_WEBHOOK_MANDA_PHOTO
   | 'photo_booking'      // Amanda full booking           → DISCORD_WEBHOOK_MANDA_PHOTO
@@ -131,11 +134,12 @@ export type DiscordEvent =
   // ── EDU ───────────────────────────────────────────────────
   | 'edu_nudge'          // EDU herald + completions      → DISCORD_WEBHOOK_EDU
   // ── Catch-all ─────────────────────────────────────────────
-  | 'new_brand'          // New brand registered          → DISCORD_WEBHOOK_ADS
-  | 'new_brand'          // New brand registered          → DISCORD_WEBHOOK_ADS
   | 'general';           // Catch-all                     → DISCORD_WEBHOOK_ADS
 
 // ─── Embed types ──────────────────────────────────────────────────────────────
+// url       — makes the embed title a clickable hyperlink in Discord
+// thumbnail — small image displayed top-right of the embed
+// Both are optional — existing callers unaffected
 
 export type DiscordField = {
   name:    string;
@@ -146,10 +150,12 @@ export type DiscordField = {
 export type DiscordEmbed = {
   title:        string;
   description?: string;
+  url?:         string;              // clickable title link
   color:        number;
   fields?:      DiscordField[];
   footer?:      string;
   timestamp?:   boolean;
+  thumbnail?:   { url: string };     // brand logo / avatar — top-right
 };
 
 // ─── Color palette ────────────────────────────────────────────────────────────
@@ -168,6 +174,7 @@ export type DiscordEmbed = {
 //   ad_archived       → DC.orange
 //   new_champion      → DC.gold
 //   edu_nudge         → DC.edu
+//   tix_event         → DC.purple   (engineering/ops)
 
 export const DC = {
   green:  0x2E7D32,  // approvals, gate completions, success
@@ -175,7 +182,7 @@ export const DC = {
   blue:   0x0070F3,  // info, clicks, submissions
   orange: 0xF0883E,  // ANTCPU brand, archive
   red:    0xEF4444,  // rejections, errors
-  purple: 0x7928CA,  // rising tier, special
+  purple: 0x7928CA,  // tix events, rising tier, engineering ops
   grey:   0x555555,  // neutral, system, closed cohort
   intern: 0x2563EB,  // internship challenge accent — new registrations
   edu:    0x22C55E,  // EDU — green matches MAC + lesson complete UI
@@ -186,7 +193,6 @@ export const DC = {
 
 // ─── Webhook resolver ─────────────────────────────────────────────────────────
 // 🔒 LAZY — URLs are read from env at CALL TIME, not module load time.
-//    This means:
 //    1. No URL is ever stored in a JS object that could be serialised
 //    2. Rotating a webhook URL in Vercel takes effect immediately
 //    3. A missing var returns undefined cleanly — no crash, no exposure
@@ -201,7 +207,7 @@ function getWebhook(event?: DiscordEvent): string | undefined {
     case 'intern_message':
     case 'intern_badge':
     case 'intern_digest':
-    case 'internship':           // legacy plain-text fallback
+    case 'internship':           // @deprecated — legacy plain-text fallback
       return process.env.DISCORD_INTERN;
 
     case 'new_champion':
@@ -221,8 +227,10 @@ function getWebhook(event?: DiscordEvent): string | undefined {
     case 'edu_nudge':            // EDU herald + lesson completions → #edu
       return process.env.DISCORD_WEBHOOK_EDU;
 
-    case 'new_brand':            // new brand registered — ops visibility
-    case 'new_brand':            // new brand registered — ops visibility
+    case 'tix_event':            // Ticket ops — own channel when ready
+      return process.env.DISCORD_WEBHOOK_TIX ?? process.env.DISCORD_WEBHOOK_ADS;
+
+    case 'new_brand':
     case 'new_signup':           // explicit — was silently falling to general
     case 'flag_toggle':          // ops visibility — admin actions auditable
     default:
@@ -235,7 +243,7 @@ function getWebhook(event?: DiscordEvent): string | undefined {
 //
 // content  — plain text message (can be empty string '')
 // event    — routes to the correct webhook channel
-// embed    — optional structured embed with title, fields, color, footer
+// embed    — optional structured embed with title, fields, color, footer, url
 
 export async function notifyDiscord(
   content:  string,
@@ -256,11 +264,13 @@ export async function notifyDiscord(
     if (embed) {
       body.embeds = [{
         title:       embed.title,
+        url:         embed.url,              // clickable title — undefined = no link
         description: embed.description,
         color:       embed.color,
         fields:      embed.fields ?? [],
         footer:      embed.footer ? { text: embed.footer } : undefined,
         timestamp:   embed.timestamp ? new Date().toISOString() : undefined,
+        thumbnail:   embed.thumbnail ?? undefined,  // brand logo top-right
       }];
     }
 
@@ -291,16 +301,36 @@ export async function notifyDiscord(
 //   submit/route.ts     — intern_submission
 //   community/route.ts  — intern_message
 //   cron/digest         — intern_digest
-//
-// Example:
-//   await notifyInternship('intern_registered', {
-//     title:  '🎯 New Challenger — Ritik K.',
-//     color:  DC.intern,
-//     fields: [...],
-//     footer: 'october-2026 · Day 7',
-//   });
 
 export async function notifyInternship(
+  event: DiscordEvent,
+  embed: DiscordEmbed,
+): Promise<void> {
+  return notifyDiscord('', event, { ...embed, timestamp: true });
+}
+
+// ─── Tix structured notifier ─────────────────────────────────────────────────
+// Preferred over raw notifyDiscord() for all ticket events.
+// Always sends an embed. Always timestamps. Never sends plain text.
+//
+// Callers:
+//   api/tix/route.ts — tix_event on assigned/open/in_review/closed/rejected
+//
+// Example:
+//   await notifyTix('tix_event', {
+//     title:  '🎫 ADS-0001 — Assigned',
+//     color:  DC.purple,
+//     url:    'https://antcpu-ads.vercel.app/health',
+//     fields: [
+//       { name: 'Ticket',   value: 'ADS-0001',       inline: true },
+//       { name: 'Assignee', value: 'ritik@email.com', inline: true },
+//       { name: 'Type',     value: 'bug',             inline: true },
+//       { name: 'Title',    value: 'Fix scout loop',  inline: false },
+//     ],
+//     footer: 'tix · october-2026',
+//   });
+
+export async function notifyTix(
   event: DiscordEvent,
   embed: DiscordEmbed,
 ): Promise<void> {
