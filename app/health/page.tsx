@@ -53,6 +53,13 @@ async function fetchFlags() {
   } catch { return null }
 }
 
+async function fetchTix() {
+  try {
+    const r = await fetch(`${BASE}/api/tix`, { cache: 'no-store' })
+    return r.ok ? r.json() : null
+  } catch { return null }
+}
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s = {
   page:    { minHeight: '100vh', background: '#0a0a0a', color: '#e5e5e5', fontFamily: 'monospace', padding: '2rem' },
@@ -78,11 +85,12 @@ export default async function HealthPage() {
   }
 
   // Parallel fetch — all live, no cache
-  const [stats, build, clock, flags] = await Promise.all([
+  const [stats, build, clock, flags, tix] = await Promise.all([
     fetchStats(),
     fetchBuild(),
     fetchClock(),
     fetchFlags(),
+    fetchTix(),
   ])
 
   const now = new Date().toISOString()
@@ -229,12 +237,23 @@ export default async function HealthPage() {
 
       {/* Section 7 — Tix */}
       <div style={s.section}>
-        <p style={s.label}>Tix — Ticket System</p>
-        <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', padding: '1rem' }}>
-          <p style={{ ...s.sub, color: '#555' }}>
-            Ticket system live. Use /api/tix to issue, assign, and track.
-            Prefixes: ADS · IO · ANTCPU · ANTCOIN
-          </p>
+        <p style={s.label}>Tix — {tix?.tickets?.length ?? 0} tickets</p>
+        <div style={{ background: '#111', border: '1px solid #1e1e1e', borderRadius: '6px', padding: '0.5rem 1rem' }}>
+          {!tix?.tickets?.length && (
+            <p style={{ ...s.sub, color: '#555', padding: '0.5rem 0' }}>No tickets yet.</p>
+          )}
+          {tix?.tickets?.map((t: any) => (
+            <div key={t.id} style={{ ...s.row, gap: '0.5rem', flexWrap: 'wrap' as const }}>
+              <span style={{ fontSize: '0.75rem', color: '#888', minWidth: '90px' }}>{t.id}</span>
+              <span style={{ fontSize: '0.8rem', color: '#e5e5e5', flex: 1 }}>{t.title}</span>
+              <span style={{ fontSize: '0.7rem', color: '#555' }}>{t.track}</span>
+              <span style={{
+                fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.4rem', borderRadius: '4px',
+                background: t.status === 'closed' ? '#1a3a1a' : t.status === 'open' ? '#1a2a1a' : t.status === 'in_review' ? '#1a1a3a' : t.status === 'rejected' ? '#3a1a1a' : '#2a2a1a',
+                color: t.status === 'closed' ? '#4ade80' : t.status === 'open' ? '#86efac' : t.status === 'in_review' ? '#93c5fd' : t.status === 'rejected' ? '#f87171' : '#fde68a',
+              }}>{t.status}</span>
+            </div>
+          ))}
         </div>
       </div>
 
