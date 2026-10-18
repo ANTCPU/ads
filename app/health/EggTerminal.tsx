@@ -8,7 +8,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { resolveEgg } from '@/lib/eggs'
+import { resolveEgg } from "../lib/eggs"
 
 export default function EggTerminal() {
   const [input, setInput]     = useState('')
