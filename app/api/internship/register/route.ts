@@ -709,6 +709,7 @@ export async function POST(req: NextRequest) {
 
     notifyInternship('intern_registered', {
       title: `🎯 New Challenger — ${cleanName}`,
+      url: `https://antcpu-ads.vercel.app/office/${challenger?.handle ?? internId}`,
       color: DC.intern,
       fields: [
         { name: 'Track',    value: trackEmoji,                                    inline: true  },
