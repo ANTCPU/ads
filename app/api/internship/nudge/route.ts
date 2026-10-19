@@ -103,7 +103,8 @@ type NudgeType =
   | 'week2_push'
   | 'week3_push'
   | 'week4_push'
-  | 'final_push';
+  | 'final_push'
+  | 'complete_badge';
 
 // ── Email builders ─────────────────────────────────────────────
 
@@ -703,6 +704,44 @@ function buildNudgeEmail(opts: {
     };
   }
 
+  // ── complete_badge ──────────────────────────────────────────
+  if (nudgeType === 'complete_badge') {
+    return {
+      subject: `You did it, ${name} — your badge is ready`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${SUCCESS}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            🏆 Challenge complete. You finished.
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            You completed the ANTCPU Internship Challenge.
+            Your badge is live on your office. Your certificate is ready.
+            You're now eligible for the next cohort captain track.
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            What's unlocked
+          </div>
+          ${taskRow('Office Badge', 'Your completion badge is live on your public office page.', 100)}
+          ${taskRow('Certificate', 'Download your internship certificate from your office.', 100)}
+          ${taskRow('Captain Track', 'Applications open for the next cohort captain role.', 100)}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton('🏆 View My Office →', officeUrl)}
+          <div style="margin-top:0.75rem">
+            <a href="${primaryUrl}"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              Share your achievement
+            </a>
+          </div>
+        </div>`),
+    };
+  }
+
   // ── week2_unlock ──────────────────────────────────────────
   return {
     subject: `Week 2 just unlocked, ${name}`,
@@ -783,7 +822,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week2_push', 'week3_push', 'week4_push', 'final_push',
+      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week2_push', 'week3_push', 'week4_push', 'final_push', 'complete_badge',
     ];
     if (!validTypes.includes(nudge_type)) {
       return NextResponse.json(
@@ -911,7 +950,7 @@ export async function POST(req: NextRequest) {
 // EOF META
 // ============================================================
 // File:    app/api/internship/nudge/route.ts
-// Version: v1.4
+// Version: v1.5
 // Updated: 2026-10-19
 //
 // WHAT THIS FILE DOES:
@@ -940,6 +979,7 @@ export async function POST(req: NextRequest) {
 //   week2_unlock  25%  -> Week 1 done, Week 2 just opened
 //   week3_unlock  any  -> Week 2 closing, team forms Day 14
 //   captain_alert any  -> elevated to Node Captain, doesn't know yet
+//   complete_badge 100% -> challenge done, badge not yet awarded
 //   week2_push    30%  -> Week 2 progress, going quiet
 //   week3_push    50%  -> team formed, d15 waiting, fast-forward dead zone
 //   week4_push    55%  -> node active, challenger going quiet

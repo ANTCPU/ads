@@ -6,7 +6,7 @@
 // — Internship challenger nudge tiers added as parallel read
 //   alongside existing ADS advertiser lists
 // — Returns { noAd, noShares, inactive, internship }
-// — internship contains 9 tiers:
+// — internship contains 10 tiers:
 //     hard_d1:     stuck at 5%, last_seen > 48hrs
 //     hard_d2:     stuck at 10%, last_seen > 48hrs
 //     soft:        15–24%, last_seen > 48hrs
@@ -16,6 +16,7 @@
 //     week3_push:  50–54%, last_seen > 48hrs
 //     week4_push:  55–74%, last_seen > 48hrs
 //     final_push:  75–99%, last_seen > 48hrs
+//     complete_badge: 100%, badge not yet awarded
 // — Cohort filter: only current active cohort challengers
 // — EXCLUDE list applied to challengers same as ADS users
 //
@@ -224,6 +225,12 @@ export async function GET() {
       (!c.last_seen || c.last_seen < fortyEightHrsAgo)
     );
 
+    // Tier 10 — Complete: 100%, badge not yet awarded
+    const complete_badge = all.filter(c =>
+      (c.progress_pct || 0) >= 100 &&
+      !c.completed_gates?.includes('badge_awarded')
+    );
+
     const internship = {
       cohort,
       total:        all.length,
@@ -236,6 +243,7 @@ export async function GET() {
       week3_push,
       week4_push,
       final_push,
+      complete_badge,
       counts: {
         hard_d1:      hard_d1.length,
         hard_d2:      hard_d2.length,
@@ -246,6 +254,7 @@ export async function GET() {
         week3_push:   week3_push.length,
         week4_push:   week4_push.length,
         final_push:   final_push.length,
+        complete_badge: complete_badge.length,
       },
     };
 

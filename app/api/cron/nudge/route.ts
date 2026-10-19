@@ -222,6 +222,7 @@ export async function GET(req: NextRequest) {
       ...buildItems(internship.week3_push,   'week3_push'),   // P6
       ...buildItems(internship.week4_push,   'week4_push'),   // P6
       ...buildItems(internship.final_push,   'final_push'),   // P7
+      ...buildItems(internship.complete_badge,'complete_badge'), // P8 — badge award
     ];
 
     // ── 5. Process queue ──────────────────────────────────────
