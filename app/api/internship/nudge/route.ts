@@ -100,6 +100,7 @@ type NudgeType =
   | 'week2_unlock'
   | 'week3_unlock'
   | 'captain_alert'
+  | 'week2_push'
   | 'week3_push'
   | 'week4_push'
   | 'final_push';
@@ -489,6 +490,63 @@ function buildNudgeEmail(opts: {
     };
   }
 
+  // ── week2_push ───────────────────────────────────────────
+  if (nudgeType === 'week2_push') {
+    const remaining = 50 - progressPct;
+    return {
+      subject: `You're ${progressPct}% in, ${name} — Week 2 is open`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ⚡ You started Week 2. Keep going.
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            You're at ${progressPct}%. ${remaining}% to Week 3.
+            Your Week 2 tasks are all open — no unlock schedule.
+            Do them in any order.
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Week 2 — still open
+          </div>
+          ${taskRow(
+            'Research & Analyze',
+            isMkt
+              ? 'Research your country audience. What message lands?'
+              : 'Analyze the codebase section your PR touches.',
+            35
+          )}
+          ${taskRow(
+            'Build Day 1',
+            isMkt
+              ? 'Draft your first campaign asset. Post it in the Arena.'
+              : 'Write your first commit on the intern branch.',
+            38
+          )}
+          ${taskRow(
+            'Ship & Submit',
+            isMkt
+              ? 'Submit your campaign concept to the Arena.'
+              : 'Open your pull request on the intern branch.',
+            46
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton('⚡ Go to My Office →', officeUrl)}
+          <div style="margin-top:0.75rem">
+            <a href="${primaryUrl}"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              ${primaryLabel}
+            </a>
+          </div>
+        </div>`),
+    };
+  }
+
   // ── week3_push ───────────────────────────────────────────
   if (nudgeType === 'week3_push') {
     return {
@@ -725,7 +783,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week3_push', 'week4_push', 'final_push',
+      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week2_push', 'week3_push', 'week4_push', 'final_push',
     ];
     if (!validTypes.includes(nudge_type)) {
       return NextResponse.json(
@@ -853,8 +911,8 @@ export async function POST(req: NextRequest) {
 // EOF META
 // ============================================================
 // File:    app/api/internship/nudge/route.ts
-// Version: v1.2
-// Updated: 2026-10-13
+// Version: v1.4
+// Updated: 2026-10-19
 //
 // WHAT THIS FILE DOES:
 //   Sends track-aware nudge emails to challengers via Resend/Herald.
@@ -882,6 +940,10 @@ export async function POST(req: NextRequest) {
 //   week2_unlock  25%  -> Week 1 done, Week 2 just opened
 //   week3_unlock  any  -> Week 2 closing, team forms Day 14
 //   captain_alert any  -> elevated to Node Captain, doesn't know yet
+//   week2_push    30%  -> Week 2 progress, going quiet
+//   week3_push    50%  -> team formed, d15 waiting, fast-forward dead zone
+//   week4_push    55%  -> node active, challenger going quiet
+//   final_push    75%  -> almost done, finish line nudge
 //
 // CTA ROUTING:
 //   dev primary   -> github.com/ANTCPU/ads

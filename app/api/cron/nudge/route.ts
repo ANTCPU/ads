@@ -39,7 +39,7 @@
 //   Every run seeds notifications table (Antony's bell).
 //   Fatal errors also seed notifications + Discord.
 //
-// v2 (Oct 2026):
+// v2.1 (Oct 2026):
 //   — Full rewrite — v1 never sent emails (broken loop bug)
 //   — Delegates to /api/internship/nudge — no duplicate logic
 //   — Channel routing via email_prefs (open_count, send_count)
@@ -215,7 +215,8 @@ export async function GET(req: NextRequest) {
       ...buildItems(internship.hard_d2,      'hard_d2'),      // P2
       ...buildItems(internship.week2_unlock, 'week2_unlock'), // P3
       ...buildItems(internship.soft,         'soft'),         // P4
-      ...buildItems(internship.week3_push,   'week3_push'),   // P5
+      ...buildItems(internship.week2_push,   'week2_push'),   // P5
+      ...buildItems(internship.week3_push,   'week3_push'),   // P6
       ...buildItems(internship.week4_push,   'week4_push'),   // P6
       ...buildItems(internship.final_push,   'final_push'),   // P7
     ];

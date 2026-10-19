@@ -6,12 +6,16 @@
 // — Internship challenger nudge tiers added as parallel read
 //   alongside existing ADS advertiser lists
 // — Returns { noAd, noShares, inactive, internship }
-// — internship contains 5 tiers:
+// — internship contains 9 tiers:
 //     hard_d1:     stuck at 5%, last_seen > 48hrs
 //     hard_d2:     stuck at 10%, last_seen > 48hrs
 //     soft:        15–24%, last_seen > 48hrs
 //     light:       < 25%, last_seen < 24hrs (active, not done)
 //     week2_unlock: 25–29%, last_seen > 48hrs
+//     week2_push:  30–49%, last_seen > 48hrs
+//     week3_push:  50–54%, last_seen > 48hrs
+//     week4_push:  55–74%, last_seen > 48hrs
+//     final_push:  75–99%, last_seen > 48hrs
 // — Cohort filter: only current active cohort challengers
 // — EXCLUDE list applied to challengers same as ADS users
 //
@@ -113,7 +117,8 @@ export async function GET() {
         .from('challengers')
         .select(
           'email, first_name, track, progress_pct, ' +
-          'last_seen, completed_gates, cohort, country'  // ← last_seen
+          'last_seen, completed_gates, cohort, country, ' +
+          'nudge_sent_at, intern_id, handle, elevation_level, node_role'  // ← last_seen
         )
         .eq('status', 'active')
         .eq('cohort', cohort)
@@ -187,7 +192,14 @@ export async function GET() {
       (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
     );
 
-    // Tier 6 — Week 3 push: 50–54%, stalled >48hrs (fast-forward dead zone)
+    // Tier 6 — Week 2 push: 30–49%, stalled >48hrs (Week 2 progress, going quiet)
+    const week2_push = all.filter(c =>
+      (c.progress_pct || 0) >= 30 &&
+      (c.progress_pct || 0) <  50 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)
+    );
+
+    // Tier 7 — Week 3 push: 50–54%, stalled >48hrs (fast-forward dead zone)
     const week3_push = all.filter(c =>
       (c.progress_pct || 0) >= 50 &&
       (c.progress_pct || 0) <  55 &&
@@ -195,14 +207,14 @@ export async function GET() {
     );
 
 
-    // Tier 7 — Week 4 push: 55–74%, stalled >48hrs (node work, going quiet)
+    // Tier 8 — Week 4 push: 55–74%, stalled >48hrs (node work, going quiet)
     const week4_push = all.filter(c =>
       (c.progress_pct || 0) >= 55 &&
       (c.progress_pct || 0) <  75 &&
       (!c.last_seen || c.last_seen < fortyEightHrsAgo)
     );
 
-    // Tier 8 — Final push: 75–99%, stalled >48hrs (almost done)
+    // Tier 9 — Final push: 75–99%, stalled >48hrs (almost done)
     const final_push = all.filter(c =>
       (c.progress_pct || 0) >= 75 &&
       (c.progress_pct || 0) <  100 &&
@@ -217,6 +229,7 @@ export async function GET() {
       soft,
       light,
       week2_unlock,
+      week2_push,
       week3_push,
       week4_push,
       final_push,
@@ -226,6 +239,7 @@ export async function GET() {
         soft:         soft.length,
         light:        light.length,
         week2_unlock: week2_unlock.length,
+        week2_push:   week2_push.length,
         week3_push:   week3_push.length,
         week4_push:   week4_push.length,
         final_push:   final_push.length,
