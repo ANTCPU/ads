@@ -63,7 +63,7 @@ export default function WeekClient({
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Session ping — real last_seen signal
+  // ── Session ping — real last_seen signal (identified)
   useEffect(() => {
     const intern_id = localStorage.getItem('intern_id');
     const handle    = localStorage.getItem('intern_handle');
@@ -72,6 +72,22 @@ export default function WeekClient({
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ intern_id, handle, page: `week/${week}` }),
+    }).catch(() => null);
+  }, [week]);
+
+  // ── Doorbell ping — anonymous page view (page_views table)
+  useEffect(() => {
+    const email = localStorage.getItem('intern_email') ?? undefined;
+    fetch('/api/doorbell', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        page:  `/internship/week/${week}`,
+        ref:   document.referrer || 'direct',
+        ts:    new Date().toISOString(),
+        ua:    navigator.userAgent.slice(0, 120),
+        email: email ?? null,
+      }),
     }).catch(() => null);
   }, [week]);
 
