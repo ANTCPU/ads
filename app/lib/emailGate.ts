@@ -264,3 +264,34 @@ export async function gatedNotify(
 export function shouldNotify(reason: GateResult['reason']): boolean {
   return reason !== 'bounced' && reason !== 'unsubscribed';
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/lib/emailGate.ts
+// Version : v1.0
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   Central email gate — all outbound email passes through here.
+//   Enforces validity, cooldowns, bounces, unsubscribes, budget.
+//
+// FUNCTIONS:
+//   checkEmailValidity  — bounce/unsub/format gate
+//   checkEmailGate      — cooldown + daily budget gate
+//   recordEmailSent     — increment quota counters
+//   logEmailSend        — full send audit log (Scout)
+//   logSkippedSend      — skipped send audit log
+//   gatedNotify         — combined gate + send wrapper
+//   shouldNotify        — reason → boolean helper
+//
+// BUDGET:
+//   DAILY_HARD_CAP       100
+//   DAILY_TRANSACTIONAL   30
+//   DAILY_DIGEST          70
+//   Bounced/unsubscribed never reach quota check.
+//
+// AGENTS:
+//   Scout  — logEmailSend / logSkippedSend
+//   Vault  — checkEmailValidity
+// ============================================================

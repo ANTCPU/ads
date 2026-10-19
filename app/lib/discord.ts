@@ -356,3 +356,27 @@ export const discordPlatform: Platform = {
     `> ${ctx.description.slice(0, 120)}\n` +
     `→ ${ctx.url}`,
 };
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/lib/discord.ts
+// Version : v6
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   Discord notification layer — all ops alerts route here.
+//   Sends structured embeds to configured webhook channels.
+//
+// KEY FUNCTIONS:
+//   notifyDiscord       — generic embed dispatcher
+//   intern_closed       — challenger completed internship
+//   intern_registered   — new challenger registered
+//   ad_created          — new ad submitted
+//   ad_archived         — ad archived by user
+//   nudge_sent          — nudge email dispatched
+//   nudge_skipped       — nudge skipped (gate/cooldown)
+//
+// AGENTS:
+//   Discord — this file (v6)
+// ============================================================

@@ -361,3 +361,26 @@ export async function checkAndAwardActivityBadge(
 ): Promise<void> {
   if (streakDays >= 3) await awardBadge(supabase, userEmail, 'arena-active');
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/lib/badges.ts
+// Version : v2
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   Badge definitions + award logic for internship challengers.
+//   Called by api/badges/award on milestone completion.
+//
+// BADGE TYPES:
+//   week1_complete   — 25% milestone
+//   week2_complete   — 50% milestone
+//   week3_complete   — 75% milestone
+//   challenge_done   — 100% completion
+//   captain          — elevated to Node Captain
+//   veteran          — returning cohort challenger
+//
+// AGENTS:
+//   Herald  — reads badge state for nudge targeting
+// ============================================================

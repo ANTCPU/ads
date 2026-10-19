@@ -268,3 +268,25 @@ export function buildAgentPrompt(
 
   return `${identity}\n\n${ARENA_CONTEXT}\n\n${userPrompt}`;
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/lib/agents.ts
+// Version : v2
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   Agent registry — defines all active AI agents in the system.
+//   Used by Aria review, nudge routing, and ops dashboards.
+//
+// AGENTS REGISTERED:
+//   Herald   — nudge tier computation + email wrap
+//   Scout    — email logging + monthly report
+//   Vault    — bounce/unsub/validity gate
+//   Discord  — ops notifications
+//   Aria     — ad review + community moderation
+//
+// ROUTING:
+//   Single-product first → linked pairs → multi-agent only when required
+// ============================================================

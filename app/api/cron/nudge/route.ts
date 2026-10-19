@@ -39,6 +39,9 @@
 //   Every run seeds notifications table (Antony's bell).
 //   Fatal errors also seed notifications + Discord.
 //
+// Version: v2.1
+// Updated: 2026-10-19
+//
 // v2.1 (Oct 2026):
 //   — Full rewrite — v1 never sent emails (broken loop bug)
 //   — Delegates to /api/internship/nudge — no duplicate logic
@@ -416,3 +419,30 @@ export async function GET(req: NextRequest) {
     return err(message);
   }
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/api/cron/nudge/route.ts
+// Version : v2.1
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   Daily cron — fires at 10am UTC. Calls herald to get
+//   nudge lists, builds priority queue, dispatches emails
+//   via internship/nudge route. 7-day cooldown per challenger.
+//
+// QUEUE PRIORITY (P1 = highest):
+//   P1  hard_d1      — stuck at 5%, 48hrs
+//   P2  hard_d2      — stuck at 10%, 48hrs
+//   P3  week2_unlock — Week 1 done, stalled
+//   P4  soft         — 15-24%, stalled
+//   P5  week2_push   — 30-49%, going quiet
+//   P6  week3_push   — 50-54%, team waiting
+//   P7  week4_push   — 55-74%, node active
+//   P8  final_push   — 75-99%, finish line
+//
+// BUDGET:
+//   30/day transactional — enforced by emailGate.ts
+//   7-day cooldown per challenger — nudge_sent_at field
+// ============================================================

@@ -19,6 +19,9 @@
 // — Cohort filter: only current active cohort challengers
 // — EXCLUDE list applied to challengers same as ADS users
 //
+// Version: v2.2
+// Updated: 2026-10-19
+//
 // v2.1 (Oct 2026):
 // — challengers table uses last_seen not last_seen_at
 //   Fixed in select + all 5 tier filters
@@ -260,3 +263,42 @@ export async function GET() {
     );
   }
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/api/herald/route.ts
+// Version : v2.2
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   GET endpoint — computes nudge lists for ADS advertisers
+//   and internship challengers. Returns structured tier data
+//   consumed by cron/nudge for daily email dispatch.
+//
+// ADS LISTS:
+//   noAd      — signed up, no ad created yet
+//   noShares  — active ad, zero shares/clicks
+//   inactive  — active ad, not seen in 7 days
+//
+// INTERNSHIP TIERS (9):
+//   hard_d1      5%      registered, not seen 48hrs
+//   hard_d2      10%     profile done, not seen 48hrs
+//   soft         15-24%  some progress, not seen 48hrs
+//   light        <25%    active in last 24hrs (in-app only)
+//   week2_unlock 25-29%  Week 1 done, not seen 48hrs
+//   week2_push   30-49%  Week 2 progress, going quiet
+//   week3_push   50-54%  team formed, d15 waiting
+//   week4_push   55-74%  node active, going dark
+//   final_push   75-99%  finish line, almost done
+//
+// AGENTS:
+//   Herald  — this file
+//   Scout   — logEmailSend (lib/emailGate.ts)
+//   Vault   — checkEmailValidity (lib/emailGate.ts)
+//   Discord — notifyDiscord (lib/discord.ts)
+//
+// COLUMN NOTES:
+//   challengers  → last_seen      (not last_seen_at)
+//   ad_signups   → last_seen_at   (not last_seen)
+// ============================================================
