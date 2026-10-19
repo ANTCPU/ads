@@ -902,6 +902,13 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                   ? `Day ${data.clock.day} · Week ${data.clock.week} · ${data.clock.week_name}`
                   : 'Progress'}
               </span>
+              {data.clock?.week && (
+                <a href={`/internship/week/${data.clock.week}`}
+                  style={{ fontSize: '0.68rem', color: '#f97316',
+                    textDecoration: 'none', marginLeft: '0.5rem', opacity: 0.85 }}>
+                  Week {data.clock.week} tasks →
+                </a>
+              )}
               <span className="font-bold" style={{ color: theme.accent }}>
                 {data.progress_pct}%
               </span>
