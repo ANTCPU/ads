@@ -22,6 +22,9 @@
 //
 // ⚠️  SERVER-ONLY — never import from client components or pages.
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// Version: v0.4
+// Updated: 2026-10-19
 
 import 'server-only';
 import { Resend }   from 'resend';
@@ -173,3 +176,42 @@ export async function heraldSend(opts: {
 
   if (error) throw error;
 }
+
+// ============================================================
+// EOF META
+// ============================================================
+// File    : app/lib/herald.ts
+// Version : v0.4
+// Updated : 2026-10-19
+//
+// PURPOSE:
+//   Single source of truth for all outbound email infrastructure.
+//   Provides email primitives consumed by all send routes.
+//   Pattern mirrors discord.ts — server-only, lazy Resend init.
+//
+// EXPORTS:
+//   HERALD_VERSION  — current version string
+//   HERALD_FROM     — sender address constant
+//   unsubToken      — signed unsubscribe token generator
+//   unsubUrl        — full unsubscribe URL builder
+//   heraldHeader    — email header HTML block
+//   heraldFooter    — email footer HTML block (recipient-aware)
+//   heraldWrap      — full email wrapper (header + body + footer)
+//   heraldSend      — gated send via Resend + List-Unsubscribe headers
+//
+// USED BY:
+//   api/send-welcome/route.ts        → welcome email on signup
+//   api/send-weekly/route.ts         → weekly digest
+//   api/send-module/route.ts         → champion welcome + modular sends
+//   api/internship/register/route.ts → internship registration email
+//   api/internship/nudge/route.ts    → all nudge emails
+//
+// AGENTS:
+//   Herald — this file is the Herald agent core
+//   Scout  — heraldSend feeds logEmailSend audit trail
+//
+// NOTES:
+//   v0.4 — unsubscribe headers + signed tokens + recipient-aware footer
+//          List-Unsubscribe + List-Unsubscribe-Post on every send (Gmail req)
+//   Next: v1.0 — add open tracking pixel + click tracking wrapper
+// ============================================================
