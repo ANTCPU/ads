@@ -215,6 +215,9 @@ export async function GET(req: NextRequest) {
       ...buildItems(internship.hard_d2,      'hard_d2'),      // P2
       ...buildItems(internship.week2_unlock, 'week2_unlock'), // P3
       ...buildItems(internship.soft,         'soft'),         // P4
+      ...buildItems(internship.week3_push,   'week3_push'),   // P5
+      ...buildItems(internship.week4_push,   'week4_push'),   // P6
+      ...buildItems(internship.final_push,   'final_push'),   // P7
     ];
 
     // ── 5. Process queue ──────────────────────────────────────

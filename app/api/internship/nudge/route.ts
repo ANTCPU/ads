@@ -99,7 +99,10 @@ type NudgeType =
   | 'light'
   | 'week2_unlock'
   | 'week3_unlock'
-  | 'captain_alert';
+  | 'captain_alert'
+  | 'week3_push'
+  | 'week4_push'
+  | 'final_push';
 
 // ── Email builders ─────────────────────────────────────────────
 
@@ -486,6 +489,162 @@ function buildNudgeEmail(opts: {
     };
   }
 
+  // ── week3_push ───────────────────────────────────────────
+  if (nudgeType === 'week3_push') {
+    return {
+      subject: `Your team is waiting, ${name}`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ⚡ Week 3 is live. Your team is formed.
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            You're at ${progressPct}%. Nodes are assigned.
+            Your next task is d15 — introduce yourself to your team.
+            It takes 2 minutes and unlocks the rest of Week 3.
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Do this now — unlocks Week 3
+          </div>
+          ${taskRow(
+            'Introduce Yourself — d15',
+            "Post in the General room. One sentence. Your name, track, and what you're building.",
+            55
+          )}
+          ${taskRow(
+            'Find Your Node',
+            isMkt
+              ? 'Go to your office. Find your node assignment. Message your captain.'
+              : 'Go to your office. Find your node. Say hi to your dev partner.',
+            60
+          )}
+          ${taskRow(
+            'Week 3 Build',
+            isMkt
+              ? 'Launch your Map of Pi country campaign with your node.'
+              : 'Ship your PR with your node. One joint commit.',
+            75
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton('⚡ Go to My Office →', officeUrl)}
+          <div style="margin-top:0.75rem">
+            <a href="${primaryUrl}"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              ${primaryLabel}
+            </a>
+          </div>
+        </div>`),
+    };
+  }
+
+  // ── week4_push ───────────────────────────────────────────
+  if (nudgeType === 'week4_push') {
+    return {
+      subject: `Your node is building, ${name} — don't go dark`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ⚡ Your node is active. Are you?
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            You're at ${progressPct}%. Your node is building right now.
+            Week 4 tasks are open — your team needs your contribution
+            to cross the finish line together.
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Week 4 — open right now
+          </div>
+          ${taskRow(
+            'Node Check-in',
+            'Post an update in your node channel. What did you ship this week?',
+            65
+          )}
+          ${taskRow(
+            'Joint Submission',
+            isMkt
+              ? 'Submit your node campaign asset to the Arena.'
+              : 'Merge your node PR. One joint commit counts.',
+            75
+          )}
+          ${taskRow(
+            'Peer Review',
+            'Review one other node member submission. One specific improvement.',
+            80
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton('⚡ Go to My Office →', officeUrl)}
+          <div style="margin-top:0.75rem">
+            <a href="${primaryUrl}"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              ${primaryLabel}
+            </a>
+          </div>
+        </div>`),
+    };
+  }
+
+  // ── final_push ───────────────────────────────────────────
+  if (nudgeType === 'final_push') {
+    return {
+      subject: `You're ${progressPct}% done, ${name} — finish it`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${SUCCESS}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ${progressPct}% done. The finish line is right there.
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            You've put in the work. The last tasks are open right now.
+            Challengers who finish get their office badge, their certificate,
+            and first access to the next cohort captain track.
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Final tasks — do these now
+          </div>
+          ${taskRow(
+            'Final Reflection',
+            'What did you build? What did you learn? Post it in the community feed.',
+            90
+          )}
+          ${taskRow(
+            'Share Your Office',
+            'Post your office link on X, LinkedIn, or Bluesky. One post. Tag @antcpu.',
+            95
+          )}
+          ${taskRow(
+            'Challenge Complete',
+            'Submit your final review. Your badge and certificate unlock at 100%.',
+            100
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton('🏆 Finish the Challenge →', officeUrl)}
+          <div style="margin-top:0.75rem">
+            <a href="${primaryUrl}"
+              style="font-size:0.78rem;color:#555;text-decoration:underline">
+              ${primaryLabel}
+            </a>
+          </div>
+        </div>`),
+    };
+  }
+
   // ── week2_unlock ──────────────────────────────────────────
   return {
     subject: `Week 2 just unlocked, ${name}`,
@@ -566,7 +725,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert',
+      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week3_push', 'week4_push', 'final_push',
     ];
     if (!validTypes.includes(nudge_type)) {
       return NextResponse.json(

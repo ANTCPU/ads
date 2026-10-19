@@ -178,6 +178,28 @@ export async function GET() {
       (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
     );
 
+    // Tier 6 — Week 3 push: 50–54%, stalled >48hrs (fast-forward dead zone)
+    const week3_push = all.filter(c =>
+      (c.progress_pct || 0) >= 50 &&
+      (c.progress_pct || 0) <  55 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)
+    );
+
+
+    // Tier 7 — Week 4 push: 55–74%, stalled >48hrs (node work, going quiet)
+    const week4_push = all.filter(c =>
+      (c.progress_pct || 0) >= 55 &&
+      (c.progress_pct || 0) <  75 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)
+    );
+
+    // Tier 8 — Final push: 75–99%, stalled >48hrs (almost done)
+    const final_push = all.filter(c =>
+      (c.progress_pct || 0) >= 75 &&
+      (c.progress_pct || 0) <  100 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)
+    );
+
     const internship = {
       cohort,
       total:        all.length,
@@ -186,16 +208,55 @@ export async function GET() {
       soft,
       light,
       week2_unlock,
+      week3_push,
+      week4_push,
+      final_push,
       counts: {
         hard_d1:      hard_d1.length,
         hard_d2:      hard_d2.length,
         soft:         soft.length,
         light:        light.length,
         week2_unlock: week2_unlock.length,
+        week3_push:   week3_push.length,
+        week4_push:   week4_push.length,
+        final_push:   final_push.length,
       },
     };
 
-    return NextResponse.json(
+        return NextResponse.json(
+      { noAd, noShares, inactive, internship },
+      { headers: CORS }
+    );
+
+    // Tier 8 — Final push: 75–99%, stalled >48hrs (almost done)
+    const final_push = all.filter(c =>
+      (c.progress_pct || 0) >= 75 &&
+      (c.progress_pct || 0) <  100 &&
+      (!c.last_seen || c.last_seen < fortyEightHrsAgo)
+    );
+
+    const internship = {
+      cohort,
+      total:        all.length,
+      hard_d1,
+      hard_d2,
+      soft,
+      light,
+      week2_unlock,
+      week3_push,
+      week4_push,
+      final_push,
+      counts: {
+        hard_d1:      hard_d1.length,
+        hard_d2:      hard_d2.length,
+        soft:         soft.length,
+        light:        light.length,
+        week2_unlock: week2_unlock.length,
+        week3_push:   week3_push.length,
+        week4_push:   week4_push.length,
+        final_push:   final_push.length,
+      },
+    };
       { noAd, noShares, inactive, internship },
       { headers: CORS }
     );
