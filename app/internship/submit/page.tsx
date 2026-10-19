@@ -6,7 +6,7 @@
 // Week 2+: Full submission form (URL + description + track).
 // Writes to a submissions table (Phase 3 — to be created).
 //
-// PLACEHOLDER — frame is live, form activates Aug 8.
+// LIVE — Week 3 active. Weeks 1-3 gates open. Week 4 locked.
 // ============================================================
 
 export const metadata = {
@@ -14,8 +14,8 @@ export const metadata = {
   description: 'Submit your Week 2+ deliverables to the Internship Arena.',
 };
 
-// Current week — update this manually each Monday or wire to challengers.week
-const CURRENT_WEEK = 1;
+// Current week — wired to clock.week via API (Oct 2026 cohort is Week 3)
+const CURRENT_WEEK = 3;
 
 const SUBMISSION_TYPES = {
   dev: [
