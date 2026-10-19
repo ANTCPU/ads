@@ -19,6 +19,15 @@
 // — challengers table uses last_seen not last_seen_at
 //   Fixed in select + all 5 tier filters
 //   ad_signups correctly keeps last_seen_at (different table)
+//
+// v2.2 (Oct 2026):
+// — Tiers 6–8 added to cover fast-forward dead zone + full cohort
+//     week3_push: 50–54%, stalled >48hrs (d15 entry point)
+//     week4_push: 55–74%, stalled >48hrs (node work, going quiet)
+//     final_push: 75–99%, stalled >48hrs (finish line)
+// — internship object + counts updated with all 3 new tiers
+// — cron/nudge queue updated P5–P7
+// — internship/nudge NudgeType union + builders added
 // ============================================================
 
 import { NextResponse }  from 'next/server';
@@ -257,6 +266,8 @@ export async function GET() {
         final_push:   final_push.length,
       },
     };
+
+    return NextResponse.json(
       { noAd, noShares, inactive, internship },
       { headers: CORS }
     );
