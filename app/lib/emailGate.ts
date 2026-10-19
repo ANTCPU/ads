@@ -1,6 +1,9 @@
 // app/lib/emailGate.ts
 // ─── Email gate — validity + quota + idempotency ──────────────────────────────
 //
+// Version: v1.0
+// Updated: 2026-10-19
+//
 // Resend Free:  100 emails/day · 3,000/month
 //
 // Budget allocation:
