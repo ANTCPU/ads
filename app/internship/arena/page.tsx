@@ -139,7 +139,7 @@ export default async function InternshipArenaPage() {
       </div>
       <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Challenger Board.</h1>
       <p style={{ color: '#6b7280', marginBottom: '0.5rem', fontSize: '0.95rem' }}>
-        {all.length} challenger{all.length !== 1 ? 's' : ''} · {countries} countr{countries !== 1 ? 'ies' : 'y'} · August 2026 Cohort
+        {all.length} challenger{all.length !== 1 ? 's' : ''} · {countries} countr{countries !== 1 ? 'ies' : 'y'} · October 2026 Cohort
       </p>
       <p style={{ color: '#9ca3af', fontSize: '0.75rem', marginBottom: '2rem' }}>
         Updates every 60s · Sorted by points

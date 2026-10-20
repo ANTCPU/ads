@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import {
   getChallengeDay,
+  getChallengeCohort,
   getCatchUpTasks,
   getMaxAchievable,
   WEEK1_TASKS,
@@ -21,7 +22,7 @@ export default function SuccessClient() {
   const day       = getChallengeDay();
   const catchUp   = getCatchUpTasks(Math.max(1, day));
   const maxPct    = getMaxAchievable(Math.max(1, day));
-  const isSept    = day >= 8;
+  const isLate    = day > 7;  // joined after Week 1 opened
   const isLast    = day === 7;
   const isTight   = day === 5 || day === 6;
   const isNormal  = day <= 4;
@@ -40,7 +41,7 @@ export default function SuccessClient() {
           You're in, {first}.
         </h1>
         <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '0.25rem' }}>
-          {trackLabel} · {isSept ? 'September 2026 Cohort' : 'Week 1 — Explorer · Founding Member ⭐'}
+          {trackLabel} · {isLate ? getChallengeCohort().replace(/(-\d+)/, ' $1').replace(/\b\w/g, l => l.toUpperCase()) + ' Cohort' : 'Week 1 — Explorer · Founding Member ⭐'}
         </p>
         <p style={{ color: '#9ca3af', fontSize: '0.82rem' }}>
           Check your email — your day-aware guide is on its way.
@@ -48,18 +49,18 @@ export default function SuccessClient() {
       </div>
 
       {/* ── September cohort state ── */}
-      {isSept && (
+      {isLate && (
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '1.25rem', marginBottom: '1.5rem' }}>
           <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.4rem', color: '#1d4ed8' }}>
-            📅 August Week 1 has closed
+            📅 Week 1 is underway
           </div>
           <p style={{ color: '#374151', fontSize: '0.875rem', lineHeight: 1.6, margin: '0 0 1rem' }}>
             Your Arena intro ad is live and you're on the challenger board.
-            September cohort opens September 1 — you'll have the full 31 days.
+            You can still complete Week 1 tasks — all gates are open from Day 1.
           </p>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <a href="/internship/waitlist" style={{ background: accent, color: '#fff', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem' }}>
-              September Cohort →
+            <a href="/office" style={{ background: accent, color: '#fff', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem' }}>
+              View Your Office →
             </a>
             <a href="/internship/arena" style={{ background: '#f3f4f6', color: '#374151', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
               Challenger Board →
@@ -78,12 +79,12 @@ export default function SuccessClient() {
       {/* ── Tight window warning ── */}
       {isTight && (
         <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', fontSize: '0.875rem', color: '#92400e' }}>
-          ⏱ <strong>Week 1 closes Sunday Aug 7.</strong> You can still reach <strong>{maxPct}%</strong> — here's your fastest path.
+          ⏱ <strong>Week 1 tasks are all open now.</strong> You can still reach <strong>{maxPct}%</strong> — here's your fastest path.
         </div>
       )}
 
       {/* ── Catch-up checklist (days 2–7) ── */}
-      {!isSept && day >= 2 && (
+      {!isLate && day >= 2 && (
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 12, padding: '1.25rem', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '0.75rem' }}>
             {isLast ? 'Do these now' : `Your catch-up path — up to ${maxPct}%`}
@@ -155,7 +156,7 @@ export default function SuccessClient() {
       )}
 
       {/* ── EDU class card ── */}
-      {!isSept && (
+      {!isLate && (
         <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '0.7rem', color: '#0369a1', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, marginBottom: '0.4rem' }}>
             🎓 {isDev ? 'Dev' : 'Marketing'} class — free, no signup
@@ -171,13 +172,13 @@ export default function SuccessClient() {
 
       {/* ── Primary CTAs ── */}
       <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '0.75rem', marginBottom: '1.5rem' }}>
-        {!isSept ? (
+        {!isLate ? (
           <a href="https://antcpu.io/challenge/" style={{ background: accent, color: '#fff', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '1rem', textAlign: 'center' as const }}>
             {isLast ? 'Complete Day 1 Now →' : 'View Week 1 Tasks →'}
           </a>
         ) : (
-          <a href="/internship/waitlist" style={{ background: accent, color: '#fff', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '1rem', textAlign: 'center' as const }}>
-            Join September Cohort →
+          <a href="/office" style={{ background: accent, color: '#fff', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '1rem', textAlign: 'center' as const }}>
+            Join View Your Office →
           </a>
         )}
         <a href="/internship/arena" style={{ background: '#f3f4f6', color: '#111', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.95rem', textAlign: 'center' as const }}>
@@ -189,7 +190,7 @@ export default function SuccessClient() {
       </div>
 
       <p style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: '#d1d5db', textAlign: 'center' as const }}>
-        ⚡ antcpu.io · Human in the Loop · {isSept ? 'September' : 'August'} 2026
+        ⚡ antcpu.io · Human in the Loop · {getChallengeCohort().replace(/(-\d+)/, ' $1').replace(/\b\w/g, l => l.toUpperCase())}
       </p>
     </main>
   );
