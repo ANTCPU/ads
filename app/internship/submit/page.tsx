@@ -115,13 +115,13 @@ export default function SubmitPage() {
           </div>
 
           <button disabled style={{ background: '#d1d5db', color: '#9ca3af', border: 'none', padding: '0.9rem', borderRadius: 8, fontWeight: 700, fontSize: '1rem', cursor: 'not-allowed' }}>
-            Submit Work — Opens Aug 8
+            Submit Work →
           </button>
         </div>
       )}
 
       <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #e5e7eb', fontSize: '0.75rem', color: '#9ca3af', textAlign: 'center' }}>
-        ⚡ antcpu.io · Human in the Loop · August 2026
+        ⚡ antcpu.io · Human in the Loop · October 2026
       </div>
     </main>
   );
