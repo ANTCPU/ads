@@ -98,7 +98,7 @@ export default async function InternshipPage() {
       {/* ── HERO ── */}
       <div style={{ textAlign: 'center', padding: '4rem 1.25rem 2.5rem' }}>
         <div style={{ display: 'inline-block', background: '#0d1a2d', border: `1px solid ${accent}40`, borderRadius: 999, padding: '0.3rem 1rem', fontSize: '0.75rem', color: accent, marginBottom: '1.5rem', fontWeight: 700 }}>
-          🚀 August 2026 Cohort · Founding Members · Applications Open
+          🚀 October 2026 Cohort · Founding Members · Challenge Active
         </div>
         <h1 style={{ fontSize: 'clamp(2.2rem, 5vw, 4rem)', fontWeight: 800, lineHeight: 1.05, marginBottom: '1.2rem', background: `linear-gradient(135deg, ${white} 40%, ${accent})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           The Human in<br />the Loop.
@@ -206,8 +206,8 @@ export default async function InternshipPage() {
             { icon: '📋', title: 'Real deliverables', desc: 'Not fake projects. Work that ships into the Arena.' },
             { icon: '🤝', title: 'Collab in Week 3',  desc: 'Dev + Marketing pairs. Build something together.' },
             { icon: '🏆', title: 'Earned title',      desc: 'Explorer → Creator → Collaborator → Leader. Earned, not given.' },
-            { icon: '⭐', title: 'Founding member',   desc: 'August 2026 cohort. First in. Early adopter status.' },
-            { icon: '📄', title: 'Real CV entry',     desc: 'antcpu.io Human in the Loop Internship — August 2026.' },
+            { icon: '⭐', title: 'Founding member',   desc: 'October 2026 cohort. First in. Early adopter status.' },
+            { icon: '📄', title: 'Real CV entry',     desc: 'antcpu.io Human in the Loop Internship — October 2026.' },
           ].map(item => (
             <div key={item.title} style={{ background: card, border: `1px solid ${border}`, borderRadius: 12, padding: '1.25rem' }}>
               <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{item.icon}</div>
@@ -224,7 +224,7 @@ export default async function InternshipPage() {
           Ready to enter?
         </h2>
         <p style={{ color: muted, marginBottom: '2rem', fontSize: '0.95rem' }}>
-          Free · Remote · ~5 hours/week · August 2026
+          Free · Remote · ~5 hours/week · October 2026
         </p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
           <a href="/internship/join?track=dev" style={{ background: accent, color: white, padding: '1rem 2.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '1rem' }}>
