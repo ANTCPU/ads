@@ -40,10 +40,10 @@ const muted  = '#888';
 const muted2 = '#555';
 
 const WEEKS = [
-  { n: 1, icon: '🔭', title: 'Explorer',     dates: 'Aug 1–7',   desc: 'Orient. Register. Post your intro ad. Meet the Arena.',         status: 'active' },
-  { n: 2, icon: '⚡', title: 'Creator',      dates: 'Aug 8–14',  desc: 'Submit your first real work. Dev ships a tool. Marketing runs a campaign.', status: 'upcoming' },
-  { n: 3, icon: '🤝', title: 'Collaborator', dates: 'Aug 15–21', desc: 'Teams form. Dev + Marketing pairs build together. First collab deliverable.', status: 'upcoming' },
-  { n: 4, icon: '🚀', title: 'Leader',       dates: 'Aug 22–31', desc: 'Lead a project. Present your work. Earn your role title.',       status: 'upcoming' },
+  { n: 1, icon: '🔭', title: 'Explorer',     dates: 'Oct 1–7',   desc: 'Orient. Register. Post your intro ad. Meet the Arena.',         status: 'active' },
+  { n: 2, icon: '⚡', title: 'Creator',      dates: 'Oct 8–14',  desc: 'Submit your first real work. Dev ships a tool. Marketing runs a campaign.', status: 'upcoming' },
+  { n: 3, icon: '🤝', title: 'Collaborator', dates: 'Oct 15–21', desc: 'Teams form. Dev + Marketing pairs build together. First collab deliverable.', status: 'upcoming' },
+  { n: 4, icon: '🚀', title: 'Leader',       dates: 'Oct 22–31', desc: 'Lead a project. Present your work. Earn your role title.',       status: 'upcoming' },
 ];
 
 const TRACKS = [

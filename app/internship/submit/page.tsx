@@ -48,10 +48,10 @@ export default function SubmitPage() {
         /* ── LOCKED STATE — Week 1 ── */
         <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 16, padding: '2.5rem', textAlign: 'center' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🔒</div>
-          <h2 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Opens Week 2 — Aug 8</h2>
+          <h2 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Opens Week 2</h2>
           <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
             Week 1 is Explorer phase — get oriented, post your intro ad, meet the Arena.<br />
-            Submissions open Monday August 8.
+            Submissions open Week 2.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: 280, margin: '0 auto' }}>
             <a href="/internship/arena" style={{ background: '#2563eb', color: '#fff', padding: '0.8rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.9rem' }}>
@@ -65,7 +65,7 @@ export default function SubmitPage() {
       ) : (
         /* ── ACTIVE STATE — Week 2+ ── */
         /* TODO Week 2: Wire this form to POST /api/internship/submit */
-        /* Writes to: submissions table (create before Aug 8) */
+        /* Writes to: submissions table (create before Week 2) */
         /* Fields: challenger_email, track, type, url, description, week */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
