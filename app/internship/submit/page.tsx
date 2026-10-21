@@ -14,8 +14,7 @@ export const metadata = {
   description: 'Submit your Week 2+ deliverables to the Internship Arena.',
 };
 
-// Current week — wired to clock.week via API (Oct 2026 cohort is Week 3)
-const CURRENT_WEEK = 3;
+// Current week — fetched live from calendar API
 
 const SUBMISSION_TYPES = {
   dev: [
@@ -30,7 +29,14 @@ const SUBMISSION_TYPES = {
   ],
 };
 
-export default function SubmitPage() {
+export default async function SubmitPage() {
+  let currentWeek = 1;
+  try {
+    const res = await fetch('https://antcpu-ads.vercel.app/api/internship/calendar', { next: { revalidate: 3600 } });
+    const data = await res.json();
+    currentWeek = data.week ?? 1;
+  } catch {}
+  const CURRENT_WEEK = currentWeek;
   const isLocked = CURRENT_WEEK < 2;
 
   return (

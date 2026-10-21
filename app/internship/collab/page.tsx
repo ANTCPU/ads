@@ -1,3 +1,4 @@
+import { getChallengeCohort } from '../../lib/challengeDays';
 // ============================================================
 // app/internship/collab/page.tsx
 // Team Collaboration Hub — Week 3 LIVE
@@ -36,7 +37,7 @@ export default async function CollabPage() {
   const { data: challengers } = await supabase
     .from('challengers')
     .select('handle, first_name, track, team_id, is_captain, captain_team, team_notes')
-    .eq('cohort', 'october-2026')
+    .eq('cohort', getChallengeCohort())
     .eq('status', 'active')
     .not('team_id', 'is', null);
 
