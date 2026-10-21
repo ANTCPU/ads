@@ -715,6 +715,135 @@ function D15IntroButton({
   );
 }
 
+
+// ── Admin Slideout — Founder only ────────────────────────────
+function AdminSlideout({ accent, border }: { accent: string; border: string }) {
+  const [open, setOpen]           = useState(false);
+  const [challengers, setChallengers] = useState<{
+    handle: string; name: string; track: string;
+    progress_pct: number; country: string;
+  }[]>([]);
+  const [loading, setLoading]     = useState(false);
+
+  useEffect(() => {
+    if (!open || challengers.length) return;
+    setLoading(true);
+    fetch('/api/internship/challengers?view=public&cohort=october-2026')
+      .then(r => r.json())
+      .then(d => setChallengers(d.challengers ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [open]);
+
+  const adminLinks = [
+    { label: '⚡ Command Centre', href: '/dashboard/antcpu' },
+    { label: '👥 Users',          href: '/dashboard/users'  },
+    { label: '🤖 Agents',         href: '/dashboard/agents' },
+    { label: '🏆 Leaderboard',    href: '/champions'        },
+    { label: '🏟 Arena',          href: '/arena'            },
+  ];
+
+  return (
+    <>
+      {/* Toggle button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 9999,
+          background: accent, color: '#000', border: 'none',
+          borderRadius: '999px', padding: '0.6rem 1rem',
+          fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer',
+          boxShadow: `0 4px 20px ${accent}55`,
+        }}
+      >
+        {open ? '✕ Close' : '⚡ Admin'}
+      </button>
+
+      {/* Backdrop */}
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'rgba(0,0,0,0.5)',
+          }}
+        />
+      )}
+
+      {/* Slideout panel */}
+      <div style={{
+        position: 'fixed', top: 0, right: open ? 0 : '-360px',
+        width: '340px', height: '100vh', zIndex: 9999,
+        background: '#0d1117', borderLeft: `1px solid ${border}`,
+        overflowY: 'auto', transition: 'right 0.3s ease',
+        padding: '1.5rem 1rem 4rem',
+        fontFamily: 'system-ui, sans-serif',
+      }}>
+        <div style={{ fontWeight: 800, fontSize: '1rem', color: accent, marginBottom: '1rem' }}>
+          ⚡ Admin Panel
+        </div>
+
+        {/* Quick links */}
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '0.6rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+            Quick Links
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {adminLinks.map(l => (
+              <a key={l.href} href={l.href}
+                style={{
+                  display: 'block', padding: '0.45rem 0.75rem',
+                  background: '#161b22', border: `1px solid ${border}`,
+                  borderRadius: '8px', color: accent,
+                  fontSize: '0.78rem', fontWeight: 600,
+                  textDecoration: 'none',
+                }}>
+                {l.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Challenger offices */}
+        <div>
+          <div style={{ fontSize: '0.6rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+            Challenger Offices — October 2026
+          </div>
+          {loading && (
+            <div style={{ fontSize: '0.78rem', color: '#666', padding: '0.5rem 0' }}>Loading...</div>
+          )}
+          {!loading && challengers.length === 0 && (
+            <div style={{ fontSize: '0.78rem', color: '#666', padding: '0.5rem 0' }}>No challengers found.</div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {challengers.map(c => (
+              <a key={c.handle} href={`/office/${c.handle}`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '0.5rem 0.75rem',
+                  background: '#161b22', border: `1px solid ${border}`,
+                  borderRadius: '8px', textDecoration: 'none',
+                }}>
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e6edf3' }}>
+                    {c.track === 'marketing' ? '📣' : '💻'} {c.name}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '0.1rem' }}>
+                    {c.country} · {c.progress_pct}%
+                  </div>
+                </div>
+                <span style={{ fontSize: '0.65rem', color: accent, fontWeight: 700 }}>
+                  {c.progress_pct}% →
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────
 export default function OfficeClient({ data }: { data: OfficeData }) {
   const theme = THEMES[data.track] ?? THEMES.dev;
@@ -1138,6 +1267,11 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
         </div>
       </div>
+
+      {/* ── Admin slideout — founder only ── */}
+      {data.handle === 'Antony0' && (
+        <AdminSlideout accent={theme.accent} border={theme.border} />
+      )}
     </>
   );
 }
