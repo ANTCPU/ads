@@ -167,6 +167,13 @@ export function getChallengeCohort(): string {
 // — discord notifier   — label closed-cohort embeds
 // — apply page         — show correct waitlist CTA after close
 
+// Returns formatted display label e.g. "October 2026"
+export function getChallengeCohortLabel(): string {
+  const slug = getChallengeCohort(); // e.g. "october-2026"
+  const [month, year] = slug.split('-');
+  return `${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+}
+
 export function getNextCohort(): string {
   const TZ_OFFSET_MS = -5 * 60 * 60 * 1000;
   const nowEST  = new Date(new Date().getTime() + TZ_OFFSET_MS);

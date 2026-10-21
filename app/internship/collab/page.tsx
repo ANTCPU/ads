@@ -66,14 +66,14 @@ export default async function CollabPage() {
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '3rem 1.5rem', fontFamily: 'system-ui,sans-serif', background: '#0a0a0a', minHeight: '100vh', color: '#f1f5f9' }}>
 
       <div style={{ fontSize: '0.72rem', color: '#6b7280', marginBottom: '0.4rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-        ⚡ Internship Arena · Week 3
+        {`⚡ Internship Arena · Week ${CURRENT_WEEK}`}
       </div>
       <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.4rem' }}>Team Collab Hub.</h1>
       <p style={{ color: '#9ca3af', marginBottom: '0.25rem', fontSize: '0.95rem' }}>
         4 nodes. Dev builds. Marketing campaigns. One shared deliverable.
       </p>
       <p style={{ color: '#6b7280', marginBottom: '2rem', fontSize: '0.82rem' }}>
-        Week 3 is live — find your node, meet your captain, ship together.
+        {`Week ${CURRENT_WEEK} is live — find your node, meet your captain, ship together.`}
       </p>
 
       {/* ── MENTOR STRIP ── */}
@@ -109,7 +109,7 @@ export default async function CollabPage() {
                 }}>
                   {meta.emoji} NODE {nodeNum.toUpperCase()} — {meta.name.toUpperCase()}
                 </span>
-                <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>Week 3 Active ✅</span>
+                <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>{`Week ${CURRENT_WEEK} Active ✅`}</span>
               </div>
 
               {/* Captain + Marketer */}
@@ -175,7 +175,7 @@ export default async function CollabPage() {
           <span style={{ fontSize: '1.25rem' }}>🔒</span>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Week 4 — Project Leadership</div>
-            <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>Unlocks when week 3 is complete. Top challengers lead. Others contribute.</div>
+            <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>{`Unlocks when week ${CURRENT_WEEK} is complete. Top challengers lead. Others contribute.`}</div>
           </div>
         </div>
       </div>
