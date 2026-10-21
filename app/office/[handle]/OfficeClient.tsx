@@ -309,7 +309,7 @@ function ElevationBanner({
     : 'Week 2 Contender — Watch List';
   const message = isBuilder
     ? "You've been selected as a potential Week 3 team lead. Gate d8 is open. Fork the repo, write your PLAN.md, reply to Issue #1. Your work gets reviewed by Arena4 personally."
-    : "You're on the Week 3 watch list. Hit d8 this week to move up to Builder status.";
+    : "You're on the watch list. Hit d8 this week to move up to Builder status.";
   const mentor = track === 'marketing'
     ? 'Mohamed39, Marketing Lead'
     : 'Arena4, Dev Lead';
@@ -717,7 +717,7 @@ function D15IntroButton({
 
 
 // ── Admin Slideout — Founder only ────────────────────────────
-function AdminSlideout({ accent, border }: { accent: string; border: string }) {
+function AdminSlideout({ accent, border, cohort }: { accent: string; border: string; cohort: string }) {
   const [open, setOpen]           = useState(false);
   const [challengers, setChallengers] = useState<{
     handle: string; name: string; track: string;
@@ -728,7 +728,7 @@ function AdminSlideout({ accent, border }: { accent: string; border: string }) {
   useEffect(() => {
     if (!open || challengers.length) return;
     setLoading(true);
-    fetch('/api/internship/challengers?view=public&cohort=october-2026')
+    fetch(`/api/internship/challengers?view=public&cohort=${cohort}`)
       .then(r => r.json())
       .then(d => setChallengers(d.challengers ?? []))
       .catch(() => {})
@@ -1294,7 +1294,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
       {/* ── Admin slideout — founder only ── */}
       {data.handle === 'Antony0' && (
-        <AdminSlideout accent={theme.accent} border={theme.border} />
+        <AdminSlideout accent={theme.accent} border={theme.border} cohort={data.cohort} />
       )}
     </>
   );

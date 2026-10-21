@@ -3,6 +3,7 @@
 // Updated: 2026-10-19
 
 'use client';
+import { getChallengeCohort } from '../../../lib/challengeDays';
 
 import { useEffect, useState } from 'react';
 
@@ -371,7 +372,7 @@ export default function WeekClient({
           textAlign:  'center',
           lineHeight: 1.8,
         }}>
-          ANTCPU Internship Challenge · october-2026 cohort<br />
+          ANTCPU Internship Challenge · {getChallengeCohort()} cohort<br />
           <a href="/internship" style={{ color: MUTED }}>← Back to Internship</a>
         </div>
 

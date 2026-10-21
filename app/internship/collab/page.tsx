@@ -1,4 +1,4 @@
-import { getChallengeCohort } from '../../lib/challengeDays';
+import { getChallengeCohort, getChallengeDay } from '../../lib/challengeDays';
 // ============================================================
 // app/internship/collab/page.tsx
 // Team Collaboration Hub — Week 3 LIVE
@@ -14,10 +14,12 @@ export const revalidate = 60;
 
 export const metadata = {
   title: 'Collab Hub — antcpu.io Internship Arena',
-  description: 'Week 3 team collaboration — nodes active, dev × marketing pairing live.',
+  description: 'Team collaboration hub — nodes active, dev × marketing pairing live.',
 };
 
-const CURRENT_WEEK = 3;
+// Derive current week from challenge day (1-7=w1, 8-14=w2, 15-21=w3, 22+=w4)
+const _day = getChallengeDay();
+const CURRENT_WEEK = _day <= 7 ? 1 : _day <= 14 ? 2 : _day <= 21 ? 3 : 4;
 
 const NODE_META: Record<string, { name: string; color: string; emoji: string; border: string }> = {
   'node-1': { name: 'Alpha', color: '#ff4d00', emoji: '🔴', border: '#ff4d0040' },

@@ -7,6 +7,7 @@
 // Entry point from antcpu.io/apply/
 // ============================================================
 
+import { getChallengeCohort, getNextCohort } from '../lib/challengeDays';
 import { createClient } from '@supabase/supabase-js';
 
 export const revalidate = 60;
@@ -206,8 +207,8 @@ export default async function InternshipPage() {
             { icon: '📋', title: 'Real deliverables', desc: 'Not fake projects. Work that ships into the Arena.' },
             { icon: '🤝', title: 'Collab in Week 3',  desc: 'Dev + Marketing pairs. Build something together.' },
             { icon: '🏆', title: 'Earned title',      desc: 'Explorer → Creator → Collaborator → Leader. Earned, not given.' },
-            { icon: '⭐', title: 'Founding member',   desc: 'October 2026 cohort. First in. Early adopter status.' },
-            { icon: '📄', title: 'Real CV entry',     desc: 'antcpu.io Human in the Loop Internship — October 2026.' },
+            { icon: '⭐', title: 'Founding member',   desc: `${getChallengeCohort()} cohort. First in. Early adopter status.` },
+            { icon: '📄', title: 'Real CV entry',     desc: `antcpu.io Human in the Loop Internship — ${getChallengeCohort()}.` },
           ].map(item => (
             <div key={item.title} style={{ background: card, border: `1px solid ${border}`, borderRadius: 12, padding: '1.25rem' }}>
               <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{item.icon}</div>
