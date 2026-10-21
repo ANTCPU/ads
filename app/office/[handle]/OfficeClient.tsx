@@ -721,7 +721,7 @@ function AdminSlideout({ accent, border }: { accent: string; border: string }) {
   const [open, setOpen]           = useState(false);
   const [challengers, setChallengers] = useState<{
     handle: string; name: string; track: string;
-    progress_pct: number; country: string;
+    progress_pct: number; country: string; email: string | null;
   }[]>([]);
   const [loading, setLoading]     = useState(false);
 
@@ -817,25 +817,49 @@ function AdminSlideout({ accent, border }: { accent: string; border: string }) {
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
             {challengers.map(c => (
-              <a key={c.handle} href={`/office/${c.handle}`}
+              <div key={c.handle}
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '0.5rem 0.75rem',
                   background: '#161b22', border: `1px solid ${border}`,
-                  borderRadius: '8px', textDecoration: 'none',
+                  borderRadius: '8px', padding: '0.5rem 0.75rem',
                 }}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e6edf3' }}>
-                    {c.track === 'marketing' ? '📣' : '💻'} {c.name}
+                {/* Name + progress */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e6edf3' }}>
+                      {c.track === 'marketing' ? '📣' : '💻'} {c.name}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '0.1rem' }}>
+                      {c.country} · {c.progress_pct}%
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '0.1rem' }}>
-                    {c.country} · {c.progress_pct}%
-                  </div>
+                  <span style={{ fontSize: '0.65rem', color: accent, fontWeight: 700 }}>
+                    {c.progress_pct}%
+                  </span>
                 </div>
-                <span style={{ fontSize: '0.65rem', color: accent, fontWeight: 700 }}>
-                  {c.progress_pct}% →
-                </span>
-              </a>
+                {/* Dual links */}
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <a href={`/office/${c.handle}`}
+                    style={{
+                      flex: 1, textAlign: 'center', padding: '0.3rem 0',
+                      background: `${accent}18`, border: `1px solid ${accent}44`,
+                      borderRadius: '6px', color: accent,
+                      fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none',
+                    }}>
+                    🏢 Office
+                  </a>
+                  {c.email && (
+                    <a href={`/profile/${encodeURIComponent(c.email)}`}
+                      style={{
+                        flex: 1, textAlign: 'center', padding: '0.3rem 0',
+                        background: '#1c2128', border: `1px solid ${border}`,
+                        borderRadius: '6px', color: '#8b949e',
+                        fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none',
+                      }}>
+                      👤 Profile
+                    </a>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
         </div>

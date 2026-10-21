@@ -26,6 +26,7 @@ type User = {
   is_country_champion: boolean;
   champion_since: string | null;
   welcome_email_sent_at: string | null;
+  handle: string | null;
 };
 
 type Filter = 'all' | 'team' | 'trial' | 'pending' | 'champions';
@@ -271,6 +272,7 @@ export default function UsersPage() {
                     <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <button onClick={() => sendChampionEmail(u)} style={S.btn('#D4AF37', '#000')}>📧 Champion Email</button>
                       <button onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)} style={S.btn('#f0883e')}>👤 Profile</button>
+                      {u.handle && <button onClick={() => router.push(`/office/${u.handle}`)} style={S.btn('#00e5ff', '#000')}>🏢 Office</button>}
                       <button onClick={() => toggleChampion(u)} style={{ ...S.btn('transparent', '#ef4444'), border: '1px solid #ef4444' }}>Remove</button>
                     </div>
                   </div>
@@ -354,6 +356,7 @@ export default function UsersPage() {
                       {/* ── Action buttons ── */}
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                         <button onClick={() => router.push(`/profile/${encodeURIComponent(u.email)}`)} style={S.btn('#f0883e')}>👤 Profile</button>
+                        {u.handle && <button onClick={() => router.push(`/office/${u.handle}`)} style={S.btn('#00e5ff', '#000')}>🏢 Office</button>}
                         {u.is_country_champion && <button onClick={() => sendChampionEmail(u)} style={S.btn('#D4AF37', '#000')}>📧 Champion Email</button>}
 
                         {/* ← NEW — replaces prompt() sendNotify() */}

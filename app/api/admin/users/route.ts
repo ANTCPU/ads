@@ -12,7 +12,23 @@ export async function GET() {
     .select('*')
     .order('created_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ users: data || [] });
+
+  // ── Merge challenger handle by email ──────────────────────
+  const { data: challengers } = await supabase
+    .from('challengers')
+    .select('email, handle');
+
+  const handleMap: Record<string, string> = {};
+  for (const c of challengers ?? []) {
+    if (c.email && c.handle) handleMap[c.email] = c.handle;
+  }
+
+  const users = (data || []).map((u: { email: string }) => ({
+    ...u,
+    handle: handleMap[u.email] ?? null,
+  }));
+
+  return NextResponse.json({ users });
 }
 
 export async function PATCH(req: NextRequest) {
