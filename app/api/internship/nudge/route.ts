@@ -237,6 +237,26 @@ function buildNudgeEmail(opts: {
             15
           )}
         </div>
+
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Your mentor is here
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7;margin-bottom:0.75rem">
+            ${isMkt
+              ? 'Mohamed — Marketing Lead · Egypt 🇪🇬 — is in the mentors room. He reviews every marketing challenger personally.'
+              : 'Arena — Dev Lead · United States 🇺🇸 — is in the mentors room. He reviews PRs and guides the GitHub workflow.'}
+          </div>
+          <a href="${isMkt
+            ? 'https://antcpu-ads.vercel.app/office/Mohamed39'
+            : 'https://antcpu-ads.vercel.app/office/Arena4'}"
+            style="display:inline-block;font-size:0.78rem;color:${ACCENT};
+              text-decoration:underline">
+            → Visit ${isMkt ? 'Mohamed' : 'Arena'}'s Office
+          </a>
+        </div>
         <div style="text-align:center">
           ${ctaButton('Go to My Office →', officeUrl)}
           <div style="margin-top:0.75rem">
@@ -292,6 +312,26 @@ function buildNudgeEmail(opts: {
             22
           )}
         </div>
+
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Your mentor is here
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7;margin-bottom:0.75rem">
+            ${isMkt
+              ? 'Mohamed — Marketing Lead · Egypt 🇪🇬 — is in the mentors room. He reviews every marketing challenger personally.'
+              : 'Arena — Dev Lead · United States 🇺🇸 — is in the mentors room. He reviews PRs and guides the GitHub workflow.'}
+          </div>
+          <a href="${isMkt
+            ? 'https://antcpu-ads.vercel.app/office/Mohamed39'
+            : 'https://antcpu-ads.vercel.app/office/Arena4'}"
+            style="display:inline-block;font-size:0.78rem;color:${ACCENT};
+              text-decoration:underline">
+            → Visit ${isMkt ? 'Mohamed' : 'Arena'}'s Office
+          </a>
+        </div>
         <div style="text-align:center">
           ${isMkt ? ctaButton('⚡ Go to the Arena →', 'https://antcpu.cloud/') : ctaButton('⚡ Go to the Codebase →', 'https://github.com/ANTCPU/ads')}
           <div style="margin-top:0.75rem">
@@ -336,6 +376,26 @@ function buildNudgeEmail(opts: {
             'What did you learn? What surprised you? Post it in the community feed.',
             25
           )}
+        </div>
+
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Your mentor is here
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7;margin-bottom:0.75rem">
+            ${isMkt
+              ? 'Mohamed — Marketing Lead · Egypt 🇪🇬 — is in the mentors room. He reviews every marketing challenger personally.'
+              : 'Arena — Dev Lead · United States 🇺🇸 — is in the mentors room. He reviews PRs and guides the GitHub workflow.'}
+          </div>
+          <a href="${isMkt
+            ? 'https://antcpu-ads.vercel.app/office/Mohamed39'
+            : 'https://antcpu-ads.vercel.app/office/Arena4'}"
+            style="display:inline-block;font-size:0.78rem;color:${ACCENT};
+              text-decoration:underline">
+            → Visit ${isMkt ? 'Mohamed' : 'Arena'}'s Office
+          </a>
         </div>
         <div style="text-align:center">
           ${ctaButton('Go to My Office →', officeUrl)}
@@ -822,7 +882,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week2_push', 'week3_push', 'week4_push', 'final_push', 'complete_badge',
+      'hard_d1', 'hard_d2', 'soft', 'light', 'week1_mentor', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week2_push', 'week3_push', 'week4_push', 'final_push', 'complete_badge',
     ];
     if (!validTypes.includes(nudge_type)) {
       return NextResponse.json(
@@ -948,6 +1008,57 @@ export async function POST(req: NextRequest) {
 
 // ============================================================
 // EOF META
+
+  // ── week1_mentor ─────────────────────────────────────────
+  // Fires Day 3-4 — pure mentor intro, no task pressure
+  if (nudgeType === 'week1_mentor') {
+    return {
+      subject: `Meet your mentor, ${name}`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ${isMkt ? 'Mohamed is your Marketing Lead.' : 'Arena is your Dev Lead.'}
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            ${isMkt
+              ? 'Mohamed — based in Egypt 🇪🇬 — is a professional digital marketer. Meta Ads, Google Ads, SEO, content strategy. He reviews every marketing challenger personally and is already in the mentors room.'
+              : 'Arena — based in the United States 🇺🇸 — mapped the complete challenger journey. He reviews PRs, guides the GitHub workflow, and sets the technical standard. He is already in the mentors room.'}
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Two things to do right now
+          </div>
+          ${taskRow(
+            'Visit your mentor\'s office',
+            isMkt
+              ? 'Go to Mohamed\'s office. Read his bio. See what he\'s built.'
+              : 'Go to Arena\'s office. Read his bio. See the codebase he mapped.',
+            0
+          )}
+          ${taskRow(
+            'Post in the mentors room',
+            'Open your office. Go to the mentors room. Say hello. One line.',
+            0
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton(
+            isMkt ? '→ Visit Mohamed\'s Office' : '→ Visit Arena\'s Office',
+            isMkt
+              ? 'https://antcpu-ads.vercel.app/office/Mohamed39'
+              : 'https://antcpu-ads.vercel.app/office/Arena4'
+          )}
+          <div style="margin-top:0.75rem">
+            ${ctaButton('Go to My Office →', officeUrl)}
+          </div>
+        </div>`),
+    };
+  }
+
 // ============================================================
 // File:    app/api/internship/nudge/route.ts
 // Version: v1.5

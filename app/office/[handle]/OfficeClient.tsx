@@ -346,8 +346,8 @@ function OfficeMessagePanel({
   accent: string; border: string; subtext: string;
 }) {
   const rooms = track === 'marketing'
-    ? ['general', 'marketing', 'standups']
-    : ['general', 'dev', 'standups'];
+    ? ['general', 'marketing', 'mentors', 'standups']
+    : ['general', 'dev', 'mentors', 'standups'];
 
   const roomLabels: Record<string, string> = {
     general:   '💬 General',

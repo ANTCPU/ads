@@ -215,6 +215,7 @@ export async function GET(req: NextRequest) {
 
     const queue: NudgeItem[] = [
       ...buildItems(internship.hard_d1,      'hard_d1'),      // P1
+      ...buildItems(internship.hard_d1,      'week1_mentor'), // P1.5 — mentor intro Day 3-4
       ...buildItems(internship.hard_d2,      'hard_d2'),      // P2
       ...buildItems(internship.week2_unlock, 'week2_unlock'), // P3
       ...buildItems(internship.soft,         'soft'),         // P4
