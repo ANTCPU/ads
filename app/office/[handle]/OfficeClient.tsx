@@ -396,7 +396,7 @@ function OfficeMessagePanel({
   }
 
   return (
-    <div className="rounded-lg mb-6" style={{ border: `1px solid ${border}` }}>
+    <div className="rounded-lg mb-6" style={{ border: `1px solid ${border}`, background: 'rgba(255,255,255,0.02)' }}>
 
       {/* Room tabs */}
       <div className="flex border-b" style={{ borderColor: border }}>
@@ -418,7 +418,7 @@ function OfficeMessagePanel({
       </div>
 
       {/* Messages */}
-      <div className="p-3 space-y-3 min-h-[80px] max-h-[200px] overflow-y-auto">
+      <div className="p-3 space-y-3 min-h-[80px] max-h-[200px] overflow-y-auto" style={{ background: 'rgba(0,0,0,0.15)' }}>
         {messages.length === 0 ? (
           <p className="text-xs text-center py-4" style={{ color: subtext }}>
             No messages yet. Be the first.
@@ -448,7 +448,7 @@ function OfficeMessagePanel({
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder={`Message #${activeRoom}...`}
           className="flex-1 text-sm bg-transparent outline-none"
-          style={{ color: accent }}
+          style={{ color: '#ccc' }}
         />
         <button
           onClick={send}
