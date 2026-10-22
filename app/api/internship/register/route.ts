@@ -519,36 +519,150 @@ export async function POST(req: NextRequest) {
 
     // ── Cohort close gate ─────────────────────────────────────
     // Days 1–7: open — founding member window
-    // Day 8+:   closed — current cohort underway, route to next
+    // Day 8+:   current cohort underway — register into NEXT cohort
+    //           with early_access: true (3-day head start on Nov 1)
     if (!entryOpen || day >= 8) {
       const nextCohort = getNextCohort();
       const nextLabel  = nextCohort
         .replace('-', ' ')
         .replace(/\b\w/g, (c: string) => c.toUpperCase());
 
-      notifyInternship('intern_closed', {
-        title: '📅 Late Applicant — Routed to Next Cohort',
-        url: 'https://antcpu-ads.vercel.app/internship/join',
-        color: DC.grey,
+      // ── Duplicate check for next cohort ──────────────────
+      const { data: existingNext } = await supabase
+        .from('challengers').select('id')
+        .eq('email', cleanEmail).eq('cohort', nextCohort).maybeSingle();
+
+      if (existingNext)
+        return NextResponse.json({
+          early_access: true,
+          already_registered: true,
+          cohort: nextCohort,
+          message: `You're already registered for ${nextLabel}.`,
+        }, { status: 200, headers: CORS });
+
+      // ── Veteran check — returning from current cohort ────
+      const { data: prevChallenger } = await supabase
+        .from('challengers').select('id, handle, progress_pct, badges')
+        .eq('email', cleanEmail).eq('cohort', cohort).maybeSingle();
+
+      const isVeteran = !!prevChallenger;
+      const prevBadges: string[] = prevChallenger?.badges ?? [];
+      const newBadges = isVeteran && !prevBadges.includes('veteran')
+        ? [...prevBadges, 'veteran']
+        : prevBadges.length ? prevBadges : ['first-click'];
+
+      // ── Register into next cohort ─────────────────────────
+      const internId   = `intern-${crypto.randomUUID().slice(0, 8)}`;
+      const brandName  = `${cleanName} — ${trackLabel}`;
+      const brandSlug  = firstName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'challenger';
+
+      const trialExpiry = new Date();
+      trialExpiry.setDate(trialExpiry.getDate() + 31);
+
+      // ad_signups
+      const { data: signup } = await supabase
+        .from('ad_signups')
+        .insert({
+          name: cleanName, email: cleanEmail,
+          brand_name: brandName, country,
+          status: 'active', promo_code: 'INTERNSHIP',
+          trial_days: 31,
+          trial_expiry: trialExpiry.toLocaleDateString('en-US',
+            { month: 'long', day: 'numeric', year: 'numeric' }),
+          role: 'user',
+        }).select('id').maybeSingle();
+
+      // ads
+      const { data: ad } = await supabase
+        .from('ads')
+        .insert({
+          email: cleanEmail, name: cleanName, brand: brandName,
+          title: `👋 ${cleanName} — ${trackLabel} Challenger · ${country}`,
+          description: `Registered for the ${nextLabel} antcpu.io Internship Challenge. ${trackLabel} track. Early access.`,
+          url: 'https://antcpu.io/challenge/',
+          category: track === 'dev' ? 'Service Offering' : 'Brand Awareness',
+          status: 'active', tier: 'entry',
+          promo_code: 'INTERNSHIP', country, points: 0,
+        }).select('id').maybeSingle();
+
+      // challengers — next cohort
+      await supabase.from('challengers').insert({
+        signup_email:     cleanEmail,
+        ad_id:            ad?.id ?? null,
+        name:             cleanName,
+        first_name:       firstName,
+        last_name:        (last_name ?? cleanName.split(' ').slice(1).join(' ')) || null,
+        initials:         (cleanName.split(' ')[0][0] + (cleanName.split(' ')[1]?.[0] ?? '')).toUpperCase(),
+        color:            track === 'dev' ? '#2563eb' : '#7c3aed',
+        email:            cleanEmail,
+        country,
+        track,
+        track_raw:        track,
+        timezone:         timezone     ?? null,
+        background:       background   ?? null,
+        why_here:         why_here     ?? null,
+        portfolio:        portfolio    ?? null,
+        ai_exp:           ai_exp       ?? null,
+        availability:     availability ?? null,
+        session_id:       sessionId    ?? null,
+        completed_gates:  ['d1'],
+        started_gates:    ['d1'],
+        badges:           newBadges,
+        week:             1,
+        progress_pct:     5,
+        points:           5,
+        tasks_done:       1,
+        submissions:      0,
+        role_title:       'Registered',
+        is_early_adopter: true,
+        early_access:     true,
+        status:           'active',
+        cohort:           nextCohort,
+        intern_id:        internId,
+        brand_slug:       brandSlug,
+      });
+
+      // Fetch back for handle
+      const { data: newChallenger } = await supabase
+        .from('challengers')
+        .select('id, intern_id, email, challenger_num, handle, cohort_short')
+        .eq('email', cleanEmail).eq('cohort', nextCohort)
+        .maybeSingle();
+
+      // Email — day 0 flow (challenge not started yet)
+      const { subject, html } = buildEmail({
+        firstName, trackLabel, trackIcon, track, country, day: 0,
+      });
+      heraldSend({ to: cleanEmail, subject, html }).catch(() => {});
+
+      // Discord
+      notifyInternship('intern_early_access', {
+        title: `🎟 Early Access — ${cleanName} → ${nextLabel}`,
+        url: `https://antcpu-ads.vercel.app/office/${newChallenger?.handle ?? internId}`,
+        color: DC.intern,
         fields: [
-          { name: 'Name',        value: cleanName,    inline: true  },
-          { name: 'Track',       value: trackLabel,   inline: true  },
-          { name: 'Country',     value: country,      inline: true  },
-          { name: 'Day',         value: String(day),  inline: true  },
-          { name: 'Next Cohort', value: nextLabel,    inline: true  },
-          { name: 'Email',       value: cleanEmail,   inline: false },
+          { name: 'Track',       value: trackLabel,                                    inline: true  },
+          { name: 'Country',     value: country,                                       inline: true  },
+          { name: 'Veteran',     value: isVeteran ? '✅ Returning' : '🆕 New',         inline: true  },
+          { name: 'Cohort',      value: nextLabel,                                     inline: true  },
+          { name: 'Handle',      value: `\`${newChallenger?.handle ?? internId}\``,    inline: true  },
+          { name: 'Email',       value: cleanEmail,                                    inline: false },
         ],
-        footer: `Redirected — not registered in ${cohort}`,
+        footer: `early_access: true · cohort: ${nextCohort}${isVeteran ? ' · veteran' : ''}`,
       }).catch(() => {});
 
       return NextResponse.json({
-        closed:        true,
-        day,
-        cohort:        nextCohort,
-        next_cohort:   nextCohort,
-        signups:       nextCohortData?.signups      ?? 0,
-        opens_in_days: nextCohortData?.opens_in_days ?? null,
-        message:       `October 2026 cohort is underway. You're on the ${nextLabel} waitlist.`,
+        success:        true,
+        early_access:   true,
+        veteran:        isVeteran,
+        cohort:         nextCohort,
+        intern_id:      internId,
+        handle:         newChallenger?.handle ?? null,
+        signup_id:      signup?.id ?? null,
+        email:          cleanEmail,
+        first_name:     firstName,
+        track,
+        message:        `Registered for ${nextLabel} with early access. Gates open Nov 1.`,
       }, { status: 200, headers: CORS });
     }
 

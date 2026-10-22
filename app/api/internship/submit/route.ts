@@ -212,7 +212,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Log activity — fire and forget, non-blocking
+    // 3. Earn samplecoin — fire and forget, non-blocking
+    if (!alreadyDone && gatePct > 0) {
+      fetch('https://antchain.vercel.app/api/samplecoin/ledger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type:     'earn',
+          amount:   1,
+          note:     `gate:${gate_id} pct:${gatePct}`,
+          toWallet: challenger.handle ?? challenger.intern_id,
+        }),
+      }).catch(() => {});
+    }
+
+    // 4. Log activity — fire and forget, non-blocking
     supabase
       .from('activity_log')
       .insert({

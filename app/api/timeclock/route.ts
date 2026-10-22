@@ -202,11 +202,14 @@ export async function PATCH(req: NextRequest) {
       const duration_mins = body.duration_mins
         ?? Math.round((Date.now() - new Date(open.punch_in).getTime()) / 60000);
 
+      const sc_earned = Math.max(1, duration_mins); // min 1 SC per session
+
       const { error } = await supabase
         .from('time_clock')
         .update({
           punch_out:     now,
           duration_mins,
+          sc_earned,
           auto_logout:   action === 'auto_logout',
           note:          body.note ?? (action === 'auto_logout' ? 'auto-logout' : 'manual punch-out'),
         })
@@ -214,8 +217,22 @@ export async function PATCH(req: NextRequest) {
 
       if (error) throw error;
 
+      // Earn samplecoin — fire and forget
+      if (sc_earned > 0) {
+        fetch('https://antchain.vercel.app/api/samplecoin/ledger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type:     'earn',
+            amount:   sc_earned,
+            note:     `timeclock:${action} mins:${duration_mins}`,
+            toWallet: 'antcpu',
+          }),
+        }).catch(() => {});
+      }
+
       return NextResponse.json(
-        { ok: true, action, duration_mins },
+        { ok: true, action, duration_mins, sc_earned },
         { status: 200, headers: corsHeaders(req) }
       );
     }

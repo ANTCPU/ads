@@ -105,6 +105,7 @@ export type DiscordEvent =
   // ── Internship — all route to DISCORD_INTERN ──────────────
   | 'intern_registered'  // New challenger registered (Day 1–6)
   | 'intern_closed'      // Applicant redirected to next cohort (Day 7+)
+  | 'intern_early_access' // Registered into next cohort with early access
   | 'intern_gate'        // Gate completed — role may have changed
   | 'intern_submission'  // Work submitted to wall/showcase
   | 'intern_message'     // Direct message sent to owner
