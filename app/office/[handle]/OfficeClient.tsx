@@ -643,7 +643,7 @@ function NextActionPanel({
         </span>
       </div>
       {next.signups > 0 && (
-        <p className="text-xs mb-3 font-semibold" style={{ color: accent }}>
+        <p className="text-xs mb-3 font-semibold" style={{ color: '#aaa' }}>
           ⚡ {next.signups} already signed up
         </p>
       )}
@@ -807,7 +807,7 @@ function AdminSlideout({ accent, border, cohort }: { accent: string; border: str
         {/* Challenger offices */}
         <div>
           <div style={{ fontSize: '0.6rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-            Challenger Offices — October 2026
+            Challenger Offices
           </div>
           {loading && (
             <div style={{ fontSize: '0.78rem', color: '#666', padding: '0.5rem 0' }}>Loading...</div>
