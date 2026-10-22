@@ -95,6 +95,7 @@ export async function OPTIONS(req: NextRequest) {
 type NudgeType =
   | 'hard_d1'
   | 'hard_d2'
+  | 'week1_mentor'
   | 'soft'
   | 'light'
   | 'week2_unlock'
