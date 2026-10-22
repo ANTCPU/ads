@@ -430,6 +430,56 @@ function buildNudgeEmail(opts: {
     };
   }
 
+  // ── week1_mentor ─────────────────────────────────────────
+  // Fires Day 3-4 — pure mentor intro, no task pressure
+  if (nudgeType === 'week1_mentor') {
+    return {
+      subject: `Meet your mentor, ${name}`,
+      html: wrap(`
+        <div style="background:${CARD};border:1px solid ${ACCENT}30;
+          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
+          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
+            ${isMkt ? 'Mohamed is your Marketing Lead.' : 'Arena is your Dev Lead.'}
+          </div>
+          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
+            ${isMkt
+              ? 'Mohamed — based in Egypt 🇪🇬 — is a professional digital marketer. Meta Ads, Google Ads, SEO, content strategy. He reviews every marketing challenger personally and is already in the mentors room.'
+              : 'Arena — based in the United States 🇺🇸 — mapped the complete challenger journey. He reviews PRs, guides the GitHub workflow, and sets the technical standard. He is already in the mentors room.'}
+          </div>
+        </div>
+        <div style="background:${CARD};border:1px solid ${BORDER};
+          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
+          <div style="font-size:0.7rem;color:#555;font-weight:700;
+            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
+            Two things to do right now
+          </div>
+          ${taskRow(
+            "Visit your mentor's office",
+            isMkt
+              ? "Go to Mohamed's office. Read his bio. See what he's built."
+              : "Go to Arena's office. Read his bio. See the codebase he mapped.",
+            0
+          )}
+          ${taskRow(
+            'Post in the mentors room',
+            'Open your office. Go to the mentors room. Say hello. One line.',
+            0
+          )}
+        </div>
+        <div style="text-align:center">
+          ${ctaButton(
+            isMkt ? '→ Visit Mohamed\'s Office' : '→ Visit Arena\'s Office',
+            isMkt
+              ? 'https://antcpu-ads.vercel.app/office/Mohamed39'
+              : 'https://antcpu-ads.vercel.app/office/Arena4'
+          )}
+          <div style="margin-top:0.75rem">
+            ${ctaButton('Go to My Office →', officeUrl)}
+          </div>
+        </div>`),
+    };
+  }
+
 
   // -- captain_alert ------------------------------------------
   // Sent to elevation_level 3 challengers selected as node captains.
@@ -1005,59 +1055,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-// ============================================================
-// EOF META
-
-  // ── week1_mentor ─────────────────────────────────────────
-  // Fires Day 3-4 — pure mentor intro, no task pressure
-  if (nudgeType === 'week1_mentor') {
-    return {
-      subject: `Meet your mentor, ${name}`,
-      html: wrap(`
-        <div style="background:${CARD};border:1px solid ${ACCENT}30;
-          border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
-          <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
-            ${isMkt ? 'Mohamed is your Marketing Lead.' : 'Arena is your Dev Lead.'}
-          </div>
-          <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
-            ${isMkt
-              ? 'Mohamed — based in Egypt 🇪🇬 — is a professional digital marketer. Meta Ads, Google Ads, SEO, content strategy. He reviews every marketing challenger personally and is already in the mentors room.'
-              : 'Arena — based in the United States 🇺🇸 — mapped the complete challenger journey. He reviews PRs, guides the GitHub workflow, and sets the technical standard. He is already in the mentors room.'}
-          </div>
-        </div>
-        <div style="background:${CARD};border:1px solid ${BORDER};
-          border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
-          <div style="font-size:0.7rem;color:#555;font-weight:700;
-            letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
-            Two things to do right now
-          </div>
-          ${taskRow(
-            'Visit your mentor\'s office',
-            isMkt
-              ? 'Go to Mohamed\'s office. Read his bio. See what he\'s built.'
-              : 'Go to Arena\'s office. Read his bio. See the codebase he mapped.',
-            0
-          )}
-          ${taskRow(
-            'Post in the mentors room',
-            'Open your office. Go to the mentors room. Say hello. One line.',
-            0
-          )}
-        </div>
-        <div style="text-align:center">
-          ${ctaButton(
-            isMkt ? '→ Visit Mohamed\'s Office' : '→ Visit Arena\'s Office',
-            isMkt
-              ? 'https://antcpu-ads.vercel.app/office/Mohamed39'
-              : 'https://antcpu-ads.vercel.app/office/Arena4'
-          )}
-          <div style="margin-top:0.75rem">
-            ${ctaButton('Go to My Office →', officeUrl)}
-          </div>
-        </div>`),
-    };
-  }
 
 // ============================================================
 // File:    app/api/internship/nudge/route.ts
