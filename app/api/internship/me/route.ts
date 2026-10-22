@@ -55,7 +55,7 @@ function buildCv(data: Record<string, unknown>) {
   const email          = data.email            as string;
   const intern_id      = data.intern_id         as string;
   const track          = data.track             as string;
-  const cohort         = (data.cohort           as string) || 'october-2026';
+  const cohort         = (data.cohort           as string) || 'november-2026';
   const role_title     = (data.role_title       as string) || 'Registered';
   const progress       = (data.progress_pct     as number) || 0;
   const week           = (data.week             as number) || 1;

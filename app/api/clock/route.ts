@@ -33,8 +33,37 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const cohort = searchParams.get('cohort') ?? 'october-2026';
-  const nextCohort = 'november-2026';
+  // ── Dynamic cohort resolution — no hardcoded slugs ──
+  // 1. Find the currently active cohort (now between started_at and closed_at)
+  // 2. Fall back to URL param if provided (admin override)
+  // 3. Next cohort = the one that starts after the active one
+  const paramCohort = searchParams.get('cohort');
+
+  // Fetch all cohort snapshots ordered by start date
+  const allCohortsRes = await supabase
+    .from('cohort_snapshots')
+    .select('cohort, started_at, closed_at')
+    .order('started_at', { ascending: true });
+
+  const allCohorts = allCohortsRes.data ?? [];
+  const now0 = new Date();
+
+  // Active = now is between started_at and closed_at
+  const activeCohortRow = allCohorts.find(c =>
+    now0 >= new Date(c.started_at) && now0 <= new Date(c.closed_at)
+  );
+
+  // If no active cohort, use the most recent past one
+  const resolvedCohortRow = activeCohortRow
+    ?? allCohorts.filter(c => new Date(c.closed_at) < now0).pop()
+    ?? allCohorts[0];
+
+  const cohort = paramCohort ?? resolvedCohortRow?.cohort ?? 'october-2026';
+
+  // Next cohort = first one that starts after the resolved cohort ends
+  const resolvedEnd = resolvedCohortRow ? new Date(resolvedCohortRow.closed_at) : now0;
+  const nextCohortRow = allCohorts.find(c => new Date(c.started_at) > resolvedEnd);
+  const nextCohort = nextCohortRow?.cohort ?? null;
 
   // Parallel fetch — current cohort + next cohort + next cohort signup count
   const [currentRes, nextRes, signupRes] = await Promise.all([
@@ -43,15 +72,15 @@ export async function GET(req: NextRequest) {
       .select('cohort, started_at, closed_at')
       .eq('cohort', cohort)
       .maybeSingle(),
-    supabase
+    nextCohort ? supabase
       .from('cohort_snapshots')
       .select('cohort, started_at, closed_at')
       .eq('cohort', nextCohort)
-      .maybeSingle(),
-    supabase
+      .maybeSingle() : Promise.resolve({ data: null, error: null }),
+    nextCohort ? supabase
       .from('challengers')
       .select('id', { count: 'exact', head: true })
-      .eq('cohort', nextCohort),
+      .eq('cohort', nextCohort) : Promise.resolve({ count: 0, error: null }),
   ]);
 
   if (currentRes.error || !currentRes.data) {
