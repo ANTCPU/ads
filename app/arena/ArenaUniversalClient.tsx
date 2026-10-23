@@ -988,7 +988,17 @@ export default function ArenaUniversalClient() {
               rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
               style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', color: '#ef4444', fontWeight: 700, fontSize: '0.72rem', padding: '0.55rem 0.65rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
-              ▶ Live
+              ▶ Watch
+            </a>
+          )}
+          {ad.stream_url && ad.live_enabled && user.email === ad.email && (
+            <a
+              href={ad.stream_url.replace('watch.html', 'producer.html')}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'rgba(239,68,68,0.85)', border: '1px solid #ef4444', borderRadius: '8px', color: '#fff', fontWeight: 700, fontSize: '0.72rem', padding: '0.55rem 0.65rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
+              🔴 Go Live
             </a>
           )}
           <button onClick={e => { e.stopPropagation(); setShareAd(ad); }}
