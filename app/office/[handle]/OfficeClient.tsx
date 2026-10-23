@@ -417,6 +417,34 @@ function OfficeMessagePanel({
         ))}
       </div>
 
+      {/* Standup banner — only shown in standups tab */}
+      {activeRoom === 'standups' && (
+        <div className="mx-3 mt-3 rounded-lg p-3" style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.18)' }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-xs font-bold" style={{ color: accent }}>📅 Friday Standup — Nov Cohort</p>
+              <p className="text-xs mt-0.5" style={{ color: subtext }}>
+                Join live or leave a message below — async standups count too.
+              </p>
+            </div>
+            <a
+              href={`https://tv-ten-psi.vercel.app/standup-room.html?room=nov-cohort&name=${encodeURIComponent(handle)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-4 py-2 rounded-lg font-bold shrink-0 transition-opacity hover:opacity-80"
+              style={{ background: accent, color: '#000' }}
+            >
+              ▶ Join Standup
+            </a>
+          </div>
+          <div className="mt-2 pt-2 flex gap-3" style={{ borderTop: '1px solid rgba(0,230,118,0.12)' }}>
+            <div className="text-xs" style={{ color: subtext }}>
+              <span style={{ color: accent }}>💡 Tip:</span> No one live? Drop your standup note below — what you built, what&apos;s next, any blockers.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="p-3 space-y-3 min-h-[80px] max-h-[200px] overflow-y-auto" style={{ background: 'rgba(0,0,0,0.15)' }}>
         {messages.length === 0 ? (
@@ -446,7 +474,7 @@ function OfficeMessagePanel({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder={`Message #${activeRoom}...`}
+          placeholder={activeRoom === 'standups' ? `Drop your standup note — what you built, what's next, any blockers...` : `Message #${activeRoom}...`}
           className="flex-1 text-sm bg-transparent outline-none"
           style={{ color: '#ccc' }}
         />
