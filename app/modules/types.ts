@@ -52,6 +52,9 @@ export type Ad = {
 
   // ── Campaign tagging ──────────────────────────────────────────────────────
   campaign?: string;
+  // ── Live streaming ────────────────────────────────────────────────────────
+  stream_url?:   string | null;  // watch URL — auto-set when TV studio created
+  live_enabled?: boolean;        // admin flag — unlocks Go Live for this brand
 };
 
 // ─── Subscription tier ────────────────────────────────────────────────────────

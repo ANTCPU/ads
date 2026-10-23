@@ -56,6 +56,7 @@ type Ad = {
   click_count: number; share_count: number; like_count: number;
   boost_count: number; reaction_count: number; rank_position?: number;
   image_url: string | null; is_country_champion?: boolean; country?: string;
+  stream_url?: string | null; live_enabled?: boolean;
 };
 
 type SessionUser = {
@@ -466,6 +467,16 @@ export default function ArenaClient() {
             style={{ background: hasBoosted ? `${gold}15` : 'transparent', border: `1px solid ${hasBoosted ? gold : border}`, borderRadius: '8px', color: hasBoosted ? gold : muted, fontWeight: 600, fontSize: '0.78rem', padding: '0.55rem 0.65rem', cursor: hasBoosted ? 'default' : 'pointer', transition: 'all 0.15s' }}>
             ⚡
           </button>
+          {ad.stream_url && (
+            <a
+              href={ad.stream_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => handleClick(ad)}
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', color: '#ef4444', fontWeight: 700, fontSize: '0.72rem', padding: '0.55rem 0.65rem', cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
+              ▶ Live
+            </a>
+          )}
           <button onClick={() => setShareAd(ad)}
             style={{ background: 'transparent', border: `1px solid ${border}`, borderRadius: '8px', color: muted, fontWeight: 600, fontSize: '0.78rem', padding: '0.55rem 0.65rem', cursor: 'pointer' }}>
             ↗

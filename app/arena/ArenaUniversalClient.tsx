@@ -65,6 +65,7 @@ type Ad = {
   boost_count: number; reaction_count: number; rank_position?: number;
   image_url: string | null; is_country_champion?: boolean; country?: string;
   created_at?: string;
+  stream_url?: string | null; live_enabled?: boolean;
 };
 type Toast    = { id: string; msg: string };
 type BrandCfg = { image_url: string | null; color: string | null };
@@ -980,7 +981,17 @@ export default function ArenaUniversalClient() {
 
                     <div onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button onClick={e => { e.stopPropagation(); setShareAd(ad); }}
+                                  {ad.stream_url && (
+            <a
+              href={ad.stream_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', color: '#ef4444', fontWeight: 700, fontSize: '0.72rem', padding: '0.55rem 0.65rem', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
+              ▶ Live
+            </a>
+          )}
+          <button onClick={e => { e.stopPropagation(); setShareAd(ad); }}
                           style={{ flex: 2, background: `${color}20`, border: `1px solid ${color}60`,
                             borderRadius: '8px', color, fontWeight: 700, fontSize: '0.78rem',
                             padding: '0.55rem 0', cursor: 'pointer', transition: 'all 0.15s' }}>
