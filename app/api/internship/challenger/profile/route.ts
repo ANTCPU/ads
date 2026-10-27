@@ -14,7 +14,7 @@ const supabase = createClient(
 );
 
 const CORS = {
-  'Access-Control-Allow-Origin':  'https://antcpu.io',
+  'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
       timezone,
       portfolio,
       country,
-      channels
+      channels,
+      banner_url,
     } = body;
 
     /* ── Validate ───────────────────────────────── */
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
     if (ai_tool?.trim())       updates.ai_tool        = ai_tool.trim();
     if (timezone?.trim())      updates.timezone       = timezone.trim();
     if (portfolio?.trim())     updates.portfolio      = portfolio.trim();
+    if (banner_url?.trim())    updates.banner_url     = banner_url.trim();
     if (country?.trim())       updates.country        = country.trim();
     if (channels?.trim())      updates.channels       = channels.trim();
 

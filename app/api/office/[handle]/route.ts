@@ -168,6 +168,7 @@ export async function GET(
 
   return NextResponse.json(
     {
+      id:               c.id,
       handle:           c.handle,
       intern_id:        c.intern_id,
       name:             c.first_name,
