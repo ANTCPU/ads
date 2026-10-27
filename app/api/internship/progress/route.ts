@@ -240,11 +240,15 @@ export async function POST(req: NextRequest) {
       supabase
         .from('challengers')
         .update({
-          completed_gates: updatedGates,
-          progress_pct:    newPct,
-          week:            newWeek,
-          role_title:      newRole,
-          last_seen_at:    new Date().toISOString(),
+          completed_gates:  updatedGates,
+          progress_pct:     newPct,
+          week:             newWeek,
+          role_title:       newRole,
+          last_seen_at:     new Date().toISOString(),
+          ...(newPct >= 75  ? { banner_unlocked: true }      : {}),
+          ...(newPct >= 80  ? { arena_boost_unlocked: true } : {}),
+          ...(newPct >= 95  ? { cv_public: true }            : {}),
+          ...(newPct >= 100 ? { is_graduate: true }          : {}),
         })
         .eq('id', challenger.id)
         .select(

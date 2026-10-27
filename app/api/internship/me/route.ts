@@ -165,6 +165,10 @@ export async function GET(req: NextRequest) {
                           ?? (c?.links as any)?.site
                           ?? c?.portfolio
                           ?? null,
+      banner_unlocked:       c?.banner_unlocked      ?? false,
+      arena_boost_unlocked:  c?.arena_boost_unlocked ?? false,
+      cv_public:             c?.cv_public            ?? false,
+      is_graduate:           c?.is_graduate          ?? false,
     };
 
     // ── 5. Base — challenger row or master-only fallback ───────
