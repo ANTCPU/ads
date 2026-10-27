@@ -67,7 +67,11 @@ type ChallengerRow = {
   team_notes:       string | null;
   elevation_level:  number | null;
   elevation_note:   string | null;
-  banner_url:       string | null; // ← ADD
+  banner_url:       string | null;
+  banner_unlocked:      boolean | null;
+  arena_boost_unlocked: boolean | null;
+  cv_public:            boolean | null;
+  is_graduate:          boolean | null;
 };
 
 type ArenaRow = {
@@ -113,6 +117,7 @@ export async function GET(
       .from('challengers')
       .select(
         'id, handle, intern_id, first_name, last_name, initials, ' +
+        'banner_unlocked, arena_boost_unlocked, cv_public, is_graduate, ' +
         'flag, color, track, country, progress_pct, role_title, ' +
         'badges, completed_gates, tasks_done, submissions, ' +
         'last_seen, cohort, cohort_short, ad_id, ad_url, ' +
@@ -202,7 +207,11 @@ export async function GET(
       team_notes:       c.team_notes       ?? null,
       elevation_level:  c.elevation_level ?? 0,
       elevation_note:   c.elevation_note,
-      banner_url:       c.banner_url ?? null, // ← ADD
+      banner_url:       c.banner_url       ?? null,
+      banner_unlocked:      c.banner_unlocked      ?? false,
+      arena_boost_unlocked: c.arena_boost_unlocked ?? false,
+      cv_public:            c.cv_public            ?? false,
+      is_graduate:          c.is_graduate          ?? false,
       arena: arena
         ? {
             points:      arena.points ?? 0,

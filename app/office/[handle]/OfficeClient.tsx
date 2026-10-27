@@ -133,6 +133,10 @@ type OfficeData = {
   elevation_note?: string | null;
   banner_url?: string | null;
   brand_slug?: string | null;
+  banner_unlocked?: boolean | null;
+  arena_boost_unlocked?: boolean | null;
+  cv_public?: boolean | null;
+  is_graduate?: boolean | null;
   arena: {
     points: number;
     tier: string | null;
