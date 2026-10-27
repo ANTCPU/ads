@@ -161,6 +161,10 @@ export async function GET(req: NextRequest) {
       is_owner:              m?.access_level === 'owner'  || c?.profile_type === 'founder',
       is_staff:              m?.access_level === 'staff'  || c?.profile_type === 'team',
       is_alumni:             m?.access_level === 'alumni',
+      banner_link:           (c?.links as any)?.facebook
+                          ?? (c?.links as any)?.site
+                          ?? c?.portfolio
+                          ?? null,
     };
 
     // ── 5. Base — challenger row or master-only fallback ───────

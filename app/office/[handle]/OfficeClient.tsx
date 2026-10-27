@@ -215,9 +215,10 @@ const NODE_MAP: Record<string, { name: string; color: string; emoji: string }> =
 
 // ── Office Banner ─────────────────────────────────────────────
 function OfficeBanner({
-  bannerUrl, name, accent, border, teamId, isCaptain, captainTeam, track, brandSlug,
+  bannerUrl, bannerLink, name, accent, border, teamId, isCaptain, captainTeam, track, brandSlug,
 }: {
   bannerUrl: string | null | undefined;
+  bannerLink?: string | null;
   name: string; accent: string; border: string;
   teamId?: string | null; isCaptain?: boolean | null;
   captainTeam?: string | null; track?: string;
@@ -239,8 +240,15 @@ function OfficeBanner({
       {/* Banner image if set */}
       {bannerUrl && (
         <div style={{ aspectRatio: '1200 / 630', position: 'relative', background: '#f0e8dc' }}>
-          <img src={bannerUrl} alt={`${name}'s office`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          {bannerLink ? (
+            <a href={bannerLink} target="_blank" rel="noopener noreferrer" style={{ display: 'block', width: '100%', height: '100%' }}>
+              <img src={bannerUrl} alt={`${name}'s office`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', cursor: 'pointer' }} />
+            </a>
+          ) : (
+            <img src={bannerUrl} alt={`${name}'s office`}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          )}
         </div>
       )}
 
@@ -1065,6 +1073,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                     {/* ── Office Banner ── */}
           <OfficeBanner
             bannerUrl={(data as any).banner_url}
+            bannerLink={(data as any).banner_link ?? null}
             name={data.name}
             accent={theme.accent}
             border={theme.border}
