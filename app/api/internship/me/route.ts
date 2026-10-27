@@ -146,19 +146,20 @@ export async function GET(req: NextRequest) {
     // ── 4. Build access flags from antcpu_users ────────────────
     const m = masterRecord as any;
 
+    const c = challenger as any;
     const accessFlags = {
-      antcpu_user_id:        m?.id                        ?? null,
-      access_level:          m?.access_level              ?? 'challenger',
-      can_access_admin:      m?.can_access_admin          ?? false,
-      can_access_arena:      m?.can_access_arena          ?? true,
-      can_access_internship: m?.can_access_internship     ?? true,
-      can_access_edu:        m?.can_access_edu            ?? false,
+      antcpu_user_id:        m?.id                                                          ?? null,
+      access_level:          m?.access_level ?? c?.profile_type                             ?? 'challenger',
+      can_access_admin:      m?.can_access_admin                                            ?? false,
+      can_access_arena:      m?.can_access_arena                                            ?? true,
+      can_access_internship: m?.can_access_internship                                       ?? true,
+      can_access_edu:        m?.can_access_edu                                              ?? false,
       track_scope:           m?.track_scope               ?? null,
       cohort_scope:          m?.cohort_scope              ?? null,
       brand_name:            m?.brand_name                ?? null,
       brand_role:            m?.brand_role                ?? null,
-      is_owner:              m?.access_level === 'owner',
-      is_staff:              m?.access_level === 'staff',
+      is_owner:              m?.access_level === 'owner'  || c?.profile_type === 'founder',
+      is_staff:              m?.access_level === 'staff'  || c?.profile_type === 'team',
       is_alumni:             m?.access_level === 'alumni',
     };
 

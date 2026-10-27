@@ -79,6 +79,9 @@ const BADGE_MAP: Record<string, { label: string; emoji: string }> = {
   'd8':            { label: 'Planner',           emoji: '📋' },
   'd12':           { label: 'Shipped',           emoji: '🚢' },
   'd13':           { label: 'Code Reviewer',     emoji: '🔍' },
+  'verified-cv':   { label: 'Verified CV',        emoji: '📄' },
+  'returning':     { label: 'Returning',           emoji: '⭐' },
+  'founder':       { label: 'Founder',             emoji: '⚡' },
 };
 
 function formatBadge(slug: string): string {
@@ -493,16 +496,20 @@ function OfficeMessagePanel({
 
 // ── Share Strip ───────────────────────────────────────────────
 function OfficeShareStrip({
-  handle, name, track, accent, border, subtext,
+  handle, name, track, accent, border, subtext, badges,
 }: {
   handle: string; name: string; track: string;
   accent: string; border: string; subtext: string;
+  badges: string[];
 }) {
   const [copied, setCopied] = useState(false);
   const officeUrl = `https://antcpu-ads.vercel.app/office/${handle}`;
   const trackLabel = track === 'dev' ? '💻 Dev' : '📣 Marketing';
   const isFounder  = handle === 'Antony0';
-  const shareText  = isFounder
+  const isTeamMember = badges.includes('mentor');
+  const shareText  = isTeamMember
+    ? `${name} is on the antcpu team — building the Human in the Loop Challenge.\n\n${officeUrl}`
+    : isFounder
     ? `Building the antcpu Arena — automated marketing for the next generation of brands.\n\n${officeUrl}`
     : `${name} is building in the antcpu internship challenge — ${trackLabel} track.\n\n${officeUrl}`;
 
@@ -903,6 +910,9 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   const flag = safeFlag(data.flag);
 
   // ── Track bg — elevation 99 gets cream, marketing gets gradient, dev stays flat
+  const isTeam = (data as any).profile_type === 'team' ||
+                 (data as any).profile_type === 'founder' ||
+                 data.badges.includes('mentor');
   const resolvedBg = (data.elevation_level ?? 0) >= 99
     ? 'linear-gradient(160deg, #c8a882 0%, #8b5e3c 40%, #5c3317 70%, #2a1500 100%)'
     : theme.bg;
@@ -1010,12 +1020,16 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                 {data.country} · {theme.label}
               </p>
               <div className="flex items-center gap-2 flex-wrap mt-1 px-3 py-1.5 rounded-lg" style={{ background: '#1c1f26' }}>
-                {(data.elevation_level ?? 0) >= 99 ? (
+                {isTeam ? (
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-bold"
                     style={{ background: theme.accent, color: '#000' }}
                   >
-                    ⚡ Founder · ANTCPU
+                    {(data as any).profile_type === 'founder'
+                      ? '⚡ antcpu Founder'
+                      : data.track === 'dev'
+                        ? '💻 antcpu Team · Dev'
+                        : '📣 antcpu Team · Marketing'}
                   </span>
                 ) : (
                   <span className="text-sm opacity-70">{data.role_title}</span>
@@ -1062,7 +1076,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           />
           
           {/* ── D15 Intro Button — owner only, Week 3, at 50% ── */}
-          {isOwner && data.progress_pct === 50 && (data.clock?.week ?? 0) >= 3 && data.team_id && (
+          {isOwner && !isTeam && data.progress_pct === 50 && (data.clock?.week ?? 0) >= 3 && data.team_id && (
             <D15IntroButton
               handle={data.handle}
               internId={data.intern_id}
@@ -1076,7 +1090,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           )}
 
           {/* ── Progress ── */}
-          <div className="mb-6">
+          {!isTeam && <div className="mb-6">
             <div className="flex justify-between text-sm mb-2">
               <span style={{ color: theme.subtext }}>
                 {data.clock
@@ -1105,10 +1119,10 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                 }}
               />
             </div>
-          </div>
+          </div>}
 
           {/* ── Week 2 deadline banner ── */}
-          {showDeadlineBanner && (
+          {!isTeam && showDeadlineBanner && (
             <div
               className="rounded-lg p-3 mb-4 text-sm font-medium flex items-center gap-2"
               style={{ background: 'rgba(224,123,32,0.1)', border: `1px solid ${theme.accent}`, color: theme.accent }}
@@ -1119,7 +1133,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           )}
 
           {/* ── Workspace button — owner only ── */}
-          {isOwner && (
+          {isOwner && !isTeam && (
             <a
               href={workspaceHref}
               className="flex items-center justify-between rounded-lg p-4 mb-4 text-sm font-bold"
@@ -1151,12 +1165,12 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           </div>
 
           {/* ── Elevation Banner ── */}
-          <ElevationBanner
+          {!isTeam && <ElevationBanner
             level={data.elevation_level}
             track={data.track}
             accent={theme.accent}
             border={theme.border}
-          />
+          />}
 
           {/* ── Message Panel ── */}
           <OfficeMessagePanel
@@ -1268,6 +1282,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             accent={theme.accent}
             border={theme.border}
             subtext={theme.subtext}
+            badges={data.badges}
           />
 
           {/* ── Recent activity ── */}
@@ -1295,6 +1310,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           )}
 
           {/* ── Next action / next cohort ── */}
+          {!isTeam && (
           <NextActionPanel
             progress={data.progress_pct}
             clock={data.clock}
@@ -1304,6 +1320,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             subtext={theme.subtext}
             brandSlug={data.brand_slug}
           />
+          )}
 
           {/* ── Footer ── */}
           <div className="mt-6 text-center space-y-1">
