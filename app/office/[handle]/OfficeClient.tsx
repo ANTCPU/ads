@@ -1,40 +1,61 @@
 'use client';
+// ── TODO: Extract to own files when stable ──────────────────
+// OfficeBanner       → components/OfficeBanner.tsx       (158 lines)
+// OfficeMessagePanel → components/OfficeMessagePanel.tsx (150 lines)
+// AdminSlideout      → components/AdminSlideout.tsx      (149 lines)
+// IdentityIsland     → components/IdentityIsland.tsx     (178 lines)
+// Style tokens       → 63 repeated inline patterns → shared S object
+// ─────────────────────────────────────────────────────────────
+
 
 import { useState, useEffect } from 'react';
 
 // ── Timezone map — country → IANA tz ─────────────────────────
 
 // ── Gate map — next task computation ─────────────────────────
-const GATE_NEXT: { id: string; pct: number; label: string; url: string; urlMarketing?: string }[] = [
-  { id: 'd1',       pct: 5,   label: 'Register & Introduce Yourself',  url: 'https://antcpu.io/apply/' },
-  { id: 'd2',       pct: 10,  label: 'Complete Your Profile',           url: 'https://antcpu.io/dashboard/' },
-  { id: 'd3',       pct: 15,  label: 'Explore the Arena',               url: 'https://github.com/ANTCPU/ads', urlMarketing: 'https://antcpu.cloud/' },
-  { id: 'd4',       pct: 20,  label: 'First Action in the Arena',       url: 'https://antcpu.cloud/' },
-  { id: 'd5',       pct: 22,  label: 'First Submission',                url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd6',       pct: 24,  label: 'Give Peer Feedback',              url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd7',       pct: 25,  label: 'Week 1 Reflection',               url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd8',       pct: 30,  label: 'Week 2 Brief — Plan Your Build',  url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd9',       pct: 35,  label: 'Research & Analyze',              url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd10',      pct: 38,  label: 'Build Day 1',                     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd11',      pct: 42,  label: 'Build Day 2',                     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd12',      pct: 46,  label: 'Ship & Submit',                   url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd13',      pct: 48,  label: 'Peer Review',                     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd14',      pct: 50,  label: 'Week 2 Reflection',               url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd15',      pct: 55,  label: 'Meet Your Team',                  url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd16',      pct: 58,  label: 'Team Brief — Define the Project', url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd17',      pct: 62,  label: 'Build Together Day 1',            url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd18',      pct: 65,  label: 'Build Together Day 2',            url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd19',      pct: 70,  label: 'Ship the Team Project',           url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd20',      pct: 72,  label: 'Cross-Track Peer Review',         url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd21',      pct: 75,  label: 'Week 3 Reflection',               url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd22',      pct: 80,  label: 'Claim Your Role',                 url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd23',      pct: 85,  label: 'Final Build — Ship It',           url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd24',      pct: 95,  label: 'Final Submission & Showcase',     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
-  { id: 'd25-final',pct: 100, label: 'Selection Day',                   url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+// ── Gate workspace defaults ──────────────────────────────────
+const WS_DEV  = 'https://antcpu.io/dev/';
+const WS_MKT  = 'https://antcpu.io/marketing/';
+
+type GateEntry = { id: string; pct: number; label: string; url?: string; urlMarketing?: string };
+
+// url/urlMarketing omitted = defaults to WS_DEV / WS_MKT at runtime
+const GATE_NEXT: GateEntry[] = [
+  { id: 'd1',        pct: 5,   label: 'Register & Introduce Yourself',  url: 'https://antcpu.io/apply/' },
+  { id: 'd2',        pct: 10,  label: 'Complete Your Profile',           url: 'https://antcpu.io/dashboard/' },
+  { id: 'd3',        pct: 15,  label: 'Explore the Arena',               url: 'https://github.com/ANTCPU/ads', urlMarketing: 'https://antcpu.cloud/' },
+  { id: 'd4',        pct: 20,  label: 'First Action in the Arena',       url: 'https://antcpu.cloud/' },
+  { id: 'd5',        pct: 22,  label: 'First Submission'         },
+  { id: 'd6',        pct: 24,  label: 'Give Peer Feedback'       },
+  { id: 'd7',        pct: 25,  label: 'Week 1 Reflection'        },
+  { id: 'd8',        pct: 30,  label: 'Week 2 Brief — Plan Your Build' },
+  { id: 'd9',        pct: 35,  label: 'Research & Analyze'       },
+  { id: 'd10',       pct: 38,  label: 'Build Day 1'              },
+  { id: 'd11',       pct: 42,  label: 'Build Day 2'              },
+  { id: 'd12',       pct: 46,  label: 'Ship & Submit'            },
+  { id: 'd13',       pct: 48,  label: 'Peer Review'              },
+  { id: 'd14',       pct: 50,  label: 'Week 2 Reflection'        },
+  { id: 'd15',       pct: 55,  label: 'Meet Your Team'           },
+  { id: 'd16',       pct: 58,  label: 'Team Brief — Define the Project' },
+  { id: 'd17',       pct: 62,  label: 'Build Together Day 1'     },
+  { id: 'd18',       pct: 65,  label: 'Build Together Day 2'     },
+  { id: 'd19',       pct: 70,  label: 'Ship the Team Project'    },
+  { id: 'd20',       pct: 72,  label: 'Cross-Track Peer Review'  },
+  { id: 'd21',       pct: 75,  label: 'Week 3 Reflection'        },
+  { id: 'd22',       pct: 80,  label: 'Claim Your Role'          },
+  { id: 'd23',       pct: 85,  label: 'Final Build — Ship It'    },
+  { id: 'd24',       pct: 95,  label: 'Final Submission & Showcase' },
+  { id: 'd25-final', pct: 100, label: 'Selection Day'            },
 ];
 
 function getNextGate(completedGates: string[], track: string) {
-  return GATE_NEXT.find(g => !completedGates.includes(g.id)) ?? null;
+  const g = GATE_NEXT.find(x => !completedGates.includes(x.id)) ?? null;
+  if (!g) return null;
+  return {
+    ...g,
+    url:         g.url         ?? WS_DEV,
+    urlMarketing: g.urlMarketing ?? WS_MKT,
+  };
 }
 
 const COUNTRY_TZ: Record<string, string> = {
@@ -1033,6 +1054,188 @@ function AdminSlideout({ accent, border, cohort }: { accent: string; border: str
 }
 
 // ── Main Component ────────────────────────────────────────────
+
+// ── Identity Island ─────────────────────────────────────────
+function IdentityIsland({
+  data, isOwner, accent, border, theme,
+}: {
+  data: OfficeData;
+  isOwner: boolean;
+  accent: string;
+  border: string;
+  theme?: { bg: string; text: string; subtext: string; accent: string; border: string };
+}) {
+  const [open, setOpen]   = useState(false);
+  const [notifs, setNotifs] = useState<{ id: string; title: string; message: string; link?: string; read: boolean; created_at: string }[]>([]);
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isOwner || !data.intern_id) return;
+    fetch(`/api/internship/notifications?intern_id=${data.intern_id}&limit=10`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) {
+          setNotifs(d.notifications ?? []);
+          setUnread(d.unread ?? 0);
+        }
+      })
+      .catch(() => null);
+  }, [isOwner, data.intern_id]);
+
+  function markAllRead() {
+    if (!data.intern_id) return;
+    fetch(`/api/internship/notifications?intern_id=${data.intern_id}`, { method: 'PATCH' })
+      .catch(() => null);
+    setNotifs(n => n.map(x => ({ ...x, read: true })));
+    setUnread(0);
+  }
+
+  const week    = data.clock?.week ?? 1;
+  const arenaHref = data.brand_slug
+    ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}`
+    : 'https://antcpu-ads.vercel.app/arena';
+  const workspaceHref  = data.track === 'marketing' ? WS_MKT : WS_DEV;
+  const workspaceLabel = data.track === 'marketing' ? '📣 Workspace' : '💻 Workspace';
+  const githubHandle   = data.github_handle
+    ? data.github_handle.replace('https://github.com/', '').replace(/\/$/, '')
+    : null;
+
+  const navLinks = [
+    { label: workspaceLabel,    href: workspaceHref,                                    external: true  },
+    { label: '📋 Week ' + week + ' Tasks', href: `/internship/week/${week}`,            external: false },
+    { label: '🏟 Arena',        href: arenaHref,                                        external: true  },
+    ...(githubHandle ? [{ label: '🐙 GitHub', href: `https://github.com/${githubHandle}`, external: true }] : []),
+    { label: '🌐 antcpu.io',    href: 'https://antcpu.io',                              external: true  },
+  ];
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      {/* ── Circle button ── */}
+      <button
+        onClick={() => { if (isOwner) { setOpen(o => !o); if (!open && unread > 0) markAllRead(); } }}
+        style={{
+          width: 64, height: 64, borderRadius: '50%',
+          background: data.color ?? accent,
+          color: theme.bg,
+          border: `2px solid ${accent}`,
+          fontSize: '1.5rem', fontWeight: 800,
+          cursor: isOwner ? 'pointer' : 'default',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'relative',
+          animation: 'pulse-glow 3s ease-in-out infinite',
+          flexShrink: 0,
+        }}
+      >
+        {data.initials ?? data.name?.[0]}
+        {/* Notification dot */}
+        {isOwner && unread > 0 && (
+          <span style={{
+            position: 'absolute', top: 2, right: 2,
+            width: 14, height: 14, borderRadius: '50%',
+            background: '#ef4444',
+            border: `2px solid ${theme.bg}`,
+            fontSize: '0.55rem', fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff',
+          }}>
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+
+      {/* ── Island panel ── */}
+      {isOwner && open && (
+        <div
+          style={{
+            position: 'absolute', top: 72, left: 0, zIndex: 50,
+            width: 280,
+            background: '#0d1117',
+            border: `1px solid ${border}`,
+            borderRadius: 14,
+            boxShadow: `0 8px 32px rgba(0,0,0,0.6)`,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Identity strip */}
+          <div style={{ padding: '0.875rem 1rem', borderBottom: `1px solid ${border}`, background: `${accent}0d` }}>
+            <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{data.name}</div>
+            <div style={{ fontSize: '0.75rem', color: accent, marginTop: 2 }}>
+              {data.track === 'dev' ? '💻 Dev' : '📣 Marketing'} · Week {week} · {data.progress_pct}%
+            </div>
+          </div>
+
+          {/* Nav links */}
+          <div style={{ padding: '0.5rem 0' }}>
+            {navLinks.map(l => (
+              <a
+                key={l.label}
+                href={l.href}
+                target={l.external ? '_blank' : undefined}
+                rel={l.external ? 'noopener noreferrer' : undefined}
+                onClick={() => setOpen(false)}
+                style={{
+                  display: 'block', padding: '0.55rem 1rem',
+                  fontSize: '0.82rem', fontWeight: 600,
+                  color: theme?.text ?? '#e6edf3', textDecoration: 'none',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${accent}18`)}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                {l.label}
+              </a>
+            ))}
+          </div>
+
+          {/* Notifications */}
+          {notifs.length > 0 && (
+            <div style={{ borderTop: `1px solid ${border}` }}>
+              <div style={{
+                padding: '0.5rem 1rem 0.25rem',
+                fontSize: '0.65rem', fontWeight: 800,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: accent, opacity: 0.7,
+              }}>
+                Notifications
+              </div>
+              {notifs.slice(0, 5).map(n => (
+                <div
+                  key={n.id}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderBottom: `1px solid ${border}`,
+                    background: n.read ? 'transparent' : `${accent}0d`,
+                    cursor: n.link ? 'pointer' : 'default',
+                  }}
+                  onClick={() => n.link && window.open(n.link, '_blank')}
+                >
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: theme?.text ?? '#e6edf3', lineHeight: 1.3 }}>
+                    {n.title}
+                  </div>
+                  {n.message && (
+                    <div style={{ fontSize: '0.7rem', color: theme?.subtext ?? '#888', marginTop: 2, lineHeight: 1.4 }}>
+                      {n.message.slice(0, 80)}{n.message.length > 80 ? '…' : ''}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.65rem', color: '#555', marginTop: 3 }}>
+                    {relativeTime(n.created_at)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {notifs.length === 0 && (
+            <div style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: '#555', borderTop: `1px solid ${border}` }}>
+              No notifications yet.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OfficeClient({ data }: { data: OfficeData }) {
   const theme = THEMES[data.track] ?? THEMES.dev;
 
@@ -1046,7 +1249,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
     ? 'linear-gradient(160deg, #c8a882 0%, #8b5e3c 40%, #5c3317 70%, #2a1500 100%)'
     : theme.bg;
   const githubHandle = stripGithubUrl(data.github_handle);
-  const arenaUrl = data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena';
+
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -1124,17 +1327,13 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
           {/* ── Header ── */}
           <div className="flex items-center gap-4 mb-6">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold flex-shrink-0"
-              style={{
-                background: data.color ?? theme.accent,
-                color: theme.bg,
-                border: `2px solid ${theme.accent}`,
-                animation: mounted ? 'pulse-glow 3s ease-in-out infinite' : 'none',
-              }}
-            >
-              {data.initials ?? data.name?.[0]}
-            </div>
+            <IdentityIsland
+              data={data}
+              isOwner={isOwner}
+              accent={theme.accent}
+              border={theme.border}
+              theme={{ bg: theme.bg, text: theme.text, subtext: theme.subtext, accent: theme.accent, border: theme.border }}
+            />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold" style={{ textShadow: `0 1px 8px rgba(0,0,0,0.5)` }}>{seasonEmoji ? `${seasonEmoji} ` : ''}{data.name}</h1>
@@ -1381,7 +1580,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
           {/* ── Arena ad link ── */}
           {data.ad_id && (
             <a
-              href={arenaUrl}
+              href={data.brand_slug ? `https://antcpu-ads.vercel.app/arena/${data.brand_slug}` : 'https://antcpu-ads.vercel.app/arena'}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between rounded-lg p-4 mb-4 text-sm font-medium"
