@@ -1,6 +1,7 @@
 'use client';
 
 import OfficePublic from './OfficePublic';
+import { pingActivity } from '../../../lib/pingActivity';
 
 // ── TODO: Extract to own files when stable ──────────────────
 // OfficeBanner       → components/OfficeBanner.tsx       (158 lines)
@@ -1332,6 +1333,8 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   // ── Session ping — fires on mount, updates last_seen ──────
   useEffect(() => {
     if (!data.handle) return;
+    // activity ping — owner viewing their own office
+    pingActivity({ label: 'Viewed their office', icon: '🏢', type: 'nav' });
     fetch('/api/internship/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

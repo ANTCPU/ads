@@ -6,7 +6,8 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { pingActivity } from '../../../lib/pingActivity';
 
 type OfficeData = {
   handle: string;
@@ -61,6 +62,15 @@ function relTime(iso: string) {
 
 export default function OfficePublic({ data }: { data: OfficeData }) {
   const [copied, setCopied] = useState(false);
+
+  // ping — challenger/visitor viewed this office
+  useEffect(() => {
+    pingActivity({
+      label: `Viewed ${data.name}'s office`,
+      icon:  '👀',
+      type:  'nav',
+    });
+  }, [data.name]);
   const accent  = data.color ?? '#2563eb';
   const isDev   = data.track !== 'marketing';
   const officeUrl = `https://antcpu-ads.vercel.app/office/${data.handle}`;
