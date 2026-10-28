@@ -1,4 +1,7 @@
 'use client';
+
+import OfficePublic from './OfficePublic';
+
 // ── TODO: Extract to own files when stable ──────────────────
 // OfficeBanner       → components/OfficeBanner.tsx       (158 lines)
 // OfficeMessagePanel → components/OfficeMessagePanel.tsx (150 lines)
@@ -1226,8 +1229,36 @@ function IdentityIsland({
 }
 
 export default function OfficeClient({ data }: { data: OfficeData }) {
-  const theme = THEMES[data.track] ?? THEMES.dev;
+  // ── Route: non-owners see clean corporate profile ──
+  const [isOwner, setIsOwner] = useState(false);
+  const [ownerChecked, setOwnerChecked] = useState(false);
 
+  // Check session on mount
+  if (typeof window !== 'undefined' && !ownerChecked) {
+    try {
+      const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
+      const sessionHandle = s?.handle || localStorage.getItem('intern_handle') || '';
+      const sessionInternId = s?.intern_id || '';
+      const noSession = !s?.handle && !s?.intern_id;
+      const isElevated = (data as any).elevation_level >= 99 || (data as any).is_captain === true;
+
+      if (
+        (sessionHandle && sessionHandle === data.handle) ||
+        (sessionInternId && data.intern_id && sessionInternId === data.intern_id)
+      ) {
+        // isOwner will be set in useEffect below — skip public render
+      } else if (noSession && isElevated && data.handle && data.intern_id) {
+        // auto-session for founder
+        try {
+          localStorage.setItem('antcpu_session', JSON.stringify({ handle: data.handle, intern_id: data.intern_id, track: data.track ?? 'dev' }));
+          localStorage.setItem('intern_handle', data.handle);
+          localStorage.setItem('intern_id', data.intern_id);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  const theme = THEMES[data.track] ?? THEMES.dev;
   const flag = safeFlag(data.flag);
 
   // ── Track bg — elevation 99 gets cream, marketing gets gradient, dev stays flat
@@ -1250,9 +1281,6 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
 
   // ── Online count from presence ──
   const onlineCount = data.presence?.sessions_active_1h ?? 0;
-
-  // ── Is this the session owner? ──
-  const [isOwner, setIsOwner] = useState(false);
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
