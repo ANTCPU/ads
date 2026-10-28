@@ -3,6 +3,40 @@
 import { useState, useEffect } from 'react';
 
 // ── Timezone map — country → IANA tz ─────────────────────────
+
+// ── Gate map — next task computation ─────────────────────────
+const GATE_NEXT: { id: string; pct: number; label: string; url: string; urlMarketing?: string }[] = [
+  { id: 'd1',       pct: 5,   label: 'Register & Introduce Yourself',  url: 'https://antcpu.io/apply/' },
+  { id: 'd2',       pct: 10,  label: 'Complete Your Profile',           url: 'https://antcpu.io/dashboard/' },
+  { id: 'd3',       pct: 15,  label: 'Explore the Arena',               url: 'https://github.com/ANTCPU/ads', urlMarketing: 'https://antcpu.cloud/' },
+  { id: 'd4',       pct: 20,  label: 'First Action in the Arena',       url: 'https://antcpu.cloud/' },
+  { id: 'd5',       pct: 22,  label: 'First Submission',                url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd6',       pct: 24,  label: 'Give Peer Feedback',              url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd7',       pct: 25,  label: 'Week 1 Reflection',               url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd8',       pct: 30,  label: 'Week 2 Brief — Plan Your Build',  url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd9',       pct: 35,  label: 'Research & Analyze',              url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd10',      pct: 38,  label: 'Build Day 1',                     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd11',      pct: 42,  label: 'Build Day 2',                     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd12',      pct: 46,  label: 'Ship & Submit',                   url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd13',      pct: 48,  label: 'Peer Review',                     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd14',      pct: 50,  label: 'Week 2 Reflection',               url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd15',      pct: 55,  label: 'Meet Your Team',                  url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd16',      pct: 58,  label: 'Team Brief — Define the Project', url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd17',      pct: 62,  label: 'Build Together Day 1',            url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd18',      pct: 65,  label: 'Build Together Day 2',            url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd19',      pct: 70,  label: 'Ship the Team Project',           url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd20',      pct: 72,  label: 'Cross-Track Peer Review',         url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd21',      pct: 75,  label: 'Week 3 Reflection',               url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd22',      pct: 80,  label: 'Claim Your Role',                 url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd23',      pct: 85,  label: 'Final Build — Ship It',           url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd24',      pct: 95,  label: 'Final Submission & Showcase',     url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+  { id: 'd25-final',pct: 100, label: 'Selection Day',                   url: 'https://antcpu.io/dev/', urlMarketing: 'https://antcpu.io/marketing/' },
+];
+
+function getNextGate(completedGates: string[], track: string) {
+  return GATE_NEXT.find(g => !completedGates.includes(g.id)) ?? null;
+}
+
 const COUNTRY_TZ: Record<string, string> = {
   'United States': 'America/New_York',
   'United Kingdom': 'Europe/London',
@@ -113,6 +147,7 @@ type OfficeData = {
   progress_pct: number;
   role_title: string;
   badges: string[];
+  completed_gates: string[];
   tasks_done: number;
   submissions: number;
   last_seen: string | null;
@@ -656,11 +691,11 @@ function OfficeShareStrip({
 
 // ── Next Action Bubble ───────────────
 function NextActionPanel({
-  progress, clock, handle, accent, border, subtext, brandSlug,
+  progress, clock, handle, accent, border, subtext, brandSlug, completedGates, track,
 }: {
   progress: number; clock: OfficeData['clock'];
   handle: string; accent: string; border: string; subtext: string;
-  brandSlug?: string | null;
+  brandSlug?: string | null; completedGates: string[]; track: string;
 }) {
   if (!clock) return null;
 
@@ -668,6 +703,7 @@ function NextActionPanel({
   const week      = clock.week ?? 1;
   const weekName  = clock.week_name ?? 'Explorer';
   const day       = clock.day ?? 1;
+  const nextGate  = getNextGate(completedGates, track);
   const arenaHref = brandSlug
     ? `https://antcpu-ads.vercel.app/arena/${brandSlug}`
     : 'https://antcpu-ads.vercel.app/arena';
@@ -734,11 +770,21 @@ function NextActionPanel({
           Day {day} · {daysLeft} days left in the challenge
         </p>
         {iconRow}
-        <a href="https://antcpu.io/next/"
+        {nextGate && (
+          <div className="mb-3 rounded p-3" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${accent}33` }}>
+            <div className="text-xs font-bold mb-0.5" style={{ color: accent }}>
+              {nextGate.id.toUpperCase()} · +{nextGate.pct}%
+            </div>
+            <div className="text-sm font-semibold">{nextGate.label}</div>
+          </div>
+        )}
+        <a href={nextGate
+            ? (track === 'marketing' && nextGate.urlMarketing ? nextGate.urlMarketing : nextGate.url)
+            : 'https://antcpu.io/'}
           target="_blank" rel="noopener noreferrer"
           className="block text-center text-xs font-bold py-2 rounded transition-opacity hover:opacity-80"
           style={{ background: accent, color: '#000' }}>
-          Go to Next Task →
+          {nextGate ? `Start ${nextGate.id.toUpperCase()} →` : 'Go to Workspace →'}
         </a>
       </div>
     );
@@ -1407,6 +1453,8 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             border={theme.border}
             subtext={theme.subtext}
             brandSlug={data.brand_slug}
+            completedGates={data.completed_gates ?? []}
+            track={data.track}
           />
           )}
 
