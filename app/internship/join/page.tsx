@@ -88,8 +88,9 @@ function JoinForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Registration failed');
+      const handle = data.handle ?? '';
       router.push(
-        `/internship/success?name=${encodeURIComponent(form.name)}&track=${form.track}`
+        `/internship/success?name=${encodeURIComponent(form.name)}&track=${form.track}&handle=${encodeURIComponent(handle)}`
       );
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');

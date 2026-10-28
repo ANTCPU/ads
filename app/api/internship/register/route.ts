@@ -117,31 +117,34 @@ function taskRow(t: ChallengeTask, track: string, highlight = false) {
     </div>`;
 }
 
-function dashboardBlock(_firstName: string) {
+function dashboardBlock(_firstName: string, handle?: string) {
+  const officeUrl = handle
+    ? `https://antcpu-ads.vercel.app/office/${handle}`
+    : 'https://antcpu-ads.vercel.app/office';
   return `
     <div style="background:${CARD};border:1px solid ${ACCENT}30;
       border-radius:12px;padding:1.25rem;margin-top:1.25rem">
       <div style="font-size:0.7rem;color:#555;font-weight:700;
         letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.5rem">
-        ⚡ Your Dashboard
+        ⚡ Your Office
       </div>
       <div style="font-size:0.85rem;color:#aaa;margin-bottom:0.75rem">
-        Track your progress, complete tasks, and submit your work —
-        all in one place.
+        Track your progress, complete gates, and submit your work —
+        all from your office.
       </div>
       <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
-        <a href="https://antcpu.io/dashboard/"
+        <a href="${officeUrl}"
           style="display:inline-block;background:${ACCENT};color:#fff;
           text-decoration:none;font-weight:700;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px">
-          Go to Dashboard →
+          Go to My Office →
         </a>
-        <a href="https://antcpu.io/challenge/"
+        <a href="https://antcpu-ads.vercel.app/internship/week/1"
           style="display:inline-block;background:${ACCENT}15;color:${ACCENT};
           text-decoration:none;font-weight:600;font-size:0.82rem;
           padding:0.6rem 1.25rem;border-radius:8px;
           border:1px solid ${ACCENT}30">
-          View Challenge →
+          Week 1 Tasks →
         </a>
       </div>
     </div>`;
@@ -163,9 +166,9 @@ function wrap(trackIcon: string, body: string) {
 
 function buildEmail(p: {
   firstName: string; trackLabel: string; trackIcon: string;
-  track: string; country: string; day: number;
+  track: string; country: string; day: number; handle?: string;
 }): { subject: string; html: string } {
-  const { firstName, trackLabel, trackIcon, track, country, day } = p;
+  const { firstName, trackLabel, trackIcon, track, country, day, handle } = p;
   const maxPct  = getMaxAchievable(Math.max(1, day));
   const catchUp = getCatchUpTasks(Math.max(1, day));
   const isDev   = track === 'dev';
@@ -217,7 +220,7 @@ function buildEmail(p: {
           </div>
         </div>
       </div>
-      ${dashboardBlock(firstName)}`)
+      ${dashboardBlock(firstName, handle)}`)
   };
 
   // ── Day 1 ─────────────────────────────────────────────────
@@ -318,7 +321,7 @@ function buildEmail(p: {
             Free · No signup · Directly feeds your Week 1 + Week 2 work
           </div>
         </div>
-        ${dashboardBlock(firstName)}`)
+        ${dashboardBlock(firstName, handle)}`)
     };
   }
 
@@ -364,7 +367,7 @@ function buildEmail(p: {
             </a>
           </div>
         </div>
-        ${dashboardBlock(firstName)}`)
+        ${dashboardBlock(firstName, handle)}`)
     };
   }
 
@@ -411,7 +414,7 @@ function buildEmail(p: {
           </a>
         </div>
       </div>
-      ${dashboardBlock(firstName)}`)
+      ${dashboardBlock(firstName, handle)}`)
   };
 
   // ── Day 8+ — next cohort ───────────────────────────────────
@@ -632,6 +635,7 @@ export async function POST(req: NextRequest) {
       // Email — day 0 flow (challenge not started yet)
       const { subject, html } = buildEmail({
         firstName, trackLabel, trackIcon, track, country, day: 0,
+        handle: newChallenger?.handle ?? undefined,
       });
       heraldSend({ to: cleanEmail, subject, html }).catch(() => {});
 
@@ -812,6 +816,7 @@ export async function POST(req: NextRequest) {
     // ── 8. Email ──────────────────────────────────────────────
     const { subject, html } = buildEmail({
       firstName, trackLabel, trackIcon, track, country, day,
+      handle: challenger?.handle ?? undefined,
     });
 
     heraldSend({ to: cleanEmail, subject, html })

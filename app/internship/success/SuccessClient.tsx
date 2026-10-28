@@ -92,8 +92,8 @@ export default function SuccessClient() {
             <a href={officeHref} style={{ background: accent, color: '#fff', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem' }}>
               View Your Office →
             </a>
-            <a href="https://antcpu.io/dashboard/" style={{ background: '#f3f4f6', color: '#374151', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
-              Dashboard →
+            <a href={officeHref} style={{ background: '#f3f4f6', color: '#374151', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
+              My Office →
             </a>
           </div>
         </div>
@@ -127,8 +127,8 @@ export default function SuccessClient() {
             <a href={officeHref} style={{ background: accent, color: '#fff', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.875rem' }}>
               View Your Office →
             </a>
-            <a href="https://antcpu.io/dashboard/" style={{ background: '#f3f4f6', color: '#374151', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
-              Dashboard →
+            <a href={officeHref} style={{ background: '#f3f4f6', color: '#374151', padding: '0.7rem 1.25rem', borderRadius: 8, fontWeight: 600, textDecoration: 'none', fontSize: '0.875rem' }}>
+              My Office →
             </a>
           </div>
         </div>
@@ -210,8 +210,8 @@ export default function SuccessClient() {
             View Your Office →
           </a>
         ) : (
-          <a href="https://antcpu.io/challenge/" style={{ background: accent, color: '#fff', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '1rem', textAlign: 'center' as const }}>
-            {isWeek1Last ? 'Complete Day 1 Now →' : 'View Week 1 Tasks →'}
+          <a href={officeHref} style={{ background: accent, color: '#fff', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '1rem', textAlign: 'center' as const }}>
+            {isWeek1Last ? 'Go to My Office →' : 'Go to My Office →'}
           </a>
         )}
         <a href="/internship/arena" style={{ background: '#f3f4f6', color: '#111', padding: '0.9rem 1.5rem', borderRadius: 8, fontWeight: 700, textDecoration: 'none', fontSize: '0.95rem', textAlign: 'center' as const }}>
