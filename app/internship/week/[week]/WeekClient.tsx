@@ -92,6 +92,14 @@ export default function WeekClient({
     }).catch(() => null);
   }, [week]);
 
+  // ── Week 4 lock — dynamic: unlocks when challenger hits 75%
+  // effectiveLocked is the static default; override with live progress
+  const isWeek4 = week === 4;
+  const week4Unlocked = isWeek4 && challenger && challenger.progress_pct >= 75;
+  const effectiveLocked = isWeek4
+    ? !week4Unlocked  // Week 4: locked unless 75%+ achieved
+    : data.locked;    // Weeks 1-3: use static value (always false)
+
   // ── Gate status for this challenger
   const gateStatus = (gate: Gate): 'done' | 'next' | 'locked' => {
     if (!challenger) return 'locked';
@@ -140,7 +148,7 @@ export default function WeekClient({
             fontWeight: 900,
             marginBottom: '0.4rem',
           }}>
-            {data.locked ? '🔒 ' : ''}{data.name}
+            {effectiveLocked ? '🔒 ' : ''}{data.name}
           </div>
           <div style={{ fontSize: '0.88rem', color: '#aaa', lineHeight: 1.6 }}>
             {data.theme}
@@ -156,7 +164,7 @@ export default function WeekClient({
         </div>
 
         {/* ── Locked state ── */}
-        {data.locked && (
+        {effectiveLocked && (
           <div style={{
             background:   CARD,
             border:       `1px solid ${BORDER}`,
@@ -176,7 +184,7 @@ export default function WeekClient({
         )}
 
         {/* ── Progress bar ── */}
-        {!data.locked && (
+        {!effectiveLocked && (
           <div style={{
             background:   CARD,
             border:       `1px solid ${BORDER}`,
@@ -251,7 +259,7 @@ export default function WeekClient({
                 padding:       '0.65rem 0',
                 borderBottom:  idx < data.gates.length - 1
                   ? `1px solid ${BORDER}` : 'none',
-                opacity:       data.locked ? 0.4 : 1,
+                opacity:       effectiveLocked ? 0.4 : 1,
               }}>
                 {/* status icon */}
                 <div style={{
@@ -285,18 +293,22 @@ export default function WeekClient({
                 </div>
 
                 {/* next CTA */}
-                {status === 'next' && !data.locked && (
-                  <a href={officeUrl} style={{
-                    fontSize:     '0.72rem',
-                    fontWeight:   700,
-                    color:        '#000',
-                    background:   ACCENT,
-                    padding:      '0.25rem 0.6rem',
-                    borderRadius: 6,
-                    textDecoration: 'none',
-                    flexShrink:   0,
-                  }}>
-                    Do this →
+                {status === 'next' && !effectiveLocked && (
+                  <a
+                    href={challenger?.team_id
+                      ? `https://antcpu.io/dev/`
+                      : officeUrl}
+                    style={{
+                      fontSize:     '0.72rem',
+                      fontWeight:   700,
+                      color:        '#000',
+                      background:   ACCENT,
+                      padding:      '0.25rem 0.6rem',
+                      borderRadius: 6,
+                      textDecoration: 'none',
+                      flexShrink:   0,
+                    }}>
+                    Go →
                   </a>
                 )}
               </div>
@@ -311,24 +323,28 @@ export default function WeekClient({
           marginBottom: '1.5rem',
           flexWrap: 'wrap',
         }}>
-          {[1,2,3,4].map(w => (
-            <a key={w} href={`/internship/week/${w}`} style={{
-              fontSize:     '0.75rem',
-              fontWeight:   w === week ? 700 : 400,
-              color:        w === week ? ACCENT : MUTED,
-              border:       `1px solid ${w === week ? ACCENT + '40' : BORDER}`,
-              borderRadius: 8,
-              padding:      '0.3rem 0.75rem',
-              textDecoration: 'none',
-              background:   w === week ? ACCENT + '10' : 'transparent',
-            }}>
-              Week {w}
-            </a>
-          ))}
+          {[1,2,3,4].map(w => {
+            // Week 4 hidden in nav until challenger hits 75%
+            if (w === 4 && !week4Unlocked && week !== 4) return null;
+            return (
+              <a key={w} href={`/internship/week/${w}`} style={{
+                fontSize:     '0.75rem',
+                fontWeight:   w === week ? 700 : 400,
+                color:        w === week ? ACCENT : w === 4 && !week4Unlocked ? MUTED + '60' : MUTED,
+                border:       `1px solid ${w === week ? ACCENT + '40' : BORDER}`,
+                borderRadius: 8,
+                padding:      '0.3rem 0.75rem',
+                textDecoration: 'none',
+                background:   w === week ? ACCENT + '10' : 'transparent',
+              }}>
+                {w === 4 && !week4Unlocked ? '🔒' : `Week ${w}`}
+              </a>
+            );
+          })}
         </div>
 
         {/* ── CTAs ── */}
-        {!data.locked && (
+        {!effectiveLocked && (
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <a href={officeUrl} style={{
               flex:           1,
