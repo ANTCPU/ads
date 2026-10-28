@@ -181,11 +181,12 @@ async function syncBadges(email: string): Promise<SyncResult> {
     // ── Challenger lookup — for office isOwner check ────────────────────────
     let challenger: { handle: string; intern_id: string } | null = null;
     try {
+      // accept active + graduated — founders/alumni need session too
       const { data: cData } = await supabase
         .from('challengers')
         .select('handle, intern_id')
         .eq('email', email)
-        .eq('status', 'active')
+        .in('status', ['active', 'graduated'])
         .maybeSingle();
       challenger = cData ?? null;
     } catch {}
