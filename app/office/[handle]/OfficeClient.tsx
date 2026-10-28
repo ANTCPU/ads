@@ -1233,7 +1233,12 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   // ── Track bg — elevation 99 gets cream, marketing gets gradient, dev stays flat
   const isTeam = (data as any).profile_type === 'team' ||
                  (data as any).profile_type === 'founder' ||
-                 data.badges.includes('mentor');
+                 data.badges.some((b: string) =>
+                   b.toLowerCase().includes('mentor') ||
+                   b.toLowerCase().includes('founder') ||
+                   b.toLowerCase().includes('captain')
+                 ) ||
+                 data.handle === 'Antony0';
   const resolvedBg = (data.elevation_level ?? 0) >= 99
     ? 'linear-gradient(160deg, #c8a882 0%, #8b5e3c 40%, #5c3317 70%, #2a1500 100%)'
     : theme.bg;
@@ -1251,9 +1256,22 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
-      if (s?.handle && s.handle === data.handle) setIsOwner(true);
+      // check all possible handle keys written by login/register
+      const sessionHandle =
+        s?.handle ||
+        localStorage.getItem('intern_handle') ||
+        '';
+      if (sessionHandle && sessionHandle === data.handle) {
+        setIsOwner(true);
+        return;
+      }
+      // fallback: intern_id match
+      const sessionInternId = s?.intern_id || '';
+      if (sessionInternId && data.intern_id && sessionInternId === data.intern_id) {
+        setIsOwner(true);
+      }
     } catch {}
-  }, [data.handle]);
+  }, [data.handle, data.intern_id]);
 
   // ── Workspace route by track ──
   const workspaceHref = data.track === 'marketing' ? '/marketing/' : '/dev/';
