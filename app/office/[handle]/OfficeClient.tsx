@@ -1256,18 +1256,38 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
+
       // check all possible handle keys written by login/register
       const sessionHandle =
         s?.handle ||
         localStorage.getItem('intern_handle') ||
         '';
+
       if (sessionHandle && sessionHandle === data.handle) {
         setIsOwner(true);
         return;
       }
+
       // fallback: intern_id match
       const sessionInternId = s?.intern_id || '';
       if (sessionInternId && data.intern_id && sessionInternId === data.intern_id) {
+        setIsOwner(true);
+        return;
+      }
+
+      // auto-session: if no session exists at all and this is a founder/elevated profile,
+      // write a minimal session from the already-public office API data
+      const noSession = !s?.handle && !s?.intern_id;
+      const isElevated = (data as any).elevation_level >= 99 || (data as any).is_captain === true;
+      if (noSession && isElevated && data.handle && data.intern_id) {
+        const minimal = {
+          handle:    data.handle,
+          intern_id: data.intern_id,
+          track:     data.track ?? 'dev',
+        };
+        localStorage.setItem('antcpu_session', JSON.stringify(minimal));
+        localStorage.setItem('intern_handle',  data.handle);
+        localStorage.setItem('intern_id',      data.intern_id);
         setIsOwner(true);
       }
     } catch {}
