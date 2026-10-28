@@ -53,4 +53,4 @@ docs/internal/
 .env*
 antcoin-server/
 antcoin-site/
-arena/
+/arena/
