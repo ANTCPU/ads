@@ -103,6 +103,21 @@ async function persistSession(session: SessionUser, redirect: string | null) {
     lastActiveDate: sync.lastActiveDate || null,
   }));
 
+  // ── Write challenger session if user is an intern ─────────
+  if (sync.handle) {
+    try {
+      localStorage.setItem('antcpu_session', JSON.stringify({
+        handle:   sync.handle,
+        intern_id: sync.intern_id ?? '',
+        name:     session.name,
+        email:    session.email,
+      }));
+      localStorage.setItem('intern_handle', sync.handle);
+      localStorage.setItem('intern_id',     sync.intern_id ?? '');
+      localStorage.setItem('intern_email',  session.email);
+    } catch {}
+  }
+
   if (sync.preferredLocale) setStoredLocale(sync.preferredLocale);
 
   // Presence ping — identity now known

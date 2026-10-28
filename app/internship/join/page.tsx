@@ -88,7 +88,27 @@ function JoinForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Registration failed');
-      const handle = data.handle ?? '';
+      const handle    = data.handle    ?? '';
+      const intern_id = data.intern_id ?? '';
+
+      // ── Write session to localStorage ─────────────────────
+      // antcpu_session → isOwner check in OfficeClient
+      // intern_handle + intern_id → WeekClient session ping
+      if (handle) {
+        try {
+          localStorage.setItem('antcpu_session', JSON.stringify({
+            handle,
+            intern_id,
+            track:  form.track,
+            name:   form.name,
+            email:  form.email,
+          }));
+          localStorage.setItem('intern_handle', handle);
+          localStorage.setItem('intern_id',     intern_id);
+          localStorage.setItem('intern_email',  form.email);
+        } catch {}
+      }
+
       router.push(
         `/internship/success?name=${encodeURIComponent(form.name)}&track=${form.track}&handle=${encodeURIComponent(handle)}`
       );

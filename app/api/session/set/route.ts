@@ -33,6 +33,8 @@ type SyncResult = {
   trialStatus:     string;
   lastActiveDate:  string | null;
   preferredLocale: string;
+  handle:          string | null;
+  intern_id:       string | null;
 };
 
 // ─── syncBadges ───────────────────────────────────────────────────────────────
@@ -47,6 +49,8 @@ async function syncBadges(email: string): Promise<SyncResult> {
     trialStatus:     'trial',
     lastActiveDate:  null,
     preferredLocale: 'en',
+    handle:          null,
+    intern_id:       null,
   };
 
   try {
@@ -174,12 +178,26 @@ async function syncBadges(email: string): Promise<SyncResult> {
       await upgradeMembershipTier(supabase, email, newTier, currentTier);
     }
 
+    // ── Challenger lookup — for office isOwner check ────────────────────────
+    let challenger: { handle: string; intern_id: string } | null = null;
+    try {
+      const { data: cData } = await supabase
+        .from('challengers')
+        .select('handle, intern_id')
+        .eq('email', email)
+        .eq('status', 'active')
+        .maybeSingle();
+      challenger = cData ?? null;
+    } catch {}
+
     return {
       membershipTier:  newTier !== currentTier ? newTier : currentTier,
       streakDays,
       trialStatus:     user.status           || 'trial',
       lastActiveDate:  newLastActive,
       preferredLocale: user.preferred_locale || 'en',
+      handle:          challenger?.handle    ?? null,
+      intern_id:       challenger?.intern_id ?? null,
     };
 
   } catch {
@@ -214,6 +232,8 @@ export async function POST(req: NextRequest) {
       trialStatus:     trialStatus || 'trial',
       lastActiveDate:  null,
       preferredLocale: 'en',
+      handle:          null as string | null,
+      intern_id:       null as string | null,
     }));
 
     const res = NextResponse.json({
@@ -223,6 +243,8 @@ export async function POST(req: NextRequest) {
       trialStatus:     sync.trialStatus,
       lastActiveDate:  sync.lastActiveDate,
       preferredLocale: sync.preferredLocale,
+      handle:          sync.handle    ?? null,
+      intern_id:       sync.intern_id ?? null,
     });
 
     res.cookies.set('arena_session', session, {
