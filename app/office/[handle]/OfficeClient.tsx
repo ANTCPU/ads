@@ -902,23 +902,33 @@ function D15IntroButton({
 
 
 // ── Admin Slideout — Founder only ────────────────────────────
-function AdminSlideout({ accent, border, cohort }: { accent: string; border: string; cohort: string }) {
-  const [open, setOpen]           = useState(false);
+// AdminSlideout removed — merged into IdentityIsland as ⚡ Admin tab
+
+// ── Main Component ────────────────────────────────────────────
+
+// ── Identity Island ─────────────────────────────────────────
+function IdentityIsland({
+  data, isOwner, isTeam, accent, border, theme,
+}: {
+  data: OfficeData;
+  isOwner: boolean;
+  isTeam: boolean;
+  accent: string;
+  border: string;
+  theme?: { bg: string; text: string; subtext: string; accent: string; border: string };
+}) {
+  const [open, setOpen]     = useState(false);
+  const [tab, setTab]       = useState<'me' | 'admin'>('me');
+  const [notifs, setNotifs] = useState<{ id: string; title: string; message: string; link?: string; read: boolean; created_at: string }[]>([]);
+  const [unread, setUnread] = useState(0);
+
+  // ── Admin tab state ──────────────────────────────────────
   const [challengers, setChallengers] = useState<{
     handle: string; name: string; track: string;
     progress_pct: number; country: string; email: string | null;
   }[]>([]);
-  const [loading, setLoading]     = useState(false);
-
-  useEffect(() => {
-    if (!open || challengers.length) return;
-    setLoading(true);
-    fetch(`/api/internship/challengers?view=public&cohort=${cohort}`)
-      .then(r => r.json())
-      .then(d => setChallengers(d.challengers ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [open]);
+  const [challLoading, setChallLoading] = useState(false);
+  const [challLoaded,  setChallLoaded]  = useState(false);
 
   const adminLinks = [
     { label: '⚡ Command Centre', href: '/dashboard/antcpu' },
@@ -926,148 +936,18 @@ function AdminSlideout({ accent, border, cohort }: { accent: string; border: str
     { label: '🤖 Agents',         href: '/dashboard/agents' },
     { label: '🏆 Leaderboard',    href: '/champions'        },
     { label: '🏟 Arena',          href: '/arena'            },
+    { label: '🦋 Collab Hub',     href: '/internship/collab'},
   ];
 
-  return (
-    <>
-      {/* Toggle button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 9999,
-          background: accent, color: '#000', border: 'none',
-          borderRadius: '999px', padding: '0.6rem 1rem',
-          fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer',
-          boxShadow: `0 4px 20px ${accent}55`,
-        }}
-      >
-        {open ? '✕ Close' : '⚡ Admin'}
-      </button>
-
-      {/* Backdrop */}
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9998,
-            background: 'rgba(0,0,0,0.5)',
-          }}
-        />
-      )}
-
-      {/* Slideout panel */}
-      <div style={{
-        position: 'fixed', top: 0, right: open ? 0 : '-360px',
-        width: '340px', height: '100vh', zIndex: 9999,
-        background: '#0d1117', borderLeft: `1px solid ${border}`,
-        overflowY: 'auto', transition: 'right 0.3s ease',
-        padding: '1.5rem 1rem 4rem',
-        fontFamily: 'system-ui, sans-serif',
-      }}>
-        <div style={{ fontWeight: 800, fontSize: '1rem', color: accent, marginBottom: '1rem' }}>
-          ⚡ Admin Panel
-        </div>
-
-        {/* Quick links */}
-        <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '0.6rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-            Quick Links
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {adminLinks.map(l => (
-              <a key={l.href} href={l.href}
-                style={{
-                  display: 'block', padding: '0.45rem 0.75rem',
-                  background: '#161b22', border: `1px solid ${border}`,
-                  borderRadius: '8px', color: accent,
-                  fontSize: '0.78rem', fontWeight: 600,
-                  textDecoration: 'none',
-                }}>
-                {l.label}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* Challenger offices */}
-        <div>
-          <div style={{ fontSize: '0.6rem', color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-            Challenger Offices
-          </div>
-          {loading && (
-            <div style={{ fontSize: '0.78rem', color: '#666', padding: '0.5rem 0' }}>Loading...</div>
-          )}
-          {!loading && challengers.length === 0 && (
-            <div style={{ fontSize: '0.78rem', color: '#666', padding: '0.5rem 0' }}>No challengers found.</div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-            {challengers.map(c => (
-              <div key={c.handle}
-                style={{
-                  background: '#161b22', border: `1px solid ${border}`,
-                  borderRadius: '8px', padding: '0.5rem 0.75rem',
-                }}>
-                {/* Name + progress */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                  <div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e6edf3' }}>
-                      {c.track === 'marketing' ? '📣' : '💻'} {c.name}
-                    </div>
-                    <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '0.1rem' }}>
-                      {c.country} · {c.progress_pct}%
-                    </div>
-                  </div>
-                  <span style={{ fontSize: '0.65rem', color: accent, fontWeight: 700 }}>
-                    {c.progress_pct}%
-                  </span>
-                </div>
-                {/* Dual links */}
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <a href={`/office/${c.handle}`}
-                    style={{
-                      flex: 1, textAlign: 'center', padding: '0.3rem 0',
-                      background: `${accent}18`, border: `1px solid ${accent}44`,
-                      borderRadius: '6px', color: accent,
-                      fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none',
-                    }}>
-                    🏢 Office
-                  </a>
-                  {c.email && (
-                    <a href={`/profile/${encodeURIComponent(c.email)}`}
-                      style={{
-                        flex: 1, textAlign: 'center', padding: '0.3rem 0',
-                        background: '#1c2128', border: `1px solid ${border}`,
-                        borderRadius: '6px', color: '#8b949e',
-                        fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none',
-                      }}>
-                      👤 Profile
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ── Main Component ────────────────────────────────────────────
-
-// ── Identity Island ─────────────────────────────────────────
-function IdentityIsland({
-  data, isOwner, accent, border, theme,
-}: {
-  data: OfficeData;
-  isOwner: boolean;
-  accent: string;
-  border: string;
-  theme?: { bg: string; text: string; subtext: string; accent: string; border: string };
-}) {
-  const [open, setOpen]   = useState(false);
-  const [notifs, setNotifs] = useState<{ id: string; title: string; message: string; link?: string; read: boolean; created_at: string }[]>([]);
-  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!open || tab !== 'admin' || challLoaded) return;
+    setChallLoading(true);
+    fetch(`/api/internship/challengers?view=public&cohort=${data.cohort ?? 'october-2026'}`)
+      .then(r => r.json())
+      .then(d => { setChallengers(d.challengers ?? []); setChallLoaded(true); })
+      .catch(() => setChallLoaded(true))
+      .finally(() => setChallLoading(false));
+  }, [open, tab, challLoaded, data.cohort]);
 
   useEffect(() => {
     if (!isOwner || !data.intern_id) return;
@@ -1112,7 +992,7 @@ function IdentityIsland({
     <div style={{ position: 'relative', flexShrink: 0 }}>
       {/* ── Circle button ── */}
       <button
-        onClick={() => { if (isOwner) { setOpen(o => !o); if (!open && unread > 0) markAllRead(); } }}
+        onClick={() => { if (isOwner) { setOpen(o => { if (!o && unread > 0) markAllRead(); return !o; }); }} }
         style={{
           width: 64, height: 64, borderRadius: '50%',
           background: data.color ?? accent,
@@ -1156,36 +1036,145 @@ function IdentityIsland({
             overflow: 'hidden',
           }}
         >
-          {/* Identity strip */}
+          {/* Identity strip + tabs */}
           <div style={{ padding: '0.875rem 1rem', borderBottom: `1px solid ${border}`, background: `${accent}0d` }}>
             <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{data.name}</div>
             <div style={{ fontSize: '0.75rem', color: accent, marginTop: 2 }}>
               {data.track === 'dev' ? '💻 Dev' : '📣 Marketing'} · Week {week} · {data.progress_pct}%
             </div>
+            {/* Tabs — only show admin tab for team/founder */}
+            {isTeam && (
+              <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.6rem' }}>
+                {(['me', 'admin'] as const).map(t_ => (
+                  <button key={t_} onClick={() => setTab(t_)} style={{
+                    flex: 1, padding: '0.3rem 0',
+                    background: tab === t_ ? accent : 'transparent',
+                    border: `1px solid ${tab === t_ ? accent : border}`,
+                    borderRadius: 6, color: tab === t_ ? '#000' : '#888',
+                    fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    {t_ === 'me' ? '🏢 My Office' : '⚡ Admin'}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Nav links */}
-          <div style={{ padding: '0.5rem 0' }}>
-            {navLinks.map(l => (
-              <a
-                key={l.label}
-                href={l.href}
-                target={l.external ? '_blank' : undefined}
-                rel={l.external ? 'noopener noreferrer' : undefined}
-                onClick={() => setOpen(false)}
-                style={{
-                  display: 'block', padding: '0.55rem 1rem',
-                  fontSize: '0.82rem', fontWeight: 600,
-                  color: theme?.text ?? '#e6edf3', textDecoration: 'none',
-                  transition: 'background 0.1s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = `${accent}18`)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                {l.label}
-              </a>
-            ))}
-          </div>
+          {/* ── MY OFFICE TAB ── */}
+          {tab === 'me' && (
+            <div style={{ padding: '0.5rem 0' }}>
+              {navLinks.map(l => (
+                <a
+                  key={l.label}
+                  href={l.href}
+                  target={l.external ? '_blank' : undefined}
+                  rel={l.external ? 'noopener noreferrer' : undefined}
+                  onClick={() => setOpen(false)}
+                  style={{
+                    display: 'block', padding: '0.55rem 1rem',
+                    fontSize: '0.82rem', fontWeight: 600,
+                    color: theme?.text ?? '#e6edf3', textDecoration: 'none',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = `${accent}18`)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          )}
+
+          {/* ── ADMIN TAB ── */}
+          {tab === 'admin' && isTeam && (
+            <div style={{ padding: '0.5rem 0' }}>
+
+              {/* Quick links */}
+              <div style={{ padding: '0.25rem 1rem 0.5rem' }}>
+                <div style={{ fontSize: '0.6rem', color: '#555', textTransform: 'uppercase',
+                  letterSpacing: '0.1em', marginBottom: '0.4rem', fontWeight: 700 }}>
+                  Quick Links
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {adminLinks.map(l => (
+                    <a key={l.href} href={l.href} style={{
+                      display: 'block', padding: '0.45rem 0.75rem',
+                      background: '#161b22', border: `1px solid ${border}`,
+                      borderRadius: '8px', color: accent,
+                      fontSize: '0.78rem', fontWeight: 600, textDecoration: 'none',
+                    }}>
+                      {l.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+              {/* Challenger offices */}
+              <div style={{ padding: '0.5rem 1rem 0' }}>
+                <div style={{ fontSize: '0.6rem', color: '#555', textTransform: 'uppercase',
+                  letterSpacing: '0.1em', marginBottom: '0.4rem', fontWeight: 700 }}>
+                  Challengers ({challengers.length})
+                </div>
+                {challLoading && (
+                  <div style={{ fontSize: '0.75rem', color: '#555', padding: '0.5rem 0' }}>Loading...</div>
+                )}
+                {!challLoading && challLoaded && challengers.length === 0 && (
+                  <div style={{ fontSize: '0.75rem', color: '#555', padding: '0.5rem 0' }}>No challengers found.</div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '320px', overflowY: 'auto' }}>
+                  {challengers.map(c => (
+                    <div key={c.handle} style={{
+                      background: '#161b22', border: `1px solid ${border}`,
+                      borderRadius: '8px', padding: '0.5rem 0.75rem',
+                    }}>
+                      {/* Name row */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#e6edf3' }}>
+                            {c.track === 'marketing' ? '📣' : '💻'} {c.name}
+                          </div>
+                          <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '0.1rem' }}>
+                            @{c.handle} · {c.country}
+                          </div>
+                        </div>
+                        {/* Progress pill */}
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 800,
+                          color: c.progress_pct >= 75 ? '#22c55e' : c.progress_pct >= 50 ? accent : '#888',
+                          background: c.progress_pct >= 75 ? '#22c55e18' : c.progress_pct >= 50 ? `${accent}18` : '#88888818',
+                          border: `1px solid ${c.progress_pct >= 75 ? '#22c55e44' : c.progress_pct >= 50 ? `${accent}44` : '#33333344'}`,
+                          borderRadius: 999, padding: '0.15rem 0.5rem',
+                        }}>
+                          {c.progress_pct}%
+                        </span>
+                      </div>
+                      {/* Action links */}
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <a href={`/office/${c.handle}`} style={{
+                          flex: 1, textAlign: 'center', padding: '0.3rem 0',
+                          background: `${accent}18`, border: `1px solid ${accent}44`,
+                          borderRadius: '6px', color: accent,
+                          fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none',
+                        }}>
+                          🏢 Office
+                        </a>
+                        {c.email && (
+                          <a href={`/profile/${encodeURIComponent(c.email)}`} style={{
+                            flex: 1, textAlign: 'center', padding: '0.3rem 0',
+                            background: '#1c2128', border: `1px solid ${border}`,
+                            borderRadius: '6px', color: '#8b949e',
+                            fontSize: '0.68rem', fontWeight: 700, textDecoration: 'none',
+                          }}>
+                            👤 Profile
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Notifications */}
           {notifs.length > 0 && (
@@ -1330,6 +1319,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             <IdentityIsland
               data={data}
               isOwner={isOwner}
+              isTeam={isTeam}
               accent={theme.accent}
               border={theme.border}
               theme={{ bg: theme.bg, text: theme.text, subtext: theme.subtext, accent: theme.accent, border: theme.border }}
@@ -1672,10 +1662,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
         </div>
       </div>
 
-      {/* ── Admin slideout — founder only ── */}
-      {data.handle === 'Antony0' && (
-        <AdminSlideout accent={theme.accent} border={theme.border} cohort={data.cohort} />
-      )}
+
     </>
   );
 }
