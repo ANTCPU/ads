@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { pingActivity } from '../../../lib/pingActivity';
+import AdShareCard from './AdShareCard';
 
 type OfficeData = {
   handle: string;
@@ -29,9 +30,9 @@ type OfficeData = {
   activity: { label: string; icon: string; created_at: string }[];
   cohort: string;
   cohort_short: string;
+  ad: { title: string; description: string; url: string; category: string } | null;
   is_captain: boolean | null;
   elevation_level?: number;
-  ad?: { title: string; description: string; url: string; category: string } | null;
 };
 
 const BADGE_LABELS: Record<string, string> = {
@@ -196,6 +197,16 @@ export default function OfficePublic({ data }: { data: OfficeData }) {
 
         {/* ── Divider ── */}
         <div style={{ height: 1, background: '#e5e7eb', marginBottom: '2rem' }} />
+
+        {/* ── Ad share card ── */}
+        <AdShareCard
+          ad={data.ad ?? null}
+          brandSlug={(data as any).brand_slug ?? null}
+          name={data.name}
+          handle={data.handle}
+          isOwner={false}
+          accent={accent}
+        />
 
         {/* ── Bio ── */}
         {data.bio && (
