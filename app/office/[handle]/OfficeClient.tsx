@@ -950,7 +950,7 @@ function IdentityIsland({
   useEffect(() => {
     if (!open || tab !== 'admin' || challLoaded) return;
     setChallLoading(true);
-    fetch(`/api/internship/challengers?view=public&cohort=${data.cohort ?? 'november-2026'}`)
+    fetch(`/api/internship/challengers?view=public&cohort=${data.clock?.next_cohort ?? data.cohort ?? 'november-2026'}`)
       .then(r => r.json())
       .then(d => { setChallengers(d.challengers ?? []); setChallLoaded(true); })
       .catch(() => setChallLoaded(true))
