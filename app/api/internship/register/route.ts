@@ -848,6 +848,19 @@ export async function POST(req: NextRequest) {
     }).catch(() => {});
 
     // ── 10. Return session to frontend ────────────────────────
+
+    // doorbell — registration complete (fire and forget, never blocks)
+    fetch('https://antcpu-ads.vercel.app/api/doorbell', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        page:  '/apply/complete',
+        ref:   'register',
+        ts:    new Date().toISOString(),
+        email: cleanEmail,
+      }),
+    }).catch(() => {});
+
     return ok({
       success:        true,
       signupId:       signup.id,

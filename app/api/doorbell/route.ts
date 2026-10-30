@@ -66,6 +66,22 @@ export async function POST(req: NextRequest) {
     }).catch(() => null);
   }
 
+  // ── Discord ping — apply page visits ─────────────────────────────────────
+  if (page === '/apply' || page === '/apply/complete') {
+    const event = page === '/apply/complete' ? '✅ Registration complete' : '👀 Apply page visit';
+    notifyInternship('intern_gate', {
+      title:  event,
+      color:  DC.intern,
+      fields: [
+        { name: 'Email', value: email ?? 'anonymous', inline: true },
+        { name: 'Ref',   value: ref || 'direct',      inline: true },
+        { name: 'Page',  value: page,                 inline: true },
+      ],
+      footer:    `doorbell · ${ts}`,
+      timestamp: true,
+    }).catch(() => null);
+  }
+
     return NextResponse.json({ received: true }, { headers: CORS });
 
   } catch {
