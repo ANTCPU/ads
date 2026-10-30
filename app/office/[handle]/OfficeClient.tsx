@@ -934,6 +934,10 @@ function IdentityIsland({
   const [challLoading, setChallLoading] = useState(false);
   const [challLoaded,  setChallLoaded]  = useState(false);
 
+  // ── Page views state — apply counters + last seen ─────────
+  const [pageViews,    setPageViews]    = useState<{ page: string; ref: string; ts: string; email: string | null }[]>([]);
+  const [pvLoaded,     setPvLoaded]     = useState(false);
+
   const adminLinks = [
     { label: '⚡ Command Centre', href: '/dashboard/antcpu' },
     { label: '👥 Users',          href: '/dashboard/users'  },
@@ -946,12 +950,20 @@ function IdentityIsland({
   useEffect(() => {
     if (!open || tab !== 'admin' || challLoaded) return;
     setChallLoading(true);
-    fetch(`/api/internship/challengers?view=public&cohort=${data.cohort ?? 'october-2026'}`)
+    fetch(`/api/internship/challengers?view=public&cohort=${data.cohort ?? 'november-2026'}`)
       .then(r => r.json())
       .then(d => { setChallengers(d.challengers ?? []); setChallLoaded(true); })
       .catch(() => setChallLoaded(true))
       .finally(() => setChallLoading(false));
   }, [open, tab, challLoaded, data.cohort]);
+
+  useEffect(() => {
+    if (!open || tab !== 'admin' || pvLoaded) return;
+    fetch('/api/doorbell')
+      .then(r => r.json())
+      .then(d => { setPageViews(d.recent ?? []); setPvLoaded(true); })
+      .catch(() => setPvLoaded(true));
+  }, [open, tab, pvLoaded]);
 
   useEffect(() => {
     if (!isOwner || !data.intern_id) return;
@@ -1113,6 +1125,34 @@ function IdentityIsland({
                 </div>
               </div>
 
+              {/* ── Page counters ── */}
+              {pvLoaded && (() => {
+                const applyVisits = pageViews.filter(v => v.page === '/apply').length;
+                const registrations = pageViews.filter(v => v.page === '/apply/complete').length;
+                const refs = pageViews.map(v => v.ref).filter(r => r && r !== 'direct' && r !== 'register');
+                const topRef = refs.length
+                  ? Object.entries(refs.reduce((acc: Record<string,number>, r) => { acc[r] = (acc[r]||0)+1; return acc; }, {}))
+                      .sort((a,b) => b[1]-a[1])[0]?.[0]?.replace('https://','').replace('www.','').split('/')[0]
+                  : 'direct';
+                return (
+                  <div style={{ display: 'flex', gap: '0.4rem', padding: '0.25rem 1rem 0.5rem' }}>
+                    {[
+                      { label: '👀 Visits',  value: applyVisits },
+                      { label: '✅ Signups', value: registrations },
+                      { label: '🔗 Top Ref', value: topRef },
+                    ].map(s => (
+                      <div key={s.label} style={{
+                        flex: 1, background: '#161b22', border: `1px solid ${border}`,
+                        borderRadius: '8px', padding: '0.4rem 0.5rem', textAlign: 'center',
+                      }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: accent }}>{s.value}</div>
+                        <div style={{ fontSize: '0.55rem', color: '#555', marginTop: '0.1rem' }}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {/* Challenger offices */}
               <div style={{ padding: '0.5rem 1rem 0' }}>
                 <div style={{ fontSize: '0.6rem', color: '#555', textTransform: 'uppercase',
@@ -1152,6 +1192,21 @@ function IdentityIsland({
                           {c.progress_pct}%
                         </span>
                       </div>
+                      {/* Last seen page */}
+                      {(() => {
+                        const lastView = pageViews.find(v => v.email === c.email);
+                        if (!lastView) return null;
+                        const mins = Math.round((Date.now() - new Date(lastView.ts).getTime()) / 60000);
+                        const ago = mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
+                        return (
+                          <div style={{ fontSize: '0.62rem', color: '#22c55e', marginBottom: '0.35rem',
+                            background: '#22c55e10', border: '1px solid #22c55e22',
+                            borderRadius: '4px', padding: '0.2rem 0.4rem' }}>
+                            🟢 {lastView.page} · {ago}
+                          </div>
+                        );
+                      })()}
+
                       {/* Action links */}
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <a href={`/office/${c.handle}`} style={{
