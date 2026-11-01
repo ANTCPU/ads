@@ -45,9 +45,10 @@ export default function WeekClient({
 
   // ── Load challenger state from localStorage handle
   useEffect(() => {
-    const handle = localStorage.getItem('intern_handle');
-    const intern_id = localStorage.getItem('intern_id');
-    if (!handle || !intern_id) { setLoading(false); return; }
+    const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
+    const handle   = localStorage.getItem('intern_handle') || s?.handle || '';
+    const intern_id = localStorage.getItem('intern_id') || s?.intern_id || '';
+    if (!handle && !intern_id) { setLoading(false); return; }
 
     fetch(`/api/internship/me?handle=${handle}`)
       .then(r => r.ok ? r.json() : null)
