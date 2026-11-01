@@ -122,8 +122,7 @@ export async function GET() {
           'last_seen, completed_gates, cohort, country, ' +
           'nudge_sent_at, intern_id, handle, elevation_level, node_role'  // ← last_seen
         )
-        .eq('status', 'active')
-        .eq('cohort', cohort)
+        .match({ status: 'active', cohort: cohort })
         .limit(200),
     ]);
 
