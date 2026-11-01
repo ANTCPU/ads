@@ -20,8 +20,8 @@
 // — Cohort filter: only current active cohort challengers
 // — EXCLUDE list applied to challengers same as ADS users
 //
-// Version: v2.2
-// Updated: 2026-10-19
+// Version: v3.0
+// Updated: 2026-11-01
 //
 // v2.1 (Oct 2026):
 // — challengers table uses last_seen not last_seen_at
@@ -40,11 +40,6 @@
 
 import { NextResponse }  from 'next/server';
 import { createClient }  from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 const CORS = {
   'Access-Control-Allow-Origin':  'https://antcpu-ads.vercel.app',
@@ -70,6 +65,12 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
+    // Init client at request time — env vars guaranteed available in serverless
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const now               = Date.now();
     const fortyEightHrsAgo  = new Date(now - 48 *  3600 * 1000).toISOString();
     const twentyFourHrsAgo  = new Date(now - 24 *  3600 * 1000).toISOString();
@@ -120,7 +121,7 @@ export async function GET() {
         .select(
           'email, first_name, track, progress_pct, ' +
           'last_seen, completed_gates, cohort, country, ' +
-          'nudge_sent_at, intern_id, handle, elevation_level, node_role'  // ← last_seen
+          'nudge_sent_at, nudge_responded_at, intern_id, handle, elevation_level, node_role'  // ← last_seen
         )
         .match({ status: 'active', cohort: cohort })
         .limit(200),
@@ -156,7 +157,11 @@ export async function GET() {
 
     // ── Internship: compute nudge tiers ────────────────────────────────────
     // All filters use c.last_seen — confirmed column name Oct 2026
-    const all = (challengers || []).filter((c: any) => !EXCLUDE.includes(c.email?.toLowerCase())) as any[];
+    const all = ((challengers || [])
+      .filter((c: any) => !EXCLUDE.includes(c.email?.toLowerCase()))
+      .filter((c: any) => !c.nudge_responded_at)                                    // skip — already responded
+      .filter((c: any) => !c.nudge_sent_at || c.nudge_sent_at < fortyEightHrsAgo)  // skip — nudged < 48hrs ago
+    ) as any[];
 
     // Tier 1 — registered only (5%), not seen in 48hrs
     const hard_d1 = all.filter(c =>
@@ -274,8 +279,8 @@ export async function GET() {
 // EOF META
 // ============================================================
 // File    : app/api/herald/route.ts
-// Version : v2.2
-// Updated : 2026-10-19
+// Version : v3.0
+// Updated : 2026-11-01
 //
 // PURPOSE:
 //   GET endpoint — computes nudge lists for ADS advertisers
