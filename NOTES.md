@@ -19,3 +19,22 @@
 - [ ] ops: AI actions panel split — global not cohort-scoped
 - [ ] session ping wired on antcpu.io dashboard pages
 - [ ] Hatem + Shairose: confirm welcome email received, send hard_d1 nudge
+
+## Nov 1, 2026 — Nudge Loop Fixes (session 2)
+
+### Fixed
+- herald/route.ts: hard_d1 now includes 0% challengers (was === 5, now <= 5)
+- herald/route.ts: 0% challengers bypass 48hr last_seen gate
+- herald/route.ts: hard_d2 now catches 6-10% range (was === 10)
+- session/route.ts: writes nudge_responded_at on first ping after nudge sent
+- nudge/route.ts: accepts intern_id OR email
+
+### DB
+- nudge_responded_at timestamptz added to challengers
+
+### Pending
+- [ ] Herald inactive/noShares polluted with October complete challengers
+- [ ] Ops nudge button: auto-select nudge type by progress pct
+- [ ] Daily Discord digest — standalone email stats
+- [ ] Session ping wired on antcpu.io dashboard pages
+- [ ] October review panel /ops/october.html

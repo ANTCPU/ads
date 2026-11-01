@@ -165,7 +165,7 @@ export async function GET() {
     // Tier 1 — registered only (5%), not seen in 48hrs
     const hard_d1 = all.filter(c =>
       (c.progress_pct || 0) <= 5 &&
-      (!c.last_seen || c.last_seen < fortyEightHrsAgo)   // ← last_seen
+      ((c.progress_pct || 0) === 0 || !c.last_seen || c.last_seen < fortyEightHrsAgo)   // 0% always nudge, 1-5% needs 48hr gap
     );
 
     // Tier 2 — profile done (10%), not seen in 48hrs

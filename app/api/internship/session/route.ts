@@ -77,11 +77,23 @@ export async function POST(req: NextRequest) {
     // ── 3. Update challengers.last_seen ──────────────────────
     // This is what flag recalculation reads for hrs_since
     try {
+      // Close nudge loop — write nudge_responded_at on first ping after nudge
+      const { data: cRow } = await supabase
+        .from('challengers')
+        .select('nudge_sent_at, nudge_responded_at')
+        .eq('intern_id', intern_id)
+        .maybeSingle();
+
+      const nudgeUpdate = (cRow?.nudge_sent_at && !cRow?.nudge_responded_at)
+        ? { nudge_responded_at: new Date().toISOString() }
+        : {};
+
       await supabase
         .from('challengers')
         .update({
           last_seen:    new Date().toISOString(),
           last_seen_at: new Date().toISOString(),
+          ...nudgeUpdate,
         })
         .eq('intern_id', intern_id);
     } catch { /* non-fatal */ }
