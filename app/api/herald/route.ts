@@ -123,7 +123,6 @@ export async function GET() {
           'last_seen, completed_gates, cohort, country, ' +
           'nudge_sent_at, nudge_responded_at, intern_id, handle, elevation_level, node_role'  // ← last_seen
         )
-        .match({ status: 'active', cohort: cohort })
         .limit(200),
     ]);
 
@@ -158,6 +157,7 @@ export async function GET() {
     // ── Internship: compute nudge tiers ────────────────────────────────────
     // All filters use c.last_seen — confirmed column name Oct 2026
     const all = ((challengers || [])
+      .filter((c: any) => c.status === 'active' && c.cohort === cohort)
       .filter((c: any) => !EXCLUDE.includes(c.email?.toLowerCase()))
       .filter((c: any) => !c.nudge_responded_at)                                    // skip — already responded
       .filter((c: any) => !c.nudge_sent_at || c.nudge_sent_at < fortyEightHrsAgo)  // skip — nudged < 48hrs ago
