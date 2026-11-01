@@ -103,7 +103,7 @@ async function resolveChallenger(params: {
   if (params.intern_id) query = query.eq('intern_id', params.intern_id);
   else if (params.handle) query = query.eq('handle', params.handle);
   else if (params.num)    query = query.eq('challenger_num', parseInt(params.num));
-  else if (params.email)  query = query.eq('email', params.email);
+  else if (params.email)  query = query.ilike('email', params.email);
   else return null;
 
   const { data } = await query.maybeSingle();
