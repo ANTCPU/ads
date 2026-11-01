@@ -913,21 +913,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       email,
+      intern_id: bodyInternId,
       nudge_type,
       first_name,
       track,
       progress_pct,
     }: {
-      email:         string;
+      email?:        string;
+      intern_id?:    string;
       nudge_type:    NudgeType;
       first_name?:   string;
       track?:        string;
       progress_pct?: number;
     } = body;
 
-    if (!email || !nudge_type) {
+    if ((!email && !bodyInternId) || !nudge_type) {
       return NextResponse.json(
-        { error: 'email and nudge_type required' },
+        { error: 'email or intern_id required, plus nudge_type' },
         { status: 400, headers: cors }
       );
     }
@@ -958,10 +960,14 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 2: Idempotency ───────────────────────────────────
+    // Resolve lookup — intern_id preferred from ops, email from cron
+    const lookupField = bodyInternId ? 'intern_id' : 'email';
+    const lookupValue = bodyInternId ? bodyInternId : email!.trim().toLowerCase();
+
     const { data: challenger } = await supabase
       .from('challengers')
       .select('id, intern_id, email, handle, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort, elevation_level, elevation_note, node_role')
-      .eq('email', email.trim().toLowerCase())
+      .eq(lookupField, lookupValue)
       .eq('status', 'active')
       .maybeSingle();
 
