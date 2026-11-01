@@ -237,11 +237,12 @@ export async function GET() {
     const debugAll = (challengers || []) as any[];
     const debugActive = debugAll.filter((c: any) => c.status === 'active');
     const debugCohort = debugActive.filter((c: any) => c.cohort === cohort);
+    const sample = debugAll.slice(0, 3).map((c: any) => ({ status: c.status, cohort: c.cohort, email: c.email?.slice(0,10) }));
 
     const internship = {
       cohort,
       total:        all.length,
-      _debug: { raw: debugAll.length, active: debugActive.length, cohortMatch: debugCohort.length, cohortVal: cohort },
+      _debug: { raw: debugAll.length, active: debugActive.length, cohortMatch: debugCohort.length, cohortVal: cohort, sample },
       hard_d1,
       hard_d2,
       soft,
