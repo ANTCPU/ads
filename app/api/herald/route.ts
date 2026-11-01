@@ -233,9 +233,15 @@ export async function GET() {
       !c.completed_gates?.includes('badge_awarded')
     );
 
+    // DEBUG — remove after fix
+    const debugAll = (challengers || []) as any[];
+    const debugActive = debugAll.filter((c: any) => c.status === 'active');
+    const debugCohort = debugActive.filter((c: any) => c.cohort === cohort);
+
     const internship = {
       cohort,
       total:        all.length,
+      _debug: { raw: debugAll.length, active: debugActive.length, cohortMatch: debugCohort.length, cohortVal: cohort },
       hard_d1,
       hard_d2,
       soft,
