@@ -100,15 +100,10 @@ const GATES: Record<string, {
   d20: { pct: 72,  week: 3, label: 'Cross-Track Review Given',      icon: '📊' },
   d21: { pct: 75,  week: 3, label: 'Week 3 Reflection Done',        icon: '🤝' },
   // Week 4 — Leader — unlocks Day 21
-  d22: { pct: 80,  week: 4, label: 'Role Claimed',                  icon: '🚀' },
-  d23: { pct: 85,  week: 4, label: 'Final Build Shipped',           icon: '💻' },
-  d24: { pct: 95,  week: 4, label: 'Final Submission & Showcase',   icon: '🎖️' },
-  d25: { pct: 86,  week: 4, label: 'Handoff Complete',              icon: '🤝' },
-  d26: { pct: 88,  week: 4, label: 'Launched',                      icon: '🚀' },
-  d27: { pct: 90,  week: 4, label: 'Community Interaction Done',    icon: '💬' },
-  d28: { pct: 93,  week: 4, label: 'Final Polish Done',             icon: '✨' },
-  d29: { pct: 95,  week: 4, label: 'Final Submission Made',         icon: '🎖️' },
-  d30: { pct: 100, week: 4, label: 'Selection Day Complete',        icon: '🏆' },
+  d22:       { pct: 80,  week: 4, label: 'Role Claimed',                  icon: '🚀' },
+  d23:       { pct: 85,  week: 4, label: 'Final Build Shipped',           icon: '💻' },
+  d24:       { pct: 95,  week: 4, label: 'Final Submission & Showcase',   icon: '🎖️' },
+  'd25-final': { pct: 100, week: 4, label: 'Selection Day Complete',      icon: '🏆' },
 };
 
 // ── Role map ───────────────────────────────────────────────
