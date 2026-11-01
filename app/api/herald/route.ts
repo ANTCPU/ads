@@ -90,7 +90,6 @@ export async function GET() {
       supabase
         .from('ad_signups')
         .select('name, email, brand_name, status, country, created_at, last_seen_at, visit_count, streak_days')
-        .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`)
         .order('created_at', { ascending: false })
         .limit(500),
 
@@ -112,7 +111,6 @@ export async function GET() {
         .from('ads')
         .select('email, title, share_count, click_count, points')
         .eq('status', 'active')
-        .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`)
         .limit(500),
 
       // ── Internship: active challengers in current cohort ─────────────────
@@ -126,7 +124,6 @@ export async function GET() {
         )
         .eq('status', 'active')
         .eq('cohort', cohort)
-        .not('email', 'in', `(${EXCLUDE.map(e => `"${e}"`).join(',')})`)
         .limit(200),
     ]);
 
