@@ -159,7 +159,7 @@ export async function GET() {
     // ── Internship: compute nudge tiers ────────────────────────────────────
     // All filters use c.last_seen — confirmed column name Oct 2026
     const all = ((challengers || [])
-      .filter((c: any) => c.status === 'active' && c.cohort === cohort)
+      .filter((c: any) => c.cohort === cohort || !c.cohort)
       .filter((c: any) => !EXCLUDE.includes(c.email?.toLowerCase()))
       .filter((c: any) => !c.nudge_responded_at)                                    // skip — already responded
       .filter((c: any) => !c.nudge_sent_at || c.nudge_sent_at < fortyEightHrsAgo)  // skip — nudged < 48hrs ago
@@ -237,7 +237,7 @@ export async function GET() {
 
     // DEBUG — remove after fix
     const debugAll = (challengers || []) as any[];
-    const debugActive = debugAll.filter((c: any) => c.status === 'active');
+    const debugActive = debugAll; // status+cohort already filtered at DB level
     const debugCohort = debugActive.filter((c: any) => c.cohort === cohort);
     const sample = debugAll.slice(0, 3).map((c: any) => ({ status: c.status, cohort: c.cohort, email: c.email?.slice(0,10) }));
 
