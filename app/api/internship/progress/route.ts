@@ -180,6 +180,46 @@ async function resolveChallenger(params: {
 
 // ── POST ───────────────────────────────────────────────────
 
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const intern_id = searchParams.get('intern_id');
+  const email     = searchParams.get('email');
+  const handle    = searchParams.get('handle');
+  const num       = searchParams.get('num');
+
+  if (!intern_id && !email && !handle && !num) {
+    return NextResponse.json(
+      { error: 'intern_id, email, handle or num required' },
+      { status: 400, headers: CORS }
+    );
+  }
+
+  try {
+    const challenger = await resolveChallenger({ intern_id, email, handle, num });
+    if (!challenger) {
+      return NextResponse.json(
+        { error: 'Challenger not found' },
+        { status: 404, headers: CORS }
+      );
+    }
+    return NextResponse.json({
+      intern_id:       challenger.intern_id,
+      handle:          challenger.handle,
+      first_name:      challenger.first_name,
+      email:           challenger.email,
+      track:           challenger.track,
+      progress_pct:    challenger.progress_pct    ?? 0,
+      completed_gates: challenger.completed_gates ?? [],
+      week:            challenger.week            ?? 1,
+      cohort:          challenger.cohort          ?? null,
+      country:         challenger.country         ?? null,
+    }, { headers: CORS });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500, headers: CORS });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     let body: Record<string, string> = {};
