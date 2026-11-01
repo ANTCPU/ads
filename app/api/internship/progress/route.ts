@@ -47,6 +47,7 @@ type ChallengerRow = {
   completed_gates:  string[] | null;
   progress_pct:     number | null;
   week:             number | null;
+  cohort:           string | null;
   role_title:       string | null;
   profile_complete: boolean | null;
 };
@@ -164,7 +165,7 @@ async function resolveChallenger(params: {
     .select(
       'id, intern_id, challenger_num, handle, email, ' +
       'first_name, track, country, completed_gates, ' +
-      'progress_pct, week, role_title, profile_complete'
+      'progress_pct, week, cohort, role_title, profile_complete'
     )
     .eq('status', 'active');
 
