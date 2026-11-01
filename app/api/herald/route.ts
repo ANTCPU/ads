@@ -160,7 +160,7 @@ export async function GET() {
 
     // ── Internship: compute nudge tiers ────────────────────────────────────
     // All filters use c.last_seen — confirmed column name Oct 2026
-    const all = (challengers || []) as any[];
+    const all = (challengers || []).filter((c: any) => !EXCLUDE.includes(c.email?.toLowerCase())) as any[];
 
     // Tier 1 — registered only (5%), not seen in 48hrs
     const hard_d1 = all.filter(c =>
