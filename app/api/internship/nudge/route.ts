@@ -967,8 +967,7 @@ export async function POST(req: NextRequest) {
     const { data: challenger } = await supabase
       .from('challengers')
       .select('id, intern_id, email, handle, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort, elevation_level, elevation_note, node_role')
-      .eq(lookupField, lookupValue)
-      .eq('status', 'active')
+      .match({ [lookupField]: lookupValue, status: 'active' })
       .maybeSingle();
 
     if (!challenger) {
