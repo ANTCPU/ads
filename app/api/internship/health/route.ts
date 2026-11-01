@@ -62,8 +62,10 @@ const MOOD: Record<string, string> = {
   stalled:   '😴',
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   const t0 = Date.now();
+  const { searchParams } = new URL(req.url);
+  const cohortFilter = searchParams.get('cohort');
 
   // ── 1. Clock — source of truth ────────────────────────────
   const clockRes = await fetch(CLOCK, { cache: 'no-store' });
@@ -102,7 +104,7 @@ export async function GET() {
   ]);
 
   // ── 3. Challengers detail ─────────────────────────────────
-  const { data: challengers } = await supabase
+  let cQuery = supabase
     .from('challengers')
     .select(`
       intern_id, challenger_num, handle,
@@ -115,6 +117,8 @@ export async function GET() {
     .eq('status', 'active')
     .not('role_title', 'eq', 'Mentor')
     .order('progress_pct', { ascending: false });
+  if (cohortFilter) cQuery = cQuery.eq('cohort', cohortFilter);
+  const { data: challengers } = await cQuery;
 
   // ── 4. Gates state ────────────────────────────────────────
   const { data: gates } = await supabase
