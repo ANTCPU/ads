@@ -121,7 +121,7 @@ export async function GET() {
         .select(
           'email, first_name, track, progress_pct, ' +
           'last_seen, completed_gates, cohort, country, ' +
-          'nudge_sent_at, nudge_responded_at, intern_id, handle, elevation_level, node_role'  // ← last_seen
+          'nudge_sent_at, nudge_responded_at, intern_id, handle, elevation_level'  // ← last_seen
         )
         .limit(200),
     ]);
