@@ -943,10 +943,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 1: Validity — bounce/unsub only ──────────────────
-    const validity = await checkEmailValidity(supabase, email);
-    if (validity === 'bounced' || validity === 'unsubscribed') {
+    // Validity check — email only (intern_id path skips, challenger lookup handles it)
+    const validity = email ? await checkEmailValidity(supabase, email) : null;
+    if (validity && (validity === 'bounced' || validity === 'unsubscribed')) {
       try {
-        await logSkippedSend(supabase, email, `nudge_${nudge_type}`, validity, {
+        await logSkippedSend(supabase, email ?? '', `nudge_${nudge_type}`, validity!, {
           segment: 'internship',
         });
       } catch { /* silent */ }
@@ -959,7 +960,7 @@ export async function POST(req: NextRequest) {
     // ── Step 2: Idempotency ───────────────────────────────────
     const { data: challenger } = await supabase
       .from('challengers')
-      .select('id, intern_id, handle, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort, elevation_level, elevation_note, node_role')
+      .select('id, intern_id, email, handle, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort, elevation_level, elevation_note, node_role')
       .eq('email', email.trim().toLowerCase())
       .eq('status', 'active')
       .maybeSingle();
@@ -994,12 +995,12 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Step 4: Send ──────────────────────────────────────────
-    await heraldSend({ to: email, subject, html });
+    await heraldSend({ to: challenger.email, subject, html });
 
     // ── Step 5: Record — parallel ─────────────────────────────
     await Promise.all([
-      recordEmailSent(supabase, email),
-      logEmailSend(supabase, email, `nudge_${nudge_type}`, {
+      recordEmailSent(supabase, challenger.email),
+      logEmailSend(supabase, challenger.email, `nudge_${nudge_type}`, {
         segment: 'internship',
         subject,
         locale:  'en',
