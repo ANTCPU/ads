@@ -13,6 +13,7 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js';
+import { notifyDiscord, DC } from '../../../lib/discord';
 import { NextRequest, NextResponse } from 'next/server';
 
 const supabase = createClient(
@@ -140,6 +141,25 @@ export async function GET(
   }
 
   const c = challengerRes.data as unknown as ChallengerRow;
+
+
+  // ── Doorbell — fire once per hour ─────────────────────────
+  const lastSeen = c.last_seen ? new Date(c.last_seen).getTime() : 0;
+  if (lastSeen < Date.now() - 3600000) {
+    const track = c.track === 'marketing' ? '📣 Marketing' : '💻 Dev';
+    notifyDiscord('', 'internship', {
+      title:  `🔔 Office Visit — ${c.handle}`,
+      color:  DC.intern,
+      fields: [
+        { name: 'Challenger', value: c.handle ?? '—',           inline: true },
+        { name: 'Track',      value: track,                     inline: true },
+        { name: 'Progress',   value: `${c.progress_pct ?? 0}%`, inline: true },
+        { name: 'Cohort',     value: c.cohort ?? '—',           inline: true },
+      ],
+      footer:    'office doorbell · antcpu',
+      timestamp: true,
+    }).catch(() => {});
+  }
 
   // Parallel fetch — arena ad + recent activity + ad content
   const [arenaRes, activityRes, adRes] = await Promise.all([
