@@ -327,8 +327,8 @@ export default function Page() {
         </h1>
         <p style={{ color: muted, fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>{brand.subText}</p>
 
-        {/* Pi Login */}
-        {!isBrand && (
+        {/* Pi Login — hidden until Pi SDK is ready */}
+        {false && !isBrand && (
           <div style={{ marginBottom: '1.5rem' }}>
             <button
               onClick={async () => {
