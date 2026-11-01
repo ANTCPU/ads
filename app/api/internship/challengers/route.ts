@@ -70,12 +70,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const cohortFilter = searchParams.get('cohort') || 'october-2026';
-    const { data, error } = await supabase
+    const cohortFilter = searchParams.get('cohort');
+    let query = supabase
       .from('admin_challengers')
       .select('*')
-      .eq('cohort', cohortFilter)
       .order('created_at', { ascending: false });
+    if (cohortFilter) query = query.eq('cohort', cohortFilter);
+    const { data, error } = await query;
 
     if (error) throw error;
 
