@@ -54,3 +54,4 @@ docs/internal/
 antcoin-server/
 antcoin-site/
 /arena/
+*.bak
