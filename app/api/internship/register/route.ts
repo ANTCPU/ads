@@ -524,7 +524,7 @@ export async function POST(req: NextRequest) {
     // Days 1–7: open — founding member window
     // Day 8+:   current cohort underway — register into NEXT cohort
     //           with early_access: true (3-day head start on Nov 1)
-    if (!entryOpen || day >= 8) {
+    if (day >= 8) {
       const nextCohort = getNextCohort();
       const nextLabel  = nextCohort
         .replace('-', ' ')
