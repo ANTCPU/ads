@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   try {
     let query = supabase
-      .from('search_index')
+      .from('search_results')
       .select('id, type, title, subtitle, slug, url, image_url, points')
       .eq('active', true)
       .or(`keywords.ilike.%${q}%,title.ilike.%${q}%,subtitle.ilike.%${q}%`)
