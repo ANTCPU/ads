@@ -188,6 +188,27 @@ export async function GET(req: NextRequest) {
     // ── 6. Merge and return ────────────────────────────────────
     const merged = { ...base, ...accessFlags };
 
+    // ── 7. Strip private fields for public handle/num lookups ─
+    // If request is not self-authenticated (no email or intern_id),
+    // remove PII and internal ops fields from the response.
+    const isPrivateRequest = !!(email || intern_id);
+    if (!isPrivateRequest) {
+      const privateFields = [
+        'email', 'signup_email', 'session_id',
+        'nudge_sent_at', 'nudge_type_sent',
+        'elevation_note', 'elevation_level',
+        'elevated_at', 'collab_partner_handle',
+        'carry_forward', 'carry_forward_reason',
+        'carry_forward_at', 'carry_forward_cohort',
+        'carry_pulse', 'carry_pulse_at',
+        'map_of_pi_candidate', 'next_cohort_seat',
+        'cutoff_at', 'cutoff_status',
+        'ip_country', 'ip_match', 'ip_city', 'ip_region',
+        'team_notes', 'w3_team_lead',
+      ];
+      for (const field of privateFields) delete merged[field];
+    }
+
     return NextResponse.json(
       {
         challenger: merged,
