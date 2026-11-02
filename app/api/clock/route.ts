@@ -114,7 +114,7 @@ export async function GET(req: NextRequest) {
 
   // entry_open — false after Day 1 starts
   // Challengers who missed Day 1 get routed to next cohort
-  const entryOpen = now < start || currentDay <= 1;
+  const entryOpen = now < start || currentDay <= 7;
 
   // Next cohort block
   let nextCohortBlock = null;
