@@ -562,10 +562,10 @@ export async function POST(req: NextRequest) {
       const trialExpiry = new Date();
       trialExpiry.setDate(trialExpiry.getDate() + 31);
 
-      // ad_signups
+      // ad_signups — upsert so returning challengers don't hit unique email constraint
       const { data: signup } = await supabase
         .from('ad_signups')
-        .insert({
+        .upsert({
           name: cleanName, email: cleanEmail,
           brand_name: brandName, country,
           status: 'active', promo_code: 'INTERNSHIP',
@@ -573,20 +573,20 @@ export async function POST(req: NextRequest) {
           trial_expiry: trialExpiry.toLocaleDateString('en-US',
             { month: 'long', day: 'numeric', year: 'numeric' }),
           role: 'user',
-        }).select('id').maybeSingle();
+        }, { onConflict: 'email' }).select('id').maybeSingle();
 
-      // ads
+      // ads — upsert so returning challengers reuse existing ad row
       const { data: ad } = await supabase
         .from('ads')
-        .insert({
+        .upsert({
           email: cleanEmail, name: cleanName, brand: brandName,
           title: `👋 ${cleanName} — ${trackLabel} Challenger · ${country}`,
-          description: `Registered for the ${nextLabel} antcpu.io Internship Challenge. ${trackLabel} track. Early access.`,
+          description: `Registered for the ${nextLabel} antcpu.io Internship Challenge. ${trackLabel} track. Returning challenger.`,
           url: 'https://antcpu.io/challenge/',
           category: track === 'dev' ? 'Service Offering' : 'Brand Awareness',
           status: 'active', tier: 'entry',
           promo_code: 'INTERNSHIP', country, points: 0,
-        }).select('id').maybeSingle();
+        }, { onConflict: 'email' }).select('id').maybeSingle();
 
       // challengers — next cohort
       await supabase.from('challengers').insert({
@@ -618,7 +618,9 @@ export async function POST(req: NextRequest) {
         submissions:      0,
         role_title:       'Registered',
         is_early_adopter: true,
-        early_access:     true,
+        carry_forward:        true,
+        carry_forward_cohort: cohort,
+        carry_forward_reason: 'Returning challenger — previous cohort',
         status:           'active',
         cohort:           nextCohort,
         intern_id:        internId,
@@ -674,7 +676,7 @@ export async function POST(req: NextRequest) {
 
     const { data: existing } = await supabase
       .from('challengers').select('id')
-      .eq('email', cleanEmail).maybeSingle();
+      .eq('email', cleanEmail).eq('cohort', cohort).maybeSingle();
 
     if (existing)
       return err('You\'re already registered as a challenger.', 409);
