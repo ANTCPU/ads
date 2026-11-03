@@ -28,7 +28,14 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const view   = searchParams.get('view');
-    const cohort = searchParams.get('cohort') || 'october-2026';
+    let cohort = searchParams.get('cohort');
+    if (!cohort) {
+      try {
+        const clock = await fetch('https://antcpu-ads.vercel.app/api/clock', { cache: 'no-store' });
+        if (clock.ok) { const c = await clock.json(); cohort = c.cohort; }
+      } catch {}
+    }
+    cohort = cohort || 'november-2026';
 
     // ── Public leaderboard — no auth required ──────────────
     if (view === 'public') {
