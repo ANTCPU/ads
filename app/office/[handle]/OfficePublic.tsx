@@ -195,6 +195,33 @@ export default function OfficePublic({ data }: { data: OfficeData }) {
           </div>
         </div>
 
+        {/* ── Mentor hero badge ── */}
+        {(data.badges?.includes('mentor') || data.badges?.includes('founder')) && (
+          <div style={{
+            background: '#fffbeb', border: '1px solid #fcd34d',
+            borderRadius: 10, padding: '0.75rem 1rem',
+            marginBottom: '1.5rem',
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+          }}>
+            <span style={{ fontSize: '1.5rem' }}>🎓</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.85rem', color: '#92400e' }}>
+                {data.badges?.includes('founder') ? '⚡ Platform Founder' : 'antcpu Mentor'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#b45309', marginTop: 2 }}>
+                {data.role_title} · 100% Complete · {data.cohort_short?.toUpperCase()} cohort
+              </div>
+            </div>
+            <span style={{
+              marginLeft: 'auto', fontSize: '0.68rem', fontWeight: 700,
+              background: '#fcd34d', color: '#78350f',
+              borderRadius: 999, padding: '0.2rem 0.6rem',
+            }}>
+              ✅ Graduate
+            </span>
+          </div>
+        )}
+
         {/* ── Divider ── */}
         <div style={{ height: 1, background: '#e5e7eb', marginBottom: '2rem' }} />
 

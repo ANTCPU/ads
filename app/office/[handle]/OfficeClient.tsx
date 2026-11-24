@@ -11,6 +11,7 @@ import {
 import type { OfficeData, NextCohort, TrackKey } from '../../../types/office';
 import IdentityIsland from './IdentityIsland';
 import OfficeBanner from './OfficeBanner';
+import MentorDashboard from './MentorDashboard';
 
 
 
@@ -503,6 +504,8 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
     ? 'linear-gradient(160deg, #c8a882 0%, #8b5e3c 40%, #5c3317 70%, #2a1500 100%)'
     : theme.bg;
   const githubHandle = stripGithubUrl(data.github_handle);
+  const displayProgress = isTeam ? 100 : data.progress_pct;
+  // Force 100% for mentor/team profiles
 
 
   const [mounted, setMounted] = useState(false);
@@ -722,14 +725,14 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
                 </a>
               )}
               <span className="font-bold" style={{ color: theme.accent }}>
-                {data.progress_pct}%
+                {displayProgress}%
               </span>
             </div>
             <div className="h-3 rounded-full overflow-hidden" style={{ background: theme.border }}>
               <div
                 className="h-3 rounded-full"
                 style={{
-                  width: mounted ? `${data.progress_pct}%` : '0%',
+                  width: mounted ? `${displayProgress}%` : '0%',
                   background: theme.accent,
                   boxShadow: data.progress_pct > 0 ? theme.glow : 'none',
                   transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -799,6 +802,28 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             subtext={theme.subtext}
             isElevated={isTeam}
           />
+
+          {/* ── Mentor Dashboard — team/founder only ── */}
+          {isTeam && (
+            <MentorDashboard
+              data={data}
+              accent={theme.accent}
+              border={theme.border}
+              subtext={theme.subtext}
+              isFounder={(data as any).profile_type === 'founder'}
+            />
+          )}
+
+          {/* ── Mentor Dashboard — team/founder only ── */}
+          {isTeam && (
+            <MentorDashboard
+              data={data}
+              accent={theme.accent}
+              border={theme.border}
+              subtext={theme.subtext}
+              isFounder={(data as any).profile_type === 'founder'}
+            />
+          )}
 
           {/* ── Bio ── */}
           {data.bio && (

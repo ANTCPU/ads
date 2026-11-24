@@ -89,10 +89,14 @@ export async function generateMetadata(
 
   const track      = data.track === 'marketing' ? '📣 Marketing' : '💻 Dev';
   const trackEmoji = data.track === 'marketing' ? '📣' : '💻';
+  const isMentor   = data.profile_type === 'team' || data.profile_type === 'founder';
+  const description = isMentor
+    ? `${data.name} · ${data.role_title} · antcpu internship platform. 100% complete · ${data.country}`
+    : `${data.name} is a ${data.role_title} in the antcpu Human in the Loop Internship Challenge. ${data.progress_pct}% complete · ${data.country}`;
 
   return {
     title:       `${data.name} · ${track} · antcpu Office`,
-    description: `${data.name} is a ${data.role_title} in the antcpu Human in the Loop Internship Challenge. ${data.progress_pct}% complete · ${data.country}`,
+    description,
     openGraph: {
       title:       `${data.name} — antcpu Virtual Office`,
       description: `${data.role_title} · ${data.progress_pct}% · ${data.country}`,
