@@ -198,7 +198,7 @@ export async function GET(req: Request) {
     ping('/submit',    'POST'),
     ping('/register',  'POST'),
     ping('/session',   'POST'),
-    ping('/office?cohort=october-2026&room=general'),
+    ping(`/office?cohort=${clock.cohort ?? 'november-2026'}&room=general`),
     ping('/messages?intern_id=intern-antcpu-001'),
   ]);
 

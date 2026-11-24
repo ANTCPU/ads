@@ -1,282 +1,22 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import OfficePublic from './OfficePublic';
 import { pingActivity } from '../../../lib/pingActivity';
+import {
+  THEMES, BADGE_MAP, NODE_MAP, GATE_NEXT, COUNTRY_TZ,
+  WS_DEV, WS_MKT, safeFlag, stripGithubUrl, relativeTime,
+  tierLabel, localTime, formatBadge, getNextGate,
+  type GateEntry,
+} from '../../../lib/officeConstants';
+import type { OfficeData, NextCohort, TrackKey } from '../../../types/office';
 
 // ── TODO: Extract to own files when stable ──────────────────
 // OfficeBanner       → components/OfficeBanner.tsx       (158 lines)
 // OfficeMessagePanel → components/OfficeMessagePanel.tsx (150 lines)
 // AdminSlideout      → components/AdminSlideout.tsx      (149 lines)
-// IdentityIsland     → components/IdentityIsland.tsx     (178 lines)
-// Style tokens       → 63 repeated inline patterns → shared S object
-// ─────────────────────────────────────────────────────────────
 
 
-import { useState, useEffect } from 'react';
-
-// ── Timezone map — country → IANA tz ─────────────────────────
-
-// ── Gate map — next task computation ─────────────────────────
-// ── Gate workspace defaults ──────────────────────────────────
-const WS_DEV  = 'https://antcpu.io/dev/';
-const WS_MKT  = 'https://antcpu.io/marketing/';
-
-type GateEntry = { id: string; pct: number; label: string; url?: string; urlMarketing?: string };
-
-// url/urlMarketing omitted = defaults to WS_DEV / WS_MKT at runtime
-const GATE_NEXT: GateEntry[] = [
-  { id: 'd1',        pct: 5,   label: 'Register & Introduce Yourself',  url: 'https://antcpu.io/apply/' },
-  { id: 'd2',        pct: 10,  label: 'Complete Your Profile',           url: 'https://antcpu.io/dashboard/' },
-  { id: 'd3',        pct: 15,  label: 'Explore the Arena',               url: 'https://github.com/ANTCPU/ads', urlMarketing: 'https://antcpu.cloud/' },
-  { id: 'd4',        pct: 20,  label: 'First Action in the Arena',       url: 'https://antcpu.cloud/' },
-  { id: 'd5',        pct: 22,  label: 'First Submission'         },
-  { id: 'd6',        pct: 24,  label: 'Give Peer Feedback'       },
-  { id: 'd7',        pct: 25,  label: 'Week 1 Reflection'        },
-  { id: 'd8',        pct: 30,  label: 'Week 2 Brief — Plan Your Build' },
-  { id: 'd9',        pct: 35,  label: 'Research & Analyze'       },
-  { id: 'd10',       pct: 38,  label: 'Build Day 1'              },
-  { id: 'd11',       pct: 42,  label: 'Build Day 2'              },
-  { id: 'd12',       pct: 46,  label: 'Ship & Submit'            },
-  { id: 'd13',       pct: 48,  label: 'Peer Review'              },
-  { id: 'd14',       pct: 50,  label: 'Week 2 Reflection'        },
-  { id: 'd15',       pct: 55,  label: 'Meet Your Team'           },
-  { id: 'd16',       pct: 58,  label: 'Team Brief — Define the Project' },
-  { id: 'd17',       pct: 62,  label: 'Build Together Day 1'     },
-  { id: 'd18',       pct: 65,  label: 'Build Together Day 2'     },
-  { id: 'd19',       pct: 70,  label: 'Ship the Team Project'    },
-  { id: 'd20',       pct: 72,  label: 'Cross-Track Peer Review'  },
-  { id: 'd21',       pct: 75,  label: 'Week 3 Reflection'        },
-  { id: 'd22',       pct: 80,  label: 'Claim Your Role'          },
-  { id: 'd23',       pct: 85,  label: 'Final Build — Ship It'    },
-  { id: 'd24',       pct: 95,  label: 'Final Submission & Showcase' },
-  { id: 'd25-final', pct: 100, label: 'Selection Day'            },
-];
-
-function getNextGate(completedGates: string[], track: string) {
-  const g = GATE_NEXT.find(x => !completedGates.includes(x.id)) ?? null;
-  if (!g) return null;
-  return {
-    ...g,
-    url:         g.url         ?? WS_DEV,
-    urlMarketing: g.urlMarketing ?? WS_MKT,
-  };
-}
-
-const COUNTRY_TZ: Record<string, string> = {
-  'United States': 'America/New_York',
-  'United Kingdom': 'Europe/London',
-  'Pakistan': 'Asia/Karachi',
-  'India': 'Asia/Kolkata',
-  'Nigeria': 'Africa/Lagos',
-  'Kenya': 'Africa/Nairobi',
-  'Ghana': 'Africa/Accra',
-  'South Africa': 'Africa/Johannesburg',
-  'Egypt': 'Africa/Cairo',
-  'Germany': 'Europe/Berlin',
-  'France': 'Europe/Paris',
-  'Italy': 'Europe/Rome',
-  'Spain': 'Europe/Madrid',
-  'Turkey': 'Europe/Istanbul',
-  'China': 'Asia/Shanghai',
-  'Japan': 'Asia/Tokyo',
-  'South Korea': 'Asia/Seoul',
-  'Indonesia': 'Asia/Jakarta',
-  'Vietnam': 'Asia/Ho_Chi_Minh',
-  'Philippines': 'Asia/Manila',
-  'Brazil': 'America/Sao_Paulo',
-  'Mexico': 'America/Mexico_City',
-  'Canada': 'America/Toronto',
-  'Australia': 'Australia/Sydney',
-  'Saudi Arabia': 'Asia/Riyadh',
-  'United Arab Emirates': 'Asia/Dubai',
-};
-
-// ── Themes ────────────────────────────────────────────────────
-const THEMES = {
-  dev: {
-    bg: 'linear-gradient(160deg, #0d1117 0%, #0a1628 40%, #0d1f2d 70%, #060d14 100%)',
-    accent: '#00e5ff',
-    border: '#1e3a4a',
-    text: '#e6edf3',
-    subtext: '#8b949e',
-    badge: 'bg-cyan-900 text-cyan-300',
-    label: '💻 Developer',
-    glow: '0 0 20px rgba(0,229,255,0.15)',
-    particle: '#00e5ff',
-  },
-  marketing: {
-    bg: 'linear-gradient(160deg, #1a0a2e 0%, #3b1f0f 40%, #2a1200 70%, #0f0800 100%)',
-    accent: '#f0883e',
-    border: '#2a1800',
-    text: '#f5e6d0',
-    subtext: '#a07850',
-    badge: 'bg-amber-950 text-amber-400',
-    label: '📣 Marketer',
-    glow: '0 0 20px rgba(240,136,62,0.2)',
-    particle: '#f0883e',
-  },
-} as const;
-
-type TrackKey = keyof typeof THEMES;
-
-// ── Badge Map ─────────────────────────────────────────────────
-const BADGE_MAP: Record<string, { label: string; emoji: string }> = {
-  'first-click':   { label: 'First Click',      emoji: '🖱️' },
-  'first-share':   { label: 'First Share',       emoji: '📤' },
-  'first-like':    { label: 'First Like',        emoji: '❤️' },
-  'early-bird':    { label: 'Early Bird',        emoji: '🐦' },
-  'profile':       { label: 'Profile Complete',  emoji: '👤' },
-  'mentor':        { label: 'Mentor',            emoji: '🎓' },
-  'veteran':       { label: 'Veteran',           emoji: '🎖️' },
-  'country-champ': { label: 'Country Champion',  emoji: '🏆' },
-  'rising':        { label: 'Rising',            emoji: '⬆️' },
-  'd1':            { label: 'Explorer',          emoji: '🚀' },
-  'd2':            { label: 'Profile Set',       emoji: '✅' },
-  'd3':            { label: 'Arena Explorer',    emoji: '🏟️' },
-  'd6':            { label: 'Peer Reviewer',     emoji: '👥' },
-  'd7':            { label: 'Week 1 Complete',   emoji: '🎯' },
-  'd8':            { label: 'Planner',           emoji: '📋' },
-  'd12':           { label: 'Shipped',           emoji: '🚢' },
-  'd13':           { label: 'Code Reviewer',     emoji: '🔍' },
-  'verified-cv':   { label: 'Verified CV',        emoji: '📄' },
-  'returning':     { label: 'Returning',           emoji: '⭐' },
-  'founder':       { label: 'Founder',             emoji: '⚡' },
-};
-
-function formatBadge(slug: string): string {
-  const b = BADGE_MAP[slug];
-  return b
-    ? `${b.emoji} ${b.label}`
-    : slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
-
-// ── Types ─────────────────────────────────────────────────────
-type NextCohort = {
-  cohort: string;
-  opens: string;
-  opens_in_days: number;
-  signups: number;
-  apply_url: string;
-};
-
-type OfficeData = {
-  id: string;
-  handle: string;
-  intern_id: string;
-  name: string;
-  initials: string;
-  flag: string | null;
-  color: string | null;
-  track: TrackKey;
-  country: string;
-  progress_pct: number;
-  role_title: string;
-  badges: string[];
-  completed_gates: string[];
-  tasks_done: number;
-  submissions: number;
-  last_seen: string | null;
-  ad_id: string | null;
-  ad_url: string | null;
-  github_handle: string | null;
-  stack: string | null;
-  channels: string | null;
-  bio: string | null;
-  links: Record<string, string> | null;
-  cohort: string;
-  is_captain: boolean | null;
-  team_id: string | null;
-  captain_team: string | null;
-  team_notes: string | null;
-  cutoff_status: string | null;
-  elevation_level?: number;
-  elevation_note?: string | null;
-  banner_url?: string | null;
-  brand_slug?: string | null;
-  banner_unlocked?: boolean | null;
-  arena_boost_unlocked?: boolean | null;
-  cv_public?: boolean | null;
-  is_graduate?: boolean | null;
-  arena: {
-    points: number;
-    tier: string | null;
-    is_champion: boolean;
-    streak: number;
-    visits: number;
-    brand_name: string | null;
-  } | null;
-  activity: {
-    label: string;
-    icon: string;
-    created_at: string;
-  }[];
-  clock: {
-    day: number;
-    week: number;
-    week_name: string;
-    days_left_total: number;
-    days_left_week: number | null;
-    entry_open: boolean;
-    next_cohort: NextCohort | null;
-  } | null;
-  presence: {
-    sessions_active_1h: number;
-    office_posts_today: number;
-    virtual_office_live: boolean;
-  } | null;
-};
-
-// ── Helpers ───────────────────────────────────────────────────
-function safeFlag(flag: string | null): string {
-  if (!flag) return '';
-  const invalid = ['none', 'stalled', 'nudge', 'at-risk', 'shining'];
-  return invalid.includes(flag) ? '' : flag;
-}
-
-function stripGithubUrl(raw: string | null): string {
-  if (!raw) return '';
-  return raw
-    .replace('https://github.com/', '')
-    .replace('http://github.com/', '')
-    .replace(/\/$/, '');
-}
-
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 2) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-function tierLabel(tier: string | null): string {
-  const map: Record<string, string> = {
-    trial: 'Trial', member: 'Member',
-    rising: '⬆ Rising', featured: '⭐ Featured', top: '🏆 Top',
-  };
-  return tier ? (map[tier] ?? tier) : '';
-}
-
-function localTime(country: string): string {
-  const tz = COUNTRY_TZ[country] ?? 'UTC';
-  return new Intl.DateTimeFormat('en', {
-    timeZone: tz,
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short',
-    hour12: false,
-  }).format(new Date());
-}
-
-
-const NODE_MAP: Record<string, { name: string; color: string; emoji: string }> = {
-  'node-1': { name: 'Alpha',  color: '#ff4d00', emoji: '🔴' },
-  'node-2': { name: 'Beta',   color: '#00d4ff', emoji: '🔵' },
-  'node-3': { name: 'Gamma',  color: '#ffd700', emoji: '🟡' },
-  'node-4': { name: 'Delta',  color: '#00ff88', emoji: '🟢' },
-};
 
 // ── Office Banner ─────────────────────────────────────────────
 function OfficeBanner({
@@ -486,60 +226,66 @@ function ElevationBanner({
 
 // ── Office Message Panel ──────────────────────────────────────
 function OfficeMessagePanel({
-  cohort, handle, track, accent, border, subtext,
+  cohort, handle, track, accent, border, subtext, isElevated = false,
 }: {
   cohort: string; handle: string; track: string;
   accent: string; border: string; subtext: string;
+  isElevated?: boolean;
 }) {
   const rooms = track === 'marketing'
     ? ['general', 'marketing', 'mentors', 'standups']
     : ['general', 'dev', 'mentors', 'standups'];
 
   const roomLabels: Record<string, string> = {
-    general:   '💬 General',
-    dev:       '💻 Dev',
-    marketing: '📣 Marketing',
-    standups:  '📋 Standups',
-    mentors:   '🎓 Mentors',
+    general: '💬 General', dev: '💻 Dev', marketing: '📣 Marketing',
+    standups: '📋 Standups', mentors: '🎓 Mentors',
   };
 
   const [activeRoom, setActiveRoom] = useState(rooms[0]);
-  const [messages, setMessages] = useState<{
-    id: string;
-    author_name: string;
-    content: string;
-    created_at: string;
-  }[]>([]);
-  const [input, setInput] = useState('');
-  const [sending, setSending] = useState(false);
+  const [messages, setMessages]     = useState<{ id: string; author_name: string; author_type: string; content: string; created_at: string }[]>([]);
+  const [input, setInput]           = useState('');
+  const [sending, setSending]       = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
 
-  useEffect(() => {
+  const cohortSlug = cohort?.replace('-', '-') ?? 'nov';
+
+  function fetchMessages() {
+    setLoading(true);
     fetch(`/api/internship/office?cohort=${cohort}&room=${activeRoom}`)
       .then(r => r.json())
-      .then(d => setMessages(d.messages ?? []));
-  }, [activeRoom, cohort]);
+      .then(d => setMessages(d.messages ?? []))
+      .catch(() => null)
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { fetchMessages(); }, [activeRoom, cohort]);
 
   async function send() {
-    if (!input.trim()) return;
+    if (!input.trim() || sending) return;
     setSending(true);
-    await fetch('/api/internship/office', {
+    setError('');
+    const res = await fetch('/api/internship/office', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         cohort,
         room: activeRoom,
         author_id: handle,
-        author_name: handle,
-        author_type: 'challenger',
         content: input.trim(),
       }),
-    });
-    setInput('');
+    }).catch(() => null);
+    if (res && !res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? 'Failed to send');
+    } else {
+      setInput('');
+      fetchMessages();
+    }
     setSending(false);
-    fetch(`/api/internship/office?cohort=${cohort}&room=${activeRoom}`)
-      .then(r => r.json())
-      .then(d => setMessages(d.messages ?? []));
   }
+
+  const canPost = activeRoom !== 'mentors' || isElevated;
 
   return (
     <div className="rounded-lg mb-6" style={{ border: `1px solid ${border}`, background: 'rgba(255,255,255,0.02)' }}>
@@ -547,66 +293,59 @@ function OfficeMessagePanel({
       {/* Room tabs */}
       <div className="flex border-b" style={{ borderColor: border }}>
         {rooms.map(r => (
-          <button
-            key={r}
-            onClick={() => setActiveRoom(r)}
+          <button key={r} onClick={() => setActiveRoom(r)}
             className="flex-1 text-xs py-2.5 font-semibold transition-colors"
             style={{
               color: activeRoom === r ? accent : subtext,
-              borderBottom: activeRoom === r
-                ? `2px solid ${accent}`
-                : '2px solid transparent',
-            }}
-          >
+              borderBottom: activeRoom === r ? `2px solid ${accent}` : '2px solid transparent',
+            }}>
             {roomLabels[r]}
           </button>
         ))}
       </div>
 
-      {/* Standup banner — only shown in standups tab */}
+      {/* Standup banner */}
       {activeRoom === 'standups' && (
         <div className="mx-3 mt-3 rounded-lg p-3" style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.18)' }}>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <p className="text-xs font-bold" style={{ color: accent }}>📅 Friday Standup — Nov Cohort</p>
-              <p className="text-xs mt-0.5" style={{ color: subtext }}>
-                Join live or leave a message below — async standups count too.
-              </p>
+              <p className="text-xs font-bold" style={{ color: accent }}>📅 Friday Standup — {cohort}</p>
+              <p className="text-xs mt-0.5" style={{ color: subtext }}>Join live or leave a message below — async standups count too.</p>
             </div>
-            <a
-              href={`https://tv-ten-psi.vercel.app/standup-room.html?room=nov-cohort&name=${encodeURIComponent(handle)}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <a href={`https://tv-ten-psi.vercel.app/standup-room.html?room=${cohortSlug}&name=${encodeURIComponent(handle)}`}
+              target="_blank" rel="noopener noreferrer"
               className="text-xs px-4 py-2 rounded-lg font-bold shrink-0 transition-opacity hover:opacity-80"
-              style={{ background: accent, color: '#000' }}
-            >
+              style={{ background: accent, color: '#000' }}>
               ▶ Join Standup
             </a>
           </div>
-          <div className="mt-2 pt-2 flex gap-3" style={{ borderTop: '1px solid rgba(0,230,118,0.12)' }}>
-            <div className="text-xs" style={{ color: subtext }}>
-              <span style={{ color: accent }}>💡 Tip:</span> No one live? Drop your standup note below — what you built, what&apos;s next, any blockers.
-            </div>
-          </div>
+          <p className="text-xs mt-2 pt-2" style={{ borderTop: '1px solid rgba(0,230,118,0.12)', color: subtext }}>
+            <span style={{ color: accent }}>💡 Tip:</span> No one live? Drop your standup note below — what you built, what&apos;s next, any blockers.
+          </p>
+        </div>
+      )}
+
+      {/* Mentors room notice for challengers */}
+      {activeRoom === 'mentors' && !isElevated && (
+        <div className="mx-3 mt-3 rounded-lg p-3 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}`, color: subtext }}>
+          🎓 Mentor room — read only. Messages from your mentors appear here.
         </div>
       )}
 
       {/* Messages */}
-      <div className="p-3 space-y-3 min-h-[80px] max-h-[200px] overflow-y-auto" style={{ background: 'rgba(0,0,0,0.15)' }}>
-        {messages.length === 0 ? (
-          <p className="text-xs text-center py-4" style={{ color: subtext }}>
-            No messages yet. Be the first.
-          </p>
+      <div className="p-3 space-y-3 min-h-[80px] max-h-[320px] overflow-y-auto" style={{ background: 'rgba(0,0,0,0.15)' }}>
+        {loading ? (
+          <p className="text-xs text-center py-4 opacity-40" style={{ color: subtext }}>Loading...</p>
+        ) : messages.length === 0 ? (
+          <p className="text-xs text-center py-4" style={{ color: subtext }}>No messages yet. Be the first.</p>
         ) : (
-          messages.slice(0, 5).map((m) => (
+          messages.slice(0, 20).map((m) => (
             <div key={m.id} className="text-sm">
               <div className="flex items-center gap-2">
-                <span className="font-semibold" style={{ color: accent }}>
-                  {m.author_name}
+                <span className="font-semibold" style={{ color: m.author_type === 'mentor' ? '#ffd700' : m.author_type === 'system' ? subtext : accent }}>
+                  {m.author_type === 'mentor' ? '🎓 ' : m.author_type === 'system' ? '⚡ ' : ''}{m.author_name}
                 </span>
-                <span className="text-xs opacity-40">
-                  {relativeTime(m.created_at)}
-                </span>
+                <span className="text-xs opacity-40">{relativeTime(m.created_at)}</span>
               </div>
               <p className="opacity-80 mt-0.5">{m.content}</p>
             </div>
@@ -614,30 +353,27 @@ function OfficeMessagePanel({
         )}
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2 p-3 border-t" style={{ borderColor: border }}>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
-          placeholder={activeRoom === 'standups' ? `Drop your standup note — what you built, what's next, any blockers...` : `Message #${activeRoom}...`}
-          className="flex-1 text-sm bg-transparent outline-none"
-          style={{ color: '#ccc' }}
-        />
-        <button
-          onClick={send}
-          disabled={sending || !input.trim()}
-          className="text-xs px-3 py-1 rounded font-semibold disabled:opacity-30"
-          style={{ background: accent, color: '#000' }}
-        >
-          {sending ? '...' : 'Send'}
-        </button>
-      </div>
+      {/* Input — hidden for challengers in mentors room */}
+      {canPost && (
+        <div className="flex flex-col gap-1 p-3 border-t" style={{ borderColor: border }}>
+          {error && <p className="text-xs text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <input value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder={activeRoom === 'standups' ? `What you built, what's next, any blockers...` : `Message #${activeRoom}...`}
+              className="flex-1 text-sm bg-transparent outline-none"
+              style={{ color: '#ccc' }} />
+            <button onClick={send} disabled={sending || !input.trim()}
+              className="text-xs px-3 py-1 rounded font-semibold disabled:opacity-30"
+              style={{ background: accent, color: '#000' }}>
+              {sending ? '...' : 'Send'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-// ── Share Strip ───────────────────────────────────────────────
 function OfficeShareStrip({
   handle, name, track, accent, border, subtext, badges,
 }: {
@@ -1627,6 +1363,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             accent={theme.accent}
             border={theme.border}
             subtext={theme.subtext}
+            isElevated={isTeam}
           />
 
           {/* ── Bio ── */}
