@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import OfficePublic from './OfficePublic';
 import { pingActivity } from '../../../lib/pingActivity';
 import {
   THEMES, BADGE_MAP, NODE_MAP, GATE_NEXT, COUNTRY_TZ,
-  WS_DEV, WS_MKT, safeFlag, stripGithubUrl, relativeTime,
+  safeFlag, stripGithubUrl, relativeTime,
   tierLabel, localTime, formatBadge, getNextGate,
 } from '../../../lib/officeConstants';
 import type { OfficeData, NextCohort, TrackKey } from '../../../types/office';
@@ -814,16 +813,6 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             />
           )}
 
-          {/* ── Mentor Dashboard — team/founder only ── */}
-          {isTeam && (
-            <MentorDashboard
-              data={data}
-              accent={theme.accent}
-              border={theme.border}
-              subtext={theme.subtext}
-              isFounder={(data as any).profile_type === 'founder'}
-            />
-          )}
 
           {/* ── Bio ── */}
           {data.bio && (
