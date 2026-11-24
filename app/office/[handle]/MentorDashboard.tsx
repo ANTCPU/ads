@@ -131,15 +131,15 @@ function InlineDmThread({
   return (
     <div style={{
       marginTop: '0.5rem',
-      background: 'rgba(0,0,0,0.2)',
-      border: `1px solid ${border}`,
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
       borderRadius: 8, overflow: 'hidden',
     }}>
       {/* Thread messages */}
       <div style={{ maxHeight: 160, overflowY: 'auto', padding: '0.5rem 0.75rem' }}>
         {!loaded && <p style={{ fontSize: '0.7rem', color: '#555' }}>Loading...</p>}
         {loaded && messages.length === 0 && (
-          <p style={{ fontSize: '0.7rem', color: '#555', margin: 0 }}>
+          <p style={{ fontSize: '0.7rem', color: '#888', margin: 0 }}>
             No messages yet — start the conversation.
           </p>
         )}
@@ -151,10 +151,10 @@ function InlineDmThread({
             <span style={{
               display: 'inline-block',
               fontSize: '0.72rem', lineHeight: 1.4,
-              background: m.is_mine ? `${accent}22` : 'rgba(255,255,255,0.06)',
-              border: `1px solid ${m.is_mine ? accent + '44' : border}`,
+              background: m.is_mine ? `${accent}22` : '#f1f5f9',
+              border: `1px solid ${m.is_mine ? accent + '44' : '#e2e8f0'}`,
+              color: m.is_mine ? accent : '#374151',
               borderRadius: 8, padding: '0.25rem 0.6rem',
-              color: m.is_mine ? accent : '#ccc',
               maxWidth: '85%',
             }}>
               {m.content}
@@ -168,10 +168,10 @@ function InlineDmThread({
 
       {/* Input */}
       <div style={{
-        borderTop: `1px solid ${border}`,
+        borderTop: '1px solid #e2e8f0',
         display: 'flex', gap: '0.4rem',
         padding: '0.35rem 0.5rem',
-        background: 'rgba(255,255,255,0.02)',
+        background: '#f8fafc',
       }}>
         <input
           value={input}
@@ -181,7 +181,7 @@ function InlineDmThread({
           style={{
             flex: 1, fontSize: '0.75rem',
             background: 'transparent', border: 'none',
-            color: '#e6edf3', outline: 'none',
+            color: '#111', outline: 'none',
           }}
         />
         {sent && <span style={{ fontSize: '0.7rem', color: '#22c55e', alignSelf: 'center' }}>✓</span>}
@@ -229,8 +229,8 @@ function ChallengerRow({
 
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.02)',
-      border: `1px solid ${border}`,
+      background: 'rgba(255,255,255,0.9)',
+      border: `1px solid rgba(0,0,0,0.08)`,
       borderRadius: 10,
       padding: '0.6rem 0.75rem',
       marginBottom: '0.4rem',
@@ -240,10 +240,10 @@ function ChallengerRow({
 
         {/* Name */}
         <a href={`/office/${c.handle}`} style={{ textDecoration: 'none', flex: 1, minWidth: 100 }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#e6edf3' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#111' }}>
             {c.track === 'marketing' ? '📣' : '💻'} {c.name}
           </div>
-          <div style={{ fontSize: '0.62rem', color: '#555' }}>
+          <div style={{ fontSize: '0.62rem', color: '#888' }}>
             @{c.handle} · {c.country}
           </div>
         </a>
@@ -251,8 +251,8 @@ function ChallengerRow({
         {/* Progress */}
         <div style={{ flex: 2, minWidth: 80 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-            <span style={{ fontSize: '0.6rem', color: '#555' }}>{c.progress_pct}%</span>
-            <span style={{ fontSize: '0.6rem', color: '#555' }}>{c.hrs_since}h</span>
+            <span style={{ fontSize: '0.6rem', color: '#888' }}>{c.progress_pct}%</span>
+            <span style={{ fontSize: '0.6rem', color: '#888' }}>{c.hrs_since}h</span>
           </div>
           <div style={{ height: 4, borderRadius: 999, background: '#1e293b', overflow: 'hidden' }}>
             <div style={{
@@ -390,7 +390,7 @@ export default function MentorDashboard({
       {/* ── Graduate badge ── */}
       <div style={{
         borderRadius: 12, padding: '0.875rem 1.25rem', marginBottom: '1.25rem',
-        background: `${accent}0d`, border: `1px solid ${accent}33`,
+        background: 'rgba(255,255,255,0.92)', border: `1px solid ${accent}44`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem',
       }}>
         <div>
