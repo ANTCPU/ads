@@ -65,11 +65,14 @@ const MOOD: Record<string, string> = {
 export async function GET(req: Request) {
   const t0 = Date.now();
   const { searchParams } = new URL(req.url);
-  const cohortFilter = searchParams.get('cohort');
+  const cohortParam = searchParams.get('cohort');
 
   // ── 1. Clock — source of truth ────────────────────────────
   const clockRes = await fetch(CLOCK, { cache: 'no-store' });
   const clock    = await clockRes.json();
+
+  // ── cohort filter — param takes priority, falls back to clock ──
+  const cohortFilter = cohortParam || clock.cohort || null;
 
   // ── 2. DB counts — parallel ───────────────────────────────
   const [

@@ -14,7 +14,7 @@ const supabase = createClient(
 );
 
 const CORS = {
-  'Access-Control-Allow-Origin':  'https://antcpu.io',
+  'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, x-admin-token',
   'Cache-Control':                'no-store, max-age=0',

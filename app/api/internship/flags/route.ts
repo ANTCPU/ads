@@ -9,7 +9,7 @@ const supabase = createClient(
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -81,4 +81,37 @@ export async function GET(req: NextRequest) {
     total:  data?.length ?? 0,
     cohort: cohort ?? 'all',
   }, { headers: CORS });
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { intern_id, flag, note } = body;
+
+    const VALID_FLAGS = ['none', 'nudge', 'at-risk', 'stalled', 'shining'];
+
+    if (!intern_id) {
+      return NextResponse.json({ error: 'intern_id required' }, { status: 400, headers: CORS });
+    }
+    if (!flag || !VALID_FLAGS.includes(flag)) {
+      return NextResponse.json({ error: `flag must be one of: ${VALID_FLAGS.join(', ')}` }, { status: 400, headers: CORS });
+    }
+
+    const update: Record<string, string> = { flag };
+    if (note) update.elevation_note = note;
+
+    const { error } = await supabase
+      .from('challengers')
+      .update(update)
+      .eq('intern_id', intern_id);
+
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500, headers: CORS });
+
+    return NextResponse.json({ ok: true, intern_id, flag }, { headers: CORS });
+
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500, headers: CORS });
+  }
 }

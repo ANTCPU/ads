@@ -73,6 +73,7 @@ type ChallengerRow = {
   arena_boost_unlocked: boolean | null;
   cv_public:            boolean | null;
   is_graduate:          boolean | null;
+  profile_type:         string | null;
 };
 
 type ArenaRow = {
@@ -124,7 +125,7 @@ export async function GET(
         'last_seen, cohort, cohort_short, ad_id, ad_url, ' +
         'github_handle, stack, channels, bio, links, ' +
         'is_captain, team_id, profile_complete, email, ' +
-        'cutoff_status, elevation_level, elevation_note, banner_url, brand_slug, captain_team, team_notes'
+        'cutoff_status, elevation_level, elevation_note, banner_url, brand_slug, captain_team, team_notes, profile_type'
       )
       .eq('handle', handle)
       .maybeSingle(),
@@ -144,6 +145,8 @@ export async function GET(
 
 
   // ── Doorbell — fire once per hour ─────────────────────────
+  const { searchParams } = new URL(req.url);
+  const visitorHandle = searchParams.get('visitor') ?? null;
   const lastSeen = c.last_seen ? new Date(c.last_seen).getTime() : 0;
   if (lastSeen < Date.now() - 3600000) {
     const track = c.track === 'marketing' ? '📣 Marketing' : '💻 Dev';
@@ -151,10 +154,11 @@ export async function GET(
       title:  `🔔 Office Visit — ${c.handle}`,
       color:  DC.intern,
       fields: [
-        { name: 'Challenger', value: c.handle ?? '—',           inline: true },
-        { name: 'Track',      value: track,                     inline: true },
-        { name: 'Progress',   value: `${c.progress_pct ?? 0}%`, inline: true },
-        { name: 'Cohort',     value: c.cohort ?? '—',           inline: true },
+        { name: 'Office',   value: c.handle ?? '—',                        inline: true },
+        { name: 'Visitor',  value: visitorHandle ?? 'anonymous',            inline: true },
+        { name: 'Track',    value: track,                                   inline: true },
+        { name: 'Progress', value: `${c.progress_pct ?? 0}%`,              inline: true },
+        { name: 'Cohort',   value: c.cohort ?? '—',                        inline: true },
       ],
       footer:    'office doorbell · antcpu',
       timestamp: true,
@@ -232,6 +236,7 @@ export async function GET(
       arena_boost_unlocked: c.arena_boost_unlocked ?? false,
       cv_public:            c.cv_public            ?? false,
       is_graduate:          c.is_graduate          ?? false,
+      profile_type:         c.profile_type         ?? 'challenger',
       arena: arena
         ? {
             points:      arena.points ?? 0,
