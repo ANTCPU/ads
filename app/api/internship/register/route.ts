@@ -481,6 +481,7 @@ export async function POST(req: NextRequest) {
       timezone, background,
       why_here, first_name, last_name,
       portfolio, ai_exp, availability, sessionId,
+      cohort_type = 'monthly',
     } = await req.json();
 
     if (!name?.trim() || !email?.trim() || !country?.trim() || !track)
@@ -510,9 +511,28 @@ export async function POST(req: NextRequest) {
       if (clockRes.ok) {
         const clock = await clockRes.json();
         day        = clock.day        ?? 1;
-        cohort     = clock.cohort     ?? cohort;
         entryOpen  = clock.entry_open ?? true;
         nextCohortData = clock.next_cohort ?? null;
+
+        // ── Weekly routing — find active weekly cohort ────────
+        if (cohort_type === 'weekly') {
+          const allCohorts: { cohort: string; cohort_type: string; started_at: string; closed_at: string }[] =
+            clock._all_cohorts ?? [];
+          const now = new Date();
+          const activeWeekly = allCohorts.find((c: any) =>
+            c.cohort_type === 'weekly' &&
+            now >= new Date(c.started_at) &&
+            now <= new Date(c.closed_at)
+          );
+          // If no active weekly yet, find the next upcoming weekly
+          const nextWeekly = allCohorts
+            .filter((c: any) => c.cohort_type === 'weekly' && new Date(c.started_at) > now)
+            .sort((a: any, b: any) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())[0];
+          cohort = activeWeekly?.cohort ?? nextWeekly?.cohort ?? clock.cohort ?? cohort;
+          day    = activeWeekly ? clock.day : 0; // 0 = pre-launch
+        } else {
+          cohort = clock.cohort ?? cohort;
+        }
       }
     } catch {
       // Clock fetch failed — fall back to challengeDays.ts
@@ -625,12 +645,12 @@ export async function POST(req: NextRequest) {
         cohort:           nextCohort,
         intern_id:        internId,
         brand_slug:           brandSlug,
-        next_gate_id:         'd2',
-        next_gate_label:      'Complete Your Profile',
-        next_gate_pct:        10,
-        next_milestone_pct:   25,
-        next_milestone_label: 'Week 1 Complete',
-        pct_to_milestone:     20,
+        next_gate_id:         cohort_type === 'weekly' ? 'w-d1' : 'd2',
+        next_gate_label:      cohort_type === 'weekly' ? 'Ship Your First Work' : 'Complete Your Profile',
+        next_gate_pct:        cohort_type === 'weekly' ? 40 : 10,
+        next_milestone_pct:   cohort_type === 'weekly' ? 100 : 25,
+        next_milestone_label: cohort_type === 'weekly' ? 'Week Complete' : 'Week 1 Complete',
+        pct_to_milestone:     cohort_type === 'weekly' ? 90 : 20,
       });
 
       // Fetch back for handle
@@ -760,12 +780,12 @@ export async function POST(req: NextRequest) {
         cohort,
         intern_id:        internId,
         brand_slug:           brandSlug,
-        next_gate_id:         'd2',
-        next_gate_label:      'Complete Your Profile',
-        next_gate_pct:        10,
-        next_milestone_pct:   25,
-        next_milestone_label: 'Week 1 Complete',
-        pct_to_milestone:     20,
+        next_gate_id:         cohort_type === 'weekly' ? 'w-d1' : 'd2',
+        next_gate_label:      cohort_type === 'weekly' ? 'Ship Your First Work' : 'Complete Your Profile',
+        next_gate_pct:        cohort_type === 'weekly' ? 40 : 10,
+        next_milestone_pct:   cohort_type === 'weekly' ? 100 : 25,
+        next_milestone_label: cohort_type === 'weekly' ? 'Week Complete' : 'Week 1 Complete',
+        pct_to_milestone:     cohort_type === 'weekly' ? 90 : 20,
       });
 
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);
@@ -889,6 +909,7 @@ export async function POST(req: NextRequest) {
       track,
       day,
       cohort,
+      cohort_type,
     });
 
   } catch (e: unknown) {
