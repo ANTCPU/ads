@@ -16,8 +16,11 @@ import { heraldSend }        from '../../../lib/herald';
 import { notifyDiscord, DC } from '../../../lib/discord';
 import {
   checkEmailValidity,
+  checkEmailGate,
   recordEmailSent,
   logEmailSend,
+  gatedNotify,
+  logSkippedSend,
 } from '../../../lib/emailGate';
 
 const supabase = createClient(
@@ -153,14 +156,10 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    // Email validity
-    const validity = await checkEmailValidity(supabase, c.email).catch(() => null);
-    if (validity === 'bounced' || validity === 'unsubscribed') {
-      results.push({ handle: c.handle, signal, nudgeType, sent: false, reason: validity ?? 'invalid' });
-      continue;
-    }
+    // Email gate — validity + budget + in-app fallback
+    const gate = await checkEmailGate(supabase, c.email, 'transactional').catch(() => ({ allow: false, reason: 'gate_error' as const }));
 
-    // Build + send
+    // Build context + email regardless — needed for in-app notify
     const ctx = buildContext(c, clock, signal);
     const { subject, html } = buildNudgeEmail({
       firstName:     ctx.firstName,
@@ -171,6 +170,20 @@ export async function GET(req: NextRequest) {
       handle:        c.handle    ?? undefined,
       elevationNote: ctx.elevationNote,
     });
+
+    if (!gate.allow) {
+      // Always fire in-app notification even when email is gated
+      if (gate.reason !== 'bounced' && gate.reason !== 'unsubscribed') {
+        await gatedNotify(supabase, c.email, subject,
+          `You have a new nudge: ${nudgeType}`, 'nudge').catch(() => {});
+        await logNudge(c.intern_id, cohort, signal, nudgeType, {
+          progress: c.progress_pct, track: c.track, handle: c.handle, channel: 'in_app',
+        }).catch(() => {});
+      }
+      await logSkippedSend(supabase, c.email, `nudge_${nudgeType}`, gate.reason, { segment: 'internship' }).catch(() => {});
+      results.push({ handle: c.handle, signal, nudgeType, sent: false, reason: gate.reason });
+      continue;
+    }
 
     try {
       await heraldSend({ to: c.email, subject, html });
