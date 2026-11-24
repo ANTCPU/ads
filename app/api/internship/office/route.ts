@@ -3,7 +3,7 @@
 // GET  — fetch room messages (?cohort=&room=&limit=)
 // POST — send a message to a room
 //
-// Rooms: general, dev, marketing, standups
+// Rooms: general, dev, marketing, standups, mentors
 // Separate from community_posts — this is live room chat
 // community_posts = async feed, day-gated
 // office_messages = presence-aware room chat, always open
@@ -14,6 +14,13 @@
 //
 // v2 (Oct 2026) — accept handle OR intern_id on POST
 //               — status filter removed for mentors + leads
+// v3 (Nov 2026) — mentors room added to VALID_ROOMS
+//               — cohort optional on GET (null = global)
+//               — mentor/guest author_type bypass cohort check
+//               — author_type no longer hardcoded to 'challenger'
+//               — mentors room read-only for challengers
+//               — rate limit: 30s between messages per author
+//               — paused/stalled accounts blocked from posting
 // ============================================================
 
 import { createClient }              from '@supabase/supabase-js';
@@ -31,11 +38,13 @@ const CORS = {
   'Cache-Control':                'no-store, max-age=0',
 };
 
-const VALID_ROOMS   = new Set(['general', 'dev', 'marketing', 'standups']);
-const SYSTEM_TYPES  = new Set(['system', 'cpu', 'herald', 'admin']);
-const MAX_LENGTH    = 500;
-const DEFAULT_LIMIT = 50;
-const MAX_LIMIT     = 100;
+const VALID_ROOMS    = new Set(['general', 'dev', 'marketing', 'standups', 'mentors']);
+const SYSTEM_TYPES   = new Set(['system', 'cpu', 'herald', 'admin']);
+const ELEVATED_TYPES = new Set(['mentor', 'guest']);
+const MAX_LENGTH     = 500;
+const DEFAULT_LIMIT  = 50;
+const MAX_LIMIT      = 100;
+const RATE_LIMIT_MS  = 30000; // 30 seconds between messages
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
@@ -52,13 +61,6 @@ export async function GET(req: NextRequest) {
       MAX_LIMIT
     );
     const before = params.get('before') || null;
-
-    if (!cohort) {
-      return NextResponse.json(
-        { error: 'cohort required' },
-        { status: 400, headers: CORS }
-      );
-    }
 
     if (!VALID_ROOMS.has(room)) {
       return NextResponse.json(
@@ -81,10 +83,14 @@ export async function GET(req: NextRequest) {
         is_system,
         created_at
       `)
-      .eq('cohort', cohort)
       .eq('room', room)
       .order('created_at', { ascending: false })
       .limit(limit);
+
+    // cohort null = global — fetch across all cohorts
+    if (cohort) {
+      query = query.eq('cohort', cohort);
+    }
 
     if (before) {
       query = query.lt('created_at', before);
@@ -135,21 +141,15 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // ── Validate required fields ──────────────────────────────
-    // Accept handle via author_id OR intern_id — either works
     const lookup = intern_id || author_id;
 
-    if (!cohort) {
-      return NextResponse.json(
-        { error: 'cohort required' },
-        { status: 400, headers: CORS }
-      );
-    }
     if (!lookup) {
       return NextResponse.json(
         { error: 'intern_id or author_id required' },
         { status: 400, headers: CORS }
       );
     }
+
     if (!content || String(content).trim().length < 1) {
       return NextResponse.json(
         { error: 'content required' },
@@ -169,11 +169,10 @@ export async function POST(req: NextRequest) {
     const cleanRoom = VALID_ROOMS.has(room) ? room : 'general';
 
     // ── Resolve challenger — accept handle OR intern_id ───────
-    // Status filter removed — mentors + leads must post too
     const isInternId = lookup.startsWith('intern-');
     const { data: challenger } = await supabase
       .from('challengers')
-      .select('id, intern_id, first_name, handle, track, cohort, flag')
+      .select('id, intern_id, first_name, handle, track, cohort, flag, profile_type, cutoff_status')
       .eq(isInternId ? 'intern_id' : 'handle', lookup)
       .maybeSingle();
 
@@ -184,25 +183,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Cohort check — can only post in your own cohort ───────
-    if (challenger.cohort !== cohort) {
+    // ── Block paused / stalled accounts ──────────────────────
+    if (
+      challenger.cutoff_status === 'paused' ||
+      challenger.flag === 'stalled'
+    ) {
+      return NextResponse.json(
+        { error: 'Your account is paused' },
+        { status: 403, headers: CORS }
+      );
+    }
+
+    // ── Elevated types — mentors + guests bypass cohort check ─
+    const cleanType  = String(author_type).toLowerCase();
+    const isElevated = ELEVATED_TYPES.has(cleanType) ||
+                       ELEVATED_TYPES.has(String(challenger.profile_type ?? '').toLowerCase());
+
+    // ── Mentors room — elevated only ──────────────────────────
+    if (cleanRoom === 'mentors' && !isElevated) {
+      return NextResponse.json(
+        { error: 'Mentors room is read-only for challengers' },
+        { status: 403, headers: CORS }
+      );
+    }
+
+    // ── Cohort check — challengers post in own cohort only ────
+    if (!isElevated && cohort && challenger.cohort !== cohort) {
       return NextResponse.json(
         { error: 'Cohort mismatch' },
         { status: 403, headers: CORS }
       );
     }
 
-    // ── Track room check — dev room = dev track only ──────────
-    if (cleanRoom === 'dev' && challenger.track !== 'dev') {
-      return NextResponse.json(
-        { error: 'Dev room is for dev track only' },
-        { status: 403, headers: CORS }
-      );
+    // ── Track room check — dev/marketing are track-gated ─────
+    if (!isElevated) {
+      if (cleanRoom === 'dev' && challenger.track !== 'dev') {
+        return NextResponse.json(
+          { error: 'Dev room is for dev track only' },
+          { status: 403, headers: CORS }
+        );
+      }
+      if (cleanRoom === 'marketing' && challenger.track !== 'marketing') {
+        return NextResponse.json(
+          { error: 'Marketing room is for marketing track only' },
+          { status: 403, headers: CORS }
+        );
+      }
     }
-    if (cleanRoom === 'marketing' && challenger.track !== 'marketing') {
+
+    // ── Rate limit — 30s between messages per author ─────────
+    const { data: recent } = await supabase
+      .from('office_messages')
+      .select('id')
+      .eq('author_id', challenger.intern_id)
+      .gt('created_at', new Date(Date.now() - RATE_LIMIT_MS).toISOString())
+      .limit(1)
+      .maybeSingle();
+
+    if (recent) {
       return NextResponse.json(
-        { error: 'Marketing room is for marketing track only' },
-        { status: 403, headers: CORS }
+        { error: 'Slow down — wait 30 seconds between messages' },
+        { status: 429, headers: CORS }
       );
     }
 
@@ -213,11 +254,11 @@ export async function POST(req: NextRequest) {
     const { data: message, error: insertError } = await supabase
       .from('office_messages')
       .insert({
-        cohort:      cohort,
+        cohort:      cohort ?? challenger.cohort,
         room:        cleanRoom,
         author_id:   challenger.intern_id,
         author_name: challenger.handle ?? challenger.first_name ?? lookup,
-        author_type: 'challenger',
+        author_type: isElevated ? cleanType : 'challenger',
         track:       challenger.track ?? null,
         content:     cleanContent,
         is_pinned:   false,
