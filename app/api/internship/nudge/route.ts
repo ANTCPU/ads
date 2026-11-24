@@ -92,7 +92,7 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 // ── Nudge type ─────────────────────────────────────────────────
-type NudgeType =
+export type NudgeType =
   | 'hard_d1'
   | 'hard_d2'
   | 'week1_mentor'
@@ -178,7 +178,7 @@ function taskRow(label: string, desc: string, pct: number): string {
 
 // ── Build email ────────────────────────────────────────────────
 
-function buildNudgeEmail(opts: {
+export function buildNudgeEmail(opts: {
   firstName:      string;
   track:          string;
   nudgeType:      NudgeType;
@@ -193,7 +193,7 @@ function buildNudgeEmail(opts: {
   const name  = firstName || 'there';
   const t         = internId ? '?t=' + internId : '';
   const officeUrl = handle
-? `https://antcpu.io/office/?h=${handle}&src=nudge`
+    ? `https://antcpu-ads.vercel.app/office/${handle}`
     : `https://antcpu.io/dashboard/${t}`;
   const dashUrl   = `https://antcpu.io/dashboard/${t}`;
   const primaryUrl  = isMkt ? 'https://antcpu.cloud/' : 'https://github.com/ANTCPU/ads';
@@ -213,8 +213,7 @@ function buildNudgeEmail(opts: {
             You're registered. One task left to start.
           </div>
           <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
-            You signed up for the October challenge.
-            Your dashboard is live. Your first task takes 5 minutes.
+            Your office is live. Your first task takes 5 minutes.
           </div>
         </div>
         <div style="background:${CARD};border:1px solid ${BORDER};
@@ -553,7 +552,7 @@ function buildNudgeEmail(opts: {
         <div style="background:${CARD};border:1px solid ${ACCENT}30;
           border-radius:12px;padding:1.5rem;margin-bottom:1.25rem">
           <div style="font-size:1.1rem;font-weight:800;margin-bottom:0.5rem">
-            ⚡ Week 3 starts Oct 14. Teams form that day.
+            ⚡ Week 3 starts soon. Teams form that day.
           </div>
           <div style="font-size:0.88rem;color:#aaa;line-height:1.7">
             Dev and Marketing challengers pair into squads on Day 14.
@@ -566,7 +565,7 @@ function buildNudgeEmail(opts: {
           border-radius:12px;padding:1.25rem;margin-bottom:1.25rem">
           <div style="font-size:0.7rem;color:#555;font-weight:700;
             letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem">
-            Complete before Oct 14
+            Complete before Week 3
           </div>
           ${taskRow(
             'Week 2 Brief — Plan Your Build',
@@ -903,7 +902,67 @@ function buildNudgeEmail(opts: {
   };
 }
 
-// ── POST ───────────────────────────────────────────────────────
+// ── Helpers — exported for engine ────────────────────────────
+
+export async function hasRecentNudge(
+  intern_id: string, signal: string, cooldownHours: number
+): Promise<boolean> {
+  const since = new Date(Date.now() - cooldownHours * 3600000).toISOString();
+  const { data } = await supabase
+    .from('nudge_log')
+    .select('id')
+    .eq('intern_id', intern_id)
+    .eq('signal', signal)
+    .gt('sent_at', since)
+    .limit(1);
+  return (data?.length ?? 0) > 0;
+}
+
+export async function logNudge(
+  intern_id: string, cohort: string, signal: string,
+  nudge_type: string, context: Record<string, unknown>
+) {
+  await supabase.from('nudge_log').insert({ intern_id, cohort, signal, nudge_type, context });
+}
+
+export function buildContext(challenger: any, clock: any, signal: string) {
+  const isMkt  = challenger.track === 'marketing';
+  const handle = challenger.handle ?? '';
+  const cohort = challenger.cohort ?? clock?.cohort ?? 'november-2026';
+
+  let cohortLabel = cohort;
+  const weekMatch = cohort.match(/^week-(\d+)-([a-z]+)-(\d{4})$/);
+  if (weekMatch) {
+    const [, w, mon, yr] = weekMatch;
+    cohortLabel = `${mon.charAt(0).toUpperCase() + mon.slice(1)} ${yr} Week ${w}`;
+  } else {
+    const parts = cohort.split('-');
+    if (parts.length === 2)
+      cohortLabel = `${parts[0].charAt(0).toUpperCase() + parts[0].slice(1)} ${parts[1]}`;
+  }
+
+  return {
+    firstName:    challenger.first_name ?? 'there',
+    track:        challenger.track ?? 'dev',
+    cohort,
+    cohortLabel,
+    progress:     challenger.progress_pct ?? 0,
+    daysLeft:     clock?.days_left_total ?? 0,
+    nextGate:     challenger.next_gate_id
+      ? { id: challenger.next_gate_id, label: challenger.next_gate_label ?? '', pct: challenger.next_gate_pct ?? 0 }
+      : null,
+    mentorName:   isMkt ? 'Mohamed' : 'Arena',
+    mentorHandle: isMkt ? 'Mohamed39' : 'Arena4',
+    officeUrl:    `https://antcpu-ads.vercel.app/office/${handle}`,
+    dashUrl:      `https://antcpu.io/dashboard/?t=${challenger.intern_id}`,
+    primaryUrl:   isMkt ? 'https://antcpu.cloud/' : 'https://github.com/ANTCPU/ads',
+    primaryLabel: isMkt ? '⚡ Go to the Arena →' : '⚡ Go to the Codebase →',
+    signal,
+    elevationNote: challenger.elevation_note ?? undefined,
+  };
+}
+
+// ── POST ──────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin') || '';
@@ -915,220 +974,119 @@ export async function POST(req: NextRequest) {
       email,
       intern_id: bodyInternId,
       nudge_type,
-      first_name,
-      track,
-      progress_pct,
+      signal: bodySignal,
+      force = false,
     }: {
-      email?:        string;
-      intern_id?:    string;
-      nudge_type:    NudgeType;
-      first_name?:   string;
-      track?:        string;
-      progress_pct?: number;
+      email?:       string;
+      intern_id?:   string;
+      nudge_type:   NudgeType;
+      signal?:      string;
+      force?:       boolean;
     } = body;
 
-    if ((!email && !bodyInternId) || !nudge_type) {
+    if ((!email && !bodyInternId) || !nudge_type)
       return NextResponse.json(
         { error: 'email or intern_id required, plus nudge_type' },
         { status: 400, headers: cors }
       );
-    }
 
     const validTypes: NudgeType[] = [
-      'hard_d1', 'hard_d2', 'soft', 'light', 'week1_mentor', 'week2_unlock', 'week3_unlock', 'captain_alert', 'week2_push', 'week3_push', 'week4_push', 'final_push', 'complete_badge',
+      'hard_d1','hard_d2','soft','light','week1_mentor','week2_unlock',
+      'week2_push','week3_unlock','week3_push','week4_push',
+      'captain_alert','final_push','complete_badge',
     ];
-    if (!validTypes.includes(nudge_type)) {
+    if (!validTypes.includes(nudge_type))
       return NextResponse.json(
         { error: `Invalid nudge_type: ${nudge_type}` },
         { status: 400, headers: cors }
       );
-    }
 
-    // ── Step 1: Validity — bounce/unsub only ──────────────────
-    // Validity check — email only (intern_id path skips, challenger lookup handles it)
+    // Validity
     const validity = email ? await checkEmailValidity(supabase, email) : null;
-    if (validity && (validity === 'bounced' || validity === 'unsubscribed')) {
-      try {
-        await logSkippedSend(supabase, email ?? '', `nudge_${nudge_type}`, validity!, {
-          segment: 'internship',
-        });
-      } catch { /* silent */ }
-      return NextResponse.json(
-        { sent: false, reason: validity },
-        { headers: cors }
-      );
+    if (validity === 'bounced' || validity === 'unsubscribed') {
+      await logSkippedSend(supabase, email ?? '', `nudge_${nudge_type}`, validity, { segment: 'internship' }).catch(() => {});
+      return NextResponse.json({ sent: false, reason: validity }, { headers: cors });
     }
 
-    // ── Step 2: Idempotency ───────────────────────────────────
-    // Resolve lookup — intern_id preferred from ops, email from cron
+    // Resolve challenger
     const lookupField = bodyInternId ? 'intern_id' : 'email';
-    const lookupValue = bodyInternId ? bodyInternId : email!.trim().toLowerCase();
-
+    const lookupValue = bodyInternId ?? email!.trim().toLowerCase();
     const { data: challenger } = await supabase
       .from('challengers')
-      .select('id, intern_id, email, handle, first_name, track, progress_pct, nudge_sent_at, nudge_type_sent, cohort, elevation_level, elevation_note, node_role')
+      .select('id, intern_id, email, handle, first_name, track, progress_pct, cohort, elevation_note, next_gate_id, next_gate_label, next_gate_pct')
       .match({ [lookupField]: lookupValue, status: 'active' })
       .maybeSingle();
 
-    if (!challenger) {
-      return NextResponse.json(
-        { error: 'Challenger not found' },
-        { status: 404, headers: cors }
-      );
+    if (!challenger)
+      return NextResponse.json({ error: 'Challenger not found' }, { status: 404, headers: cors });
+
+    // Cooldown via nudge_log
+    const signal = bodySignal ?? nudge_type;
+    if (!force) {
+      const COOLDOWNS: Record<string, number> = {
+        hard_d1: 9999, hard_d2: 9999, week1_mentor: 9999,
+        week2_unlock: 9999, captain_alert: 9999, complete_badge: 9999,
+        soft: 72, light: 48, week2_push: 48,
+        week3_unlock: 72, week3_push: 48, week4_push: 48, final_push: 72,
+      };
+      const blocked = await hasRecentNudge(challenger.intern_id, signal, COOLDOWNS[nudge_type] ?? 48);
+      if (blocked)
+        return NextResponse.json({ sent: false, reason: 'cooldown', signal }, { headers: cors });
     }
 
-    if (challenger.nudge_sent_at && challenger.nudge_type_sent === nudge_type) {
-      return NextResponse.json(
-        { sent: false, reason: 'already_sent', nudge_type },
-        { headers: cors }
-      );
-    }
+    // Clock for context
+    const clock = await fetch('https://antcpu-ads.vercel.app/api/clock', { cache: 'no-store' })
+      .then(r => r.json()).catch(() => null);
 
-    // ── Step 3: Build email ───────────────────────────────────
-    const resolvedName  = first_name   || challenger.first_name  || 'there';
-    const resolvedTrack = track        || challenger.track       || 'dev';
-    const resolvedPct   = progress_pct ?? challenger.progress_pct ?? 0;
-
+    // Build context + email using v1 opts for backward compat
+    const ctx = buildContext(challenger, clock, signal);
     const { subject, html } = buildNudgeEmail({
-      firstName:     resolvedName,
-      track:         resolvedTrack,
+      firstName:     ctx.firstName,
+      track:         ctx.track,
       nudgeType:     nudge_type,
-      progressPct:   resolvedPct,
-      internId:      challenger.intern_id    ?? undefined,
-      handle:        challenger.handle       ?? undefined,
-      elevationNote: challenger.elevation_note ?? undefined,
+      progressPct:   ctx.progress,
+      internId:      challenger.intern_id ?? undefined,
+      handle:        challenger.handle    ?? undefined,
+      elevationNote: ctx.elevationNote,
     });
 
-    // ── Step 4: Send ──────────────────────────────────────────
     await heraldSend({ to: challenger.email, subject, html });
 
-    // ── Step 5: Record — parallel ─────────────────────────────
     await Promise.all([
       recordEmailSent(supabase, challenger.email),
       logEmailSend(supabase, challenger.email, `nudge_${nudge_type}`, {
-        segment: 'internship',
-        subject,
-        locale:  'en',
-        status:  'sent',
+        segment: 'internship', subject, locale: 'en', status: 'sent',
       }),
-      supabase
-        .from('challengers')
-        .update({
-          nudge_sent_at:   new Date().toISOString(),
-          nudge_type_sent: nudge_type,
-          last_seen_at:    new Date().toISOString(),
-        })
-        .eq('id', challenger.id),
-      supabase
-        .from('activity_log')
-        .insert({
-          challenger_id: challenger.id,
-          type:          'nudge',
-          event:         'nudge_sent',
-          label:         `Nudge sent: ${nudge_type}`,
-          icon:          '📧',
-          gate_id:       null,
-          points:        0,
-        }),
+      logNudge(challenger.intern_id, ctx.cohort, signal, nudge_type, {
+        progress: challenger.progress_pct, track: challenger.track, handle: challenger.handle,
+      }),
+      supabase.from('activity_log').insert({
+        challenger_id: challenger.id, type: 'nudge', event: 'nudge_sent',
+        label: `Nudge sent: ${nudge_type}`, icon: '📧', gate_id: null, points: 0,
+      }),
     ]);
 
-    // ── Step 6: Discord ───────────────────────────────────────
-    const trackLabel = resolvedTrack === 'dev' ? '💻 Dev' : '📣 Marketing';
     notifyDiscord('', 'internship', {
       title:  `📧 Nudge Sent — ${nudge_type}`,
       color:  DC.intern,
       fields: [
-        { name: 'Challenger', value: `${resolvedName} · ${trackLabel}`, inline: true },
-        { name: 'Progress',   value: `${resolvedPct}%`,                 inline: true },
-        { name: 'Type',       value: nudge_type,                        inline: true },
-        { name: 'Handle',     value: challenger.handle || '—',          inline: true },
-        { name: 'Email',      value: email,                             inline: false },
+        { name: 'Challenger', value: `${ctx.firstName} · ${ctx.track === 'dev' ? '💻 Dev' : '📣 Marketing'}`, inline: true },
+        { name: 'Progress',   value: `${ctx.progress}%`,        inline: true },
+        { name: 'Signal',     value: signal,                    inline: true },
+        { name: 'Handle',     value: challenger.handle || '—',  inline: true },
+        { name: 'Cohort',     value: ctx.cohort,                inline: true },
+        { name: 'Days Left',  value: `${ctx.daysLeft}`,         inline: true },
       ],
-      footer:    `internship nudge · ${challenger.cohort || 'october-2026'}`,
-      timestamp: true,
+      footer: `nudge v2 · ${ctx.cohort}`, timestamp: true,
     }).catch(() => {});
 
     return NextResponse.json(
-      { sent: true, nudge_type, email, handle: challenger.handle },
+      { sent: true, nudge_type, signal, handle: challenger.handle, cohort: ctx.cohort },
       { headers: cors }
     );
 
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    console.error('[internship/nudge] POST error:', message);
-    return NextResponse.json(
-      { error: message },
-      { status: 500, headers: CORS }
-    );
+    return NextResponse.json({ error: message }, { status: 500, headers: CORS });
   }
 }
-
-// ============================================================
-// File:    app/api/internship/nudge/route.ts
-// Version: v1.5
-// Updated: 2026-10-19
-//
-// WHAT THIS FILE DOES:
-//   Sends track-aware nudge emails to challengers via Resend/Herald.
-//   Each nudge type targets a specific progress state.
-//   All CTAs route to office/[handle] as primary destination.
-//   Click/open events tracked via Resend webhook -> email_sends.
-//
-// CHANGES v1.2:
-//   B1: hard_d2 dev CTA -> github.com/ANTCPU/ads (not antcpu.cloud)
-//   B2: dashUrl fixed — was copy of devUrl, now /dashboard/?t=
-//   B3: href=dashUrl quotes fixed in hard_d1 + week3_unlock
-//   B4: internal names removed from week3_unlock
-//   B5: handle fetched from DB, used in officeUrl
-//   NEW: captain_alert nudge type added
-//   NEW: handle + elevation_level + node_role in DB select
-//   NEW: officeUrl -> office/[handle], fallback dashboard/?t=
-//   NEW: secondaryLink pattern via inline div
-//   NEW: handle returned in POST response + Discord fields
-//
-// NUDGE TYPES:
-//   hard_d1       5%   -> hasn't returned since signup
-//   hard_d2       10%  -> profile done, hasn't touched codebase/arena
-//   soft          <25% -> stalled before Week 1 complete
-//   light         any  -> gentle active pointer
-//   week2_unlock  25%  -> Week 1 done, Week 2 just opened
-//   week3_unlock  any  -> Week 2 closing, team forms Day 14
-//   captain_alert any  -> elevated to Node Captain, doesn't know yet
-//   complete_badge 100% -> challenge done, badge not yet awarded
-//   week2_push    30%  -> Week 2 progress, going quiet
-//   week3_push    50%  -> team formed, d15 waiting, fast-forward dead zone
-//   week4_push    55%  -> node active, challenger going quiet
-//   final_push    75%  -> almost done, finish line nudge
-//
-// CTA ROUTING:
-//   dev primary   -> github.com/ANTCPU/ads
-//   mkt primary   -> antcpu.cloud
-//   all secondary -> antcpu-ads.vercel.app/office/[handle]
-//   fallback      -> antcpu.io/dashboard/?t=[intern_id]
-//
-// RESEND TRACKING:
-//   Click + open tracking enabled in Resend dashboard
-//   Webhook: antcpu-ads.vercel.app/api/webhooks/resend
-//   Events -> email_sends (status, opened_at, clicked_at)
-//          -> email_prefs (open_count, email_ok)
-//
-// NEXT TASKS:
-//   -> nav.js: login -> office/[handle]
-//   -> dashboard.js: owner redirect -> antcpu.com/admin/dashboard/
-//   -> admin/dashboard/index.html: gate + smart nudge type
-//   -> OfficeClient.tsx: online now counter
-//   -> office/[handle]/route.ts: add node_id, node_role
-//   -> desktop.html: email panel (outbox, counter, compose)
-//
-// DEPENDS ON:
-//   app/lib/herald.ts     heraldSend()
-//   app/lib/discord.ts    notifyDiscord(), DC
-//   app/lib/emailGate.ts  checkEmailValidity(), recordEmailSent(),
-//                         logEmailSend(), logSkippedSend()
-//   Supabase tables:
-//     challengers         source of truth + handle + elevation
-//     activity_log        nudge event log
-//     email_sends         send history + open/click status
-//     email_validity      bounce/unsub gate
-//     ad_signups          quota counters
-// ============================================================
