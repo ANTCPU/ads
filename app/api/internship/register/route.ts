@@ -624,7 +624,13 @@ export async function POST(req: NextRequest) {
         status:           'active',
         cohort:           nextCohort,
         intern_id:        internId,
-        brand_slug:       brandSlug,
+        brand_slug:           brandSlug,
+        next_gate_id:         'd2',
+        next_gate_label:      'Complete Your Profile',
+        next_gate_pct:        10,
+        next_milestone_pct:   25,
+        next_milestone_label: 'Week 1 Complete',
+        pct_to_milestone:     20,
       });
 
       // Fetch back for handle
@@ -753,7 +759,13 @@ export async function POST(req: NextRequest) {
         status:           'active',
         cohort,
         intern_id:        internId,
-        brand_slug:       brandSlug,
+        brand_slug:           brandSlug,
+        next_gate_id:         'd2',
+        next_gate_label:      'Complete Your Profile',
+        next_gate_pct:        10,
+        next_milestone_pct:   25,
+        next_milestone_label: 'Week 1 Complete',
+        pct_to_milestone:     20,
       });
 
     if (challengerErr) console.error('Challenger insert error:', challengerErr.message);
