@@ -54,6 +54,40 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // ── Office view — safe public fields, direct table query ──
+    // No auth required. Returns handle/name/track/cohort/intern_id/flag/progress_pct only.
+    // ?intern_id= founder bypass: all cohorts, both tracks, no filter.
+    if (view === 'office') {
+      const internId = searchParams.get('intern_id') || null;
+      let isFounder  = false;
+
+      if (internId) {
+        const { data: owner } = await supabase
+          .from('antcpu_users')
+          .select('access_level')
+          .eq('intern_id', internId)
+          .maybeSingle();
+        isFounder = owner?.access_level === 'owner' || owner?.access_level === 'founder';
+      }
+
+      let q = supabase
+        .from('challengers')
+        .select('handle, name, first_name, track, cohort, intern_id, flag, progress_pct')
+        .not('role_title', 'eq', 'Mentor')
+        .order('progress_pct', { ascending: false });
+
+      // Non-founders: filter by cohort
+      if (!isFounder && cohort) q = q.eq('cohort', cohort);
+
+      const { data: rows, error: officeErr } = await q;
+      if (officeErr) throw officeErr;
+
+      return NextResponse.json(
+        { challengers: rows ?? [] },
+        { headers: CORS }
+      );
+    }
+
     // ── Admin view — x-admin-token OR owner intern_id ────────
     const token    = req.headers.get('x-admin-token');
     const internId = searchParams.get('intern_id');

@@ -222,7 +222,8 @@ function PersonRow({
             {trackEmoji} {person.name}
           </div>
           <div style={{ fontSize: '0.62rem', color: subtext }}>
-            @{person.handle} · {person.cohortLabel}
+            @{person.handle}
+            {person.cohortLabel && <span> · {person.cohortLabel}</span>}
           </div>
         </a>
 
@@ -265,6 +266,7 @@ export default function PeoplePanel({
   myCohort,
   myTrack,
   isTeam,
+  isFounder = false,
   accent,
   border,
   subtext,
@@ -274,6 +276,7 @@ export default function PeoplePanel({
   myCohort: string;
   myTrack: 'dev' | 'marketing';
   isTeam: boolean;
+  isFounder?: boolean;
   accent: string;
   border: string;
   subtext: string;
@@ -322,9 +325,9 @@ export default function PeoplePanel({
           });
         }
 
-        // Cohort peers — same track
+        // Cohort peers — same track, use view=office for full roster
         const peers = await fetch(
-          `/api/internship/challengers?view=public&cohort=${myCohort}`
+          `/api/internship/challengers?view=office&cohort=${myCohort}`
         ).then(r => r.json()).catch(() => ({ challengers: [] }));
 
         (peers.challengers ?? [])
@@ -343,34 +346,57 @@ export default function PeoplePanel({
           });
 
       } else {
-        // Mentor: current cohort + older cohorts, their track
-        const olderCohorts = KNOWN_COHORTS.filter(c => c !== myCohort);
-        const allCohorts   = [myCohort, ...olderCohorts];
+        // Mentor / Founder: use view=office for direct table access
+        // Founder gets all cohorts + both tracks in one call
+        // Mentor gets their track across all known cohorts
+        if (isFounder) {
+          // Single call — no cohort filter, no track filter, intern_id auth
+          const data = await fetch(
+            `/api/internship/challengers?view=office&intern_id=${encodeURIComponent(myInternId)}`
+          ).then(r => r.json()).catch(() => ({ challengers: [] }));
 
-        const results = await Promise.all(
-          allCohorts.map(cohort =>
-            fetch(`/api/internship/challengers?view=public&cohort=${cohort}`)
-              .then(r => r.json())
-              .then(d => ({ cohort, challengers: d.challengers ?? [] }))
-              .catch(() => ({ cohort, challengers: [] }))
-          )
-        );
-
-        results.forEach(({ cohort, challengers }) => {
-          challengers
-            .filter((c: any) => c.track === myTrack && c.handle !== myHandle)
+          (data.challengers ?? [])
+            .filter((c: any) => c.handle !== myHandle)
             .forEach((c: any) => {
               list.push({
                 intern_id:   c.intern_id,
                 handle:      c.handle,
-                name:        c.name ?? c.handle,
+                name:        c.name ?? c.first_name ?? c.handle,
+                // name is full name e.g. 'Antony Ciccone' from challengers table
                 track:       c.track,
-                cohort:      cohort,
-                cohortLabel: cohortDisplayLabel(cohort, myCohort),
+                cohort:      c.cohort ?? myCohort,
+                cohortLabel: cohortDisplayLabel(c.cohort ?? myCohort, myCohort),
                 isDefault:   true,
               });
             });
-        });
+        } else {
+          // Mentor: all known cohorts, their track only
+          const allCohorts = KNOWN_COHORTS;
+          const results = await Promise.all(
+            allCohorts.map(cohort =>
+              fetch(`/api/internship/challengers?view=office&cohort=${cohort}`)
+                .then(r => r.json())
+                .then(d => ({ cohort, challengers: d.challengers ?? [] }))
+                .catch(() => ({ cohort, challengers: [] }))
+            )
+          );
+
+          results.forEach(({ cohort, challengers }) => {
+            challengers
+              .filter((c: any) => c.track === myTrack && c.handle !== myHandle)
+              .forEach((c: any) => {
+                list.push({
+                  intern_id:   c.intern_id,
+                  handle:      c.handle,
+                  name:        c.name ?? c.first_name ?? c.handle,
+                  track:       c.track,
+                  cohort:      cohort,
+                  cohortLabel: cohortDisplayLabel(cohort, myCohort),
+                  isDefault:   true,
+                });
+              });
+          });
+        }
       }
 
       // Dedupe by intern_id
@@ -417,13 +443,18 @@ export default function PeoplePanel({
       return;
     }
 
+    const roleLabel = c.profile_type === 'founder' || c.access_level === 'founder'
+      ? '⚡ Founder · antcpu'
+      : c.profile_type === 'team' || c.role_title?.includes('Mentor')
+      ? (c.track === 'marketing' ? '📣 Marketing Lead' : '💻 Dev Lead')
+      : cohortDisplayLabel(c.cohort ?? myCohort, myCohort);
     setPeople(prev => [...prev, {
       intern_id:   c.intern_id,
       handle:      c.handle ?? h,
-      name:        c.first_name ?? h,
+      name:        c.name ?? c.first_name ?? h,
       track:       c.track ?? myTrack,
       cohort:      c.cohort ?? myCohort,
-      cohortLabel: cohortDisplayLabel(c.cohort ?? myCohort, myCohort),
+      cohortLabel: roleLabel,
       isDefault:   false,
     }]);
     setAddHandle('');
@@ -454,7 +485,7 @@ export default function PeoplePanel({
       {/* Header */}
       <div style={{ marginBottom: '0.75rem' }}>
         <p style={{ fontSize: '0.65rem', fontWeight: 800, color: subtext, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.15rem' }}>
-          {isTeam ? `Your ${myTrack === 'dev' ? 'Dev' : 'Marketing'} Challengers` : 'Your People'}
+          {isFounder ? 'All Challengers' : isTeam ? `Your ${myTrack === 'dev' ? 'Dev' : 'Marketing'} Challengers` : 'Your People'}
         </p>
         <p style={{ fontSize: '0.65rem', color: subtext, opacity: 0.6 }}>
           Click 💬 to open a direct message thread.

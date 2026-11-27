@@ -117,7 +117,7 @@ export async function GET(req: Request) {
       ai_exp, background, timezone, why_here,
       is_early_adopter, created_at
     `)
-    .eq('status', 'active')
+    .in('status', ['active', 'graduated'])
     .not('role_title', 'eq', 'Mentor')
     .order('progress_pct', { ascending: false });
   if (cohortFilter) cQuery = cQuery.eq('cohort', cohortFilter);

@@ -361,7 +361,7 @@ export default function MentorDashboard({
 
   const fetchChallengers = useCallback(() => {
     setLoaded(false);
-    fetch(`/api/internship/challengers?view=public&cohort=${activeCohort}`)
+    fetch(`/api/internship/challengers?view=office&cohort=${activeCohort}`)
       .then(r => r.json())
       .then(d => {
         let list: Challenger[] = d.challengers ?? [];

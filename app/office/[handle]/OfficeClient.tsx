@@ -64,11 +64,11 @@ function ElevationBanner({
 
 // ── Office Message Panel ──────────────────────────────────────
 function OfficeMessagePanel({
-  cohort, handle, track, accent, border, subtext, isElevated = false, myInternId = '',
+  cohort, handle, track, accent, border, subtext, isElevated = false, myInternId = '', isFounder = false,
 }: {
   cohort: string; handle: string; track: string;
   accent: string; border: string; subtext: string;
-  isElevated?: boolean; myInternId?: string;
+  isElevated?: boolean; myInternId?: string; isFounder?: boolean;
 }) {
   const rooms = track === 'marketing'
     ? ['general', 'marketing', 'mentors', 'standups', 'people']
@@ -79,12 +79,23 @@ function OfficeMessagePanel({
     standups: '📋 Standups', mentors: '🎓 Mentors', people: '👥 People',
   };
 
-  const [activeRoom, setActiveRoom] = useState(rooms[0]);
-  const [messages, setMessages]     = useState<{ id: string; author_name: string; author_type: string; content: string; created_at: string }[]>([]);
-  const [input, setInput]           = useState('');
-  const [sending, setSending]       = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
+  const [activeRoom, setActiveRoom]       = useState(rooms[0]);
+  const [messages, setMessages]           = useState<{ id: string; author_name: string; author_type: string; content: string; created_at: string }[]>([]);
+  const [input, setInput]                 = useState('');
+  const [sending, setSending]             = useState(false);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState('');
+  const [sessionHandle, setSessionHandle] = useState('');
+  const [showJoinGate, setShowJoinGate]   = useState(false);
+
+  // Resolve who is actually logged in (may differ from page owner)
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('antcpu_session') || '{}');
+      const h = s?.handle || localStorage.getItem('intern_handle') || '';
+      setSessionHandle(h);
+    } catch {}
+  }, []);
 
   const cohortSlug = cohort?.replace('-', '-') ?? 'nov';
 
@@ -101,6 +112,11 @@ function OfficeMessagePanel({
 
   async function send() {
     if (!input.trim() || sending) return;
+    // Gate: must be a registered challenger to post
+    if (!sessionHandle) {
+      setShowJoinGate(true);
+      return;
+    }
     setSending(true);
     setError('');
     const res = await fetch('/api/internship/office', {
@@ -109,7 +125,7 @@ function OfficeMessagePanel({
       body: JSON.stringify({
         cohort,
         room: activeRoom,
-        author_id: handle,
+        author_id: sessionHandle,
         content: input.trim(),
       }),
     }).catch(() => null);
@@ -178,6 +194,7 @@ function OfficeMessagePanel({
           myCohort={cohort}
           myTrack={track as 'dev' | 'marketing'}
           isTeam={isElevated}
+          isFounder={isFounder}
           accent={accent}
           border={border}
           subtext={subtext}
@@ -208,13 +225,35 @@ function OfficeMessagePanel({
       {/* Input — hidden for challengers in mentors room */}
       {canPost && (
         <div className="flex flex-col gap-1 p-3 border-t" style={{ borderColor: border }}>
+          {/* Join gate — shown to public visitors with no session */}
+          {showJoinGate && (
+            <div className="rounded-lg p-3 mb-2 flex items-center justify-between gap-3 flex-wrap"
+              style={{ background: `${accent}12`, border: `1px solid ${accent}44` }}>
+              <p className="text-xs font-semibold" style={{ color: accent }}>
+                ⚡ Join the challenge to post in the office.
+              </p>
+              <div className="flex gap-2">
+                <a href="https://antcpu.io/"
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs px-3 py-1 rounded font-bold"
+                  style={{ background: accent, color: '#000' }}>
+                  Apply →
+                </a>
+                <button onClick={() => setShowJoinGate(false)}
+                  className="text-xs px-2 py-1 rounded"
+                  style={{ border: `1px solid ${border}`, color: subtext }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
           {error && <p className="text-xs text-red-400">{error}</p>}
           <div className="flex gap-2">
-            <input value={input} onChange={e => setInput(e.target.value)}
+            <input value={input} onChange={e => { setInput(e.target.value); setShowJoinGate(false); }}
               onKeyDown={e => e.key === 'Enter' && send()}
-              placeholder={activeRoom === 'standups' ? `What you built, what's next, any blockers...` : `Message #${activeRoom}...`}
+              placeholder={!sessionHandle ? 'Join the challenge to post...' : activeRoom === 'standups' ? `What you built, what's next, any blockers...` : `Message #${activeRoom}...`}
               className="flex-1 text-sm bg-transparent outline-none"
-              style={{ color: '#ccc' }} />
+              style={{ color: '#ccc', opacity: !sessionHandle ? 0.5 : 1 }} />
             <button onClick={send} disabled={sending || !input.trim()}
               className="text-xs px-3 py-1 rounded font-semibold disabled:opacity-30"
               style={{ background: accent, color: '#000' }}>
@@ -816,6 +855,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             subtext={theme.subtext}
             isElevated={isTeam}
             myInternId={data.intern_id ?? ''}
+            isFounder={isTeam && ((data as any).profile_type === 'founder' || (data as any).access_level === 'founder')}
           />
 
           {/* ── Mentor Dashboard — team/founder only ── */}
