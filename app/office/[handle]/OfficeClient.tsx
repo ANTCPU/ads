@@ -11,6 +11,7 @@ import type { OfficeData, NextCohort, TrackKey } from '../../../types/office';
 import IdentityIsland from './IdentityIsland';
 import OfficeBanner from './OfficeBanner';
 import MentorDashboard from './MentorDashboard';
+import PeoplePanel from './PeoplePanel';
 
 
 
@@ -63,19 +64,19 @@ function ElevationBanner({
 
 // ── Office Message Panel ──────────────────────────────────────
 function OfficeMessagePanel({
-  cohort, handle, track, accent, border, subtext, isElevated = false,
+  cohort, handle, track, accent, border, subtext, isElevated = false, myInternId = '',
 }: {
   cohort: string; handle: string; track: string;
   accent: string; border: string; subtext: string;
-  isElevated?: boolean;
+  isElevated?: boolean; myInternId?: string;
 }) {
   const rooms = track === 'marketing'
-    ? ['general', 'marketing', 'mentors', 'standups']
-    : ['general', 'dev', 'mentors', 'standups'];
+    ? ['general', 'marketing', 'mentors', 'standups', 'people']
+    : ['general', 'dev', 'mentors', 'standups', 'people'];
 
   const roomLabels: Record<string, string> = {
     general: '💬 General', dev: '💻 Dev', marketing: '📣 Marketing',
-    standups: '📋 Standups', mentors: '🎓 Mentors',
+    standups: '📋 Standups', mentors: '🎓 Mentors', people: '👥 People',
   };
 
   const [activeRoom, setActiveRoom] = useState(rooms[0]);
@@ -122,7 +123,7 @@ function OfficeMessagePanel({
     setSending(false);
   }
 
-  const canPost = activeRoom !== 'mentors' || isElevated;
+  const canPost = (activeRoom !== 'mentors' && activeRoom !== 'people') || isElevated;
 
   return (
     <div className="rounded-lg mb-6" style={{ border: `1px solid ${border}`, background: 'rgba(255,255,255,0.02)' }}>
@@ -167,6 +168,20 @@ function OfficeMessagePanel({
         <div className="mx-3 mt-3 rounded-lg p-3 text-xs" style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}`, color: subtext }}>
           🎓 Mentor room — read only. Messages from your mentors appear here.
         </div>
+      )}
+
+      {/* People tab */}
+      {activeRoom === 'people' && (
+        <PeoplePanel
+          myInternId={myInternId}
+          myHandle={handle}
+          myCohort={cohort}
+          myTrack={track as 'dev' | 'marketing'}
+          isTeam={isElevated}
+          accent={accent}
+          border={border}
+          subtext={subtext}
+        />
       )}
 
       {/* Messages */}
@@ -800,6 +815,7 @@ export default function OfficeClient({ data }: { data: OfficeData }) {
             border={theme.border}
             subtext={theme.subtext}
             isElevated={isTeam}
+            myInternId={data.intern_id ?? ''}
           />
 
           {/* ── Mentor Dashboard — team/founder only ── */}
